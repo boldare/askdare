@@ -47,6 +47,8 @@ widget: {
 
 Your CSS loads after the theme. The library's styles are in `@layer chatdock`, so yours wins without `!important`. The chat's Content Security Policy still applies: images and fonts load only from your app.
 
+A full example is the starter's BLDR theme, in Boldare's style: `defineTheme` over Halo for colors, type and square corners, about 30 lines of `widget.css` for the hard shadows and highlights, and `::part(launcher)` on the page for the button ([`chatdock.config.ts`](../examples/starter/chatdock.config.ts), [`demo.css`](../examples/starter/app/demo.css)).
+
 **Tokens:** the `--cd-*` variables listed in [Themes](themes.md#tokens).
 
 **Parts** (`[data-cd-part="…"]`, public API): `panel`, `header`, `identity`, `title`, `subtitle`, `actions`, `new-conversation`, `close`, `avatar`, `orb`, `messages`, `welcome`, `greeting`, `starters`, `starter`, `persona`, `persona-name`, `presence`, `intro`, `intro-card`, `message`, `message-body`, `bubble`, `typing`, `citations`, `citation`, `attachments-note`, `status`, `error`, `composer`, `composer-box`, `input`, `attach`, `voice`, `send`, `attachments`, `message-attachments`, `attachment`, `attachment-preview`, `attachment-badge`, `attachment-name`, `attachment-status`, `attachment-remove`, `recorder`, `recorder-level`, `recorder-label`, `recorder-time`, `recorder-cancel`, `recorder-done`, `send-label` (shown by Aura), `disclosure`.
