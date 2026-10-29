@@ -20,6 +20,13 @@ const PAYLOADS = [
   '<div style="background:url(javascript:alert(1))">x</div>',
   '[ref]: javascript:alert(1)\n\n[link][ref]',
   '<details open ontoggle=alert(1)>',
+  // Encoded and bracketed schemes, and links or images in odd places.
+  '[x](&#106;avascript:alert(1))',
+  '[x](javascript&colon;alert(1))',
+  '[x](<javascript:alert(1)>)',
+  '[![img](https://evil.example/p.png)](https://example.com)',
+  '[<img src=x onerror=alert(1)>](https://example.com)',
+  '![ref][pic]\n\n[pic]: https://evil.example/p.png',
 ];
 
 describe('Markdown', () => {
@@ -55,6 +62,35 @@ describe('Markdown', () => {
     expect(render('![chart of sales](https://example.com/chart.png)')).toContain(
       '[chart of sales]',
     );
+  });
+});
+
+describe('hostile structure', () => {
+  it.each([
+    ['nested quotes', `${'>'.repeat(3000)} x`],
+    ['nested lists', `${'- '.repeat(1500)}x`],
+    ['nested emphasis', `${'*_'.repeat(2000)}x${'_*'.repeat(2000)}`],
+  ])('renders %s as text instead of crashing', (_name, text) => {
+    const html = render(text);
+    expect(html).toContain('x');
+    // Never deeper than the cap, whatever the input.
+    expect((html.match(/<blockquote>/g) ?? []).length).toBeLessThanOrEqual(20);
+  });
+
+  it('shows an autolink with a bad scheme as text, never as a link', () => {
+    const html = render('<javascript:alert(1)>');
+    expect(html).not.toContain('href');
+    expect(html).not.toContain('<a');
+  });
+
+  it('decodes character references in text and links, but not in code', () => {
+    expect(render('AT&amp;T &copy; &#169; &#x1F600; &unknown;')).toContain(
+      'AT&amp;T © © 😀 &amp;unknown;',
+    );
+    expect(render('[x](https://a.example/?a=1&amp;b=2)')).toContain(
+      'href="https://a.example/?a=1&amp;b=2"',
+    );
+    expect(render('`&copy;`')).toContain('<code>&amp;copy;</code>');
   });
 });
 

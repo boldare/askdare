@@ -37,10 +37,11 @@ A library runs inside its users' apps, so every supported combination of version
   - the `chatdock` commands and their options (`init`, `doctor`, `kb sync`), but not their printed output or the `/doctor` report behind `doctor`.
 
   Everything else is internal.
-- **Guards:**
-  - a `.d.ts` snapshot fails CI when it changes without a changeset;
-  - a nightly canary runs against `next@canary`, `openai@latest` and checks the configured models still exist;
-  - a daily live smoke test runs on a cheap model in a dedicated, spend-capped OpenAI project.
+- **Guards** (published for users in [Support](../support.md)):
+  - a `.d.ts` snapshot (`packages/chatdock/api/chatdock.api.txt`) fails the check when the published types change, until it is updated on purpose with a changeset; a consumer project type-checks the published `.d.ts` with TypeScript 5.9, 6.0 and 7.0;
+  - size budgets fail the build: loader 5 KB, chat app 50 KB, its styles 8 KB, each preset's fonts 82 KB (gzipped);
+  - a nightly canary runs the checks and browser tests against `next@canary` and `openai@latest` (with the mocked OpenAI API);
+  - a daily live smoke test runs on a cheap model in a dedicated, spend-capped OpenAI project, so a retired model or a changed API fails there.
 
 ## Consequences
 

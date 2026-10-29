@@ -25,7 +25,7 @@ The guides ship with the package in `node_modules/@boldare/chatdock/docs/`, star
 
 ## Requirements
 
-Node.js 22 or later, Next.js 16 with the App Router on the Node.js runtime, React 19 and zod 4.1 or later.
+Node.js 22 or later, Next.js 16 with the App Router on the Node.js runtime, React 19 and zod 4.1 or later. The full matrix, browsers included, is in `docs/support.md`.
 
 ## License
 

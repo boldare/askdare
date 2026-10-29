@@ -49,7 +49,8 @@
     "build:assets": "vite build -c vite.widget.config.ts && vite build -c vite.loader.config.ts && node scripts/inline-assets.mjs",
     "build": "pnpm run build:assets && tsdown && node scripts/copy-docs.mjs",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.browser.json",
-    "check:package": "publint --strict && attw --pack . --profile esm-only && node ../../scripts/check-dts-no-leak.mjs dist"
+    "check:package": "publint --strict && attw --pack . --profile esm-only && node ../../scripts/check-dts-no-leak.mjs dist && node scripts/api-snapshot.mjs && tsc -p types-test",
+    "api:update": "node scripts/api-snapshot.mjs --update"
   },
   "publishConfig": {
     "access": "public",
@@ -62,12 +63,12 @@
     "@fontsource-variable/plus-jakarta-sans": "5.3.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "marked": "18.1.2",
     "next": "^16.4.3",
+    "preact": "10.29.8",
     "publint": "^0.3.25",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1",
     "tsdown": "^0.23.3",
     "vite": "^8.3.5",
     "zod": "^4.6.7"

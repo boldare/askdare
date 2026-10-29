@@ -1,0 +1,488 @@
+// ==== index.d.ts ====
+import { S as VisitorIdentity, _ as ThemeDefinition, a as BotContext, b as ThemeTokens, c as BotSecurity, d as defineBot, f as Tool, g as ColorScheme, h as defineTool, i as Bot, l as KnowledgeConfig, m as ToolDefinition, n as RateLimitStore, o as BotDefinition, p as ToolContext, r as AttachmentConfig, s as BotLimits, t as CounterHit, u as WidgetConfig, v as defineTheme, x as ThemeVariants, y as PresetName } from "./store.js";
+/**
+ * Version of the SSE wire protocol between the chatdock server and its clients.
+ * Bumped on any breaking change to event names or payloads (ADR-0006).
+ */
+export declare const PROTOCOL_VERSION: 1;
+export { type AttachmentConfig, type Bot, type BotContext, type BotDefinition, type BotLimits, type BotSecurity, type ColorScheme, type CounterHit, type KnowledgeConfig, type PresetName, type RateLimitStore, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type VisitorIdentity, type WidgetConfig, defineBot, defineTheme, defineTool };
+
+// ==== next.d.ts ====
+import { i as Bot, n as RateLimitStore } from "./store.js";
+/**
+ * Which proxy to trust when reading the client IP:
+ * - `vercel`: Vercel overwrites `x-forwarded-for` and sets `x-real-ip`, so both are reliable.
+ * - `heroku`: Heroku's router appends the client IP, so the last entry is reliable and anything to
+ *   its left may be spoofed.
+ * - a number `n`: there are `n` trusted proxies; take the n-th entry from the right.
+ * - `auto` (default): `vercel` when `VERCEL` is set, otherwise one trusted proxy.
+ *
+ * Never expose `next start` without a proxy in front: the client then controls these headers.
+ */
+type TrustProxy = "auto" | "vercel" | "heroku" | number;
+interface ChatHandlerOptions {
+  readonly bots: readonly Bot[];
+  /** Path of the catch-all route. Default `/api/chat` (route file `app/api/chat/[...path]/route.ts`). */
+  readonly basePath?: string;
+  /** Default `process.env.OPENAI_API_KEY`. */
+  readonly openaiApiKey?: string;
+  /** Token secret, at least 32 characters. Default `process.env.CHAT_SECRET`. */
+  readonly secret?: string;
+  /** Former secrets still accepted during rotation. Default: comma-separated `process.env.CHAT_SECRET_PREVIOUS`. */
+  readonly previousSecrets?: readonly string[];
+  /**
+   * Secret the site's backend signs identity tokens with, for `chatdock('identify')` (ADR-0009).
+   * At least 32 random characters, different from `secret`. Default `process.env.IDENTITY_SECRET`;
+   * without one, identity is off.
+   */
+  readonly identitySecret?: string;
+  readonly limits?: ChatHandlerLimitsOptions;
+  /**
+   * Serves the state gallery: `/embed/<bot>?gallery=<state>&preset=<preset>&scheme=<scheme>`
+   * renders fixture states without calling the model. For development and visual tests; leave
+   * it off in production.
+   */
+  readonly gallery?: boolean;
+}
+interface ChatHandlerLimitsOptions {
+  /**
+   * Counter storage for rate limits and budgets. Defaults to per-process memory, which is weak when
+   * several instances serve traffic; use `@boldare/chatdock-upstash` there.
+   */
+  readonly store?: RateLimitStore;
+  /** How to read the client IP behind your proxy. Default `auto` (Vercel, otherwise one proxy). */
+  readonly trustProxy?: TrustProxy;
+  /** Input plus output tokens per UTC day across all bots. Unlimited by default. */
+  readonly globalDailyTokens?: number;
+}
+type RouteHandler = (request: Request) => Promise<Response>;
+interface ChatHandlers {
+  readonly GET: RouteHandler;
+  readonly POST: RouteHandler;
+  readonly DELETE: RouteHandler;
+}
+/**
+ * Creates the Next.js route handlers for chatdock. Mount them in a catch-all route:
+ *
+ * ```ts
+ * // app/api/chat/[...path]/route.ts
+ * export const maxDuration = 300;
+ * export const { GET, POST, DELETE } = createChatHandler({ bots });
+ * ```
+ *
+ * Secrets are read on the first request, so importing the route (for example during
+ * `next build`) never requires them.
+ */
+export declare function createChatHandler(options: ChatHandlerOptions): ChatHandlers;
+export type { ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlers, RouteHandler, TrustProxy };
+
+// ==== store.d.ts ====
+import { z } from "zod";
+/**
+ * Every text the widget shows. The keys are public API (ADR-0008): override any of them with
+ * `widget.texts`. Plural keys end in a CLDR category (`one`, `few`, `many`, `other`).
+ */
+declare const EN: {
+  readonly "header.title": "Assistant";
+  readonly "header.newConversation": "Start a new conversation";
+  readonly "header.close": "Close chat";
+  readonly "confirm.newConversation": "Start a new conversation? The current one will be deleted.";
+  readonly "welcome.label": "Welcome";
+  readonly "welcome.greeting": "Hi! How can I help?";
+  readonly "welcome.online": "Online";
+  readonly "welcome.suggestions": "Suggested questions";
+  readonly "composer.placeholder": "Type your message…";
+  readonly "composer.send": "Send";
+  readonly "composer.attach": "Attach files";
+  readonly "composer.dictate": "Dictate a message";
+  readonly "status.loading": "Loading the conversation…";
+  readonly "status.thinking": "Thinking…";
+  readonly "status.searching": "Searching documents…";
+  readonly "status.tool": "Using {name}…";
+  readonly "status.typing": "The assistant is typing";
+  readonly "message.sources": "Sources";
+  readonly "message.attachments.one": "{count} attachment";
+  readonly "message.attachments.other": "{count} attachments";
+  readonly "attachment.list": "Attachments";
+  readonly "attachment.uploading": "Uploading…";
+  readonly "attachment.remove": "Remove {name}";
+  readonly "attachment.unsupported": "This file type is not supported.";
+  readonly "attachment.tooLarge": "Too large (max {size}).";
+  readonly "attachment.tooMany": "You can attach up to {count} files per message.";
+  readonly "dictation.listening": "Listening…";
+  readonly "dictation.transcribing": "Transcribing…";
+  readonly "dictation.cancel": "Cancel dictation";
+  readonly "dictation.done": "Done";
+  readonly "dictation.empty": "Nothing was recorded. Please try again.";
+  readonly "microphone.blocked": "Microphone access is blocked. Allow it in your browser to dictate.";
+  readonly "microphone.missing": "No microphone was found.";
+  readonly "microphone.failed": "The microphone could not be started.";
+  readonly "disclosure.text": "You’re chatting with an AI assistant. It can make mistakes.";
+  readonly "disclosure.privacy": "Privacy policy";
+  readonly "launcher.label": "Ask us";
+  readonly "launcher.open": "Open chat";
+  readonly "launcher.close": "Close chat";
+  readonly "error.connection": "Connection problem. Please try again.";
+  readonly "error.history": "Could not load the previous conversation.";
+  readonly "error.updated": "The assistant was updated. Please reload the page.";
+  readonly "error.stalled": "The connection stalled. Please try again.";
+  readonly "error.uploadFailed": "The file could not be uploaded.";
+  readonly "error.transcriptionFailed": "The recording could not be transcribed.";
+  readonly "error.invalid_input": "The request was invalid.";
+  readonly "error.unauthorized": "Authentication is required.";
+  readonly "error.session_expired": "Your session has expired. Please try again.";
+  readonly "error.not_found": "Not found.";
+  readonly "error.content_blocked": "This message cannot be processed.";
+  readonly "error.rate_limited": "Too many messages. Please wait a moment.";
+  readonly "error.budget_exceeded": "The assistant is unavailable for the rest of the day.";
+  readonly "error.internal_error": "Something went wrong. Please try again.";
+  readonly "error.upstream_error": "The assistant is temporarily unavailable. Please try again.";
+  readonly "error.bot_unavailable": "The assistant is currently unavailable.";
+  readonly "error.timeout": "The assistant took too long to respond. Please try again.";
+  readonly "error.conversationTooLong": "This conversation is too long. Please start a new one.";
+  readonly "error.conversationGone": "This conversation is no longer available.";
+  readonly "error.messageLength": "Messages can be up to {max} characters.";
+  readonly "error.attachmentExpired": "An attachment expired or is invalid. Please attach it again.";
+  readonly "error.filesNotAccepted": "This assistant does not accept files.";
+  readonly "error.tooManyFiles": "Attach up to {count} files per message.";
+  readonly "error.fileType.images": "Only images (PNG, JPEG, WebP, GIF) are supported.";
+  readonly "error.fileType.pdf": "Only PDF files are supported.";
+  readonly "error.fileType.both": "Only images (PNG, JPEG, WebP, GIF) and PDF files are supported.";
+  readonly "error.fileTooLarge": "Files can be up to {size}.";
+  readonly "error.pdfPages": "PDFs can have up to {max} pages.";
+  readonly "error.voiceNotAccepted": "This assistant does not accept voice input.";
+  readonly "error.recordingFormat": "This recording format is not supported.";
+  readonly "error.recordingTooLong": "This recording is too long.";
+  readonly "error.dictationBusy": "Another dictation is still being transcribed. Please try again in a moment.";
+};
+/** Plural texts: the base plus a CLDR category, every category overridable. */
+declare const PLURAL_BASES: readonly ["message.attachments"];
+declare const PLURAL_FORMS: readonly ["zero", "one", "two", "few", "many", "other"];
+type TextKey = keyof typeof EN | `${(typeof PLURAL_BASES)[number]}.${(typeof PLURAL_FORMS)[number]}`;
+/** A signed-in user, as the site's backend vouched for it (ADR-0009). */
+interface VisitorIdentity {
+  /** The site's own user ID: the JWT's `sub`. */
+  readonly id: string;
+  readonly name?: string | undefined;
+  readonly email?: string | undefined;
+  /** Other string, number or boolean claims of the token, such as a plan or a role. */
+  readonly claims: Readonly<Record<string, string | number | boolean>>;
+}
+declare const PRESET_NAMES: readonly ["halo", "aura", "sage", "care"];
+type PresetName = (typeof PRESET_NAMES)[number];
+/**
+ * Semantic design tokens. Each one becomes a `--cd-*` CSS variable, which is public API
+ * (ADR-0008); everything else in the stylesheet is derived from them. Colors are hex.
+ */
+interface ThemeTokens {
+  /** Buttons, links, focus ring. */
+  readonly accent: string;
+  /** Text and icons on `accent`. */
+  readonly onAccent: string;
+  /** Panel background. */
+  readonly background: string;
+  /** Assistant bubbles, cards and chips. */
+  readonly surface: string;
+  readonly text: string;
+  /** Secondary text: subtitles, timestamps, statuses. */
+  readonly muted: string;
+  /** Hairlines; the only color that may carry alpha (#rrggbbaa). */
+  readonly border: string;
+  readonly danger: string;
+  /** Confirmations, such as the checks in the intro welcome. */
+  readonly success: string;
+  readonly userBubble: string;
+  readonly onUserBubble: string;
+  /** CSS background painted behind the panel, such as a gradient; `none` for flat. */
+  readonly backdrop: string;
+  /** CSS background of the orb avatar and launcher. */
+  readonly orb: string;
+  readonly fontFamily: string;
+  readonly headingFamily: string;
+  readonly fontSize: string;
+  readonly radius: string;
+}
+/** Component variants a preset picks; each becomes a `data-cd-*` attribute on the document. */
+interface ThemeVariants {
+  readonly avatar: "orb" | "icon" | "initials" | "none";
+  readonly welcome: "hero" | "persona" | "intro";
+  readonly launcher: "orb" | "circle" | "pill";
+  readonly bubbles: "filled" | "plain";
+  readonly surface: "solid" | "glass";
+  readonly density: "comfortable" | "compact";
+  readonly composer: "outline" | "gradient";
+}
+type ColorScheme = "auto" | "light" | "dark";
+/** A theme built on a preset. Create it with {@link defineTheme} to share it between bots. */
+interface ThemeDefinition {
+  /** Preset to start from. Default `aura`. */
+  readonly extends?: PresetName;
+  /** Brand color for buttons, links and your own messages; text on it is picked for contrast. */
+  readonly accent?: string;
+  /** Token overrides for the light scheme (and the dark one, unless `dark` sets them). */
+  readonly tokens?: Partial<ThemeTokens>;
+  /** Token overrides for the dark scheme. */
+  readonly dark?: Partial<ThemeTokens>;
+  readonly variants?: Partial<ThemeVariants>;
+}
+interface ResolvedTheme {
+  readonly preset: PresetName;
+  readonly colorScheme: ColorScheme;
+  readonly light: ThemeTokens;
+  readonly dark: ThemeTokens;
+  readonly variants: ThemeVariants;
+}
+/** Validates a theme once, so several bots can share it. Throws on invalid values. */
+declare function defineTheme(definition: ThemeDefinition): ThemeDefinition;
+/** What a tool may know about the request. Identity here is verified, never chosen by the model. */
+interface ToolContext {
+  readonly botId: string;
+  /** Server-generated, pseudonymous visitor ID. */
+  readonly visitorId: string;
+  readonly locale: string;
+  /**
+   * The signed-in user, verified with IDENTITY_SECRET (ADR-0009); undefined for anonymous
+   * visitors. Trust only this for who the visitor is, never the model's arguments.
+   */
+  readonly identity?: VisitorIdentity | undefined;
+  /** Aborted when the visitor leaves, the turn deadline passes or the tool times out. */
+  readonly signal: AbortSignal;
+}
+interface ToolDefinition<Input extends z.ZodObject> {
+  /** Name the model calls, 1–64 letters, digits, `_` or `-`. */
+  readonly name: string;
+  /** Tells the model when and how to use the tool. */
+  readonly description: string;
+  /**
+   * Arguments schema. OpenAI strict mode requires every field: use `.nullable()` instead of
+   * `.optional()`.
+   */
+  readonly input: Input;
+  /** Runs on the server with validated arguments. The result is sent back to the model as JSON. */
+  readonly execute: (input: z.infer<Input>, context: ToolContext) => unknown;
+  /** Default 10 s. */
+  readonly timeoutMs?: number;
+}
+interface Tool {
+  readonly name: string;
+  readonly description: string;
+  readonly input: z.ZodObject;
+  readonly execute: (input: unknown, context: ToolContext) => unknown;
+  readonly timeoutMs: number;
+}
+/**
+ * Declares a server-side function the model may call. Arguments are validated with the schema
+ * before `execute` runs; failures are reported to the model, never to the visitor.
+ */
+declare function defineTool<Input extends z.ZodObject>(definition: ToolDefinition<Input>): Tool;
+/** Per-request context available when building instructions. */
+interface BotContext {
+  /** Validated BCP 47 tag chosen by the widget. */
+  readonly locale: string;
+  /** The signed-in user, verified with IDENTITY_SECRET (ADR-0009); undefined when anonymous. */
+  readonly identity?: VisitorIdentity | undefined;
+}
+interface BotLimits {
+  /** Upper bound for each model response. Default 1024. */
+  readonly maxOutputTokens?: number;
+  /** Longest accepted user message, in characters. Default 4000. */
+  readonly maxInputChars?: number;
+  /** Model calls per turn, including tool round trips. Default 5. */
+  readonly maxSteps?: number;
+  /** Server-side deadline for a whole turn. Keep it below your route's `maxDuration`. Default 120 s. */
+  readonly turnTimeoutMs?: number;
+  /** Input plus output tokens per UTC day across all visitors; then `budget_exceeded`. Default 2 000 000. */
+  readonly dailyTokens?: number;
+  /** Input plus output tokens per client IP per UTC day. Default 200 000. */
+  readonly dailyTokensPerIp?: number;
+  /** New sessions per client IP per hour (renewals by returning visitors count separately). Default 30. */
+  readonly sessionsPerIpPerHour?: number;
+  /** New conversations per client IP per hour. Default 20. */
+  readonly conversationsPerIpPerHour?: number;
+  /** Messages per visitor per minute. Default 10. */
+  readonly messagesPerVisitorPerMinute?: number;
+  /** Messages per client IP per minute, across visitors. Default 30. */
+  readonly messagesPerIpPerMinute?: number;
+  /** Turns per conversation before the visitor must start a new one. Default 50. */
+  readonly maxTurns?: number;
+  /** File uploads per visitor per hour, when attachments are on. Default 20. */
+  readonly uploadsPerVisitorPerHour?: number;
+  /** File uploads per client IP per hour, across visitors. Default 60. */
+  readonly uploadsPerIpPerHour?: number;
+  /** File uploads per UTC day across all visitors; bounds storage, since unsent files cost no tokens. Default 500. */
+  readonly uploadsPerDay?: number;
+  /** Dictations per visitor per hour, when voice input is on. Default 30. */
+  readonly transcriptionsPerVisitorPerHour?: number;
+  /** Seconds of speech transcribed per UTC day across all visitors (billed by duration). Default 3600. */
+  readonly voiceSecondsPerDay?: number;
+  /** Seconds of speech transcribed per client IP per UTC day. Default 600. */
+  readonly voiceSecondsPerIpPerDay?: number;
+}
+interface BotSecurity {
+  /**
+   * Origins allowed to embed the widget, e.g. `https://www.example.com`. The app's own origin is
+   * always allowed. Enforced by the browser through `frame-ancestors` (ADR-0004, ADR-0005).
+   */
+  readonly allowedOrigins?: readonly string[];
+}
+interface KnowledgeConfig {
+  /** Vector store filled by `chatdock kb sync`, usually `process.env.KB_VECTOR_STORE_ID`. */
+  readonly vectorStoreId: string;
+  /** Chunks the model reads per search: more grounds answers better but costs input tokens. Default 5. */
+  readonly maxResults?: number;
+}
+interface AttachmentConfig {
+  /** PNG, JPEG, WebP and GIF. The widget downsizes photos and strips their metadata. Default true. */
+  readonly images?: boolean;
+  /** PDF documents; the model reads their text and page images. Default true. */
+  readonly pdf?: boolean;
+  /** Largest file in bytes. Default 4 MB, which fits Vercel's 4.5 MB request body limit. */
+  readonly maxBytes?: number;
+  /** Files per message. Default 3. */
+  readonly maxPerMessage?: number;
+  /**
+   * Longest PDF accepted. Each page costs about 2,000 input tokens, reserved before the turn; a
+   * PDF whose pages can't be counted is charged as if it had this many. Default 50.
+   */
+  readonly maxPdfPages?: number;
+}
+interface VoiceConfig {
+  /** OpenAI transcription model, for example `gpt-transcribe`. Required: the library never assumes a model. */
+  readonly model: string;
+  /** Longest dictation; recording stops by itself at this point. Default 60 seconds. */
+  readonly maxSeconds?: number;
+}
+/** Public widget settings. Everything here is sent to browsers, so never put secrets in it. */
+interface WidgetConfig {
+  /** Shortcut for `texts['header.title']`. */
+  readonly title?: string;
+  /** Under the title, for example "Usually replies in a minute". */
+  readonly subtitle?: string;
+  /** Shortcut for `texts['welcome.greeting']`. */
+  readonly greeting?: string;
+  /** Shortcut for `texts['composer.placeholder']`. */
+  readonly placeholder?: string;
+  /**
+   * BCP 47 tag for the widget's texts and the default answer language, or `auto`: the language
+   * of the page embedding the widget, else the visitor's browser. Texts ship in English and
+   * Polish; other languages show English unless you set `texts`. Default `en`.
+   */
+  readonly locale?: string;
+  /** Overrides for any text the widget shows, by key (see the dictionary in the docs). */
+  readonly texts?: Readonly<Partial<Record<TextKey, string>>>;
+  /**
+   * The note that visitors are talking to an AI (EU AI Act, art. 50), shown under the message
+   * field, with an optional link to your privacy policy (an https URL or a path on your app).
+   * `false` hides it; only do that when your page already says so. Default: shown, no link.
+   */
+  readonly disclosure?: false | {
+    readonly privacyUrl?: string;
+  };
+  /**
+   * Your own CSS for the chat, loaded after the theme. It is not in the library's layer, so it
+   * wins without !important. Target `[data-cd-part]` parts and the `--cd-*` tokens.
+   */
+  readonly css?: string;
+  /** Suggested questions on the welcome screen; a click sends one. Up to 4. */
+  readonly starters?: readonly string[];
+  /** The assistant's picture: a path on your app such as `/avatar.png`, or a small data: image. */
+  readonly avatar?: string;
+  /** Text on the pill launcher; shortcut for `texts['launcher.label']`. */
+  readonly launcherLabel?: string;
+  /** Built-in look (`halo`, `aura`, `sage`, `care`) or a theme from `defineTheme`. Default `aura`. */
+  readonly theme?: PresetName | ThemeDefinition;
+  /** Default `auto`: follows the visitor's system setting. */
+  readonly colorScheme?: ColorScheme;
+}
+/** Widget settings with defaults applied and the theme resolved. */
+interface BotWidget {
+  /** In the configured locale (English for `auto`); the visitor may see another language. */
+  readonly title: string;
+  readonly subtitle: string;
+  readonly greeting: string;
+  readonly placeholder: string;
+  /** The configured BCP 47 tag, or `auto`. */
+  readonly locale: string;
+  readonly starters: readonly string[];
+  readonly avatar: string | undefined;
+  readonly launcherLabel: string;
+  /** Text overrides, including the title, greeting, placeholder and launcher label shortcuts. */
+  readonly texts: Readonly<Partial<Record<TextKey, string>>>;
+  readonly disclosure: false | {
+    readonly privacyUrl: string | undefined;
+  };
+  readonly css: string;
+  readonly theme: ResolvedTheme;
+}
+interface BotDefinition {
+  /** URL-safe identifier used in the script tag (`data-bot`) and routes. */
+  readonly id: string;
+  /** OpenAI model ID. Required on purpose: the library never assumes a model (ADR-0002). */
+  readonly model: string;
+  readonly instructions: string | ((context: BotContext) => string);
+  readonly limits?: BotLimits;
+  /** Server-side functions the model may call; see `defineTool`. Keep it under about 20. */
+  readonly tools?: readonly Tool[];
+  /**
+   * Accept a description of the page from `chatdock('configure', { context })` and pass it to the
+   * model with the visitor's message. Any script on the page, or the visitor, can set it, so it
+   * gets no more trust than what visitors type. Off by default.
+   */
+  readonly pageContext?: boolean;
+  /** Documents the model searches with OpenAI file search and cites in its answers. */
+  readonly knowledge?: KnowledgeConfig | undefined;
+  /**
+   * Lets visitors attach images and PDFs. Off when absent. Files go to OpenAI (purpose
+   * `user_data`) and expire after 30 days, or when the visitor deletes the conversation.
+   */
+  readonly attachments?: AttachmentConfig | undefined;
+  /**
+   * Lets visitors dictate messages: speech is transcribed by OpenAI into the message field, where
+   * they can check it before sending. Off when absent.
+   */
+  readonly voice?: VoiceConfig | undefined;
+  readonly security?: BotSecurity;
+  readonly widget?: WidgetConfig;
+}
+interface Bot {
+  readonly id: string;
+  readonly model: string;
+  readonly instructions: (context: BotContext) => string;
+  readonly limits: Required<BotLimits>;
+  readonly tools: readonly Tool[];
+  readonly pageContext: boolean;
+  readonly knowledge: Required<KnowledgeConfig> | undefined;
+  readonly attachments: Required<AttachmentConfig> | undefined;
+  readonly voice: Required<VoiceConfig> | undefined;
+  readonly security: {
+    readonly allowedOrigins: readonly string[];
+  };
+  readonly widget: BotWidget;
+}
+/**
+ * Declares a chatbot. Validates eagerly so misconfiguration fails at startup, not on the first
+ * visitor's message.
+ */
+declare function defineBot(definition: BotDefinition): Bot;
+/** Result of incrementing a fixed-window counter. */
+interface CounterHit {
+  /** Counter value after the increment. */
+  readonly count: number;
+  /** Milliseconds until the window resets. */
+  readonly resetMs: number;
+}
+/**
+ * Shared counter storage behind rate limits and budgets. The in-memory default works for a single
+ * instance; multi-instance deployments (Vercel, several dynos) need a shared store such as
+ * `@boldare/chatdock-upstash`. Implementations must be atomic per key.
+ */
+interface RateLimitStore {
+  /**
+   * Adds `amount` to `key`, starting a `windowMs` window if none is open. `0` reads without
+   * changing; negative amounts refund.
+   */
+  hit(key: string, windowMs: number, amount: number): Promise<CounterHit>;
+  /** True for stores that are shared across server instances. */
+  readonly shared: boolean;
+}
+export { VisitorIdentity as S, ThemeDefinition as _, BotContext as a, ThemeTokens as b, BotSecurity as c, defineBot as d, Tool as f, ColorScheme as g, defineTool as h, Bot as i, KnowledgeConfig as l, ToolDefinition as m, RateLimitStore as n, BotDefinition as o, ToolContext as p, AttachmentConfig as r, BotLimits as s, CounterHit as t, WidgetConfig as u, defineTheme as v, ThemeVariants as x, PresetName as y };

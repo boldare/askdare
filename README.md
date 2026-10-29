@@ -51,6 +51,7 @@ export const { GET, POST, DELETE } = createChatHandler({ bots });
 - [Knowledge base](docs/knowledge-base.md), [Tools](docs/tools.md), [Attachments](docs/attachments.md), [Voice input](docs/voice-input.md)
 - [Styling](docs/styling.md) and [Themes](docs/themes.md)
 - [Deployment](docs/deployment.md) to Vercel and Heroku, and the [going-public checklist](docs/going-public.md)
+- [Support](docs/support.md): versions, browsers and download sizes
 - [Threat model](THREAT_MODEL.md) and [streaming protocol](docs/protocol.md)
 
 For AI coding agents: [`llms.txt`](llms.txt), and the [`chatdock` skill](skills/chatdock/SKILL.md). The docs also ship in the package, under `node_modules/@boldare/chatdock/docs/`.
