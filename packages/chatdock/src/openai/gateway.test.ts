@@ -266,6 +266,52 @@ describe('runTurn', () => {
     await expect(gateway.runTurn(request)).rejects.toMatchObject(expected);
   });
 
+  // Error bodies recorded from the live API in spike S1.
+  it.each([
+    [
+      'a deleted conversation',
+      404,
+      {
+        message: "Conversation with id 'conv_123' not found.",
+        type: 'invalid_request_error',
+        param: null,
+        code: null,
+      },
+      { code: 'not_found' },
+    ],
+    [
+      'a misconfigured model',
+      404,
+      {
+        message:
+          'The model `chatdock-no-such-model` does not exist or you do not have access to it.',
+        type: 'invalid_request_error',
+        param: null,
+        code: 'model_not_found',
+      },
+      { code: 'bot_unavailable' },
+    ],
+    [
+      'a function call left without output',
+      400,
+      {
+        message: 'No tool output found for function call call_abc.',
+        type: 'invalid_request_error',
+        param: 'input',
+        code: null,
+      },
+      { code: 'upstream_error' },
+    ],
+  ] as const)('maps %s', async (_label, status, error, expected) => {
+    server.use(
+      http.post(`${OPENAI_TEST_BASE_URL}/responses`, () =>
+        HttpResponse.json({ error }, { status }),
+      ),
+    );
+    const { request } = turn();
+    await expect(gateway.runTurn(request)).rejects.toMatchObject(expected);
+  });
+
   // Aborts use an injected fetch: MSW's socket interception trips an undici assertion on abort.
   function stalledGateway(): ModelGateway {
     return createOpenAIGateway({

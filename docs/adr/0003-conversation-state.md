@@ -1,6 +1,6 @@
 # ADR-0003: Conversation state without a database
 
-- **Status:** Proposed. To be confirmed by spike S1 (`spikes/s1-openai/FINDINGS.md`).
+- **Status:** Accepted on 2026-10-29 after spike S1 ([findings](../../spikes/s1-openai/FINDINGS.md)).
 - **Date:** 2026-10-29
 
 ## Context
@@ -30,12 +30,11 @@ Two lessons shape the design:
 3. **Long conversations get expensive.** They replay their full history as input, so we enforce turn limits, compaction and a stable prompt prefix for caching.
 4. **Attachments after reload show only as a filename or placeholder.** Content of `user_data` files cannot be downloaded back.
 
-## Open questions for spike S1
+## Evidence (spike S1, live API, 2026-10-29)
 
-- Behaviour of a dangling `function_call` with no output, and whether repair with a synthetic `function_call_output` works.
-- Behaviour of a conversation that references an expired or deleted file.
-- Interplay of `store: false` with `conversation`.
-- Latency of `items.list` and the item mapping.
-- Image upload purpose: `vision` vs `user_data`.
-
-**If S1 fails:** the default becomes our own store (Redis via an add-on), and this ADR is superseded.
+- **Streaming:** turns inside a conversation stream normally. Time to first token was 0.9–1.3 s on `gpt-6.1-terra`.
+- **Function calls:** a dangling call breaks the next turn with a 400. A synthetic `function_call_output` repairs it, so the step 3.2 tool loop must answer every call.
+- **Attachments:** deleting or expiring a file does not break the conversation. Images and PDFs both work with purpose `user_data`.
+- **`store: false`** with a conversation silently drops the turn. **Always send `store: true`.**
+- **`items.list`:** about 1.9 s, with descending default order. Load history once, with `order: 'asc'`, and show a loading state.
+- **Errors:** a deleted conversation gives a 404 that mentions the conversation; an unknown model gives a 404 with `model_not_found`. The two are mapped differently (`not_found` vs `bot_unavailable`).
