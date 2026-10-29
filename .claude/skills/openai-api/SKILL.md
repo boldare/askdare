@@ -49,6 +49,7 @@ The OpenAI platform changes monthly. Assistants and Prompts were shut down, and 
   - Send `include: ['file_search_call.results']` on `responses.create` and on `conversations.items.list`. Citations take their title and URL from the results' file attributes.
   - `chatdock kb sync` owns the attributes `path`, `sha256`, `title` and `url` (max 16 keys, values up to 512 characters). Change them in one place: `src/openai/knowledge-sync.ts` and `src/openai/citations.ts`.
   - Only http(s) URLs from attributes reach the client.
+- Attachments: upload with purpose `user_data` and `expires_after` (30 days, the maximum). Images go in as `input_image` with `file_id`, PDFs as `input_file`. File IDs reach the model only from verified attachment handles, never from the client (spike S1, E7–E9).
 
 ## 5. Tests and live calls
 

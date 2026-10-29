@@ -31,6 +31,15 @@ Source of truth: `packages/chatdock/src/protocol/`.
 | `message.end` | `messageId`, `reason` | The reply finished. Reasons: `completed`, `max_steps`, `max_output_tokens`, `timeout`, `content_filter`, `aborted` |
 | `error` | `code`, `message`, `retryAfterMs?` | The turn failed; `message` is safe to show |
 
+## Attachments
+
+When a bot has `attachments` enabled, files travel separately from the message:
+
+1. `POST /attachments` with the raw file as the body (`Content-Type: application/octet-stream`), the `Bearer` token, and two headers: `x-chatdock-bot` (bot ID) and `x-chatdock-filename` (URL-encoded name). The server detects the type from the bytes, uploads the file to OpenAI and answers `{ "attachment": { "id", "kind": "image" | "pdf", "name", "size" } }`.
+2. `POST /messages` with `"attachments": ["<id>", …]` next to `text`. `text` may be empty when files are attached.
+
+`id` is an encrypted handle bound to the bot and the visitor, valid for 1 hour. OpenAI file IDs never reach clients, and the server refuses raw file IDs. History (`POST /history`) reports only how many files a message had.
+
 ## Error codes
 
 These codes are stable and safe to branch on in the UI:
