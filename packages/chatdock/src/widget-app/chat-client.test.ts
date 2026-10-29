@@ -179,3 +179,75 @@ describe('ChatClient', () => {
     expect(events).toMatchObject([{ type: 'error', code: 'upstream_error' }]);
   });
 });
+
+describe('conversation history', () => {
+  const session = () =>
+    Response.json({ accessToken: 't', expiresAt: Date.now() / 1000 + 900, resumable: true });
+
+  function routedFetch(routes: Record<string, (init: RequestInit | undefined) => Response>): {
+    fetch: typeof fetch;
+    calls: string[];
+  } {
+    const calls: string[] = [];
+    const impl = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const key = `${init?.method ?? 'GET'} ${String(input).replace('/api/chat', '')}`;
+      calls.push(key);
+      const route = routes[key];
+      if (!route) throw new Error(`unexpected ${key}`);
+      return route(init);
+    };
+    return { fetch: impl as typeof fetch, calls };
+  }
+
+  it('loads nothing when this browser has no conversation', async () => {
+    const { fetch, calls } = routedFetch({});
+    expect(await client(fetch).loadHistory()).toEqual([]);
+    expect(calls).toEqual([]);
+  });
+
+  it('loads and validates the stored conversation', async () => {
+    const storage = memoryStorage();
+    storage.set('chatdock:support:resume', 'resume-1');
+    const { fetch } = routedFetch({
+      'POST /session': session,
+      'POST /history': (init) => {
+        expect(JSON.parse(String(init?.body))).toEqual({
+          botId: 'support',
+          resumeToken: 'resume-1',
+        });
+        return Response.json({
+          messages: [
+            { id: 'a', role: 'user', text: 'Hi', citations: [], attachments: 0 },
+            { id: 'b', role: 'assistant', text: 'Hello', citations: [], attachments: 0 },
+          ],
+        });
+      },
+    });
+    const history = await client(fetch, storage).loadHistory();
+    expect(history.map((message) => message.text)).toEqual(['Hi', 'Hello']);
+  });
+
+  it('forgets a conversation the server no longer has', async () => {
+    const storage = memoryStorage();
+    storage.set('chatdock:support:resume', 'stale');
+    const { fetch } = routedFetch({
+      'POST /session': session,
+      'POST /history': () => Response.json({ error: { code: 'not_found' } }, { status: 404 }),
+    });
+    expect(await client(fetch, storage).loadHistory()).toEqual([]);
+    expect(storage.get('chatdock:support:resume')).toBeUndefined();
+  });
+
+  it('deletes the conversation on the server and locally', async () => {
+    const storage = memoryStorage();
+    storage.set('chatdock:support:resume', 'resume-1');
+    const { fetch, calls } = routedFetch({
+      'POST /session': session,
+      'DELETE /conversation': () => new Response(null, { status: 204 }),
+    });
+    const chat = client(fetch, storage);
+    await chat.deleteConversation();
+    expect(calls).toContain('DELETE /conversation');
+    expect(chat.hasConversation()).toBe(false);
+  });
+});
