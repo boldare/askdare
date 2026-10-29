@@ -27,8 +27,21 @@
   - Sanitize all rendered model output.
 - **Public API** ([ADR-0006](docs/adr/0006-support-matrix-and-versioning.md)): the public surface is deliberately small. Anything not listed in ADR-0006 is internal; don't export it.
 
+## Commands
+
+Use pnpm 12. If the global pnpm is older, run `npx pnpm@12.16.1 …`.
+
+```bash
+pnpm install      # dependencies + git hooks
+pnpm check        # lint, typecheck, test, build, publint, attw, no-leak; must pass before merging
+pnpm test:watch
+pnpm format
+pnpm changeset
+```
+
 ## Workflow
 
+- **No global installs.** Never install global packages (`npm i -g`, `pnpm add -g`) or run unpinned `@latest` tools. Add tools as pinned dev dependencies instead.
 - **Branches and commits:**
   - Work on a branch `type/short-description`, and merge into `main` with `--no-ff` once the step's Definition of Done is met.
   - Commits follow Conventional Commits (`feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`).
@@ -43,13 +56,12 @@
   - `openai-api`: rules for anything touching OpenAI.
   - `release`: changesets and publishing.
   - `adr`: decision records.
-- **Vendored skills** (pinned, see `.claude/skills/sources.json`):
+- **Vendored skills** (pinned to a commit and reviewed; see `.claude/skills/sources.json`):
   - `vercel-react-best-practices`: React performance.
   - `vercel-composition-patterns`: compound components for the headless UI.
   - `tsdown`: library bundling.
-  - `next-dev-loop`: verifying the starter app at runtime.
 
-  Where a vendored skill conflicts with this file or an ADR, this file and the ADR win.
+  Each vendored skill starts with an overrides block. Where a skill conflicts with this file or an ADR, this file and the ADR win. Skills that were reviewed and rejected are listed under `rejected` in `sources.json`.
 - **Before merging security-relevant work** (Phases 2–4): run `/security-review` and `/code-review`.
 - **MCP servers** in `.mcp.json` are read-only:
   - `openaiDeveloperDocs`: OpenAI docs and the OpenAPI spec.
