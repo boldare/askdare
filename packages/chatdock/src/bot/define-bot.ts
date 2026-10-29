@@ -17,6 +17,23 @@ export interface BotLimits {
   readonly turnTimeoutMs?: number;
 }
 
+export interface BotSecurity {
+  /**
+   * Origins allowed to embed the widget, e.g. `https://www.example.com`. The app's own origin is
+   * always allowed. Enforced by the browser through `frame-ancestors` (ADR-0004, ADR-0005).
+   */
+  readonly allowedOrigins?: readonly string[];
+}
+
+/** Public widget settings. Everything here is sent to browsers, so never put secrets in it. */
+export interface WidgetConfig {
+  readonly title?: string;
+  readonly greeting?: string;
+  readonly placeholder?: string;
+  /** BCP 47 tag for UI texts and the default answer language. Default `en`. */
+  readonly locale?: string;
+}
+
 export interface BotDefinition {
   /** URL-safe identifier used in the script tag (`data-bot`) and routes. */
   readonly id: string;
@@ -24,6 +41,8 @@ export interface BotDefinition {
   readonly model: string;
   readonly instructions: string | ((context: BotContext) => string);
   readonly limits?: BotLimits;
+  readonly security?: BotSecurity;
+  readonly widget?: WidgetConfig;
 }
 
 export interface Bot {
@@ -31,6 +50,8 @@ export interface Bot {
   readonly model: string;
   readonly instructions: (context: BotContext) => string;
   readonly limits: Required<BotLimits>;
+  readonly security: { readonly allowedOrigins: readonly string[] };
+  readonly widget: Required<WidgetConfig>;
 }
 
 const DEFAULT_LIMITS: Required<BotLimits> = {
@@ -39,6 +60,26 @@ const DEFAULT_LIMITS: Required<BotLimits> = {
   maxSteps: 5,
   turnTimeoutMs: 120_000,
 };
+
+const DEFAULT_WIDGET: Required<WidgetConfig> = {
+  title: 'Assistant',
+  greeting: 'Hi! How can I help?',
+  placeholder: 'Type your message…',
+  locale: 'en',
+};
+
+const origin = z.string().refine((value) => {
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === 'https:' || url.protocol === 'http:') &&
+      url.origin === value &&
+      /^[a-z0-9.-]+$|^\[[0-9a-f:]+\]$/i.test(url.hostname)
+    );
+  } catch {
+    return false;
+  }
+}, 'must be an origin like https://www.example.com (scheme and host only, no path or wildcard)');
 
 const definitionSchema = z.object({
   id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,47}$/, 'use 1-48 lowercase letters, digits or dashes'),
@@ -50,6 +91,18 @@ const definitionSchema = z.object({
       maxInputChars: z.number().int().min(1).max(100_000).optional(),
       maxSteps: z.number().int().min(1).max(20).optional(),
       turnTimeoutMs: z.number().int().min(1_000).max(900_000).optional(),
+    })
+    .optional(),
+  security: z.object({ allowedOrigins: z.array(origin).max(50).optional() }).optional(),
+  widget: z
+    .object({
+      title: z.string().trim().min(1).max(80).optional(),
+      greeting: z.string().trim().min(1).max(500).optional(),
+      placeholder: z.string().trim().min(1).max(120).optional(),
+      locale: z
+        .string()
+        .regex(/^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/, 'must be a BCP 47 tag like en or pl-PL')
+        .optional(),
     })
     .optional(),
 });
@@ -72,5 +125,9 @@ export function defineBot(definition: BotDefinition): Bot {
     model: definition.model.trim(),
     instructions: typeof instructions === 'string' ? () => instructions : instructions,
     limits: Object.freeze({ ...DEFAULT_LIMITS, ...definition.limits }),
+    security: Object.freeze({
+      allowedOrigins: Object.freeze([...new Set(definition.security?.allowedOrigins ?? [])]),
+    }),
+    widget: Object.freeze({ ...DEFAULT_WIDGET, ...definition.widget }),
   });
 }

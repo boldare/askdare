@@ -20,3 +20,7 @@ test-results/
 # misc
 *.log
 .DS_Store
+
+# chatdock build artifacts
+packages/chatdock/.assets/
+packages/chatdock/src/generated/

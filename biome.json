@@ -13,7 +13,9 @@
       "!spikes",
       "!.claude/skills",
       "!**/*.md",
-      "!pnpm-lock.yaml"
+      "!pnpm-lock.yaml",
+      "!**/.assets",
+      "!**/src/generated"
     ]
   },
   "formatter": {
@@ -52,6 +54,9 @@
             ]
           }
         }
+      },
+      "complexity": {
+        "useLiteralKeys": "off"
       }
     }
   },
