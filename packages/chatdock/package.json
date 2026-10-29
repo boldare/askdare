@@ -41,6 +41,10 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
     "publint": "^0.3.25",
-    "tsdown": "^0.23.3"
+    "tsdown": "^0.23.3",
+    "zod": "^4.6.7"
+  },
+  "peerDependencies": {
+    "zod": "^4.1.0"
   }
 }
