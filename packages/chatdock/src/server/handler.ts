@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { Bot } from '../bot/define-bot';
 import { ChatdockError, toChatdockError } from '../errors';
 import type { ModelGateway } from '../gateway';
+import type { Limits } from '../limits/limits';
 import { newVisitorId, type TokenService } from '../security/tokens';
 import { type EmbedAssets, embedContentSecurityPolicy, renderEmbedPage } from './embed-page';
 import { STREAM_HEADERS, streamTurn } from './stream-turn';
@@ -14,6 +15,9 @@ export interface HandlerConfig {
   /** Resolved lazily on first use, so importing the route never needs secrets (e.g. during build). */
   readonly gateway: () => ModelGateway;
   readonly tokens: () => Promise<TokenService>;
+  readonly limits: Limits;
+  /** Best-effort client IP for rate-limit keys. */
+  readonly clientIp: (request: Request) => string;
   readonly onError?: ((error: ChatdockError) => void) | undefined;
   readonly heartbeatIntervalMs?: number | undefined;
 }
@@ -178,6 +182,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     assertSameOrigin(request);
     const body = await readJson(request, sessionBody);
     const bot = findBot(body.botId);
+    await config.limits.checkSession(bot, config.clientIp(request));
     const tokens = await config.tokens();
     let visitorId = newVisitorId();
     let resumable = false;
@@ -211,6 +216,11 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
         message: `Messages must be between 1 and ${bot.limits.maxInputChars} characters.`,
       });
     }
+    await config.limits.checkMessage(bot, {
+      clientIp: config.clientIp(request),
+      visitorId,
+      conversationId,
+    });
     const stream = streamTurn({
       gateway: config.gateway(),
       bot,
@@ -221,6 +231,11 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       signal: request.signal,
       issueResumeToken: async (id) =>
         (await tokens.issueResume(bot.id, { visitorId, conversationId: id })).token,
+      onUsage: (usage) => {
+        config.limits
+          .recordUsage(bot, usage)
+          .catch((error: unknown) => report(toChatdockError(error)));
+      },
       onError: report,
       heartbeatIntervalMs: config.heartbeatIntervalMs,
     });
@@ -251,7 +266,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       return await route(request);
     } catch (error) {
       const failure = toChatdockError(error);
-      if (failure.code === 'internal_error') report(failure);
+      if (failure.status >= 500) report(failure);
       return errorResponse(failure);
     }
   };

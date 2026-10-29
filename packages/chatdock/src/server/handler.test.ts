@@ -1,6 +1,8 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { defineBot } from '../bot/define-bot';
 import type { ModelGateway, TurnRequest } from '../gateway';
+import { createLimits } from '../limits/limits';
+import { memoryStore } from '../limits/store';
 import type { ProtocolEvent } from '../protocol/events';
 import { decodeEvent, SseParser } from '../protocol/sse';
 import { createTokenService, type TokenService } from '../security/tokens';
@@ -52,6 +54,8 @@ beforeAll(async () => {
     assets,
     gateway: () => gateway,
     tokens: async () => tokens,
+    limits: createLimits({ store: memoryStore() }),
+    clientIp: (request) => request.headers.get('x-test-ip') ?? 'test',
     onError: () => {},
   });
 });
@@ -247,5 +251,53 @@ describe('POST /messages', () => {
       ),
     );
     expect(response.status).toBe(400);
+  });
+});
+
+describe('limits', () => {
+  it('answers 429 with Retry-After when a visitor sends too fast', async () => {
+    const limited = createRequestHandler({
+      bots: [
+        defineBot({
+          id: 'support',
+          model: 'm',
+          instructions: 'x',
+          limits: { messagesPerVisitorPerMinute: 1 },
+        }),
+      ],
+      basePath: '/api/chat',
+      assets,
+      gateway: () => gateway,
+      tokens: async () => tokens,
+      limits: createLimits({ store: memoryStore() }),
+      clientIp: () => 'ip',
+      onError: () => {},
+    });
+    const access = (await tokens.issueAccess('support', 'v_fast')).token;
+    const send = () =>
+      limited(
+        post('/messages', { botId: 'support', text: 'Hi' }, { authorization: `Bearer ${access}` }),
+      );
+    await (await send()).text();
+    const second = await send();
+    expect(second.status).toBe(429);
+    expect(second.headers.get('retry-after')).toMatch(/^\d+$/);
+    expect(await second.json()).toMatchObject({ error: { code: 'rate_limited' } });
+  });
+
+  it('answers 503 when the kill switch is on', async () => {
+    const disabled = createRequestHandler({
+      bots: [bot],
+      basePath: '/api/chat',
+      assets,
+      gateway: () => gateway,
+      tokens: async () => tokens,
+      limits: createLimits({ store: memoryStore(), disabled: () => true }),
+      clientIp: () => 'ip',
+      onError: () => {},
+    });
+    const response = await disabled(post('/session', { botId: 'support' }));
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ error: { code: 'bot_unavailable' } });
   });
 });

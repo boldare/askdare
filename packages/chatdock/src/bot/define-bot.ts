@@ -15,6 +15,16 @@ export interface BotLimits {
   readonly maxSteps?: number;
   /** Server-side deadline for a whole turn. Keep it below your route's `maxDuration`. Default 120 s. */
   readonly turnTimeoutMs?: number;
+  /** Input plus output tokens per UTC day across all visitors; then `budget_exceeded`. Default 2 000 000. */
+  readonly dailyTokens?: number;
+  /** New sessions per client IP per hour. Default 20. */
+  readonly sessionsPerIpPerHour?: number;
+  /** Messages per visitor per minute. Default 10. */
+  readonly messagesPerVisitorPerMinute?: number;
+  /** Messages per client IP per minute, across visitors. Default 30. */
+  readonly messagesPerIpPerMinute?: number;
+  /** Turns per conversation before the visitor must start a new one. Default 50. */
+  readonly maxTurns?: number;
 }
 
 export interface BotSecurity {
@@ -59,6 +69,11 @@ const DEFAULT_LIMITS: Required<BotLimits> = {
   maxInputChars: 4000,
   maxSteps: 5,
   turnTimeoutMs: 120_000,
+  dailyTokens: 2_000_000,
+  sessionsPerIpPerHour: 20,
+  messagesPerVisitorPerMinute: 10,
+  messagesPerIpPerMinute: 30,
+  maxTurns: 50,
 };
 
 const DEFAULT_WIDGET: Required<WidgetConfig> = {
@@ -91,6 +106,11 @@ const definitionSchema = z.object({
       maxInputChars: z.number().int().min(1).max(100_000).optional(),
       maxSteps: z.number().int().min(1).max(20).optional(),
       turnTimeoutMs: z.number().int().min(1_000).max(900_000).optional(),
+      dailyTokens: z.number().int().min(1_000).optional(),
+      sessionsPerIpPerHour: z.number().int().min(1).max(10_000).optional(),
+      messagesPerVisitorPerMinute: z.number().int().min(1).max(1_000).optional(),
+      messagesPerIpPerMinute: z.number().int().min(1).max(10_000).optional(),
+      maxTurns: z.number().int().min(1).max(1_000).optional(),
     })
     .optional(),
   security: z.object({ allowedOrigins: z.array(origin).max(50).optional() }).optional(),

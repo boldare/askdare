@@ -8,6 +8,9 @@ import {
   WIDGET_JS,
   WIDGET_JS_FILE,
 } from '../generated/assets';
+import { getClientIp, type TrustProxy } from '../limits/client-ip';
+import { createLimits } from '../limits/limits';
+import { memoryStore, type RateLimitStore } from '../limits/store';
 import { createOpenAIGateway } from '../openai/gateway';
 import { createTokenService, type TokenService } from '../security/tokens';
 import { createRequestHandler } from '../server/handler';
@@ -22,6 +25,17 @@ export interface ChatHandlerOptions {
   readonly secret?: string;
   /** Former secrets still accepted during rotation. Default: comma-separated `process.env.CHAT_SECRET_PREVIOUS`. */
   readonly previousSecrets?: readonly string[];
+  readonly limits?: ChatHandlerLimitsOptions;
+}
+
+export interface ChatHandlerLimitsOptions {
+  /**
+   * Counter storage for rate limits and budgets. Defaults to per-process memory, which is weak when
+   * several instances serve traffic; use `@boldare/chatdock-upstash` there.
+   */
+  readonly store?: RateLimitStore;
+  /** How to read the client IP behind your proxy. Default `auto` (detects Vercel and Heroku). */
+  readonly trustProxy?: TrustProxy;
 }
 
 export type RouteHandler = (request: Request) => Promise<Response>;
@@ -63,6 +77,13 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
 
   let gateway: ModelGateway | undefined;
   let tokens: Promise<TokenService> | undefined;
+  const store = options.limits?.store ?? memoryStore();
+  if (!store.shared && process.env['NODE_ENV'] === 'production') {
+    console.warn(
+      '[chatdock] Rate limits are kept in memory, per instance. With more than one instance, use a shared store such as @boldare/chatdock-upstash.',
+    );
+  }
+  const trustProxy = options.limits?.trustProxy ?? 'auto';
 
   const handle = createRequestHandler({
     bots: options.bots,
@@ -89,6 +110,8 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
               .map((secret) => secret.trim())
               .filter(Boolean),
         }))()),
+    limits: createLimits({ store, disabled: () => process.env['CHATDOCK_DISABLED'] === 'true' }),
+    clientIp: (request) => getClientIp(request, trustProxy),
   });
 
   return { GET: handle, POST: handle, DELETE: handle };

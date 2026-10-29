@@ -9,6 +9,11 @@ describe('defineBot', () => {
       maxInputChars: 4000,
       maxSteps: 5,
       turnTimeoutMs: 120_000,
+      dailyTokens: 2_000_000,
+      sessionsPerIpPerHour: 20,
+      messagesPerVisitorPerMinute: 10,
+      messagesPerIpPerMinute: 30,
+      maxTurns: 50,
     });
     expect(bot.instructions({ locale: 'en' })).toBe('Be helpful.');
   });
