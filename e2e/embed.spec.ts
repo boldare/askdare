@@ -2,6 +2,13 @@ import { expect, type Page, test } from '@playwright/test';
 
 const ALLOWED_HOST = 'http://127.0.0.1:4100/';
 const FOREIGN_HOST = 'http://127.0.0.1:4101/';
+const MOCK_OPENAI = 'http://127.0.0.1:4110';
+// 1×1 transparent PNG.
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+  'base64',
+);
+const PDF = Buffer.from('%PDF-1.4\n1 0 obj << /Type /Page >> endobj\n%%EOF\n');
 
 async function openChat(page: Page) {
   await page.locator('[part="launcher"]').click();
@@ -64,6 +71,47 @@ test('starts a new conversation and deletes the old one', async ({ page }) => {
   const fresh = chat.locator('[data-cd-part="message"][data-role="assistant"]').last();
   await expect(fresh).toHaveAttribute('data-status', 'done');
   expect(await fresh.textContent()).not.toContain(`(in ${old})`);
+});
+
+test('sends an image and a PDF, and deletes them with the conversation', async ({
+  page,
+  request,
+}) => {
+  await page.goto(ALLOWED_HOST);
+  const chat = await openChat(page);
+  const filesBefore = (await (await request.get(`${MOCK_OPENAI}/debug/files`)).json()) as string[];
+
+  await chat.locator('input[type="file"]').setInputFiles([
+    { name: 'IMG_0042.png', mimeType: 'image/png', buffer: PNG },
+    { name: 'offer.pdf', mimeType: 'application/pdf', buffer: PDF },
+    { name: 'logo.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg/>') },
+  ]);
+  const pending = chat.locator('[data-cd-part="attachments"]');
+  // Images are re-encoded as JPEG in the browser; SVG never leaves it.
+  await expect(pending.locator('[data-status="ready"]')).toHaveCount(2);
+  await expect(pending).toContainText('IMG_0042.jpg');
+  await expect(pending).toContainText('offer.pdf');
+  await expect(pending.locator('[data-status="error"]')).toContainText(
+    'This file type is not supported.',
+  );
+
+  await chat.getByRole('textbox').fill('What is in these?');
+  await chat.getByRole('textbox').press('Enter');
+  const reply = chat.locator('[data-cd-part="message"][data-role="assistant"]').last();
+  await expect(reply).toContainText('You said: What is in these?');
+  await expect(reply).toContainText('[2 files]');
+  await expect(chat.locator('[data-cd-part="message-attachments"] li')).toHaveCount(2);
+  await expect(pending).toHaveCount(0);
+
+  const uploaded = (await (await request.get(`${MOCK_OPENAI}/debug/files`)).json()) as string[];
+  expect(uploaded.length - filesBefore.length).toBe(2);
+
+  page.once('dialog', (dialog) => dialog.accept());
+  await chat.getByRole('button', { name: 'Start a new conversation' }).click();
+  await expect(chat.locator('[data-cd-part="message"]')).toHaveCount(0);
+  await expect
+    .poll(async () => (await (await request.get(`${MOCK_OPENAI}/debug/files`)).json()) as string[])
+    .toEqual(filesBefore);
 });
 
 test('closes from inside the iframe with Escape and returns focus', async ({ page }) => {

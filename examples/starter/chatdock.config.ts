@@ -24,6 +24,8 @@ export const bots = [
     tools: [currentTime, exchangeRate],
     // Documents from knowledge/, uploaded with `pnpm kb:sync`. Without the ID the bot has none.
     knowledge: vectorStoreId ? { vectorStoreId } : undefined,
+    // Images and PDFs, up to 4 MB and 3 per message; they expire after 30 days.
+    attachments: {},
     security: { allowedOrigins },
     widget: {
       title: 'chatdock demo',
