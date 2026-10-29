@@ -1,5 +1,6 @@
 import type { AttachmentKind } from './attachments/files';
 import type { Bot, BotContext } from './bot/define-bot';
+import type { DoctorCheck } from './protocol/doctor';
 import type { MessageEndReason, ProtocolEvent } from './protocol/events';
 import type { HistoryMessage } from './protocol/history';
 
@@ -69,6 +70,14 @@ export interface TurnResult {
   readonly usage: TokenUsage;
 }
 
+/** What `chatdock doctor` checks for one bot: the features it uses, with the server's key. */
+export interface DiagnoseRequest {
+  readonly model: string;
+  readonly vectorStoreId?: string | undefined;
+  readonly transcriptionModel?: string | undefined;
+  readonly attachments: boolean;
+}
+
 /**
  * Everything the server needs from the model provider. The OpenAI implementation lives in
  * `src/openai/`; nothing else may depend on the `openai` package (ADR-0002).
@@ -87,4 +96,6 @@ export interface ModelGateway {
   /** Visible messages of a conversation, oldest first. */
   listMessages(conversationId: string, signal?: AbortSignal): Promise<readonly HistoryMessage[]>;
   runTurn(request: TurnRequest): Promise<TurnResult>;
+  /** Small live requests that show whether the key, model and stores work (`chatdock doctor`). */
+  diagnose(request: DiagnoseRequest): Promise<readonly DoctorCheck[]>;
 }

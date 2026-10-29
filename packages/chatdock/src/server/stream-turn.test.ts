@@ -41,6 +41,7 @@ function fakeGateway(runTurn: (request: TurnRequest) => Promise<TurnResult>): Mo
     uploadFile: async () => 'file-1',
     transcribe: async () => ({ text: '', seconds: 0 }),
     listMessages: async () => [],
+    diagnose: async () => [],
     runTurn: (request) => {
       requests.push(request);
       return runTurn(request);

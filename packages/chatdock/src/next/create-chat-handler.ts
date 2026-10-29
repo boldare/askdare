@@ -121,6 +121,7 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
     },
     gallery: options.gallery,
     development: process.env['NODE_ENV'] === 'development',
+    sharedLimits: store.shared,
     gateway: () =>
       (gateway ??= createOpenAIGateway({
         apiKey: required(options.openaiApiKey ?? process.env['OPENAI_API_KEY'], 'OPENAI_API_KEY'),

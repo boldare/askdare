@@ -2,9 +2,10 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { defineBot } from '../bot/define-bot';
 import { ChatdockError } from '../errors';
-import type { ModelGateway, TranscriptionRequest, TurnRequest } from '../gateway';
+import type { DiagnoseRequest, ModelGateway, TranscriptionRequest, TurnRequest } from '../gateway';
 import { createLimits } from '../limits/limits';
 import { memoryStore } from '../limits/store';
+import { doctorReportSchema } from '../protocol/doctor';
 import type { ProtocolEvent } from '../protocol/events';
 import { decodeEvent, SseParser } from '../protocol/sse';
 import { createTokenService, type TokenService } from '../security/tokens';
@@ -103,6 +104,7 @@ const deleted: { id: string; withFiles: boolean | undefined }[] = [];
 const uploads: { filename: string; mime: string; size: number }[] = [];
 const transcriptions: TranscriptionRequest[] = [];
 let failTranscriptions = false;
+const diagnoses: DiagnoseRequest[] = [];
 
 const gateway: ModelGateway = {
   createConversation: async () => 'conv_1',
@@ -121,6 +123,10 @@ const gateway: ModelGateway = {
   listMessages: async (id) => [
     { id: 'm1', role: 'user', text: `history of ${id}`, citations: [], attachments: 0 },
   ],
+  diagnose: async (request) => {
+    diagnoses.push(request);
+    return [{ status: 'ok', title: `Model ${request.model} is available.` }];
+  },
   runTurn: async (request) => {
     turns.push(request);
     request.emit({ type: 'text.delta', messageId: request.messageId, delta: 'Hello!' });
@@ -513,6 +519,50 @@ describe('POST /messages', () => {
     );
     await response.text();
     expect(turns.at(-1)?.context).toEqual({ locale: 'pl' });
+  });
+});
+
+describe('doctor', () => {
+  const doctor = (token?: string) =>
+    handler(
+      new Request(`${BASE}/doctor`, {
+        method: 'POST',
+        headers: token ? { authorization: `Bearer ${token}` } : {},
+      }),
+    );
+
+  it('refuses callers without a doctor token signed with CHAT_SECRET', async () => {
+    expect((await doctor()).status).toBe(401);
+    const access = (await tokens.issueAccess('support', `v_${'d0'.repeat(16)}`)).token;
+    expect((await doctor(access)).status).toBe(401);
+    const foreign = await createTokenService({
+      secret: 'Zm9yZWlnbi1kb2N0b3Itc2VjcmV0LTEyMzQ1Njc4OTA',
+    });
+    expect((await doctor((await foreign.issueDoctor()).token)).status).toBe(401);
+    expect(diagnoses).toHaveLength(0);
+  });
+
+  it("checks each bot's model and the features it uses", async () => {
+    const response = await doctor((await tokens.issueDoctor()).token);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    const report = doctorReportSchema.parse(await response.json());
+    expect(report).toMatchObject({ development: false, sharedLimits: false, gallery: false });
+    expect(report.bots.map((bot) => bot.id)).toEqual([
+      'support',
+      'files',
+      'docs',
+      'voice',
+      'tight-voice',
+      'multilingual',
+      'secretive',
+    ]);
+    expect(report.bots[0]?.checks).toEqual([
+      { status: 'ok', title: 'Model test-model is available.' },
+    ]);
+    expect(diagnoses.find((request) => request.attachments)).toBeDefined();
+    expect(diagnoses.find((request) => request.vectorStoreId?.startsWith('vs_'))).toBeDefined();
+    expect(diagnoses.find((request) => request.transcriptionModel !== undefined)).toBeDefined();
   });
 });
 
