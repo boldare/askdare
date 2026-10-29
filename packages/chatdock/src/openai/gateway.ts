@@ -109,7 +109,7 @@ export function createOpenAIGateway(options: OpenAIGatewayOptions): ModelGateway
           return await create([]);
         }
       } catch (error) {
-        throw fromOpenAIError(error, false);
+        throw fromOpenAIError(error, signal?.aborted ?? false);
       }
     },
 

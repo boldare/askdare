@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { defineBot } from '../bot/define-bot';
+import { ChatdockError } from '../errors';
 import type { ModelGateway, TranscriptionRequest, TurnRequest } from '../gateway';
 import { createLimits } from '../limits/limits';
 import { memoryStore } from '../limits/store';
@@ -44,6 +45,14 @@ const voiceBot = defineBot({
   voice: { model: 'gpt-transcribe', maxSeconds: 10 },
 });
 
+const tightVoiceBot = defineBot({
+  id: 'tight-voice',
+  model: 'test-model',
+  instructions: 'Listen.',
+  voice: { model: 'gpt-transcribe', maxSeconds: 30 },
+  limits: { voiceSecondsPerIpPerDay: 60 },
+});
+
 const docsBot = defineBot({
   id: 'docs',
   model: 'test-model',
@@ -57,6 +66,7 @@ const turns: TurnRequest[] = [];
 const deleted: { id: string; withFiles: boolean | undefined }[] = [];
 const uploads: { filename: string; mime: string; size: number }[] = [];
 const transcriptions: TranscriptionRequest[] = [];
+let failTranscriptions = false;
 
 const gateway: ModelGateway = {
   createConversation: async () => 'conv_1',
@@ -64,6 +74,7 @@ const gateway: ModelGateway = {
     deleted.push({ id, withFiles: options?.withFiles });
   },
   transcribe: async (request) => {
+    if (failTranscriptions) throw new ChatdockError('upstream_error');
     transcriptions.push(request);
     return { text: '  Ile kosztuje plan Business?  ', seconds: 4 };
   },
@@ -87,7 +98,7 @@ const gateway: ModelGateway = {
 beforeAll(async () => {
   tokens = await createTokenService({ secret: 'aGFuZGxlci10ZXN0cy1zZWNyZXQtMTIzNDU2Nzg5MA' });
   handler = createRequestHandler({
-    bots: [bot, filesBot, docsBot, voiceBot],
+    bots: [bot, filesBot, docsBot, voiceBot, tightVoiceBot],
     basePath: '/api/chat',
     assets,
     gateway: () => gateway,
@@ -509,6 +520,22 @@ describe('voice input', () => {
     const supportAuth = { authorization: `Bearer ${await session()}` };
     expect((await handler(dictation(WEBM, supportAuth, 'support'))).status).toBe(400);
     expect(transcriptions.length).toBe(before);
+  });
+
+  it('does not charge dictations that OpenAI answered with an error', async () => {
+    const auth = {
+      authorization: `Bearer ${(await tokens.issueAccess('tight-voice', `v_${'e5'.repeat(16)}`)).token}`,
+    };
+    const send = () =>
+      handler(dictation(WEBM, { ...auth, 'x-test-ip': 'voice-ip' }, 'tight-voice'));
+    failTranscriptions = true;
+    try {
+      for (let attempt = 0; attempt < 3; attempt += 1) expect((await send()).status).toBe(502);
+    } finally {
+      failTranscriptions = false;
+    }
+    // Three charged failures would have used up the 60-second budget.
+    expect((await send()).status).toBe(200);
   });
 
   it('allows the microphone only in the embed page of a bot with voice input', async () => {

@@ -3,8 +3,10 @@ export interface DetectedAudio {
   readonly extension: string;
 }
 
-/** Bytes allowed per second of speech: 192 kbps, above what browsers record by default. */
-const BYTES_PER_SECOND = 24_000;
+/** Bytes allowed per second of speech: 128 kbps, the most browsers record (Safari's AAC default). */
+const BYTES_PER_SECOND = 16_000;
+/** About 4 kbps, the lowest bitrate speech codecs use, so the longest audio a file can hold. */
+const MIN_BYTES_PER_SECOND = 500;
 
 const ascii = (text: string): number[] => Array.from(text, (char) => char.charCodeAt(0));
 
@@ -45,7 +47,11 @@ export function detectAudio(bytes: Uint8Array): DetectedAudio | undefined {
 }
 
 /** Largest recording accepted for a bot's longest allowed dictation. */
-export const maxAudioBytes = (maxSeconds: number): number => maxSeconds * BYTES_PER_SECOND + 64_000;
+export const maxAudioBytes = (maxSeconds: number): number => maxSeconds * BYTES_PER_SECOND + 32_000;
+
+/** Seconds to charge when the billed duration is unknown: the longest a file of this size can play. */
+export const worstCaseSeconds = (bytes: number, maxSeconds: number): number =>
+  Math.max(maxSeconds, Math.ceil(bytes / MIN_BYTES_PER_SECOND));
 
 /** ISO 639-1 codes from the visitor's languages, as hints for transcription; at most three. */
 export function languageHints(header: string | null): string[] {

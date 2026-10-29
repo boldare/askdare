@@ -293,6 +293,20 @@ describe('voice', () => {
     expect(await spent(VOICE_KEY)).toBe(4);
   });
 
+  it('lets two dictations per IP transcribe at once and rounds billed seconds up', async () => {
+    const { limits, spent } = setup();
+    const first = await limits.beginTranscription(voiceBot, { clientIp: 'ip', visitorId: 'v1' });
+    const second = await limits.beginTranscription(voiceBot, { clientIp: 'ip', visitorId: 'v2' });
+    await expect(
+      limits.beginTranscription(voiceBot, { clientIp: 'ip', visitorId: 'v3' }),
+    ).rejects.toMatchObject({ code: 'rate_limited' });
+    await first.settle(3.2);
+    await second.settle(1);
+    const third = await limits.beginTranscription(voiceBot, { clientIp: 'ip', visitorId: 'v3' });
+    await third.settle(0);
+    expect(await spent(VOICE_KEY)).toBe(4 + 1);
+  });
+
   it('refuses once the speech budget for the day is used up', async () => {
     const { limits } = setup();
     const keys = { clientIp: 'ip', visitorId: 'v1' };

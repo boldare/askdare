@@ -11,7 +11,7 @@ import { ChatdockError, toChatdockError } from '../errors';
 import type { ModelGateway, TurnAttachment } from '../gateway';
 import type { Limits } from '../limits/limits';
 import { newVisitorId, type TokenService } from '../security/tokens';
-import { detectAudio, languageHints, maxAudioBytes } from '../voice/audio';
+import { detectAudio, languageHints, maxAudioBytes, worstCaseSeconds } from '../voice/audio';
 import { type EmbedAssets, embedContentSecurityPolicy, renderEmbedPage } from './embed-page';
 import { STREAM_HEADERS, streamTurn } from './stream-turn';
 
@@ -459,18 +459,28 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       });
       throw error;
     }
-    const result = await config.gateway().transcribe({
-      bytes,
-      filename: `speech.${audio.extension}`,
-      mime: audio.mime,
-      model: voice.model,
-      languages: languageHints(request.headers.get(LANGUAGES_HEADER)),
-      signal: AbortSignal.timeout(TRANSCRIPTION_TIMEOUT_MS),
-    });
-    await reservation
-      .settle(result.seconds ?? voice.maxSeconds)
-      .catch((error: unknown) => report(toChatdockError(error)));
-    return jsonResponse({ text: result.text.trim() });
+    // Without a billed duration (token-billed models, or a timeout OpenAI may still bill), charge
+    // the longest audio the file could hold rather than the length the client meant to send.
+    const worstCase = worstCaseSeconds(bytes.byteLength, voice.maxSeconds);
+    // An error answer from OpenAI is not billed; a timeout leaves the outcome unknown.
+    let billed = 0;
+    try {
+      const result = await config.gateway().transcribe({
+        bytes,
+        filename: `speech.${audio.extension}`,
+        mime: audio.mime,
+        model: voice.model,
+        languages: languageHints(request.headers.get(LANGUAGES_HEADER)),
+        signal: AbortSignal.timeout(TRANSCRIPTION_TIMEOUT_MS),
+      });
+      billed = result.seconds ?? worstCase;
+      return jsonResponse({ text: result.text.trim() });
+    } catch (error) {
+      if (toChatdockError(error).code === 'timeout') billed = worstCase;
+      throw error;
+    } finally {
+      await reservation.settle(billed).catch((error: unknown) => report(toChatdockError(error)));
+    }
   };
 
   /** Authenticates the visitor and proves they own the conversation behind the resume token. */

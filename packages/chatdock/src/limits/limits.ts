@@ -7,6 +7,11 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 const CONVERSATION_TTL = 30 * DAY;
+/** Dictations transcribing at once, per IP and per bot, which bounds how far parallel requests can overshoot. */
+const TRANSCRIPTIONS_IN_FLIGHT_PER_IP = 2;
+const TRANSCRIPTIONS_IN_FLIGHT_PER_BOT = 10;
+/** In-flight slots expire on their own if a process dies mid-transcription. */
+const IN_FLIGHT_WINDOW = 2 * MINUTE;
 /** Rough input cost of one file search chunk (about 800 tokens by default). */
 const SEARCH_RESULT_TOKENS = 800;
 
@@ -31,7 +36,7 @@ export interface UploadLimitKeys {
   readonly visitorId: string;
 }
 
-/** Speech seconds held for a dictation in flight; `settle` replaces them with the billed duration. */
+/** Speech seconds and an in-flight slot held for a dictation; `settle` charges the billed duration and frees the slot. */
 export interface TranscriptionReservation {
   settle(seconds: number): Promise<void>;
 }
@@ -148,6 +153,24 @@ export function createLimits(options: LimitsOptions): Limits {
         HOUR,
         limits.transcriptionsPerVisitorPerHour,
       );
+      const slots = [
+        { key: `cd:tfi:${bot.id}:${keys.clientIp}`, limit: TRANSCRIPTIONS_IN_FLIGHT_PER_IP },
+        { key: `cd:tfb:${bot.id}`, limit: TRANSCRIPTIONS_IN_FLIGHT_PER_BOT },
+      ];
+      const taken: { readonly key: string }[] = [];
+      const release = () =>
+        Promise.all(taken.map((slot) => store.hit(slot.key, IN_FLIGHT_WINDOW, -1)));
+      for (const slot of slots) {
+        const { count } = await store.hit(slot.key, IN_FLIGHT_WINDOW, 1);
+        taken.push(slot);
+        if (count > slot.limit) {
+          await release();
+          throw new ChatdockError('rate_limited', {
+            retryAfterMs: 5_000,
+            message: 'Another dictation is still being transcribed. Please try again in a moment.',
+          });
+        }
+      }
       const reserved = bot.voice?.maxSeconds ?? 60;
       const list: Budget[] = [
         { key: `cd:vs:${bot.id}:${day()}`, limit: limits.voiceSecondsPerDay },
@@ -156,12 +179,20 @@ export function createLimits(options: LimitsOptions): Limits {
           limit: limits.voiceSecondsPerIpPerDay,
         },
       ];
-      await reserve(list, reserved);
+      try {
+        await reserve(list, reserved);
+      } catch (error) {
+        await release();
+        throw error;
+      }
       return {
         async settle(seconds) {
-          await Promise.all(
-            list.map((budget) => store.hit(budget.key, 2 * DAY, seconds - reserved)),
-          );
+          // Whole seconds: shared stores count in integers.
+          const difference = Math.ceil(seconds) - reserved;
+          await Promise.all([
+            ...list.map((budget) => store.hit(budget.key, 2 * DAY, difference)),
+            release(),
+          ]);
         },
       };
     },

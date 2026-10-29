@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectAudio, languageHints, maxAudioBytes } from './audio';
+import { detectAudio, languageHints, maxAudioBytes, worstCaseSeconds } from './audio';
 
 const bytes = (...parts: (string | number[])[]): Uint8Array =>
   new Uint8Array(
@@ -40,7 +40,12 @@ describe('language hints', () => {
     expect(languageHints(null)).toEqual([]);
   });
 
-  it('allows about 192 kbps for the longest dictation', () => {
-    expect(maxAudioBytes(60)).toBe(60 * 24_000 + 64_000);
+  it('allows 128 kbps for the longest dictation', () => {
+    expect(maxAudioBytes(60)).toBe(60 * 16_000 + 32_000);
+  });
+
+  it('assumes the lowest speech bitrate when the billed duration is unknown', () => {
+    expect(worstCaseSeconds(240_000, 60)).toBe(480);
+    expect(worstCaseSeconds(1_000, 60)).toBe(60);
   });
 });
