@@ -8,7 +8,13 @@ import { STREAM_HEADERS, type StreamTurnOptions, streamTurn } from './stream-tur
 
 const bot: Bot = {
   ...defineBot({ id: 'support', model: 'test-model', instructions: 'Be brief.' }),
-  limits: { maxOutputTokens: 256, maxInputChars: 1000, maxSteps: 3, turnTimeoutMs: 5_000 },
+  limits: {
+    ...defineBot({ id: 'support', model: 'test-model', instructions: 'x' }).limits,
+    maxOutputTokens: 256,
+    maxInputChars: 1000,
+    maxSteps: 3,
+    turnTimeoutMs: 5_000,
+  },
 };
 
 const COMPLETED: TurnResult = {

@@ -16,7 +16,7 @@
     "smoke": "vitest run --config vitest.smoke.config.ts",
     "e2e": "pnpm --filter @boldare/chatdock run build && pnpm --filter chatdock-starter run build && playwright test",
     "check:packages": "pnpm --filter \"./packages/*\" run check:package",
-    "check": "pnpm lint && pnpm --filter @boldare/chatdock run build:assets && pnpm typecheck && pnpm test && pnpm build && pnpm check:packages",
+    "check": "pnpm lint && pnpm build && pnpm typecheck && pnpm test && pnpm check:packages",
     "changeset": "changeset",
     "release": "pnpm build && changeset publish",
     "prepare": "lefthook install && pnpm --filter @boldare/chatdock run build:assets"
