@@ -1132,8 +1132,9 @@
     letter-spacing: -0.03em;
   }
 
-  /* Without **bold** words the headline stays in one weight. */
-  :root[data-cd-preset="aura"] [data-cd-part="greeting"]:has(strong) {
+  /* Without **bold** words the headline stays in one weight. Only the large hero headline may
+     be this pale; elsewhere the greeting is body text and keeps full contrast. */
+  :root[data-cd-preset="aura"] [data-layout="hero"] [data-cd-part="greeting"]:has(strong) {
     color: color-mix(in srgb, var(--cd-color-text) 58%, var(--cd-color-background));
     font-weight: 500;
   }
@@ -1148,9 +1149,26 @@
     backdrop-filter: none;
   }
 
+  /* Raspberry into violet. The dark scheme's accent is light, so there the gradient ends on a
+     deeper shade of it, keeping white text readable (see contrast.test.ts). */
+  :root[data-cd-preset="aura"] {
+    --cd-aura-gradient-end: var(--cd-color-accent);
+  }
+
+  :root[data-cd-preset="aura"][data-cd-scheme="dark"] {
+    --cd-aura-gradient-end: color-mix(in srgb, var(--cd-color-accent) 55%, #000);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root[data-cd-preset="aura"][data-cd-scheme="auto"] {
+      --cd-aura-gradient-end: color-mix(in srgb, var(--cd-color-accent) 55%, #000);
+    }
+  }
+
   :root[data-cd-preset="aura"] [data-cd-part="message"][data-role="user"] [data-cd-part="bubble"],
   :root[data-cd-preset="aura"] [data-cd-part="send"] {
-    background: linear-gradient(115deg, var(--cd-color-user-bubble), var(--cd-color-accent));
+    background: linear-gradient(115deg, var(--cd-color-user-bubble), var(--cd-aura-gradient-end));
+    color: var(--cd-color-on-user-bubble);
   }
 
   :root[data-cd-preset="aura"] [data-cd-part="message"][data-role="user"] [data-cd-part="bubble"] {

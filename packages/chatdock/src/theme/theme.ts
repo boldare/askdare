@@ -12,7 +12,7 @@ export type ColorScheme = 'auto' | 'light' | 'dark';
 
 /** A theme built on a preset. Create it with {@link defineTheme} to share it between bots. */
 export interface ThemeDefinition {
-  /** Preset to start from. Default `halo`. */
+  /** Preset to start from. Default `aura`. */
   readonly extends?: PresetName;
   /** Brand color for buttons, links and your own messages; text on it is picked for contrast. */
   readonly accent?: string;

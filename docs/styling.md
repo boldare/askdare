@@ -98,7 +98,7 @@ Your CSS loads after the theme. The library's styles are in `@layer chatdock`, s
 
 An inline chat loads with the page without taking focus or scrolling to itself.
 
-In a React app, Next.js included, add the script after hydration, for example from a `useEffect` in a small client component. The loader adds the chat inside your element, and React must not find it there while it hydrates. The starter's [`chat-script.tsx`](../examples/starter/app/chat-script.tsx) does this.
+In a React app, Next.js included, add the script after hydration, for example from a `useEffect` in a small client component. The loader adds the chat inside your element, and React must not find it there while it hydrates. The starter's [`chat-script.tsx`](../examples/starter/app/chat-script.tsx) does this. The chat loads once per page load and lives as long as its element: put the element in a layout that stays, or link to the page with full page loads, because a client-side navigation away and back leaves the element empty.
 
 ## Accessibility
 
