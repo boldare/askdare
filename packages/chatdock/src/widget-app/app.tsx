@@ -3,6 +3,7 @@ import type { ProtocolEvent } from '../protocol/events';
 import type { EmbedConfig } from '../server/embed-page';
 import type { ChatClient } from './chat-client';
 import type { HostBridge } from './host-bridge';
+import { Markdown } from './markdown';
 
 interface Citation {
   readonly index: number;
@@ -152,7 +153,9 @@ export function App({ config, client, bridge }: AppProps) {
             data-role={message.role}
             data-status={message.status}
           >
-            <div data-cd-part="bubble">{message.text}</div>
+            <div data-cd-part="bubble">
+              {message.role === 'assistant' ? <Markdown text={message.text} /> : message.text}
+            </div>
             {message.citations.length > 0 && (
               <ol data-cd-part="citations" aria-label="Sources">
                 {message.citations.map((citation) => (
