@@ -1,0 +1,35 @@
+# ADR-0007: Tooling
+
+- **Status:** Accepted. Packaging details to be confirmed by spike S2.
+- **Date:** 2026-10-29
+
+## Decision
+
+| Area | Choice | Notes |
+|---|---|---|
+| Workspace | pnpm 12 workspaces | No Turborepo or Nx: 2–3 workspaces don't need an orchestrator |
+| Library build | tsdown | Every client entry starts with `'use client'`, checked in CI. tsup is unmaintained. |
+| iframe app and loader | Vite 8 | Library mode. The output is inlined into the package as string modules. |
+| TypeScript | Typecheck with TS 7 (`tsgo`); `isolatedDeclarations` | TS 6.0 only where a tool needs the compiler's JavaScript API |
+| Lint and format | Biome 2.6 | Import restrictions enforce module boundaries; for example, only `src/openai/` may import `openai`. |
+| Unit and integration tests | Vitest 5 + MSW 3 | Recorded Responses API SSE fixtures are replayed with `http.post` handlers |
+| End-to-end tests | Playwright 1.64 | Two origins (app and host page), axe checks, visual regression on the state gallery |
+| Package quality | publint, `@arethetypeswrong/cli`, size-limit, `.d.ts` snapshot, no-leak test | Loader under 5 KB gzipped |
+| Release | Changesets 3, npm trusted publishing (OIDC) with provenance | No npm token stored anywhere |
+| CI and maintenance | GitHub Actions, Renovate (`openai` updates batched weekly), CodeQL, gitleaks | Nightly canary and daily live smoke (ADR-0006) |
+
+### AI-assisted development
+
+- **`.mcp.json`** holds read-only servers only:
+  - the OpenAI Docs MCP (`https://developers.openai.com/mcp`);
+  - `next-devtools-mcp`, pinned to a version.
+- **Skills** are vetted before use and pinned, kept in `.claude/skills/` with a `skills-lock.json`.
+- **Project skills:** `typescript-conventions`, `openai-api`, `release`, `adr`.
+- **`CLAUDE.md`** at the root. `examples/starter/CLAUDE.md` imports the `AGENTS.md` that `next dev` generates.
+- **Servers with account write access** (Vercel, Heroku, Upstash) are configured in local or user scope only, never in the repo.
+
+## Alternatives considered
+
+- **Turborepo or Nx.** Overkill at this size.
+- **ESLint 10 with flat config.** Fine, but Biome covers lint and format in one fast tool.
+- **API Extractor.** Deferred; the `.d.ts` snapshot plus the no-leak test cover the risk for now.
