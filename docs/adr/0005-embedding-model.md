@@ -13,7 +13,7 @@ v1 used an iframe, but it had a broken script API, `postMessage('*')` and no ori
 
 - **Loader:**
   - A `<script>` loader under 5 KB gzipped, served at `/api/chat/widget.js`.
-  - There is a hashed, immutable URL that supports SRI, plus an unhashed alias cached briefly (`max-age=300, stale-while-revalidate`).
+  - It is served with short caching (`max-age=300, stale-while-revalidate`). A hashed, immutable URL with SRI support is planned for step 4.4.
   - It renders the launcher in a shadow root, which host CSS can style through `::part`.
   - It creates the iframe lazily, on first open.
 - **iframe:**
@@ -22,8 +22,9 @@ v1 used an iframe, but it had a broken script API, `postMessage('*')` and no ori
   - The API is same-origin with the iframe, so **no CORS** is needed.
 - **Headers** on the embed response:
   - `Content-Security-Policy: frame-ancestors <per-bot allowlist>`;
-  - `Permissions-Policy: microphone=(self)`.
-- **iframe attributes:** `allow="microphone; clipboard-write"`, a `title`, `referrerpolicy="strict-origin"`.
+  - `Permissions-Policy` that disables camera, geolocation and, until voice input lands (step 3.5), the microphone;
+  - `Cross-Origin-Opener-Policy: same-origin`.
+- **iframe attributes:** `allow="clipboard-write"` (plus `microphone` once voice input lands), a `title`, `referrerpolicy="strict-origin"`.
 - **Handshake:**
   1. The loader knows the app origin from `script.src`.
   2. After `load`, it posts `init` with an explicit `targetOrigin` and transfers a `MessagePort`.
