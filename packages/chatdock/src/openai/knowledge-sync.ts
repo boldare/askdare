@@ -15,6 +15,8 @@ const SUPPORTED = new Set([
   '.htm',
   '.json',
 ]);
+/** File search only knows these spellings, so such files are uploaded under the known one. */
+const UPLOAD_EXTENSIONS: Readonly<Record<string, string>> = { '.mdx': '.md', '.htm': '.html' };
 /** Optional per-file titles and URLs, for files without front matter (PDFs, Word…). */
 export const MANIFEST = 'chatdock.kb.json';
 const MAX_ATTRIBUTE = 512;
@@ -30,6 +32,8 @@ export interface LocalDocument {
 
 export interface RemoteDocument {
   readonly fileId: string;
+  /** Only `completed` copies are searchable; anything else is replaced. */
+  readonly status: string;
   readonly path: string | undefined;
   readonly sha256: string | undefined;
   readonly title: string | undefined;
@@ -133,7 +137,9 @@ export function planSync(
   for (const document of local) {
     const copies = byPath.get(document.path) ?? [];
     byPath.delete(document.path);
-    const keep = copies.find((copy) => copy.sha256 === document.sha256);
+    const keep = copies.find(
+      (copy) => copy.sha256 === document.sha256 && copy.status === 'completed',
+    );
     remove.push(...copies.filter((copy) => copy !== keep));
     if (!keep) upload.push(document);
     else if (keep.title !== document.title || keep.url !== document.url) {
@@ -193,6 +199,7 @@ export async function syncKnowledge(client: OpenAI, options: SyncOptions): Promi
     for await (const file of client.vectorStores.files.list(vectorStoreId, { limit: 100 })) {
       remote.push({
         fileId: file.id,
+        status: file.status,
         path: text(file.attributes?.['path']),
         sha256: text(file.attributes?.['sha256']),
         title: text(file.attributes?.['title']),
@@ -213,21 +220,38 @@ export async function syncKnowledge(client: OpenAI, options: SyncOptions): Promi
   const failed: { path: string; reason: string }[] = [];
 
   await inBatches(plan.upload, 4, async (document) => {
-    const file = await client.files.create({
-      file: await toFile(await readFile(document.absolutePath), basename(document.path)),
-      purpose: 'assistants',
-    });
-    const attached = await client.vectorStores.files.createAndPoll(storeId, {
-      file_id: file.id,
-      attributes: attributesOf(document),
-    });
-    if (attached.status === 'completed') {
-      log(`+ ${document.path}`);
-      return;
+    const extension = extname(document.path);
+    const name = `${basename(document.path, extension)}${UPLOAD_EXTENSIONS[extension.toLowerCase()] ?? extension}`;
+    let fileId: string | undefined;
+    try {
+      fileId = (
+        await client.files.create({
+          file: await toFile(await readFile(document.absolutePath), name),
+          purpose: 'assistants',
+        })
+      ).id;
+      const attached = await client.vectorStores.files.createAndPoll(storeId, {
+        file_id: fileId,
+        attributes: attributesOf(document),
+      });
+      if (attached.status === 'completed') {
+        log(`+ ${document.path}`);
+        return;
+      }
+      failed.push({ path: document.path, reason: attached.last_error?.message ?? attached.status });
+    } catch (error) {
+      // One bad file must not stop the rest of the sync.
+      failed.push({
+        path: document.path,
+        reason: error instanceof Error ? error.message : String(error),
+      });
     }
-    failed.push({ path: document.path, reason: attached.last_error?.message ?? attached.status });
-    await client.vectorStores.files.delete(file.id, { vector_store_id: storeId }).catch(() => {});
-    await client.files.delete(file.id).catch(() => {});
+    // Files with purpose `assistants` never expire, so don't leave a failed one behind.
+    if (fileId) {
+      const id = fileId;
+      await client.vectorStores.files.delete(id, { vector_store_id: storeId }).catch(() => {});
+      await client.files.delete(id).catch(() => {});
+    }
   });
   await inBatches(plan.retag, 4, async ({ document, fileId }) => {
     await client.vectorStores.files.update(fileId, {

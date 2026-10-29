@@ -29,6 +29,7 @@ const remote = (
   extra: Partial<RemoteDocument> = {},
 ): RemoteDocument => ({
   fileId,
+  status: 'completed',
   path,
   sha256,
   title: path,
@@ -56,6 +57,12 @@ describe('planSync', () => {
     expect(plan.remove.map((item) => item.fileId).sort()).toEqual(['f-gone', 'f-old']);
   });
 
+  it('replaces a copy that never finished processing', () => {
+    const plan = planSync([doc('a.md', '1')], [remote('f-a', 'a.md', '1', { status: 'failed' })]);
+    expect(plan.upload.map((item) => item.path)).toEqual(['a.md']);
+    expect(plan.remove.map((item) => item.fileId)).toEqual(['f-a']);
+  });
+
   it('only retags when the title or URL changed', () => {
     const plan = planSync(
       [doc('a.md', '1', { title: 'Pricing', url: 'https://example.com/pricing' })],
@@ -75,6 +82,7 @@ describe('planSync', () => {
         remote('f-2', 'a.md', '1'),
         {
           fileId: 'f-foreign',
+          status: 'completed',
           path: undefined,
           sha256: undefined,
           title: undefined,
@@ -164,9 +172,13 @@ describe('syncKnowledge', () => {
           status: 'completed',
         });
       }),
-      http.post(`${OPENAI_TEST_BASE_URL}/files`, () => {
+      http.post(`${OPENAI_TEST_BASE_URL}/files`, async ({ request }) => {
+        const file = (await request.formData()).get('file') as File;
+        if (file.name.startsWith('broken')) {
+          return HttpResponse.json({ error: { message: 'Bad file' } }, { status: 400 });
+        }
         uploads += 1;
-        record(`upload file-${uploads}`);
+        record(`upload file-${uploads} as ${file.name}`);
         return HttpResponse.json({
           id: `file-${uploads}`,
           object: 'file',
@@ -181,6 +193,9 @@ describe('syncKnowledge', () => {
             file_id: string;
             attributes: Record<string, string>;
           };
+          if (body.attributes['path'] === 'flaky.md') {
+            return HttpResponse.json({ error: { message: 'Overloaded' } }, { status: 500 });
+          }
           record(`attach ${body.file_id} ${body.attributes['path']}`);
           storeFiles.push({
             id: body.file_id,
@@ -235,7 +250,7 @@ describe('syncKnowledge', () => {
     await writeFile(join(root, 'faq.md'), '---\ntitle: FAQ\n---\nQ&A');
     const first = await syncKnowledge(client, { root });
     expect(first).toMatchObject({ vectorStoreId: 'vs_new', created: true, failed: [] });
-    expect(calls).toEqual(['create store', 'upload file-1', 'attach file-1 faq.md']);
+    expect(calls).toEqual(['create store', 'upload file-1 as faq.md', 'attach file-1 faq.md']);
 
     calls = [];
     const second = await syncKnowledge(client, { root, vectorStoreId: 'vs_1' });
@@ -262,7 +277,7 @@ describe('syncKnowledge', () => {
     await syncKnowledge(client, { root, vectorStoreId: 'vs_1' });
     expect(calls).toEqual(
       expect.arrayContaining([
-        'upload file-1',
+        'upload file-1 as faq.md',
         'attach file-1 faq.md',
         'detach file-old',
         'delete file-old',
@@ -270,6 +285,24 @@ describe('syncKnowledge', () => {
         'delete file-gone',
       ]),
     );
+  });
+
+  it('keeps going when a file fails, cleans it up, and uploads .mdx and .htm under known names', async () => {
+    await writeFile(join(root, 'broken.md'), 'x');
+    await writeFile(join(root, 'flaky.md'), 'y');
+    await writeFile(join(root, 'guide.mdx'), 'z');
+    await writeFile(join(root, 'page.htm'), '<p>hi</p>');
+    const result = await syncKnowledge(client, { root, vectorStoreId: 'vs_1' });
+    expect(result.failed.map((failure) => failure.path).sort()).toEqual(['broken.md', 'flaky.md']);
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^upload file-\d as guide\.md$/),
+        expect.stringMatching(/^upload file-\d as page\.html$/),
+        expect.stringMatching(/^attach file-\d guide\.mdx$/),
+      ]),
+    );
+    const flaky = calls.find((call) => call.endsWith('as flaky.md'))?.split(' ')[1];
+    expect(calls).toContain(`delete ${flaky}`);
   });
 
   it('changes nothing in a dry run', async () => {

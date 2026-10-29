@@ -46,8 +46,12 @@ export function createOpenAIGateway(options: OpenAIGatewayOptions): ModelGateway
     async deleteConversation(conversationId, deleteOptions) {
       try {
         // Collected first: once the conversation is gone, its items can no longer be listed.
+        // A failed listing must not keep the conversation alive; its files then simply expire.
         const fileIds = deleteOptions?.withFiles
-          ? await attachedFileIds(client, conversationId)
+          ? await attachedFileIds(client, conversationId).catch((error: unknown) => {
+              if (error instanceof NotFoundError) throw error;
+              return [];
+            })
           : [];
         await client.conversations.delete(conversationId);
         await deleteFiles(client, fileIds);

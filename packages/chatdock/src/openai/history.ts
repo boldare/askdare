@@ -76,6 +76,9 @@ export async function listHistory(
     signal ? { signal } : undefined,
   );
   const sources: KnowledgeSources = new Map();
-  for (const item of page.data) if (item.type === 'file_search_call') addSources(item, sources);
+  // Oldest first, so the newest search results win when a file was retagged in between.
+  for (const item of page.data.toReversed()) {
+    if (item.type === 'file_search_call') addSources(item, sources);
+  }
   return page.data.flatMap((item) => toHistoryMessage(item, sources) ?? []).reverse();
 }

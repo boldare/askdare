@@ -131,6 +131,23 @@ describe('deleteConversation', () => {
   });
 });
 
+describe('deleteConversation when listing fails', () => {
+  it('still deletes the conversation and leaves the files to expire', async () => {
+    let deleted = false;
+    server.use(
+      http.get(`${OPENAI_TEST_BASE_URL}/conversations/conv_x/items`, () =>
+        HttpResponse.json({ error: { message: 'boom' } }, { status: 500 }),
+      ),
+      http.delete(`${OPENAI_TEST_BASE_URL}/conversations/conv_x`, () => {
+        deleted = true;
+        return HttpResponse.json({ id: 'conv_x', deleted: true, object: 'conversation.deleted' });
+      }),
+    );
+    await gateway.deleteConversation('conv_x', { withFiles: true });
+    expect(deleted).toBe(true);
+  });
+});
+
 describe('uploadFile', () => {
   it('stores the file as user_data that expires after 30 days', async () => {
     let form: FormData | undefined;
