@@ -18,6 +18,8 @@ export default defineConfig({
     emptyOutDir: true,
     target: 'es2022',
     minify: true,
+    // Library builds keep whitespace in ES output; this app is never bundled again, so drop it.
+    rolldownOptions: { output: { minify: true } },
     sourcemap: false,
     cssCodeSplit: false,
     lib: {

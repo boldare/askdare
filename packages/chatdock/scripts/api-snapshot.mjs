@@ -9,12 +9,8 @@ const pkg = join(dirname(fileURLToPath(import.meta.url)), '..');
 const snapshotFile = join(pkg, 'api', 'chatdock.api.txt');
 const update = process.argv.includes('--update');
 
-/** Chunk names carry a content hash, and source maps a comment: neither is API. */
-const normalize = (text) =>
-  text
-    .replaceAll(/(\b[a-z][\w-]*)-[A-Za-z0-9_-]{8}(\.d\.ts|\.js)/g, '$1-*$2')
-    .replaceAll(/^\/\/# sourceMappingURL=.*$/gm, '')
-    .trimEnd();
+/** Source map comments aren't API. (Chunk names carry no hash: tsdown `hash: false`.) */
+const normalize = (text) => text.replaceAll(/^\/\/# sourceMappingURL=.*$/gm, '').trimEnd();
 
 const files = (await readdir(join(pkg, 'dist')))
   .filter((file) => file.endsWith('.d.ts'))

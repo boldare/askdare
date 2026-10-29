@@ -1,5 +1,5 @@
 // ==== index.d.ts ====
-import { S as VisitorIdentity, _ as ThemeDefinition, a as BotContext, b as ThemeTokens, c as BotSecurity, d as defineBot, f as Tool, g as ColorScheme, h as defineTool, i as Bot, l as KnowledgeConfig, m as ToolDefinition, n as RateLimitStore, o as BotDefinition, p as ToolContext, r as AttachmentConfig, s as BotLimits, t as CounterHit, u as WidgetConfig, v as defineTheme, x as ThemeVariants, y as PresetName } from "./store-*.js";
+import { S as VisitorIdentity, _ as ThemeDefinition, a as BotContext, b as ThemeTokens, c as BotSecurity, d as defineBot, f as Tool, g as ColorScheme, h as defineTool, i as Bot, l as KnowledgeConfig, m as ToolDefinition, n as RateLimitStore, o as BotDefinition, p as ToolContext, r as AttachmentConfig, s as BotLimits, t as CounterHit, u as WidgetConfig, v as defineTheme, x as ThemeVariants, y as PresetName } from "./store.js";
 /**
  * Version of the SSE wire protocol between the chatdock server and its clients.
  * Bumped on any breaking change to event names or payloads (ADR-0006).
@@ -8,7 +8,7 @@ export declare const PROTOCOL_VERSION: 1;
 export { type AttachmentConfig, type Bot, type BotContext, type BotDefinition, type BotLimits, type BotSecurity, type ColorScheme, type CounterHit, type KnowledgeConfig, type PresetName, type RateLimitStore, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type VisitorIdentity, type WidgetConfig, defineBot, defineTheme, defineTool };
 
 // ==== next.d.ts ====
-import { i as Bot, n as RateLimitStore } from "./store-*.js";
+import { i as Bot, n as RateLimitStore } from "./store.js";
 /**
  * Which proxy to trust when reading the client IP:
  * - `vercel`: Vercel overwrites `x-forwarded-for` and sets `x-real-ip`, so both are reliable.
@@ -76,7 +76,7 @@ interface ChatHandlers {
 export declare function createChatHandler(options: ChatHandlerOptions): ChatHandlers;
 export type { ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlers, RouteHandler, TrustProxy };
 
-// ==== store-*.d.ts ====
+// ==== store.d.ts ====
 import { z } from "zod";
 /**
  * Every text the widget shows. The keys are public API (ADR-0008): override any of them with
