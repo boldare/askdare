@@ -748,6 +748,9 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
                 disabled={!canSend}
               >
                 <SendIcon />
+                <span data-cd-part="send-label" aria-hidden="true">
+                  {t('composer.send')}
+                </span>
               </button>
             </>
           ) : (

@@ -22,13 +22,14 @@ defineBot({
     locale: 'auto', // the page's language, else the visitor's browser
     texts: { 'composer.placeholder': 'Ask about plans, support or security…' },
     disclosure: { privacyUrl: 'https://www.example.com/privacy' },
-    theme: 'halo', // see docs/themes.md
+    theme: 'aura', // see docs/themes.md
     colorScheme: 'auto',
   },
 });
 ```
 
 - **Language.** Texts ship in English and Polish. `locale: 'auto'` follows the `lang` of the page that embeds the chat, else the visitor's browser; any other language shows English unless you set `texts`. The locale is also the default answer language.
+- **Bold words.** In a greeting, `**words**` are shown in bold. Aura uses this for its two-weight headline.
 - **Texts.** Every text has a key; `texts` overrides any of them. `title`, `greeting`, `placeholder` and `launcherLabel` are shortcuts for `header.title`, `welcome.greeting`, `composer.placeholder` and `launcher.label`, and a configured text is used in every language. The full list is in [`src/i18n/texts.ts`](../packages/chatdock/src/i18n/texts.ts); the keys are public API. Plural keys end in `.one`, `.few`, `.many` or `.other`.
 - **Disclosure.** By default the chat says, under the message field, that the visitor is talking to an AI (EU AI Act, art. 50). Add `privacyUrl` for a link to your privacy policy. `disclosure: false` hides it; only do that when your page already says so.
 
@@ -48,7 +49,7 @@ Your CSS loads after the theme. The library's styles are in `@layer chatdock`, s
 
 **Tokens:** the `--cd-*` variables listed in [Themes](themes.md#tokens).
 
-**Parts** (`[data-cd-part="…"]`, public API): `panel`, `header`, `identity`, `title`, `subtitle`, `actions`, `new-conversation`, `close`, `avatar`, `orb`, `messages`, `welcome`, `greeting`, `starters`, `starter`, `persona`, `persona-name`, `presence`, `intro`, `intro-card`, `message`, `message-body`, `bubble`, `typing`, `citations`, `citation`, `attachments-note`, `status`, `error`, `composer`, `composer-box`, `input`, `attach`, `voice`, `send`, `attachments`, `message-attachments`, `attachment`, `attachment-preview`, `attachment-badge`, `attachment-name`, `attachment-status`, `attachment-remove`, `recorder`, `recorder-level`, `recorder-label`, `recorder-time`, `recorder-cancel`, `recorder-done`, `disclosure`.
+**Parts** (`[data-cd-part="…"]`, public API): `panel`, `header`, `identity`, `title`, `subtitle`, `actions`, `new-conversation`, `close`, `avatar`, `orb`, `messages`, `welcome`, `greeting`, `starters`, `starter`, `persona`, `persona-name`, `presence`, `intro`, `intro-card`, `message`, `message-body`, `bubble`, `typing`, `citations`, `citation`, `attachments-note`, `status`, `error`, `composer`, `composer-box`, `input`, `attach`, `voice`, `send`, `attachments`, `message-attachments`, `attachment`, `attachment-preview`, `attachment-badge`, `attachment-name`, `attachment-status`, `attachment-remove`, `recorder`, `recorder-level`, `recorder-label`, `recorder-time`, `recorder-cancel`, `recorder-done`, `send-label` (shown by Aura), `disclosure`.
 
 **States:** `message[data-role="user|assistant"]`, `message[data-status="streaming|done|error"]`, `attachment[data-status="uploading|ready|error"]`, `recorder[data-state="recording|transcribing"]`, `panel[data-busy]` while the assistant works, `avatar[data-kind="orb|icon|initials|image"]`, `welcome[data-layout="hero|persona|intro"]`.
 
@@ -96,6 +97,8 @@ Your CSS loads after the theme. The library's styles are in `@layer chatdock`, s
 ```
 
 An inline chat loads with the page without taking focus or scrolling to itself.
+
+In a React app, Next.js included, add the script after hydration, for example from a `useEffect` in a small client component. The loader adds the chat inside your element, and React must not find it there while it hydrates. The starter's [`chat-script.tsx`](../examples/starter/app/chat-script.tsx) does this. The chat loads once per page load and lives as long as its element: put the element in a layout that stays, or link to the page with full page loads, because a client-side navigation away and back leaves the element empty.
 
 ## Accessibility
 

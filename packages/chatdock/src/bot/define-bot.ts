@@ -127,7 +127,7 @@ export interface WidgetConfig {
   readonly avatar?: string;
   /** Text on the pill launcher; shortcut for `texts['launcher.label']`. */
   readonly launcherLabel?: string;
-  /** Built-in look (`halo`, `aura`, `sage`, `care`) or a theme from `defineTheme`. Default `halo`. */
+  /** Built-in look (`halo`, `aura`, `sage`, `care`) or a theme from `defineTheme`. Default `aura`. */
   readonly theme?: PresetName | ThemeDefinition;
   /** Default `auto`: follows the visitor's system setting. */
   readonly colorScheme?: ColorScheme;

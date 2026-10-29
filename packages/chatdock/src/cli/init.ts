@@ -47,7 +47,7 @@ export const bots = [
     widget: {
       locale: 'auto',
       greeting: 'Hi! How can I help?',
-      theme: 'halo', // halo, aura, sage or care
+      theme: 'aura', // aura, halo, sage or care
     },
     // Knowledge base, tools, attachments, voice and limits: see node_modules/@boldare/chatdock/docs.
   }),

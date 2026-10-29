@@ -6,20 +6,20 @@
  */
 @layer chatdock {
   :root {
-    /* Fallback tokens (Halo, light) until the theme stylesheet loads. */
-    --cd-color-accent: #1f5fe0;
+    /* Fallback tokens (Aura, light) until the theme stylesheet loads. */
+    --cd-color-accent: #6b52e0;
     --cd-color-on-accent: #ffffff;
-    --cd-color-background: #ffffff;
-    --cd-color-surface: #eef3fb;
-    --cd-color-text: #0d1526;
-    --cd-color-muted: #4f5b72;
-    --cd-color-border: #0d15261a;
+    --cd-color-background: #fdfbfd;
+    --cd-color-surface: #f5f0f7;
+    --cd-color-text: #242424;
+    --cd-color-muted: #5f5a68;
+    --cd-color-border: #2424241a;
     --cd-color-danger: #b42318;
     --cd-color-success: #067647;
-    --cd-color-user-bubble: #1f5fe0;
+    --cd-color-user-bubble: #c2386f;
     --cd-color-on-user-bubble: #ffffff;
     --cd-backdrop: none;
-    --cd-orb: radial-gradient(circle at 32% 26%, #ffffff, #8fb5ff 48%, #2c66ec 82%);
+    --cd-orb: radial-gradient(circle at 50% 28%, #ffa3c6, #b8a1f6 60%, #7dd8d0);
     --cd-font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --cd-font-family-heading: var(--cd-font-family);
     --cd-font-size: 15px;
@@ -858,6 +858,11 @@
     transform: translateY(-1px);
   }
 
+  /* Shown by presets with labelled buttons; the button's aria-label already names it. */
+  [data-cd-part="send-label"] {
+    display: none;
+  }
+
   :is([data-cd-part="attach"], [data-cd-part="voice"], [data-cd-part="send"]):disabled {
     opacity: 0.35;
     cursor: default;
@@ -1059,6 +1064,327 @@
     to {
       transform: rotate(360deg);
     }
+  }
+
+  /* ---------- Preset details ----------
+   * Each preset's own touches, written with nothing but parts, tokens and variant attributes:
+   * the same means a site has in widget.css. */
+
+  /* Aura and Halo: suggestions as pills that wrap around the center. */
+  :root:is([data-cd-preset="aura"], [data-cd-preset="halo"]) [data-cd-part="starters"] {
+    flex-flow: row wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  :root:is([data-cd-preset="aura"], [data-cd-preset="halo"]) [data-cd-part="starter"] {
+    width: auto;
+    padding: 7px 14px 7px 11px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+  }
+
+  /* Aura: a glossy bubble above its own reflection, a two-weight headline, a card composer. */
+  :root[data-cd-preset="aura"] [data-cd-part="welcome"][data-layout="hero"] {
+    position: relative;
+    isolation: isolate;
+  }
+
+  :root[data-cd-preset="aura"] [data-cd-part="welcome"][data-layout="hero"]::before {
+    content: "";
+    position: absolute;
+    inset: -6% 0 34%;
+    z-index: -1;
+    background:
+      radial-gradient(
+        circle,
+        color-mix(in srgb, var(--cd-color-text) 9%, transparent) 1px,
+        transparent 1.4px
+      )
+      0 0 / 14px 14px;
+    mask-image: radial-gradient(closest-side, #000 20%, transparent 100%);
+    pointer-events: none;
+  }
+
+  :root[data-cd-preset="aura"]
+    [data-cd-part="welcome"][data-layout="hero"]
+    [data-cd-part="avatar"][data-size="large"] {
+    width: 116px;
+    height: 116px;
+    margin-bottom: 30px;
+    filter: drop-shadow(0 22px 26px color-mix(in srgb, var(--cd-color-accent) 22%, transparent));
+    -webkit-box-reflect: below 6px linear-gradient(transparent 52%, rgb(255 255 255 / 0.42));
+  }
+
+  :root[data-cd-preset="aura"] [data-cd-part="orb"] {
+    box-shadow:
+      inset 0 -10px 22px rgb(255 255 255 / 0.35),
+      inset 0 8px 16px rgb(255 255 255 / 0.65),
+      inset 0 0 0 1px rgb(255 255 255 / 0.5);
+  }
+
+  :root[data-cd-preset="aura"]
+    [data-cd-part="welcome"][data-layout="hero"]
+    [data-cd-part="greeting"] {
+    max-width: 320px;
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+
+  /* Without **bold** words the headline stays in one weight. Only the large hero headline may
+     be this pale; elsewhere the greeting is body text and keeps full contrast. */
+  :root[data-cd-preset="aura"] [data-layout="hero"] [data-cd-part="greeting"]:has(strong) {
+    color: color-mix(in srgb, var(--cd-color-text) 58%, var(--cd-color-background));
+    font-weight: 500;
+  }
+
+  :root[data-cd-preset="aura"] [data-cd-part="greeting"] strong {
+    color: var(--cd-color-text);
+    font-weight: 700;
+  }
+
+  :root[data-cd-preset="aura"] [data-cd-part="starter"] {
+    background: var(--cd-color-background);
+    backdrop-filter: none;
+  }
+
+  /* Raspberry into violet. The dark scheme's accent is light, so there the gradient ends on a
+     deeper shade of it, keeping white text readable (see contrast.test.ts). */
+  :root[data-cd-preset="aura"] {
+    --cd-aura-gradient-end: var(--cd-color-accent);
+  }
+
+  :root[data-cd-preset="aura"][data-cd-scheme="dark"] {
+    --cd-aura-gradient-end: color-mix(in srgb, var(--cd-color-accent) 55%, #000);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root[data-cd-preset="aura"][data-cd-scheme="auto"] {
+      --cd-aura-gradient-end: color-mix(in srgb, var(--cd-color-accent) 55%, #000);
+    }
+  }
+
+  :root[data-cd-preset="aura"] [data-cd-part="message"][data-role="user"] [data-cd-part="bubble"],
+  :root[data-cd-preset="aura"] [data-cd-part="send"] {
+    background: linear-gradient(115deg, var(--cd-color-user-bubble), var(--cd-aura-gradient-end));
+    color: var(--cd-color-on-user-bubble);
+  }
+
+  :root[data-cd-preset="aura"] [data-cd-part="message"][data-role="user"] [data-cd-part="bubble"] {
+    border-radius: 20px 20px 6px;
+  }
+
+  :root[data-cd-preset="aura"] [data-cd-part="composer-box"] {
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 10px 10px 8px;
+    border-radius: 22px;
+  }
+
+  :root[data-cd-preset="aura"] [data-cd-part="input"] {
+    flex: 1 0 100%;
+    order: -1;
+    min-height: 44px;
+    padding: 4px 8px 6px;
+  }
+
+  :root[data-cd-preset="aura"] :is([data-cd-part="attach"], [data-cd-part="voice"]) {
+    width: 34px;
+    height: 32px;
+    border: 1px solid var(--cd-color-border);
+    border-radius: 999px;
+    background: var(--cd-color-background);
+  }
+
+  /* Voice and send sit right; without voice, send does. */
+  :root[data-cd-preset="aura"]
+    :is([data-cd-part="voice"], [data-cd-part="send"]:not([data-cd-part="voice"] ~ *)) {
+    margin-left: auto;
+  }
+
+  :root[data-cd-preset="aura"] [data-cd-part="send"] {
+    display: inline-flex;
+    gap: 6px;
+    width: auto;
+    height: 32px;
+    padding: 0 14px 0 10px;
+    border-radius: 999px;
+  }
+
+  :root[data-cd-preset="aura"] [data-cd-part="send"] svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  :root[data-cd-preset="aura"] [data-cd-part="send-label"] {
+    display: inline;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  /* Halo: a frosted orb in rings of light, a bold question, a round field with a soft blue mic. */
+  :root[data-cd-preset="halo"]
+    [data-cd-part="welcome"][data-layout="hero"]
+    [data-cd-part="avatar"][data-size="large"] {
+    width: 104px;
+    height: 104px;
+    margin: 18px 0 14px;
+    border-radius: 50%;
+    box-shadow:
+      0 0 0 12px color-mix(in srgb, var(--cd-color-accent) 9%, transparent),
+      0 0 0 26px color-mix(in srgb, var(--cd-color-accent) 5%, transparent),
+      0 26px 50px -14px color-mix(in srgb, var(--cd-color-accent) 45%, transparent);
+    filter: none;
+  }
+
+  :root[data-cd-preset="halo"] [data-cd-part="orb"] {
+    box-shadow:
+      inset 0 0 0 2px rgb(255 255 255 / 0.55),
+      inset 0 -12px 24px color-mix(in srgb, var(--cd-color-accent) 35%, transparent),
+      inset 0 10px 18px rgb(255 255 255 / 0.7);
+  }
+
+  :root[data-cd-preset="halo"]
+    [data-cd-part="welcome"][data-layout="hero"]
+    [data-cd-part="greeting"] {
+    font-size: 1.7rem;
+    font-weight: 700;
+    letter-spacing: -0.035em;
+  }
+
+  :root[data-cd-preset="halo"] [data-cd-part="message"][data-role="user"] [data-cd-part="bubble"] {
+    border-radius: 18px 18px 6px;
+  }
+
+  :root[data-cd-preset="halo"] [data-cd-part="composer-box"] {
+    align-items: center;
+    padding: 6px 6px 6px 10px;
+    border-radius: 999px;
+    box-shadow: 0 10px 30px -14px color-mix(in srgb, var(--cd-color-accent) 45%, transparent);
+  }
+
+  :root[data-cd-preset="halo"] :is([data-cd-part="voice"], [data-cd-part="send"]) {
+    width: 40px;
+    height: 40px;
+    background: color-mix(in srgb, var(--cd-color-accent) 15%, var(--cd-color-background));
+    color: var(--cd-color-accent);
+  }
+
+  :root[data-cd-preset="halo"] [data-cd-part="input"] {
+    align-self: center;
+  }
+
+  /* Sage: light type, a mint bubble for the assistant, black pills, the mic beside the field. */
+  :root[data-cd-preset="sage"] [data-cd-part="welcome"][data-layout="persona"] {
+    padding: calc(var(--cd-space) * 2.25);
+    border: 1px solid var(--cd-color-border);
+    border-radius: 26px;
+    background: linear-gradient(
+      160deg,
+      var(--cd-color-background) 30%,
+      color-mix(in srgb, var(--cd-color-surface) 70%, var(--cd-color-background))
+    );
+    box-shadow: var(--cd-shadow);
+  }
+
+  :root[data-cd-preset="sage"] [data-cd-part="persona"] {
+    flex-direction: row-reverse;
+    justify-content: space-between;
+  }
+
+  :root[data-cd-preset="sage"]
+    [data-cd-part="welcome"]
+    [data-cd-part="persona"]
+    [data-cd-part="avatar"][data-size="large"] {
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+  }
+
+  :root[data-cd-preset="sage"] [data-cd-part="persona-name"] {
+    order: 2;
+    margin: 10px 0 0;
+    font-size: 1.9rem;
+    font-weight: 300;
+    letter-spacing: -0.03em;
+  }
+
+  :root[data-cd-preset="sage"] [data-cd-part="persona"] > div {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  :root[data-cd-preset="sage"] [data-cd-part="presence"] {
+    padding: 3px 10px 3px 8px;
+    border-color: transparent;
+    background: var(--cd-color-background);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--cd-color-text) 8%, transparent);
+    color: var(--cd-color-text);
+  }
+
+  :root[data-cd-preset="sage"]
+    [data-cd-part="welcome"][data-layout="persona"]
+    [data-cd-part="greeting"] {
+    color: var(--cd-color-muted);
+    font-weight: 300;
+  }
+
+  :root[data-cd-preset="sage"] [data-cd-part="starters"] {
+    flex-flow: row wrap;
+    gap: 8px;
+  }
+
+  :root[data-cd-preset="sage"] [data-cd-part="starter"] {
+    width: auto;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+  }
+
+  :root[data-cd-preset="sage"] [data-cd-part="starter"] svg {
+    display: none;
+  }
+
+  :root[data-cd-preset="sage"] li:first-child > [data-cd-part="starter"] {
+    border-color: var(--cd-color-accent);
+    background: var(--cd-color-accent);
+    color: var(--cd-color-on-accent);
+  }
+
+  :root[data-cd-preset="sage"] [data-cd-part="message"][data-role="user"] [data-cd-part="bubble"] {
+    border: 1px solid var(--cd-color-border);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--cd-color-text) 6%, transparent);
+  }
+
+  :root[data-cd-preset="sage"] [data-cd-part="composer-box"] {
+    position: relative;
+    align-items: center;
+    padding: 6px 6px 6px 8px;
+    border-radius: 999px;
+  }
+
+  :root[data-cd-preset="sage"] [data-cd-part="composer-box"]:has(> [data-cd-part="voice"]) {
+    margin-right: 54px;
+  }
+
+  :root[data-cd-preset="sage"] [data-cd-part="send"] {
+    width: 40px;
+    height: 40px;
+  }
+
+  :root[data-cd-preset="sage"] [data-cd-part="voice"] {
+    position: absolute;
+    top: 50%;
+    right: -54px;
+    width: 46px;
+    height: 46px;
+    border: 1px solid var(--cd-color-border);
+    background: var(--cd-color-background);
+    box-shadow: var(--cd-shadow);
+    color: var(--cd-color-text);
+    transform: translateY(-50%);
   }
 
   @media (prefers-reduced-motion: reduce) {

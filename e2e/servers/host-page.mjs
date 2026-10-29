@@ -14,6 +14,18 @@ const VARIANTS = {
     <script>document.getElementById('ask').addEventListener('click', () => window.chatdock('open'));</script>`,
   inline: `<div id="chat" style="width: 380px; height: 600px; border: 1px solid #ddd"></div>
     <script src="${SRC}" data-mode="inline" data-target="#chat" async></script>`,
+  // A blocking script before its target: the loader has to wait for the page.
+  early: `<script src="${SRC}" data-mode="inline" data-target="#chat"></script>
+    <div id="chat" style="width: 380px; height: 600px; border: 1px solid #ddd"></div>`,
+  // The same, with a stub call made while the loader waits for the page.
+  'early-queued': `<script>
+      window.chatdock = window.chatdock || function () {
+        (window.chatdock.q = window.chatdock.q || []).push(arguments);
+      };
+    </script>
+    <script src="${SRC}" data-mode="inline" data-target="#chat"></script>
+    <script>window.chatdock('configure', { greeting: 'Configured while the page loaded.' });</script>
+    <div id="chat" style="width: 380px; height: 600px; border: 1px solid #ddd"></div>`,
   queued: `<script>
       window.chatdock = window.chatdock || function () {
         (window.chatdock.q = window.chatdock.q || []).push(arguments);

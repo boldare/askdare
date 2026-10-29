@@ -27,6 +27,19 @@ test('the chat can sit inside an element of the page', async ({ page }) => {
   ).toContainText('You said: Inline hello');
 });
 
+test('an inline chat waits for its element when the script runs first', async ({ page }) => {
+  await page.goto(`${HOST}?variant=early`);
+  await expect(page.frameLocator('#chat iframe').getByRole('textbox')).toBeVisible();
+  await expect(page.locator('[part="launcher"]')).toHaveCount(0);
+});
+
+test('calls made while an inline chat waits for its element still apply', async ({ page }) => {
+  await page.goto(`${HOST}?variant=early-queued`);
+  await expect(
+    page.frameLocator('#chat iframe').getByText('Configured while the page loaded.'),
+  ).toBeVisible();
+});
+
 test('the page sets the greeting, suggestions and its context, and nothing else', async ({
   page,
   request,
