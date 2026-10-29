@@ -47,7 +47,7 @@ const gateway: ModelGateway = {
 };
 
 beforeAll(async () => {
-  tokens = await createTokenService({ secret: 'x'.repeat(40) });
+  tokens = await createTokenService({ secret: 'aGFuZGxlci10ZXN0cy1zZWNyZXQtMTIzNDU2Nzg5MA' });
   handler = createRequestHandler({
     bots: [bot],
     basePath: '/api/chat',
@@ -133,17 +133,19 @@ describe('POST /session', () => {
 
   it('keeps the visitor identity when a valid resume token is presented', async () => {
     const resume = await tokens.issueResume('support', {
-      visitorId: 'v_known',
-      conversationId: 'c',
+      visitorId: `v_${'c3'.repeat(16)}`,
+      conversationId: 'conv_c',
     });
     const access = await session(resume.token);
-    await expect(tokens.verifyAccess(access, 'support')).resolves.toEqual({ visitorId: 'v_known' });
+    await expect(tokens.verifyAccess(access, 'support')).resolves.toEqual({
+      visitorId: `v_${'c3'.repeat(16)}`,
+    });
   });
 
   it('starts a fresh visitor for a forged resume token', async () => {
     const access = await session('forged');
     await expect(tokens.verifyAccess(access, 'support')).resolves.not.toEqual({
-      visitorId: 'v_known',
+      visitorId: `v_${'c3'.repeat(16)}`,
     });
   });
 
@@ -194,10 +196,10 @@ describe('POST /messages', () => {
 
   it('continues a conversation owned by the same visitor', async () => {
     const resume = await tokens.issueResume('support', {
-      visitorId: 'v_owner',
+      visitorId: `v_${'d4'.repeat(16)}`,
       conversationId: 'conv_9',
     });
-    const access = (await tokens.issueAccess('support', 'v_owner')).token;
+    const access = (await tokens.issueAccess('support', `v_${'d4'.repeat(16)}`)).token;
     const response = await handler(
       post(
         '/messages',
@@ -211,10 +213,10 @@ describe('POST /messages', () => {
 
   it("returns 404 for another visitor's conversation", async () => {
     const resume = await tokens.issueResume('support', {
-      visitorId: 'v_owner',
+      visitorId: `v_${'d4'.repeat(16)}`,
       conversationId: 'conv_9',
     });
-    const intruder = (await tokens.issueAccess('support', 'v_intruder')).token;
+    const intruder = (await tokens.issueAccess('support', `v_${'e5'.repeat(16)}`)).token;
     const response = await handler(
       post(
         '/messages',
@@ -273,7 +275,7 @@ describe('limits', () => {
       clientIp: () => 'ip',
       onError: () => {},
     });
-    const access = (await tokens.issueAccess('support', 'v_fast')).token;
+    const access = (await tokens.issueAccess('support', `v_${'f6'.repeat(16)}`)).token;
     const send = () =>
       limited(
         post('/messages', { botId: 'support', text: 'Hi' }, { authorization: `Bearer ${access}` }),
