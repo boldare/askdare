@@ -244,7 +244,7 @@
     cursor: pointer;
   }
 
-  [data-cd-part="attach"] {
+  :is([data-cd-part="attach"], [data-cd-part="voice"]) {
     display: grid;
     place-items: center;
     width: 40px;
@@ -256,7 +256,7 @@
     cursor: pointer;
   }
 
-  [data-cd-part="attach"]:hover:not(:disabled) {
+  :is([data-cd-part="attach"], [data-cd-part="voice"]):hover:not(:disabled) {
     color: var(--cd-color-accent);
   }
 
@@ -343,6 +343,77 @@
     font: inherit;
     font-size: 1.1em;
     cursor: pointer;
+  }
+
+  [data-cd-part="recorder"] {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: var(--cd-space);
+    min-height: 40px;
+    padding: 0 0 0 calc(var(--cd-space) * 1.5);
+    border: 1px solid var(--cd-color-border);
+    border-radius: var(--cd-radius-small);
+  }
+
+  [data-cd-part="recorder-level"] {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--cd-color-danger);
+    transform: scale(calc(0.6 + var(--cd-level, 0) * 0.9));
+    transition: transform 80ms linear;
+  }
+
+  [data-cd-part="recorder"][data-state="transcribing"] [data-cd-part="recorder-level"] {
+    background: var(--cd-color-muted);
+    transform: none;
+  }
+
+  [data-cd-part="recorder-label"] {
+    font-weight: 600;
+  }
+
+  [data-cd-part="recorder-time"] {
+    margin-right: auto;
+    color: var(--cd-color-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  [data-cd-part="recorder"][data-state="transcribing"] [data-cd-part="recorder-label"] {
+    margin-right: auto;
+  }
+
+  [data-cd-part="recorder-cancel"] {
+    align-self: stretch;
+    padding: 0 var(--cd-space);
+    border: 0;
+    background: none;
+    color: var(--cd-color-muted);
+    font: inherit;
+    font-size: 1.2em;
+    cursor: pointer;
+  }
+
+  [data-cd-part="recorder-done"] {
+    align-self: stretch;
+    padding: 0 calc(var(--cd-space) * 2);
+    border: 0;
+    border-radius: var(--cd-radius-small);
+    background: var(--cd-color-accent);
+    color: var(--cd-color-on-accent);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-cd-part="recorder-level"] {
+      transform: none;
+      transition: none;
+      opacity: calc(0.4 + var(--cd-level, 0) * 0.6);
+    }
   }
 
   [data-cd-part="send"]:disabled {

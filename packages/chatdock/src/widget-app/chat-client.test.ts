@@ -135,6 +135,19 @@ describe('ChatClient.upload', () => {
     expect(sessions[1]).toMatchObject({ accessToken: 'tok-1' });
   });
 
+  it('sends a dictation with the language hints and returns the text', async () => {
+    const { fetch, requests } = uploadFetch(() => Response.json({ text: 'Dzień dobry' }));
+    const audio = new Blob([new Uint8Array([1])], { type: 'audio/webm' });
+    await expect(client(fetch).transcribe(audio, ['pl-PL', 'en'])).resolves.toEqual({
+      ok: true,
+      text: 'Dzień dobry',
+    });
+    const [sent] = requests;
+    expect(sent?.url).toBe('/api/chat/transcriptions');
+    expect(sent?.body).toBe(audio);
+    expect(sent?.headers.get('x-chatdock-languages')).toBe('pl-PL,en');
+  });
+
   it("reports the server's message when a file is refused", async () => {
     const { fetch } = uploadFetch(() =>
       Response.json(

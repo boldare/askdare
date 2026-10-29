@@ -13,6 +13,7 @@ import type { ChatClient } from './chat-client';
 import type { HostBridge } from './host-bridge';
 import { Markdown } from './markdown';
 import { acceptTypes, prepareFile } from './prepare-file';
+import { canRecord, MicrophoneError, type Recording, startRecording } from './recorder';
 
 interface Citation {
   readonly index: number;
@@ -50,6 +51,15 @@ interface PendingFile {
 }
 
 const megabytes = (bytes: number): string => `${Math.floor(bytes / 100_000) / 10} MB`;
+
+const clock = (seconds: number): string =>
+  `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+
+const MICROPHONE_MESSAGES: Readonly<Record<MicrophoneError['reason'], string>> = {
+  blocked: 'Microphone access is blocked. Allow it in your browser to dictate.',
+  missing: 'No microphone was found.',
+  failed: 'The microphone could not be started.',
+};
 
 function revokePreviews(files: readonly { readonly previewUrl?: string | undefined }[]): void {
   for (const file of files) if (file.previewUrl) URL.revokeObjectURL(file.previewUrl);
@@ -180,17 +190,37 @@ export function App({ config, client, bridge }: AppProps) {
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const voice = config.voice;
+  const [voiceAvailable] = useState(() => voice !== undefined && canRecord());
+  const [dictation, setDictation] = useState<'idle' | 'recording' | 'transcribing'>('idle');
+  const [elapsed, setElapsed] = useState(0);
+  const recordingRef = useRef<Recording | undefined>(undefined);
+  /** Set while the browser asks for the microphone, so a double click starts one recording. */
+  const startingRef = useRef(false);
+  const levelRef = useRef<HTMLSpanElement>(null);
+  const doneRef = useRef<HTMLButtonElement>(null);
   /** In-flight uploads by pending file key, cancelled when the file is removed. */
   const uploads = useRef(new Map<string, AbortController>());
   const allowed = config.attachments;
 
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent): void => {
-      if (event.key === 'Escape') bridge.close();
+      if (event.key !== 'Escape') return;
+      // While dictating, Escape cancels the recording instead of closing the chat.
+      if (recordingRef.current) {
+        recordingRef.current.cancel();
+        recordingRef.current = undefined;
+        setDictation('idle');
+        return;
+      }
+      bridge.close();
     };
     window.addEventListener('keydown', onKey);
     inputRef.current?.focus();
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      recordingRef.current?.cancel();
+    };
   }, [bridge]);
 
   // Restore the stored conversation once (about 2 s upstream, so show a loading state).
@@ -323,6 +353,68 @@ export function App({ config, client, bridge }: AppProps) {
     setActivity(null);
     setBusy(false);
     inputRef.current?.focus();
+  };
+
+  const finishDictation = async (): Promise<void> => {
+    const recording = recordingRef.current;
+    if (!recording) return;
+    recordingRef.current = undefined;
+    setDictation('transcribing');
+    const audio = await recording.stop();
+    if (audio.size < 1_000) {
+      setDictation('idle');
+      setError('Nothing was recorded. Please try again.');
+      return;
+    }
+    const languages = [...navigator.languages.slice(0, 2), config.widget.locale];
+    const result = await client.transcribe(audio, languages);
+    setDictation('idle');
+    if (!result.ok) {
+      setError(result.message);
+    } else if (result.text) {
+      // Into the field, not sent: the visitor checks the transcript first.
+      setDraft((current) => (current.trim() ? `${current.trimEnd()} ${result.text}` : result.text));
+    }
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
+
+  const startDictation = async (): Promise<void> => {
+    if (!voice || recordingRef.current || startingRef.current) return;
+    setError(undefined);
+    startingRef.current = true;
+    let recording: Recording;
+    try {
+      recording = await startRecording();
+    } catch (error) {
+      setError(MICROPHONE_MESSAGES[error instanceof MicrophoneError ? error.reason : 'failed']);
+      return;
+    } finally {
+      startingRef.current = false;
+    }
+    recordingRef.current = recording;
+    setElapsed(0);
+    setDictation('recording');
+    requestAnimationFrame(() => doneRef.current?.focus());
+    const started = performance.now();
+    const tick = (): void => {
+      if (recordingRef.current !== recording) return;
+      levelRef.current?.style.setProperty('--cd-level', recording.level().toFixed(3));
+      const seconds = (performance.now() - started) / 1000;
+      setElapsed(Math.floor(seconds));
+      if (seconds >= voice.maxSeconds) {
+        void finishDictation();
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
+
+  const cancelDictation = (): void => {
+    recordingRef.current?.cancel();
+    recordingRef.current = undefined;
+    setDictation('idle');
+    requestAnimationFrame(() => inputRef.current?.focus());
   };
 
   const startOver = async (): Promise<void> => {
@@ -490,54 +582,117 @@ export function App({ config, client, bridge }: AppProps) {
         {pending.length > 0 && (
           <FileList files={pending} part="attachments" onRemove={removeFile} />
         )}
-        {allowed && (
+        {dictation === 'idle' ? (
           <>
-            <input
-              ref={fileRef}
-              type="file"
-              hidden
-              multiple
-              accept={acceptTypes(allowed)}
-              onChange={(event) => {
-                addFiles(Array.from(event.target.files ?? []));
-                event.target.value = '';
-              }}
-            />
-            <button
-              type="button"
-              data-cd-part="attach"
-              aria-label="Attach files"
-              title="Attach files"
-              disabled={busy || pending.length >= allowed.maxPerMessage}
-              onClick={() => fileRef.current?.click()}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20">
-                <path
-                  d="M20 11.5 12.2 19.3a5 5 0 0 1-7.1-7.1l8.1-8.1a3.4 3.4 0 0 1 4.8 4.8l-8 8a1.8 1.8 0 0 1-2.6-2.6l7.3-7.3"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+            {allowed && (
+              <>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  hidden
+                  multiple
+                  accept={acceptTypes(allowed)}
+                  onChange={(event) => {
+                    addFiles(Array.from(event.target.files ?? []));
+                    event.target.value = '';
+                  }}
                 />
-              </svg>
+                <button
+                  type="button"
+                  data-cd-part="attach"
+                  aria-label="Attach files"
+                  title="Attach files"
+                  disabled={busy || pending.length >= allowed.maxPerMessage}
+                  onClick={() => fileRef.current?.click()}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20">
+                    <path
+                      d="M20 11.5 12.2 19.3a5 5 0 0 1-7.1-7.1l8.1-8.1a3.4 3.4 0 0 1 4.8 4.8l-8 8a1.8 1.8 0 0 1-2.6-2.6l7.3-7.3"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+              </>
+            )}
+            <textarea
+              ref={inputRef}
+              data-cd-part="input"
+              rows={1}
+              value={draft}
+              placeholder={widget.placeholder}
+              aria-label={widget.placeholder}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={onKeyDown}
+              onPaste={onPaste}
+            />
+            {voiceAvailable && (
+              <button
+                type="button"
+                data-cd-part="voice"
+                aria-label="Dictate a message"
+                title="Dictate a message"
+                onClick={() => void startDictation()}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20">
+                  <rect
+                    x="9"
+                    y="3"
+                    width="6"
+                    height="11"
+                    rx="3"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                  />
+                  <path
+                    d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            )}
+            <button type="submit" data-cd-part="send" disabled={!canSend}>
+              Send
             </button>
           </>
+        ) : (
+          <div data-cd-part="recorder" data-state={dictation}>
+            <span data-cd-part="recorder-level" ref={levelRef} aria-hidden="true" />
+            <span data-cd-part="recorder-label" role="status">
+              {dictation === 'recording' ? 'Listening…' : 'Transcribing…'}
+            </span>
+            {dictation === 'recording' && (
+              <>
+                <span data-cd-part="recorder-time">
+                  {clock(elapsed)} / {clock(voice?.maxSeconds ?? 0)}
+                </span>
+                <button
+                  type="button"
+                  data-cd-part="recorder-cancel"
+                  aria-label="Cancel dictation"
+                  onClick={cancelDictation}
+                >
+                  ×
+                </button>
+                <button
+                  type="button"
+                  data-cd-part="recorder-done"
+                  ref={doneRef}
+                  onClick={() => void finishDictation()}
+                >
+                  Done
+                </button>
+              </>
+            )}
+          </div>
         )}
-        <textarea
-          ref={inputRef}
-          data-cd-part="input"
-          rows={1}
-          value={draft}
-          placeholder={widget.placeholder}
-          aria-label={widget.placeholder}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={onKeyDown}
-          onPaste={onPaste}
-        />
-        <button type="submit" data-cd-part="send" disabled={!canSend}>
-          Send
-        </button>
       </form>
     </div>
   );
