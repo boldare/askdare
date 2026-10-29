@@ -2,9 +2,15 @@ import { existsSync } from 'node:fs';
 import { defineConfig } from 'vitest/config';
 
 // Live tests against real APIs. Run only on demand (`pnpm smoke`), never in `pnpm test`.
-// Secrets come from .env.smoke.local (git-ignored); see docs/live-testing.md.
-const ENV_FILE = '.env.smoke.local';
-if (existsSync(ENV_FILE)) process.loadEnvFile(ENV_FILE);
+// Secrets come from git-ignored env files (see docs/live-testing.md): .env.smoke.local wins,
+// otherwise the starter's own .env is reused so the key exists in one place only.
+for (const file of ['.env.smoke.local', 'examples/starter/.env']) {
+  if (existsSync(file)) {
+    process.loadEnvFile(file);
+    break;
+  }
+}
+process.env['SMOKE_MODEL'] ??= process.env['CHATDOCK_MODEL'];
 
 export default defineConfig({
   test: {

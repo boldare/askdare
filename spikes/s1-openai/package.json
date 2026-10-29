@@ -5,7 +5,7 @@
   "description": "Spike S1: how the OpenAI Responses and Conversations APIs behave for chatdock (ADR-0003).",
   "scripts": {
     "typecheck": "../../node_modules/.bin/tsc -p tsconfig.json",
-    "start": "node --env-file=../../.env.smoke.local s1.ts"
+    "start": "node --env-file-if-exists=../../examples/starter/.env --env-file-if-exists=../../.env.smoke.local s1.ts"
   },
   "dependencies": {
     "openai": "7.45.1"

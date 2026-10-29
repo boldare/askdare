@@ -25,6 +25,8 @@ printf 'OPENAI_API_KEY=%s\nSMOKE_MODEL=%s\n' "$(pbpaste)" "gpt-6.1-terra" > .env
 - `SMOKE_MODEL` must be a current model allowed in the project. Spike S1 sends an image and a PDF and asks for reasoning, so pick one that supports vision.
 - **Never paste the key into an AI chat, an issue or a commit.**
 
+Already set up `examples/starter/.env` (from `.env.example`)? The smoke test and the spikes reuse it when `.env.smoke.local` is absent, with `CHATDOCK_MODEL` as the model, so the key lives in one file only.
+
 ## 3. Run
 
 ```bash

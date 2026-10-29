@@ -3,7 +3,8 @@
  *
  *   pnpm install --ignore-workspace && pnpm start
  *
- * Reads OPENAI_API_KEY and SMOKE_MODEL from ../../.env.smoke.local. Never prints the key.
+ * Reads OPENAI_API_KEY and SMOKE_MODEL (or CHATDOCK_MODEL) from ../../.env.smoke.local or the
+ * starter's .env. Never prints the key.
  * Writes results.json and redacted SSE fixtures, and deletes every resource it creates.
  */
 import { createHash } from 'node:crypto';
@@ -16,7 +17,7 @@ import type {
 } from 'openai/resources/responses/responses';
 import { solidPng, textPdf } from './samples.ts';
 
-const model = process.env['SMOKE_MODEL'];
+const model = process.env['SMOKE_MODEL'] ?? process.env['CHATDOCK_MODEL'];
 if (!process.env['OPENAI_API_KEY'] || !model) {
   console.error('Set OPENAI_API_KEY and SMOKE_MODEL in .env.smoke.local (see docs/live-testing.md).');
   process.exit(1);
