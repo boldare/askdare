@@ -5,6 +5,9 @@ const ISSUER = 'chatdock';
 const ACCESS_TYP = 'chatdock-access+jwt';
 const RESUME_TYP = 'chatdock-resume+jwt';
 const MIN_SECRET_LENGTH = 32;
+const MIN_DISTINCT_CHARACTERS = 12;
+const VISITOR_ID = /^v_[0-9a-f]{32}$/;
+const CONVERSATION_ID = /^conv_[A-Za-z0-9_-]{1,128}$/;
 const encoder = new TextEncoder();
 
 export interface TokenServiceOptions {
@@ -54,9 +57,9 @@ interface DerivedKey {
 }
 
 async function deriveKey(secret: string): Promise<DerivedKey> {
-  if (secret.length < MIN_SECRET_LENGTH) {
+  if (secret.length < MIN_SECRET_LENGTH || new Set(secret).size < MIN_DISTINCT_CHARACTERS) {
     throw new TypeError(
-      `[chatdock] CHAT_SECRET must be at least ${MIN_SECRET_LENGTH} characters (use \`openssl rand -base64 32\`).`,
+      `[chatdock] CHAT_SECRET must be at least ${MIN_SECRET_LENGTH} random characters (use \`openssl rand -base64 32\`).`,
     );
   }
   const material = await crypto.subtle.importKey('raw', encoder.encode(secret), 'HKDF', false, [
@@ -108,7 +111,14 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
   }
 
   async function verify(token: string, typ: string, botId: string) {
-    return jwtDecrypt(token, (header) => keys.get(header.kid ?? '') ?? new Uint8Array(32), {
+    // Never fall back to a default key: with `dir`, any fixed key would let anyone mint tokens.
+    const resolveKey = (header: { kid?: string | undefined }): Uint8Array => {
+      const key = header.kid === undefined ? undefined : keys.get(header.kid);
+      if (!key) throw new errors.JWEDecryptionFailed();
+      return key;
+    };
+    return jwtDecrypt(token, resolveKey, {
+      requiredClaims: ['exp', 'iat', 'sub'],
       issuer: ISSUER,
       audience: botId,
       typ,
@@ -124,7 +134,9 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
     async verifyAccess(token, botId) {
       try {
         const { payload } = await verify(token, ACCESS_TYP, botId);
-        if (typeof payload.sub !== 'string') throw new ChatdockError('unauthorized');
+        if (typeof payload.sub !== 'string' || !VISITOR_ID.test(payload.sub)) {
+          throw new ChatdockError('unauthorized');
+        }
         return { visitorId: payload.sub };
       } catch (error) {
         if (error instanceof errors.JWTExpired) {
@@ -140,10 +152,16 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
     async verifyResume(token, botId) {
       try {
         const { payload } = await verify(token, RESUME_TYP, botId);
-        if (typeof payload.sub !== 'string' || typeof payload['cid'] !== 'string') {
+        const cid = payload['cid'];
+        if (
+          typeof payload.sub !== 'string' ||
+          !VISITOR_ID.test(payload.sub) ||
+          typeof cid !== 'string' ||
+          !CONVERSATION_ID.test(cid)
+        ) {
           throw new ChatdockError('not_found');
         }
-        return { visitorId: payload.sub, conversationId: payload['cid'] };
+        return { visitorId: payload.sub, conversationId: cid };
       } catch (error) {
         throw new ChatdockError('not_found', { cause: error });
       }

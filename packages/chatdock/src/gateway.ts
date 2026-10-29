@@ -35,7 +35,7 @@ export interface TurnResult {
  * `src/openai/`; nothing else may depend on the `openai` package (ADR-0002).
  */
 export interface ModelGateway {
-  createConversation(metadata: ConversationMetadata): Promise<string>;
+  createConversation(metadata: ConversationMetadata, signal?: AbortSignal): Promise<string>;
   deleteConversation(conversationId: string): Promise<void>;
   runTurn(request: TurnRequest): Promise<TurnResult>;
 }

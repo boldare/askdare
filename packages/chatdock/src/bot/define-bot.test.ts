@@ -10,7 +10,9 @@ describe('defineBot', () => {
       maxSteps: 5,
       turnTimeoutMs: 120_000,
       dailyTokens: 2_000_000,
-      sessionsPerIpPerHour: 20,
+      dailyTokensPerIp: 200_000,
+      sessionsPerIpPerHour: 30,
+      conversationsPerIpPerHour: 20,
       messagesPerVisitorPerMinute: 10,
       messagesPerIpPerMinute: 30,
       maxTurns: 50,
@@ -64,7 +66,7 @@ describe('defineBot', () => {
         instructions: 'x',
         security: { allowedOrigins: ['https://*.example.com'] },
       },
-      /security\.allowedOrigins\.0 must be an origin/,
+      /security\.allowedOrigins\.0 must be an https origin/,
     ],
     [
       {
@@ -73,9 +75,18 @@ describe('defineBot', () => {
         instructions: 'x',
         security: { allowedOrigins: ['https://example.com/path'] },
       },
-      /must be an origin/,
+      /must be an https origin/,
     ],
     [{ id: 'ok', model: 'm', instructions: 'x', widget: { locale: 'english please' } }, /BCP 47/],
+    [
+      {
+        id: 'ok',
+        model: 'm',
+        instructions: 'x',
+        security: { allowedOrigins: ['http://www.example.com'] },
+      },
+      /https origin/,
+    ],
   ])('rejects invalid definitions (%#)', (definition, message) => {
     expect(() => defineBot(definition)).toThrow(message);
   });

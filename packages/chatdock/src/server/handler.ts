@@ -41,10 +41,6 @@ const messageBody = z.object({
     .regex(/^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/)
     .max(35)
     .optional(),
-  pageUrl: z
-    .url({ protocol: /^https?$/ })
-    .max(2048)
-    .optional(),
 });
 
 function jsonResponse(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
@@ -69,23 +65,53 @@ function errorResponse(error: ChatdockError): Response {
   );
 }
 
-/** Browsers always send Origin on POST; reject anything that is not our own host. */
+/**
+ * Defense in depth only: browsers can't reach the API cross-origin anyway, because JSON bodies need
+ * a CORS preflight we never grant. Compares Origin with the Host header, which proxies set, never
+ * with X-Forwarded-Host, which clients control.
+ */
 function assertSameOrigin(request: Request): void {
+  const denied = (): ChatdockError =>
+    new ChatdockError('unauthorized', { message: 'Cross-origin requests are not allowed.' });
+  if (request.headers.get('sec-fetch-site') === 'cross-site') throw denied();
   const origin = request.headers.get('origin');
   if (origin === null) return;
-  const host =
-    request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() ??
-    request.headers.get('host') ??
-    new URL(request.url).host;
+  const host = request.headers.get('host') ?? new URL(request.url).host;
   let originHost: string;
   try {
     originHost = new URL(origin).host;
   } catch {
-    throw new ChatdockError('unauthorized', { message: 'Cross-origin requests are not allowed.' });
+    throw denied();
   }
-  if (originHost !== host) {
-    throw new ChatdockError('unauthorized', { message: 'Cross-origin requests are not allowed.' });
+  if (originHost !== host) throw denied();
+}
+
+/** Reads at most `limit` bytes and cancels the upload as soon as it grows past the limit. */
+async function readBody(request: Request, limit: number): Promise<string> {
+  const tooLarge = (): ChatdockError =>
+    new ChatdockError('invalid_input', { message: 'Request body is too large.' });
+  if (Number(request.headers.get('content-length') ?? 0) > limit) throw tooLarge();
+  if (!request.body) return '';
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > limit) {
+      await reader.cancel();
+      throw tooLarge();
+    }
+    chunks.push(value);
   }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
 }
 
 async function readJson<T>(request: Request, schema: z.ZodType<T>): Promise<T> {
@@ -93,14 +119,7 @@ async function readJson<T>(request: Request, schema: z.ZodType<T>): Promise<T> {
   if (!contentType.toLowerCase().startsWith('application/json')) {
     throw new ChatdockError('invalid_input', { message: 'Expected an application/json body.' });
   }
-  const declared = Number(request.headers.get('content-length') ?? 0);
-  if (declared > MAX_BODY_BYTES) {
-    throw new ChatdockError('invalid_input', { message: 'Request body is too large.' });
-  }
-  const text = await request.text();
-  if (text.length > MAX_BODY_BYTES) {
-    throw new ChatdockError('invalid_input', { message: 'Request body is too large.' });
-  }
+  const text = await readBody(request, MAX_BODY_BYTES);
   let json: unknown;
   try {
     json = JSON.parse(text);
@@ -153,6 +172,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
         'Content-Security-Policy': embedContentSecurityPolicy(bot),
         'Permissions-Policy': 'camera=(), geolocation=(), microphone=()',
         'Referrer-Policy': 'strict-origin',
+        'Cross-Origin-Opener-Policy': 'same-origin',
         'X-Content-Type-Options': 'nosniff',
         ...NO_STORE,
       },
@@ -182,18 +202,22 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     assertSameOrigin(request);
     const body = await readJson(request, sessionBody);
     const bot = findBot(body.botId);
-    await config.limits.checkSession(bot, config.clientIp(request));
     const tokens = await config.tokens();
-    let visitorId = newVisitorId();
-    let resumable = false;
+    let returningVisitorId: string | undefined;
     if (body.resumeToken) {
       try {
-        visitorId = (await tokens.verifyResume(body.resumeToken, bot.id)).visitorId;
-        resumable = true;
+        returningVisitorId = (await tokens.verifyResume(body.resumeToken, bot.id)).visitorId;
       } catch {
         // A stale or forged handle just starts a fresh visitor.
       }
     }
+    // Renewals by returning visitors count per visitor, so people behind one NAT don't lock each other out.
+    await config.limits.checkSession(bot, {
+      clientIp: config.clientIp(request),
+      returningVisitorId,
+    });
+    const visitorId = returningVisitorId ?? newVisitorId();
+    const resumable = returningVisitorId !== undefined;
     const access = await tokens.issueAccess(bot.id, visitorId);
     return jsonResponse({ accessToken: access.token, expiresAt: access.expiresAt, resumable });
   };
@@ -216,25 +240,25 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
         message: `Messages must be between 1 and ${bot.limits.maxInputChars} characters.`,
       });
     }
-    await config.limits.checkMessage(bot, {
+    const context = { locale: body.locale ?? bot.widget.locale };
+    const reservation = await config.limits.beginTurn(bot, {
       clientIp: config.clientIp(request),
       visitorId,
       conversationId,
+      inputChars: text.length + bot.instructions(context).length,
     });
     const stream = streamTurn({
       gateway: config.gateway(),
       bot,
       text,
-      context: { locale: body.locale ?? bot.widget.locale, pageUrl: body.pageUrl },
+      context,
       visitorId,
       conversationId,
       signal: request.signal,
       issueResumeToken: async (id) =>
         (await tokens.issueResume(bot.id, { visitorId, conversationId: id })).token,
-      onUsage: (usage) => {
-        config.limits
-          .recordUsage(bot, usage)
-          .catch((error: unknown) => report(toChatdockError(error)));
+      onUsage: (usage, id) => {
+        reservation.settle(usage, id).catch((error: unknown) => report(toChatdockError(error)));
       },
       onError: report,
       heartbeatIntervalMs: config.heartbeatIntervalMs,

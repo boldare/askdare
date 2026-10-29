@@ -98,7 +98,7 @@ describe('streamTurn', () => {
       { type: 'message.end', messageId: 'id_2', reason: 'completed' },
     ]);
     expect(gateway.created).toEqual(['support/visitor-1']);
-    expect(onUsage).toHaveBeenCalledWith(COMPLETED.usage);
+    expect(onUsage).toHaveBeenCalledWith(COMPLETED.usage, 'conv_new');
   });
 
   it('continues an existing conversation without creating a new one', async () => {

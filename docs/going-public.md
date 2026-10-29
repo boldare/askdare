@@ -29,7 +29,7 @@ openssl rand -base64 32   # use the output as CHAT_SECRET
 ## 3. Bot configuration
 
 - **`security.allowedOrigins`:** the exact sites allowed to embed the widget, such as `https://www.example.com`. No paths and no wildcards. The app's own origin is always allowed.
-- **`limits`:** start with the defaults and tune `dailyTokens` to your budget. The daily token budget is the main cost control; the OpenAI hard limit is the backstop.
+- **`limits`:** start with the defaults and tune `dailyTokens` (per bot) and `dailyTokensPerIp` to your budget. Add `limits: { globalDailyTokens }` to `createChatHandler` to cap all bots together. These budgets are the main cost control; the OpenAI hard limit is the backstop.
 - **Instructions:** they must contain **no secrets**. Assume visitors can make the model reveal them.
 
 ## 4. Rate limits across instances
@@ -48,6 +48,7 @@ export const { GET, POST, DELETE } = createChatHandler({
 **Client IP:**
 - The client IP comes from proxy headers. The default `trustProxy: 'auto'` detects Vercel and assumes one proxy otherwise, which matches Heroku.
 - Behind additional proxies (a CDN in front of Heroku, for example), set `trustProxy` to the number of proxies.
+- **Never expose `next start` directly to the internet.** Without a proxy that sets `X-Forwarded-For`, clients choose their own IP and per-IP limits stop working.
 
 ## 5. Hosting
 

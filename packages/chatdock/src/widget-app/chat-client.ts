@@ -181,6 +181,8 @@ export class ChatClient {
           if (!result.ok) continue;
           if (result.event.type === 'conversation.created') {
             this.#options.storage.set(this.#resumeKey, result.event.resumeToken);
+          } else if (result.event.type === 'error' && result.event.code === 'not_found') {
+            this.reset(); // the conversation is gone (e.g. deleted by retention): start a new one
           }
           onEvent(result.event);
         }
