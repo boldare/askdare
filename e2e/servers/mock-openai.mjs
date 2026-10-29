@@ -11,6 +11,8 @@ let nextFile = 1;
 const files = new Set();
 /** Each streamed reply and whether the caller read it to the end or hung up. */
 const replies = [];
+/** Instructions of every model request (tests run in parallel), to see what reached the model. */
+const instructions = [];
 
 // Same shape as the live API's answer for a deleted conversation (spike S1, E11).
 const notFound = (response, id) =>
@@ -91,6 +93,7 @@ createServer(async (request, response) => {
   }
   if (request.method === 'POST' && pathname === '/v1/responses') {
     const body = await readJson(request);
+    instructions.push(body.instructions ?? '');
     const items = conversations.get(body.conversation);
     if (!items) return notFound(response, body.conversation);
     const content = body.input?.[0]?.content ?? '';
@@ -156,6 +159,9 @@ createServer(async (request, response) => {
     return json(response, 200, [...files]);
   if (request.method === 'GET' && pathname === '/debug/replies')
     return json(response, 200, replies);
+  if (request.method === 'GET' && pathname === '/debug/instructions') {
+    return json(response, 200, instructions);
+  }
   if (request.method === 'DELETE' && pathname.startsWith('/v1/conversations/')) {
     const id = pathname.split('/').at(-1);
     conversations.delete(id);

@@ -30,6 +30,8 @@ export const bots = [
     voice: { model: process.env.CHATDOCK_TRANSCRIBE_MODEL ?? 'gpt-transcribe' },
     security: { allowedOrigins },
     widget: {
+      // The language of the page that embeds the chat; English and Polish texts are built in.
+      locale: 'auto',
       title: 'Brightloop assistant',
       subtitle: 'Answers from our help center',
       greeting: 'Hi! Ask me about Brightloop plans, support or security.',
