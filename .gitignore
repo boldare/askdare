@@ -24,3 +24,6 @@ test-results/
 # chatdock build artifacts
 packages/chatdock/.assets/
 packages/chatdock/src/generated/
+
+# Next.js
+next-env.d.ts
