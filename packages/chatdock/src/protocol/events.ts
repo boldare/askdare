@@ -1,5 +1,3 @@
-import { z } from 'zod';
-
 /** Stable error codes sent to clients. The accompanying message never contains internals. */
 export const ERROR_CODES = [
   'invalid_input',
@@ -114,48 +112,3 @@ export type ProtocolEvent =
   | ToolStatusEvent
   | MessageEndEvent
   | ErrorEvent;
-
-const messageId = z.string().min(1).max(128);
-
-/** Runtime validator for events received over the wire. */
-export const protocolEventSchema: z.ZodType<ProtocolEvent> = z.discriminatedUnion('type', [
-  z.object({
-    type: z.literal('conversation.created'),
-    resumeToken: z.string().min(1),
-  }),
-  z.object({ type: z.literal('user.ack'), messageId }),
-  z.object({ type: z.literal('message.start'), messageId }),
-  z.object({
-    type: z.literal('reasoning'),
-    messageId,
-    state: z.enum(['started', 'done']),
-  }),
-  z.object({ type: z.literal('text.delta'), messageId, delta: z.string() }),
-  z.object({
-    type: z.literal('citation'),
-    messageId,
-    index: z.number().int().min(1),
-    title: z.string().min(1),
-    url: z.url({ protocol: /^https?$/ }).optional(),
-  }),
-  z.object({
-    type: z.literal('tool.status'),
-    messageId,
-    callId: z.string().min(1).max(128),
-    name: z.string().min(1).max(64),
-    state: z.enum(['running', 'done', 'error']),
-  }),
-  z.object({
-    type: z.literal('message.end'),
-    messageId,
-    reason: z.enum(MESSAGE_END_REASONS),
-  }),
-  z.object({
-    type: z.literal('error'),
-    code: z.enum(ERROR_CODES),
-    message: z.string().max(500),
-    retryAfterMs: z.number().int().min(0).optional(),
-    key: z.string().max(64).optional(),
-    params: z.record(z.string().max(32), z.union([z.string().max(200), z.number()])).optional(),
-  }),
-]);

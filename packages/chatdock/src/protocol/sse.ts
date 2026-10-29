@@ -1,4 +1,5 @@
-import { PROTOCOL_EVENT_TYPES, type ProtocolEvent, protocolEventSchema } from './events';
+import { PROTOCOL_EVENT_TYPES, type ProtocolEvent } from './events';
+import { parseEvent } from './validate';
 
 /** One event as framed on the wire, before protocol validation. */
 export interface RawSseEvent {
@@ -40,11 +41,11 @@ export function decodeEvent(raw: RawSseEvent): DecodeResult {
   } catch {
     return { ok: false, reason: 'invalid_json', type: raw.event };
   }
-  const parsed = protocolEventSchema.safeParse(json);
-  if (!parsed.success || parsed.data.type !== raw.event) {
+  const event = parseEvent(json);
+  if (!event || event.type !== raw.event) {
     return { ok: false, reason: 'invalid_payload', type: raw.event };
   }
-  return { ok: true, event: parsed.data };
+  return { ok: true, event };
 }
 
 /**

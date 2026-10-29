@@ -1,6 +1,7 @@
 import type { ErrorCode, ProtocolEvent } from '../protocol/events';
-import { type HistoryMessage, historyResponseSchema } from '../protocol/history';
+import type { HistoryMessage } from '../protocol/history';
 import { decodeEvent, SseParser } from '../protocol/sse';
+import { parseHistory } from '../protocol/validate';
 import { PROTOCOL_HEADER, PROTOCOL_VERSION } from '../protocol/version';
 import type { SafeStorage } from './storage';
 
@@ -177,8 +178,7 @@ export class ChatClient {
       return [];
     }
     if (!response.ok) throw new Error(`History request failed with ${response.status}`);
-    const parsed = historyResponseSchema.safeParse(await response.json());
-    return parsed.success ? parsed.data.messages : [];
+    return parseHistory(await response.json())?.messages ?? [];
   }
 
   /** Deletes the conversation on the server (best effort) and forgets it in this browser. */
