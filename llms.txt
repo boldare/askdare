@@ -1,0 +1,21 @@
+# chatdock
+
+> `@boldare/chatdock` adds an AI chatbot to any website. A Next.js 16 app (App Router, Node.js runtime) serves the chat from one catch-all route; other sites embed it with one `<script>` tag. Built on the official `openai` SDK (Responses and Conversations APIs); no database.
+
+Set it up with `npx @boldare/chatdock init` and verify it with `npx @boldare/chatdock doctor`. The public API is `defineBot`, `defineTool` and `defineTheme` from `@boldare/chatdock`, `createChatHandler` from `@boldare/chatdock/next`, the `data-*` attributes of the script tag, `chatdock(…)` on the page, the `--cd-*` CSS tokens, the `data-cd-part` names and the text keys. Everything else is internal.
+
+## Docs
+
+- [Getting started](docs/getting-started.md): install, `init`, `.env.local`, `doctor`, embedding on other sites
+- [Tools](docs/tools.md): `defineTool`, Zod schemas, what a tool may trust
+- [Knowledge base](docs/knowledge-base.md): `chatdock kb sync`, vector stores, citations
+- [Attachments](docs/attachments.md): images and PDFs from visitors
+- [Voice input](docs/voice-input.md): dictation and its limits
+- [Styling](docs/styling.md): texts, languages, AI disclosure, custom CSS, `chatdock('open' | 'configure')`, inline mode
+- [Themes](docs/themes.md): Halo, Aura, Sage and Care, tokens and variants
+- [Deployment](docs/deployment.md): Vercel, Heroku, proxies, shared limits
+- [Going public](docs/going-public.md): OpenAI project, secrets, limits, privacy checklist
+
+## Optional
+
+- [Streaming protocol](docs/protocol.md): the SSE events between the server and the chat

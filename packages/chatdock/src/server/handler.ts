@@ -11,6 +11,7 @@ import { ChatdockError, type ChatdockErrorOptions, toChatdockError } from '../er
 import type { ModelGateway, TurnAttachment } from '../gateway';
 import { canonicalLocale } from '../i18n/texts';
 import type { Limits } from '../limits/limits';
+import type { DoctorReport } from '../protocol/doctor';
 import { newVisitorId, type TokenService } from '../security/tokens';
 import { PRESET_NAMES, type PresetName } from '../theme/presets';
 import { type ColorScheme, type ResolvedTheme, resolveTheme } from '../theme/theme';
@@ -47,6 +48,8 @@ export interface HandlerConfig {
   readonly gallery?: boolean | undefined;
   /** `next dev`: browsers revalidate the loader, so a changed launcher shows on the next reload. */
   readonly development?: boolean | undefined;
+  /** Whether the limits store is shared across instances; reported by `chatdock doctor`. */
+  readonly sharedLimits?: boolean | undefined;
   /** Keeps a turn running after its response ends, e.g. Next.js `after`; see `streamTurn`. */
   readonly waitUntil?: ((work: Promise<unknown>) => void) | undefined;
 }
@@ -657,6 +660,54 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     return new Response(null, { status: 204, headers: NO_STORE });
   };
 
+  /**
+   * `chatdock doctor`: live checks of every bot with this server's key and config. Only for
+   * callers that know CHAT_SECRET; one run at a time, since each makes a few OpenAI requests.
+   */
+  let doctorRunning = false;
+  const runDoctor = async (request: Request): Promise<Response> => {
+    await (await config.tokens()).verifyDoctor(bearerToken(request));
+    // The kill switch stops it too, and the shared store bounds runs across instances.
+    await config.limits.checkDoctor();
+    if (doctorRunning) throw new ChatdockError('rate_limited', { retryAfterMs: 5_000 });
+    doctorRunning = true;
+    try {
+      let gateway: ModelGateway | undefined;
+      try {
+        gateway = config.gateway();
+      } catch {
+        // Reported per bot below.
+      }
+      const bots: DoctorReport['bots'][number][] = [];
+      for (const bot of config.bots) {
+        const checks = gateway
+          ? await gateway.diagnose({
+              model: bot.model,
+              vectorStoreId: bot.knowledge?.vectorStoreId,
+              transcriptionModel: bot.voice?.model,
+              attachments: bot.attachments !== undefined,
+            })
+          : [
+              {
+                status: 'fail' as const,
+                title: 'OPENAI_API_KEY is not set where the app runs.',
+                fix: "Add the key of the bot's OpenAI project to the app's environment.",
+              },
+            ];
+        bots.push({ id: bot.id, checks });
+      }
+      const report: DoctorReport = {
+        development: config.development === true,
+        sharedLimits: config.sharedLimits === true,
+        gallery: config.gallery === true,
+        bots,
+      };
+      return jsonResponse(report, 200, NO_STORE);
+    } finally {
+      doctorRunning = false;
+    }
+  };
+
   const route = async (request: Request): Promise<Response> => {
     const { pathname } = new URL(request.url);
     if (!pathname.startsWith(`${config.basePath}/`)) throw new ChatdockError('not_found');
@@ -678,6 +729,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       if (path === '/history') return readHistory(request);
       if (path === '/attachments') return uploadAttachment(request);
       if (path === '/transcriptions') return transcribe(request);
+      if (path === '/doctor') return runDoctor(request);
     } else if (method === 'DELETE') {
       if (path === '/conversation') return deleteConversation(request);
     }

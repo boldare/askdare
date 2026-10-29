@@ -6,22 +6,34 @@
 
 It succeeds [`@boldare/openai-assistant`](https://github.com/boldare/openai-assistant), which stopped working when OpenAI shut down the Assistants API on 2026-08-26. chatdock is a new, independent project built on the Responses API.
 
-## What it will do (0.1)
+## What it does
 
 - **Embed anywhere:** a tiny loader script plus an isolated iframe, with a per-site allowlist.
 - **Secure by default:** short-lived session tokens, rate limits, daily spend budgets, sanitized output.
 - **Knowledge base:** answers from your files via OpenAI file search, with citations linking to your pages.
 - **Tools:** your own functions, defined with Zod schemas and validated end to end.
 - **Attachments and images**, plus **voice input** (speech to text).
-- **No database required:** conversations live in the OpenAI Conversations API. Add-ons are planned for teams that need their own storage.
-- **Looks good out of the box:** four themes (Halo, Aura, Sage, Care) in light and dark. Every part can be customized, from configuration up to fully custom UI.
+- **No database required:** conversations live in the OpenAI Conversations API.
+- **Looks good out of the box:** four themes (Halo, Aura, Sage, Care) in light and dark, English and Polish texts, and everything customizable from configuration to your own CSS.
 
-## Planned usage
+## Quick start
+
+In a Next.js 16 app with the App Router:
+
+```bash
+npm install @boldare/chatdock zod
+npx @boldare/chatdock init      # route, bot config, .env.local and the chat script
+# set OPENAI_API_KEY and CHATDOCK_MODEL in .env.local
+npm run dev
+npx @boldare/chatdock doctor    # checks the key, model, permissions and headers
+```
+
+The whole integration is two files:
 
 ```ts
 // app/api/chat/[...path]/route.ts
 import { createChatHandler } from '@boldare/chatdock/next';
-import { bots } from '@/chatdock.config';
+import { bots } from '../../../../chatdock.config';
 
 export const maxDuration = 300;
 export const { GET, POST, DELETE } = createChatHandler({ bots });
@@ -30,6 +42,18 @@ export const { GET, POST, DELETE } = createChatHandler({ bots });
 ```html
 <script src="https://your-app.example.com/api/chat/widget.js?bot=support" async></script>
 ```
+
+[Getting started](docs/getting-started.md) walks through it step by step.
+
+## Documentation
+
+- [Getting started](docs/getting-started.md)
+- [Knowledge base](docs/knowledge-base.md), [Tools](docs/tools.md), [Attachments](docs/attachments.md), [Voice input](docs/voice-input.md)
+- [Styling](docs/styling.md) and [Themes](docs/themes.md)
+- [Deployment](docs/deployment.md) to Vercel and Heroku, and the [going-public checklist](docs/going-public.md)
+- [Threat model](THREAT_MODEL.md) and [streaming protocol](docs/protocol.md)
+
+For AI coding agents: [`llms.txt`](llms.txt), and the [`chatdock` skill](skills/chatdock/SKILL.md). The docs also ship in the package, under `node_modules/@boldare/chatdock/docs/`.
 
 ## Design decisions
 

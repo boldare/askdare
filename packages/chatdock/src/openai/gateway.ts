@@ -1,6 +1,7 @@
 import OpenAI, { BadRequestError, NotFoundError, toFile } from 'openai';
 import type { ModelGateway } from '../gateway';
 import { attachedFileIds, deleteFiles, FILE_TTL_SECONDS } from './attachments';
+import { diagnoseBot } from './diagnose';
 import { fromOpenAIError } from './errors';
 import { listHistory } from './history';
 import { runTurn } from './turn';
@@ -114,5 +115,7 @@ export function createOpenAIGateway(options: OpenAIGatewayOptions): ModelGateway
     },
 
     runTurn: (request) => runTurn(client, request),
+
+    diagnose: (request) => diagnoseBot(client, request),
   };
 }

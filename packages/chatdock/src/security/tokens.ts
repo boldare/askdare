@@ -6,6 +6,9 @@ const ISSUER = 'chatdock';
 const ACCESS_TYP = 'chatdock-access+jwt';
 const RESUME_TYP = 'chatdock-resume+jwt';
 const ATTACHMENT_TYP = 'chatdock-attachment+jwt';
+const DOCTOR_TYP = 'chatdock-doctor+jwt';
+const DOCTOR_AUDIENCE = 'chatdock-doctor';
+const DOCTOR_TTL_SECONDS = 120;
 const MIN_SECRET_LENGTH = 32;
 const MIN_DISTINCT_CHARACTERS = 12;
 const VISITOR_ID = /^v_[0-9a-f]{32}$/;
@@ -73,6 +76,10 @@ export interface TokenService {
   issueAttachment(botId: string, grant: AttachmentGrant): Promise<IssuedToken>;
   /** Throws `invalid_input` for a forged, expired or foreign handle, and for raw file IDs. */
   verifyAttachment(token: string, botId: string): Promise<AttachmentGrant>;
+  /** A 2-minute token with which `chatdock doctor` proves it knows `CHAT_SECRET`. */
+  issueDoctor(): Promise<IssuedToken>;
+  /** Throws `unauthorized`. */
+  verifyDoctor(token: string): Promise<void>;
 }
 
 interface DerivedKey {
@@ -239,6 +246,16 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
         throw invalid();
       }
       return { visitorId: payload.sub, fileId: fid, kind: knd, tokens: est };
+    },
+
+    issueDoctor: () => issue(DOCTOR_TYP, DOCTOR_AUDIENCE, 'doctor', DOCTOR_TTL_SECONDS),
+
+    async verifyDoctor(token) {
+      try {
+        await verify(token, DOCTOR_TYP, DOCTOR_AUDIENCE);
+      } catch {
+        throw new ChatdockError('unauthorized');
+      }
     },
   };
 }
