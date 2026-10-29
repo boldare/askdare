@@ -4,4 +4,4 @@ This project adopts the [Contributor Covenant, version 2.1](https://www.contribu
 
 ## Reporting
 
-Report unacceptable behaviour to the project maintainers at **<conduct contact: to be set before publication>**. All reports are reviewed promptly and kept confidential.
+Report unacceptable behaviour to the project maintainers at **hello@boldare.com** (please use the subject "chatdock: code of conduct"). All reports are reviewed promptly and kept confidential.
