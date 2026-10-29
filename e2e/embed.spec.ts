@@ -132,7 +132,16 @@ test('dictates into the message field without sending', async ({ page }) => {
   await expect(chat.getByRole('status').filter({ hasText: 'Listening…' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(chat.getByRole('textbox')).toHaveValue('Mock transcript');
+  await expect(chat.getByRole('textbox')).toBeFocused();
   await expect(page.locator('iframe[title="Chat"]')).toBeVisible();
+
+  // Closing the chat stops a dictation: nothing is recorded while the panel is hidden.
+  await chat.getByRole('button', { name: 'Dictate a message' }).click();
+  await expect(chat.getByRole('status').filter({ hasText: 'Listening…' })).toBeVisible();
+  await page.locator('[part="launcher"]').click();
+  await page.locator('[part="launcher"]').click();
+  await expect(chat.getByRole('status').filter({ hasText: 'Listening…' })).toHaveCount(0);
+  await expect(chat.getByRole('textbox')).toHaveValue('Mock transcript');
 });
 
 test('finishes a reply after the visitor leaves mid-answer', async ({ page, request }) => {

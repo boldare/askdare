@@ -2,6 +2,7 @@ import {
   type ClipboardEvent,
   type FormEvent,
   type KeyboardEvent,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -197,31 +198,49 @@ export function App({ config, client, bridge }: AppProps) {
   const recordingRef = useRef<Recording | undefined>(undefined);
   /** Set while the browser asks for the microphone, so a double click starts one recording. */
   const startingRef = useRef(false);
+  /** Ends the dictation at maxSeconds; a timer, because animation frames stop in hidden frames. */
+  const limitRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const levelRef = useRef<HTMLSpanElement>(null);
   const doneRef = useRef<HTMLButtonElement>(null);
   /** In-flight uploads by pending file key, cancelled when the file is removed. */
   const uploads = useRef(new Map<string, AbortController>());
   const allowed = config.attachments;
 
+  /** Stops a dictation and throws the audio away. Stable, so effects can depend on it. */
+  const discardRecording = useCallback((): void => {
+    clearTimeout(limitRef.current);
+    recordingRef.current?.cancel();
+    recordingRef.current = undefined;
+    setDictation('idle');
+  }, []);
+
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent): void => {
       if (event.key !== 'Escape') return;
       // While dictating, Escape cancels the recording instead of closing the chat.
       if (recordingRef.current) {
-        recordingRef.current.cancel();
-        recordingRef.current = undefined;
-        setDictation('idle');
+        discardRecording();
+        requestAnimationFrame(() => inputRef.current?.focus());
         return;
       }
       bridge.close();
     };
+    // Never keep the microphone on in a chat the visitor can't see.
+    const onHidden = (): void => discardRecording();
+    const onVisibility = (): void => {
+      if (document.visibilityState === 'hidden') discardRecording();
+    };
     window.addEventListener('keydown', onKey);
+    document.addEventListener('visibilitychange', onVisibility);
+    const unsubscribe = bridge.onHidden(onHidden);
     inputRef.current?.focus();
     return () => {
       window.removeEventListener('keydown', onKey);
-      recordingRef.current?.cancel();
+      document.removeEventListener('visibilitychange', onVisibility);
+      unsubscribe();
+      discardRecording();
     };
-  }, [bridge]);
+  }, [bridge, discardRecording]);
 
   // Restore the stored conversation once (about 2 s upstream, so show a loading state).
   useEffect(() => {
@@ -359,6 +378,7 @@ export function App({ config, client, bridge }: AppProps) {
     const recording = recordingRef.current;
     if (!recording) return;
     recordingRef.current = undefined;
+    clearTimeout(limitRef.current);
     setDictation('transcribing');
     const audio = await recording.stop();
     if (audio.size < 1_000) {
@@ -384,7 +404,7 @@ export function App({ config, client, bridge }: AppProps) {
     startingRef.current = true;
     let recording: Recording;
     try {
-      recording = await startRecording();
+      recording = await startRecording(voice.maxSeconds);
     } catch (error) {
       setError(MICROPHONE_MESSAGES[error instanceof MicrophoneError ? error.reason : 'failed']);
       return;
@@ -395,25 +415,20 @@ export function App({ config, client, bridge }: AppProps) {
     setElapsed(0);
     setDictation('recording');
     requestAnimationFrame(() => doneRef.current?.focus());
+    limitRef.current = setTimeout(() => void finishDictation(), voice.maxSeconds * 1000);
     const started = performance.now();
+    // Only the meter and the clock follow animation frames.
     const tick = (): void => {
       if (recordingRef.current !== recording) return;
       levelRef.current?.style.setProperty('--cd-level', recording.level().toFixed(3));
-      const seconds = (performance.now() - started) / 1000;
-      setElapsed(Math.floor(seconds));
-      if (seconds >= voice.maxSeconds) {
-        void finishDictation();
-        return;
-      }
+      setElapsed(Math.min(voice.maxSeconds, Math.floor((performance.now() - started) / 1000)));
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
   };
 
   const cancelDictation = (): void => {
-    recordingRef.current?.cancel();
-    recordingRef.current = undefined;
-    setDictation('idle');
+    discardRecording();
     requestAnimationFrame(() => inputRef.current?.focus());
   };
 
@@ -506,7 +521,10 @@ export function App({ config, client, bridge }: AppProps) {
               type="button"
               data-cd-part="close"
               aria-label="Close chat"
-              onClick={() => bridge.close()}
+              onClick={() => {
+                discardRecording();
+                bridge.close();
+              }}
             >
               ×
             </button>

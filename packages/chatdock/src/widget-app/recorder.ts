@@ -41,8 +41,11 @@ export interface Recording {
   cancel(): void;
 }
 
-/** Asks for the microphone and starts recording. Throws {@link MicrophoneError}. */
-export async function startRecording(): Promise<Recording> {
+/**
+ * Asks for the microphone and starts recording. Recording stops by itself after `maxSeconds`,
+ * even in a hidden frame. Throws {@link MicrophoneError}.
+ */
+export async function startRecording(maxSeconds: number): Promise<Recording> {
   const mimeType = recordingMimeType();
   if (!mimeType) throw new MicrophoneError('failed');
   let stream: MediaStream;
@@ -61,6 +64,15 @@ export async function startRecording(): Promise<Recording> {
     throw new MicrophoneError('failed', { cause: error });
   }
 
+  try {
+    return record(stream, mimeType, maxSeconds);
+  } catch (error) {
+    for (const track of stream.getTracks()) track.stop();
+    throw new MicrophoneError('failed', { cause: error });
+  }
+}
+
+function record(stream: MediaStream, mimeType: string, maxSeconds: number): Recording {
   const recorder = new MediaRecorder(stream, { mimeType, audioBitsPerSecond: BITS_PER_SECOND });
   const chunks: Blob[] = [];
   recorder.addEventListener('dataavailable', (event) => {
@@ -78,10 +90,13 @@ export async function startRecording(): Promise<Recording> {
     for (const track of stream.getTracks()) track.stop();
     void context.close();
   };
+  let limit: ReturnType<typeof setTimeout> | undefined;
   const halt = (): void => {
+    clearTimeout(limit);
     if (recorder.state !== 'inactive') recorder.stop();
   };
   recorder.start(250);
+  limit = setTimeout(halt, maxSeconds * 1000);
 
   return {
     level() {
