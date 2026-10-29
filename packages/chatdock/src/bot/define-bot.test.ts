@@ -48,6 +48,19 @@ describe('defineBot', () => {
     });
   });
 
+  it('defaults knowledge search to 5 results and allows no knowledge base', () => {
+    const bot = defineBot({
+      id: 'a',
+      model: 'm',
+      instructions: 'x',
+      knowledge: { vectorStoreId: 'vs_1' },
+    });
+    expect(bot.knowledge).toEqual({ vectorStoreId: 'vs_1', maxResults: 5 });
+    expect(
+      defineBot({ id: 'a', model: 'm', instructions: 'x', knowledge: undefined }).knowledge,
+    ).toBeUndefined();
+  });
+
   it('is frozen', () => {
     const bot = defineBot({ id: 'a', model: 'm', instructions: 'x' });
     expect(Object.isFrozen(bot)).toBe(true);
@@ -78,6 +91,19 @@ describe('defineBot', () => {
       /must be an https origin/,
     ],
     [{ id: 'ok', model: 'm', instructions: 'x', widget: { locale: 'english please' } }, /BCP 47/],
+    [
+      { id: 'ok', model: 'm', instructions: 'x', knowledge: { vectorStoreId: 'file-1' } },
+      /knowledge\.vectorStoreId must be a vector store ID/,
+    ],
+    [
+      {
+        id: 'ok',
+        model: 'm',
+        instructions: 'x',
+        knowledge: { vectorStoreId: 'vs_1', maxResults: 100 },
+      },
+      /knowledge\.maxResults/,
+    ],
     [
       {
         id: 'ok',

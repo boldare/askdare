@@ -72,7 +72,11 @@ function applyEvent(messages: readonly Message[], event: ProtocolEvent): readonl
 function activityFor(event: ProtocolEvent): string | null | undefined {
   if (event.type === 'reasoning') return event.state === 'started' ? 'Thinking…' : null;
   if (event.type === 'tool.status')
-    return event.state === 'running' ? `Using ${event.name}…` : null;
+    return event.state === 'running'
+      ? event.name === 'file_search'
+        ? 'Searching documents…'
+        : `Using ${event.name}…`
+      : null;
   if (event.type === 'text.delta' || event.type === 'message.end') return null;
   return undefined; // unchanged
 }

@@ -2,6 +2,7 @@ import type { ResponseStreamEvent } from 'openai/resources/responses/responses';
 import { ChatdockError } from '../errors';
 import type { TokenUsage } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
+import { addSources, citationSource, type KnowledgeSources } from './citations';
 
 export interface FunctionCall {
   readonly callId: string;
@@ -19,6 +20,8 @@ export interface StepOutcome {
 /** Assigns stable [n] markers to sources across all steps of one turn. */
 export class CitationRegistry {
   readonly #indices = new Map<string, number>();
+  /** Files returned by this turn's searches, so citations can link to their pages. */
+  readonly sources: KnowledgeSources = new Map();
 
   /** Returns the marker for a source and whether it is new. */
   register(key: string): { readonly index: number; readonly isNew: boolean } {
@@ -65,6 +68,16 @@ export class ResponseStreamMapper {
       case 'response.output_text.annotation.added':
         this.#handleAnnotation(event.annotation);
         return;
+      case 'response.file_search_call.in_progress':
+      case 'response.file_search_call.completed':
+        this.#emit({
+          type: 'tool.status',
+          messageId: this.#messageId,
+          callId: event.item_id.slice(0, 128),
+          name: 'file_search',
+          state: event.type === 'response.file_search_call.completed' ? 'done' : 'running',
+        });
+        return;
       case 'response.output_item.added':
         if (event.item.type === 'reasoning') {
           this.#emit({ type: 'reasoning', messageId: this.#messageId, state: 'started' });
@@ -73,6 +86,8 @@ export class ResponseStreamMapper {
       case 'response.output_item.done':
         if (event.item.type === 'reasoning') {
           this.#emit({ type: 'reasoning', messageId: this.#messageId, state: 'done' });
+        } else if (event.item.type === 'file_search_call') {
+          addSources(event.item, this.#citations.sources);
         } else if (event.item.type === 'function_call') {
           this.#functionCalls.push({
             callId: event.item.call_id,
@@ -118,38 +133,17 @@ export class ResponseStreamMapper {
   }
 
   #handleAnnotation(annotation: unknown): void {
-    if (typeof annotation !== 'object' || annotation === null || !('type' in annotation)) return;
-    let key: string;
-    let title: string;
-    let url: string | undefined;
-    if (
-      annotation.type === 'url_citation' &&
-      'url' in annotation &&
-      typeof annotation.url === 'string'
-    ) {
-      if (!/^https?:\/\//i.test(annotation.url)) return;
-      key = `url:${annotation.url}`;
-      url = annotation.url;
-      title =
-        'title' in annotation && typeof annotation.title === 'string' && annotation.title !== ''
-          ? annotation.title
-          : annotation.url;
-    } else if (
-      annotation.type === 'file_citation' &&
-      'file_id' in annotation &&
-      typeof annotation.file_id === 'string'
-    ) {
-      key = `file:${annotation.file_id}`;
-      title =
-        'filename' in annotation &&
-        typeof annotation.filename === 'string' &&
-        annotation.filename !== ''
-          ? annotation.filename
-          : 'Document';
-    } else {
-      return;
+    const source = citationSource(annotation, this.#citations.sources);
+    if (!source) return;
+    const { index, isNew } = this.#citations.register(source.key);
+    if (isNew) {
+      this.#emit({
+        type: 'citation',
+        messageId: this.#messageId,
+        index,
+        title: source.title,
+        url: source.url,
+      });
     }
-    const { index, isNew } = this.#citations.register(key);
-    if (isNew) this.#emit({ type: 'citation', messageId: this.#messageId, index, title, url });
   }
 }
