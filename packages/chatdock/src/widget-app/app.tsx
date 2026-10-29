@@ -12,24 +12,26 @@ import type { HistoryMessage } from '../protocol/history';
 import type { EmbedConfig } from '../server/embed-page';
 import type { ChatClient } from './chat-client';
 import type { HostBridge } from './host-bridge';
+import { AttachIcon, CloseIcon, MicIcon, RestartIcon, SendIcon } from './icons';
 import { Markdown } from './markdown';
 import { acceptTypes, prepareFile } from './prepare-file';
 import { canRecord, MicrophoneError, type Recording, startRecording } from './recorder';
+import { Avatar, Welcome } from './welcome';
 
-interface Citation {
+export interface Citation {
   readonly index: number;
   readonly title: string;
   readonly url?: string | undefined;
 }
 
-interface SentFile {
+export interface SentFile {
   readonly name: string;
   readonly kind: 'image' | 'pdf';
   /** Local preview of an image sent in this session; history only knows how many files there were. */
   readonly previewUrl?: string | undefined;
 }
 
-interface Message {
+export interface Message {
   readonly id: string;
   readonly role: 'user' | 'assistant';
   readonly text: string;
@@ -41,7 +43,7 @@ interface Message {
   readonly status: 'streaming' | 'done' | 'error';
 }
 
-interface PendingFile {
+export interface PendingFile {
   readonly key: string;
   readonly name: string;
   readonly kind?: 'image' | 'pdf' | undefined;
@@ -52,6 +54,12 @@ interface PendingFile {
 }
 
 const megabytes = (bytes: number): string => `${Math.floor(bytes / 100_000) / 10} MB`;
+
+/** Grows the message field with its content, up to the height set in CSS. */
+function fitToContent(field: HTMLTextAreaElement): void {
+  field.style.height = 'auto';
+  field.style.height = `${field.scrollHeight}px`;
+}
 
 const clock = (seconds: number): string =>
   `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
@@ -90,7 +98,7 @@ function FileList({
               <img data-cd-part="attachment-preview" src={file.previewUrl} alt="" />
             ) : (
               <span data-cd-part="attachment-badge" aria-hidden="true">
-                {file.kind === 'image' ? 'IMG' : 'PDF'}
+                {file.kind === 'image' ? 'IMG' : file.kind === 'pdf' ? 'PDF' : 'FILE'}
               </span>
             )}
             <span data-cd-part="attachment-name">{file.name}</span>
@@ -119,10 +127,23 @@ function FileList({
   );
 }
 
+/** A frozen state for the gallery: design review and visual tests, never a live chat. */
+export interface Fixture {
+  readonly messages: readonly Message[];
+  readonly pending?: readonly PendingFile[];
+  readonly draft?: string;
+  readonly busy?: boolean;
+  readonly activity?: string;
+  readonly error?: string;
+  readonly dictation?: 'recording' | 'transcribing';
+  readonly elapsed?: number;
+}
+
 export interface AppProps {
   readonly config: EmbedConfig;
   readonly client: ChatClient;
   readonly bridge: HostBridge;
+  readonly fixture?: Fixture | undefined;
 }
 
 let localId = 0;
@@ -179,22 +200,24 @@ function activityFor(event: ProtocolEvent): string | null | undefined {
   return undefined; // unchanged
 }
 
-export function App({ config, client, bridge }: AppProps) {
-  const [messages, setMessages] = useState<readonly Message[]>([]);
-  const [draft, setDraft] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(() => client.hasConversation());
-  const [error, setError] = useState<string | undefined>();
-  const [activity, setActivity] = useState<string | null>(null);
-  const [pending, setPending] = useState<readonly PendingFile[]>([]);
+export function App({ config, client, bridge, fixture }: AppProps) {
+  const [messages, setMessages] = useState<readonly Message[]>(fixture?.messages ?? []);
+  const [draft, setDraft] = useState(fixture?.draft ?? '');
+  const [busy, setBusy] = useState(fixture?.busy ?? false);
+  const [loading, setLoading] = useState(() => !fixture && client.hasConversation());
+  const [error, setError] = useState<string | undefined>(fixture?.error);
+  const [activity, setActivity] = useState<string | null>(fixture?.activity ?? null);
+  const [pending, setPending] = useState<readonly PendingFile[]>(fixture?.pending ?? []);
   const [dragging, setDragging] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const voice = config.voice;
-  const [voiceAvailable] = useState(() => voice !== undefined && canRecord());
-  const [dictation, setDictation] = useState<'idle' | 'recording' | 'transcribing'>('idle');
-  const [elapsed, setElapsed] = useState(0);
+  const [voiceAvailable] = useState(() => voice !== undefined && (!!fixture || canRecord()));
+  const [dictation, setDictation] = useState<'idle' | 'recording' | 'transcribing'>(
+    fixture?.dictation ?? 'idle',
+  );
+  const [elapsed, setElapsed] = useState(fixture?.elapsed ?? 0);
   const recordingRef = useRef<Recording | undefined>(undefined);
   /** Set while the browser asks for the microphone, so a double click starts one recording. */
   const startingRef = useRef(false);
@@ -244,7 +267,7 @@ export function App({ config, client, bridge }: AppProps) {
 
   // Restore the stored conversation once (about 2 s upstream, so show a loading state).
   useEffect(() => {
-    if (!client.hasConversation()) return;
+    if (fixture || !client.hasConversation()) return;
     const controller = new AbortController();
     client
       .loadHistory(controller.signal)
@@ -254,7 +277,7 @@ export function App({ config, client, bridge }: AppProps) {
       })
       .finally(() => setLoading(false));
     return () => controller.abort();
-  }, [client]);
+  }, [client, fixture]);
 
   // Follow the conversation, including each streamed delta of the latest message.
   const latestText = messages.at(-1)?.text;
@@ -331,16 +354,20 @@ export function App({ config, client, bridge }: AppProps) {
     setPending((current) => current.filter((item) => item.key !== file.key));
   };
 
-  const send = async (): Promise<void> => {
-    if (!canSend) return;
-    const text = draft.trim();
+  /** Sends the draft, or a suggested question picked on the welcome screen. */
+  const send = async (picked?: string): Promise<void> => {
+    const text = (picked ?? draft).trim();
+    if (picked === undefined ? !canSend : busy || loading || uploading || text === '') return;
     const files: SentFile[] = ready.flatMap(({ name, kind, previewUrl }) =>
       kind ? [{ name, kind, previewUrl }] : [],
     );
     const handles = ready.flatMap((file) => (file.handle ? [file.handle] : []));
     revokePreviews(pending.filter((file) => file.status !== 'ready'));
     setPending([]);
-    setDraft('');
+    if (picked === undefined) {
+      setDraft('');
+      if (inputRef.current) inputRef.current.style.height = '';
+    }
     setError(undefined);
     setBusy(true);
     setMessages((current) => [
@@ -499,10 +526,21 @@ export function App({ config, client, bridge }: AppProps) {
   }, [allowed]);
 
   const { widget } = config;
+  const showWelcome = messages.length === 0 && !loading;
   return (
-    <div data-cd-part="panel" data-dragging={dragging || undefined}>
+    <div
+      data-cd-part="panel"
+      data-dragging={dragging || undefined}
+      data-busy={busy || dictation !== 'idle' || undefined}
+    >
       <header data-cd-part="header">
-        <h1 data-cd-part="title">{widget.title}</h1>
+        <div data-cd-part="identity">
+          <Avatar widget={widget} size="small" />
+          <div data-cd-part="identity-text">
+            <h1 data-cd-part="title">{widget.title}</h1>
+            {widget.subtitle && <p data-cd-part="subtitle">{widget.subtitle}</p>}
+          </div>
+        </div>
         <div data-cd-part="actions">
           {messages.length > 0 && (
             <button
@@ -513,7 +551,7 @@ export function App({ config, client, bridge }: AppProps) {
               disabled={busy}
               onClick={() => void startOver()}
             >
-              ↺
+              <RestartIcon />
             </button>
           )}
           {bridge.embedded && (
@@ -521,12 +559,13 @@ export function App({ config, client, bridge }: AppProps) {
               type="button"
               data-cd-part="close"
               aria-label="Close chat"
+              title="Close chat"
               onClick={() => {
                 discardRecording();
                 bridge.close();
               }}
             >
-              ×
+              <CloseIcon />
             </button>
           )}
         </div>
@@ -539,7 +578,9 @@ export function App({ config, client, bridge }: AppProps) {
         aria-relevant="additions"
         aria-busy={loading}
       >
-        <p data-cd-part="greeting">{widget.greeting}</p>
+        {showWelcome && (
+          <Welcome widget={widget} disabled={busy} onPick={(text) => void send(text)} />
+        )}
         {loading && (
           <p data-cd-part="status" role="status">
             Loading the conversation…
@@ -552,37 +593,50 @@ export function App({ config, client, bridge }: AppProps) {
             data-role={message.role}
             data-status={message.status}
           >
-            {message.text !== '' && (
-              <div data-cd-part="bubble">
-                {message.role === 'assistant' ? <Markdown text={message.text} /> : message.text}
-              </div>
-            )}
-            {message.files && message.files.length > 0 ? (
-              <FileList files={message.files} part="message-attachments" />
-            ) : (
-              message.attachments > 0 && (
-                <p data-cd-part="attachments-note">
-                  {message.attachments === 1
-                    ? '1 attachment'
-                    : `${message.attachments} attachments`}
-                </p>
-              )
-            )}
-            {message.citations.length > 0 && (
-              <ol data-cd-part="citations" aria-label="Sources">
-                {message.citations.map((citation) => (
-                  <li key={citation.index} data-cd-part="citation">
-                    {citation.url ? (
-                      <a href={citation.url} target="_blank" rel="noopener noreferrer nofollow">
-                        {citation.title}
-                      </a>
-                    ) : (
-                      citation.title
-                    )}
-                  </li>
-                ))}
-              </ol>
-            )}
+            {message.role === 'assistant' && <Avatar widget={widget} size="small" />}
+            <div data-cd-part="message-body">
+              {message.text !== '' ? (
+                <div data-cd-part="bubble">
+                  {message.role === 'assistant' ? <Markdown text={message.text} /> : message.text}
+                </div>
+              ) : (
+                message.status === 'streaming' && (
+                  <div data-cd-part="bubble">
+                    <span data-cd-part="typing" role="img" aria-label="The assistant is typing">
+                      <i />
+                      <i />
+                      <i />
+                    </span>
+                  </div>
+                )
+              )}
+              {message.files && message.files.length > 0 ? (
+                <FileList files={message.files} part="message-attachments" />
+              ) : (
+                message.attachments > 0 && (
+                  <p data-cd-part="attachments-note">
+                    {message.attachments === 1
+                      ? '1 attachment'
+                      : `${message.attachments} attachments`}
+                  </p>
+                )
+              )}
+              {message.citations.length > 0 && (
+                <ol data-cd-part="citations" aria-label="Sources">
+                  {message.citations.map((citation) => (
+                    <li key={citation.index} data-cd-part="citation">
+                      {citation.url ? (
+                        <a href={citation.url} target="_blank" rel="noopener noreferrer nofollow">
+                          {citation.title}
+                        </a>
+                      ) : (
+                        <span>{citation.title}</span>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
           </div>
         ))}
         {activity && (
@@ -600,117 +654,102 @@ export function App({ config, client, bridge }: AppProps) {
         {pending.length > 0 && (
           <FileList files={pending} part="attachments" onRemove={removeFile} />
         )}
-        {dictation === 'idle' ? (
-          <>
-            {allowed && (
-              <>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  hidden
-                  multiple
-                  accept={acceptTypes(allowed)}
-                  onChange={(event) => {
-                    addFiles(Array.from(event.target.files ?? []));
-                    event.target.value = '';
-                  }}
-                />
+        <div data-cd-part="composer-box">
+          {dictation === 'idle' ? (
+            <>
+              {allowed && (
+                <>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    hidden
+                    multiple
+                    accept={acceptTypes(allowed)}
+                    onChange={(event) => {
+                      addFiles(Array.from(event.target.files ?? []));
+                      event.target.value = '';
+                    }}
+                  />
+                  <button
+                    type="button"
+                    data-cd-part="attach"
+                    aria-label="Attach files"
+                    title="Attach files"
+                    disabled={busy || pending.length >= allowed.maxPerMessage}
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    <AttachIcon />
+                  </button>
+                </>
+              )}
+              <textarea
+                ref={inputRef}
+                data-cd-part="input"
+                rows={1}
+                value={draft}
+                placeholder={widget.placeholder}
+                aria-label={widget.placeholder}
+                onChange={(event) => {
+                  setDraft(event.target.value);
+                  fitToContent(event.target);
+                }}
+                onKeyDown={onKeyDown}
+                onPaste={onPaste}
+              />
+              {voiceAvailable && (
                 <button
                   type="button"
-                  data-cd-part="attach"
-                  aria-label="Attach files"
-                  title="Attach files"
-                  disabled={busy || pending.length >= allowed.maxPerMessage}
-                  onClick={() => fileRef.current?.click()}
+                  data-cd-part="voice"
+                  aria-label="Dictate a message"
+                  title="Dictate a message"
+                  onClick={() => void startDictation()}
                 >
-                  <svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20">
-                    <path
-                      d="M20 11.5 12.2 19.3a5 5 0 0 1-7.1-7.1l8.1-8.1a3.4 3.4 0 0 1 4.8 4.8l-8 8a1.8 1.8 0 0 1-2.6-2.6l7.3-7.3"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+                  <MicIcon />
                 </button>
-              </>
-            )}
-            <textarea
-              ref={inputRef}
-              data-cd-part="input"
-              rows={1}
-              value={draft}
-              placeholder={widget.placeholder}
-              aria-label={widget.placeholder}
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={onKeyDown}
-              onPaste={onPaste}
-            />
-            {voiceAvailable && (
+              )}
               <button
-                type="button"
-                data-cd-part="voice"
-                aria-label="Dictate a message"
-                title="Dictate a message"
-                onClick={() => void startDictation()}
+                type="submit"
+                data-cd-part="send"
+                aria-label="Send"
+                title="Send"
+                disabled={!canSend}
               >
-                <svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20">
-                  <rect
-                    x="9"
-                    y="3"
-                    width="6"
-                    height="11"
-                    rx="3"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                  />
-                  <path
-                    d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                  />
-                </svg>
+                <SendIcon />
               </button>
-            )}
-            <button type="submit" data-cd-part="send" disabled={!canSend}>
-              Send
-            </button>
-          </>
-        ) : (
-          <div data-cd-part="recorder" data-state={dictation}>
-            <span data-cd-part="recorder-level" ref={levelRef} aria-hidden="true" />
-            <span data-cd-part="recorder-label" role="status">
-              {dictation === 'recording' ? 'Listening…' : 'Transcribing…'}
-            </span>
-            {dictation === 'recording' && (
-              <>
-                <span data-cd-part="recorder-time">
-                  {clock(elapsed)} / {clock(voice?.maxSeconds ?? 0)}
-                </span>
-                <button
-                  type="button"
-                  data-cd-part="recorder-cancel"
-                  aria-label="Cancel dictation"
-                  onClick={cancelDictation}
-                >
-                  ×
-                </button>
-                <button
-                  type="button"
-                  data-cd-part="recorder-done"
-                  ref={doneRef}
-                  onClick={() => void finishDictation()}
-                >
-                  Done
-                </button>
-              </>
-            )}
-          </div>
-        )}
+            </>
+          ) : (
+            <div data-cd-part="recorder" data-state={dictation}>
+              <span data-cd-part="recorder-level" ref={levelRef} aria-hidden="true" />
+              <span data-cd-part="recorder-label" role="status">
+                {dictation === 'recording' ? 'Listening…' : 'Transcribing…'}
+              </span>
+              {dictation === 'recording' && (
+                <>
+                  <span data-cd-part="recorder-time">
+                    {clock(elapsed)} / {clock(voice?.maxSeconds ?? 0)}
+                  </span>
+                  <button
+                    type="button"
+                    data-cd-part="recorder-cancel"
+                    aria-label="Cancel dictation"
+                    title="Cancel dictation"
+                    onClick={cancelDictation}
+                  >
+                    <CloseIcon />
+                  </button>
+                  <button
+                    type="button"
+                    data-cd-part="recorder-done"
+                    ref={doneRef}
+                    onClick={() => void finishDictation()}
+                  >
+                    Done
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </form>
     </div>
   );

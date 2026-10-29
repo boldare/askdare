@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 import type { EmbedConfig } from '../server/embed-page';
 import { App } from './app';
 import { ChatClient } from './chat-client';
+import { FIXTURES } from './gallery';
 import { connectToHost } from './host-bridge';
 import { browserStorage } from './storage';
 import './styles.css';
@@ -24,6 +25,11 @@ if (root) {
     storage: browserStorage(),
   });
   createRoot(root).render(
-    <App config={config} client={client} bridge={connectToHost(config.allowedOrigins)} />,
+    <App
+      config={config}
+      client={client}
+      bridge={connectToHost(config.allowedOrigins)}
+      fixture={config.gallery ? FIXTURES[config.gallery] : undefined}
+    />,
   );
 }
