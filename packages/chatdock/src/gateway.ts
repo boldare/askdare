@@ -18,6 +18,8 @@ export interface TurnRequest {
   readonly conversationId: string;
   readonly text: string;
   readonly context: BotContext;
+  /** Server-generated visitor ID, handed to tools as verified context. */
+  readonly visitorId: string;
   /** Stable, non-reversible end-user identifier for abuse attribution (hash of the visitor ID). */
   readonly safetyIdentifier: string;
   /** ID of the assistant message that protocol events refer to. */

@@ -47,6 +47,7 @@ function turn(overrides: Partial<TurnRequest> = {}): {
     text: 'Hello',
     context: { locale: 'pl' },
     safetyIdentifier: 'hashed-visitor',
+    visitorId: `v_${'0f'.repeat(16)}`,
     messageId: 'msg_a',
     signal: new AbortController().signal,
     emit: (event) => events.push(event),

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { Tool } from '../tools/define-tool';
 
 /** Per-request context available when building instructions. */
 export interface BotContext {
@@ -55,6 +56,8 @@ export interface BotDefinition {
   readonly model: string;
   readonly instructions: string | ((context: BotContext) => string);
   readonly limits?: BotLimits;
+  /** Server-side functions the model may call; see `defineTool`. Keep it under about 20. */
+  readonly tools?: readonly Tool[];
   readonly security?: BotSecurity;
   readonly widget?: WidgetConfig;
 }
@@ -64,6 +67,7 @@ export interface Bot {
   readonly model: string;
   readonly instructions: (context: BotContext) => string;
   readonly limits: Required<BotLimits>;
+  readonly tools: readonly Tool[];
   readonly security: { readonly allowedOrigins: readonly string[] };
   readonly widget: Required<WidgetConfig>;
 }
@@ -123,6 +127,19 @@ const definitionSchema = z.object({
       maxTurns: z.number().int().min(1).max(1_000).optional(),
     })
     .optional(),
+  tools: z
+    .array(
+      z.custom<Tool>(
+        (value) => typeof value === 'object' && value !== null && 'execute' in value,
+        'must be created with defineTool()',
+      ),
+    )
+    .max(64)
+    .refine(
+      (tools) => new Set(tools.map((tool) => tool.name)).size === tools.length,
+      'must have unique names',
+    )
+    .optional(),
   security: z.object({ allowedOrigins: z.array(origin).max(50).optional() }).optional(),
   widget: z
     .object({
@@ -155,6 +172,7 @@ export function defineBot(definition: BotDefinition): Bot {
     model: definition.model.trim(),
     instructions: typeof instructions === 'string' ? () => instructions : instructions,
     limits: Object.freeze({ ...DEFAULT_LIMITS, ...definition.limits }),
+    tools: Object.freeze([...(definition.tools ?? [])]),
     security: Object.freeze({
       allowedOrigins: Object.freeze([...new Set(definition.security?.allowedOrigins ?? [])]),
     }),
