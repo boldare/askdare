@@ -45,6 +45,8 @@ export interface HandlerConfig {
    * fixture states with any preset, without calling the model.
    */
   readonly gallery?: boolean | undefined;
+  /** `next dev`: browsers revalidate the loader, so a changed launcher shows on the next reload. */
+  readonly development?: boolean | undefined;
   /** Keeps a turn running after its response ends, e.g. Next.js `after`; see `streamTurn`. */
   readonly waitUntil?: ((work: Promise<unknown>) => void) | undefined;
 }
@@ -256,7 +258,9 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     return new Response(loaderJs, {
       headers: {
         'Content-Type': 'text/javascript; charset=utf-8',
-        'Cache-Control': 'public, max-age=300, stale-while-revalidate=86400',
+        'Cache-Control': config.development
+          ? 'no-cache'
+          : 'public, max-age=300, stale-while-revalidate=86400',
         'Cross-Origin-Resource-Policy': 'cross-origin',
         'X-Content-Type-Options': 'nosniff',
       },
