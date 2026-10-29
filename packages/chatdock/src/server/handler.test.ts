@@ -184,6 +184,22 @@ describe('static routes', () => {
     expect(response.headers.get('content-type')).toContain('text/javascript');
     expect(response.headers.get('cross-origin-resource-policy')).toBe('cross-origin');
     expect(await response.text()).toBe('console.log(JSON.parse("{}"))');
+    expect(response.headers.get('cache-control')).toContain('max-age=300');
+  });
+
+  it('makes browsers revalidate the loader in development', async () => {
+    const development = createRequestHandler({
+      bots: [bot],
+      basePath: '/api/chat',
+      assets,
+      gateway: () => gateway,
+      tokens: async () => tokens,
+      limits: createLimits({ store: memoryStore() }),
+      clientIp: () => 'ip',
+      development: true,
+    });
+    const response = await development(new Request(`${BASE}/widget.js?bot=support`));
+    expect(response.headers.get('cache-control')).toBe('no-cache');
   });
 
   it('serves hashed assets with immutable caching and 404s anything else', async () => {
