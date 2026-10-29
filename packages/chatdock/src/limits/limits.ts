@@ -1,5 +1,5 @@
 import type { Bot } from '../bot/define-bot';
-import { ChatdockError } from '../errors';
+import { ChatdockError, type ChatdockErrorOptions } from '../errors';
 import type { TokenUsage } from '../gateway';
 import type { RateLimitStore } from './store';
 
@@ -88,12 +88,17 @@ export function createLimits(options: LimitsOptions): Limits {
     if (options.disabled?.()) throw new ChatdockError('bot_unavailable');
   };
 
-  const enforce = async (key: string, windowMs: number, limit: number, message?: string) => {
+  const enforce = async (
+    key: string,
+    windowMs: number,
+    limit: number,
+    custom?: Pick<ChatdockErrorOptions, 'message' | 'key'>,
+  ) => {
     const { count, resetMs } = await store.hit(key, windowMs, 1);
     if (count > limit) {
       throw new ChatdockError('rate_limited', {
         retryAfterMs: Math.max(resetMs, 1000),
-        ...(message ? { message } : {}),
+        ...custom,
       });
     }
   };
@@ -168,6 +173,7 @@ export function createLimits(options: LimitsOptions): Limits {
           throw new ChatdockError('rate_limited', {
             retryAfterMs: 5_000,
             message: 'Another dictation is still being transcribed. Please try again in a moment.',
+            key: 'error.dictationBusy',
           });
         }
       }
@@ -208,12 +214,10 @@ export function createLimits(options: LimitsOptions): Limits {
       await enforce(`cd:mi:${bot.id}:${keys.clientIp}`, MINUTE, limits.messagesPerIpPerMinute);
       let historyTokens = 0;
       if (keys.conversationId) {
-        await enforce(
-          `cd:c:${keys.conversationId}`,
-          CONVERSATION_TTL,
-          limits.maxTurns,
-          'This conversation is too long. Please start a new one.',
-        );
+        await enforce(`cd:c:${keys.conversationId}`, CONVERSATION_TTL, limits.maxTurns, {
+          message: 'This conversation is too long. Please start a new one.',
+          key: 'error.conversationTooLong',
+        });
         historyTokens = (await store.hit(`cd:ci:${keys.conversationId}`, CONVERSATION_TTL, 0))
           .count;
       } else {

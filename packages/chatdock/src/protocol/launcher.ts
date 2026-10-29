@@ -2,10 +2,21 @@
  * How a bot's launcher looks on the host page. The server inlines one per bot into widget.js, so
  * the launcher is drawn correctly before anything else loads. Public data only.
  */
-export interface LauncherLook {
-  readonly style: 'orb' | 'circle' | 'pill';
+/** The launcher's own texts in one language. */
+export interface LauncherTexts {
   /** Visible text of the pill launcher. */
   readonly label: string;
+  /** Accessible names of the button while the chat is closed and open. */
+  readonly open: string;
+  readonly close: string;
+}
+
+export interface LauncherLook {
+  readonly style: 'orb' | 'circle' | 'pill';
+  /** Texts per built-in language (`en`, `pl`). */
+  readonly texts: Readonly<Record<string, LauncherTexts>>;
+  /** The bot's language when it is fixed; absent for `auto`, where the host page's applies. */
+  readonly locale?: string;
   readonly accent: string;
   readonly onAccent: string;
   /** CSS background of the orb launcher. */
@@ -13,6 +24,8 @@ export interface LauncherLook {
   /** A path on the app (made absolute by the loader) or a data: image. */
   readonly avatar?: string;
   readonly initials: string;
+  /** Accessible name of the chat dialog. */
+  readonly title: string;
   /** Panel background while the chat loads, per color scheme. */
   readonly light: string;
   readonly dark: string;

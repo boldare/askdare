@@ -52,6 +52,8 @@ export interface TurnRequest {
   readonly text: string;
   readonly attachments?: readonly TurnAttachment[];
   readonly context: BotContext;
+  /** What the host page says about itself (chatdock('configure')); untrusted. */
+  readonly pageContext?: string | undefined;
   /** Server-generated visitor ID, handed to tools as verified context. */
   readonly visitorId: string;
   /** Stable, non-reversible end-user identifier for abuse attribution (hash of the visitor ID). */

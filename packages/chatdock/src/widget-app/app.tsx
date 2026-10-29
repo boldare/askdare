@@ -8,11 +8,13 @@ import {
   useRef,
   useState,
 } from 'react';
+import { formatText, pluralText } from '../i18n/format';
+import type { TextKey } from '../i18n/texts';
 import type { ProtocolEvent } from '../protocol/events';
 import type { HistoryMessage } from '../protocol/history';
 import type { EmbedConfig } from '../server/embed-page';
 import type { ChatClient } from './chat-client';
-import type { HostBridge } from './host-bridge';
+import type { HostBridge, PageOptions } from './host-bridge';
 import { AttachIcon, CloseIcon, MicIcon, RestartIcon, SendIcon } from './icons';
 import { Markdown } from './markdown';
 import { acceptTypes, prepareFile } from './prepare-file';
@@ -72,10 +74,12 @@ function fitToContent(field: HTMLTextAreaElement): void {
 const clock = (seconds: number): string =>
   `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 
-const MICROPHONE_MESSAGES: Readonly<Record<MicrophoneError['reason'], string>> = {
-  blocked: 'Microphone access is blocked. Allow it in your browser to dictate.',
-  missing: 'No microphone was found.',
-  failed: 'The microphone could not be started.',
+type Translate = (key: TextKey, params?: Readonly<Record<string, string | number>>) => string;
+
+const MICROPHONE_MESSAGES: Readonly<Record<MicrophoneError['reason'], TextKey>> = {
+  blocked: 'microphone.blocked',
+  missing: 'microphone.missing',
+  failed: 'microphone.failed',
 };
 
 function revokePreviews(files: readonly { readonly previewUrl?: string | undefined }[]): void {
@@ -85,14 +89,16 @@ function revokePreviews(files: readonly { readonly previewUrl?: string | undefin
 function FileList({
   files,
   part,
+  t,
   onRemove,
 }: {
   readonly files: readonly (SentFile | PendingFile)[];
   readonly part: 'attachments' | 'message-attachments';
+  readonly t: Translate;
   readonly onRemove?: (file: PendingFile) => void;
 }) {
   return (
-    <ul data-cd-part={part} aria-label="Attachments">
+    <ul data-cd-part={part} aria-label={t('attachment.list')}>
       {files.map((file, index) => {
         const pending = 'status' in file ? file : undefined;
         return (
@@ -111,7 +117,7 @@ function FileList({
             )}
             <span data-cd-part="attachment-name">{file.name}</span>
             {pending?.status === 'uploading' && (
-              <span data-cd-part="attachment-status">Uploading…</span>
+              <span data-cd-part="attachment-status">{t('attachment.uploading')}</span>
             )}
             {pending?.status === 'error' && (
               <span data-cd-part="attachment-status" role="alert">
@@ -122,7 +128,7 @@ function FileList({
               <button
                 type="button"
                 data-cd-part="attachment-remove"
-                aria-label={`Remove ${file.name}`}
+                aria-label={t('attachment.remove', { name: file.name })}
                 onClick={() => onRemove(pending)}
               >
                 ×
@@ -151,6 +157,8 @@ export interface AppProps {
   readonly config: EmbedConfig;
   readonly client: ChatClient;
   readonly bridge: HostBridge;
+  /** Inside an element of the host page (data-mode="inline"): no close button. */
+  readonly inline?: boolean;
   readonly fixture?: Fixture | undefined;
 }
 
@@ -196,19 +204,32 @@ function applyEvent(messages: readonly Message[], event: ProtocolEvent): readonl
 }
 
 /** What the assistant is doing right now, shown while no text streams. */
-function activityFor(event: ProtocolEvent): string | null | undefined {
-  if (event.type === 'reasoning') return event.state === 'started' ? 'Thinking…' : null;
+function activityFor(event: ProtocolEvent, t: Translate): string | null | undefined {
+  if (event.type === 'reasoning') return event.state === 'started' ? t('status.thinking') : null;
   if (event.type === 'tool.status')
     return event.state === 'running'
       ? event.name === 'file_search'
-        ? 'Searching documents…'
-        : `Using ${event.name}…`
+        ? t('status.searching')
+        : t('status.tool', { name: event.name })
       : null;
   if (event.type === 'text.delta' || event.type === 'message.end') return null;
   return undefined; // unchanged
 }
 
-export function App({ config, client, bridge, fixture }: AppProps) {
+export function App({ config, client, bridge, fixture, inline = false }: AppProps) {
+  const [page, setPage] = useState<PageOptions>({});
+  useEffect(() => bridge.onConfigure(setPage), [bridge]);
+  // The host page may set a greeting and suggestions per page (chatdock('configure')).
+  const widget = {
+    ...config.widget,
+    ...(page.greeting ? { greeting: page.greeting } : {}),
+    ...(page.starters ? { starters: page.starters } : {}),
+  };
+  // Stable, so effects can use it: the texts never change while the chat is open.
+  const t = useCallback<Translate>(
+    (key, params) => formatText(widget.texts[key] ?? key, params),
+    [widget.texts],
+  );
   const [messages, setMessages] = useState<readonly Message[]>(fixture?.messages ?? []);
   const [draft, setDraft] = useState(fixture?.draft ?? '');
   const [busy, setBusy] = useState(fixture?.busy ?? false);
@@ -287,11 +308,11 @@ export function App({ config, client, bridge, fixture }: AppProps) {
       .loadHistory(controller.signal)
       .then((history) => setMessages(history.map(fromHistory)))
       .catch(() => {
-        if (!controller.signal.aborted) setError('Could not load the previous conversation.');
+        if (!controller.signal.aborted) setError(t('error.history'));
       })
       .finally(() => setLoading(false));
     return () => controller.abort();
-  }, [client, fixture]);
+  }, [client, fixture, t]);
 
   // Follow the conversation, including each streamed delta of the latest message.
   const latestText = messages.at(-1)?.text;
@@ -322,11 +343,11 @@ export function App({ config, client, bridge, fixture }: AppProps) {
     try {
       prepared = await prepareFile(file, allowed);
     } catch {
-      fail('This file type is not supported.');
+      fail(t('attachment.unsupported'));
       return;
     }
     if (prepared.blob.size > allowed.maxBytes) {
-      fail(`Too large (max ${megabytes(allowed.maxBytes)}).`);
+      fail(t('attachment.tooLarge', { size: megabytes(allowed.maxBytes) }));
       return;
     }
     if (controller.signal.aborted) return;
@@ -350,7 +371,7 @@ export function App({ config, client, bridge, fixture }: AppProps) {
     if (!allowed || files.length === 0) return;
     const room = allowed.maxPerMessage - pending.length;
     if (files.length > room) {
-      setError(`You can attach up to ${allowed.maxPerMessage} files per message.`);
+      setError(t('attachment.tooMany', { count: allowed.maxPerMessage }));
     }
     for (const file of files.slice(0, Math.max(0, room))) void attach(file);
   };
@@ -393,8 +414,8 @@ export function App({ config, client, bridge, fixture }: AppProps) {
         status: 'done',
       },
     ]);
-    await client.send({ text, attachments: handles }, (event) => {
-      const next = activityFor(event);
+    await client.send({ text, attachments: handles, context: page.context }, (event) => {
+      const next = activityFor(event, t);
       if (next !== undefined) setActivity(next);
       if (event.type === 'error') {
         setError(event.message);
@@ -421,7 +442,7 @@ export function App({ config, client, bridge, fixture }: AppProps) {
     const audio = await recording.stop();
     if (audio.size < 1_000) {
       setDictation('idle');
-      setError('Nothing was recorded. Please try again.');
+      setError(t('dictation.empty'));
       return;
     }
     const languages = [...navigator.languages.slice(0, 2), config.widget.locale];
@@ -444,7 +465,7 @@ export function App({ config, client, bridge, fixture }: AppProps) {
     try {
       recording = await startRecording(voice.maxSeconds);
     } catch (error) {
-      setError(MICROPHONE_MESSAGES[error instanceof MicrophoneError ? error.reason : 'failed']);
+      setError(t(MICROPHONE_MESSAGES[error instanceof MicrophoneError ? error.reason : 'failed']));
       return;
     } finally {
       startingRef.current = false;
@@ -471,7 +492,7 @@ export function App({ config, client, bridge, fixture }: AppProps) {
   };
 
   const startOver = async (): Promise<void> => {
-    if (!window.confirm('Start a new conversation? The current one will be deleted.')) return;
+    if (!window.confirm(t('confirm.newConversation'))) return;
     setBusy(true);
     await client.deleteConversation().catch(() => undefined);
     revokePreviews(messages.flatMap((message) => message.files ?? []));
@@ -536,10 +557,9 @@ export function App({ config, client, bridge, fixture }: AppProps) {
     };
   }, [allowed]);
 
-  const { widget } = config;
   const showWelcome = messages.length === 0 && !loading;
   return (
-    <div
+    <main
       data-cd-part="panel"
       data-dragging={dragging || undefined}
       data-busy={busy || dictation !== 'idle' || undefined}
@@ -557,20 +577,20 @@ export function App({ config, client, bridge, fixture }: AppProps) {
             <button
               type="button"
               data-cd-part="new-conversation"
-              aria-label="Start a new conversation"
-              title="Start a new conversation"
+              aria-label={t('header.newConversation')}
+              title={t('header.newConversation')}
               disabled={busy}
               onClick={() => void startOver()}
             >
               <RestartIcon />
             </button>
           )}
-          {bridge.embedded && (
+          {bridge.embedded && !inline && (
             <button
               type="button"
               data-cd-part="close"
-              aria-label="Close chat"
-              title="Close chat"
+              aria-label={t('header.close')}
+              title={t('header.close')}
               onClick={() => {
                 discardRecording();
                 bridge.close();
@@ -594,7 +614,7 @@ export function App({ config, client, bridge, fixture }: AppProps) {
         )}
         {loading && (
           <p data-cd-part="status" role="status">
-            Loading the conversation…
+            {t('status.loading')}
           </p>
         )}
         {messages.filter(hasContent).map((message) => (
@@ -613,7 +633,7 @@ export function App({ config, client, bridge, fixture }: AppProps) {
               ) : (
                 message.status === 'streaming' && (
                   <div data-cd-part="bubble">
-                    <span data-cd-part="typing" role="img" aria-label="The assistant is typing">
+                    <span data-cd-part="typing" role="img" aria-label={t('status.typing')}>
                       <i />
                       <i />
                       <i />
@@ -622,18 +642,21 @@ export function App({ config, client, bridge, fixture }: AppProps) {
                 )
               )}
               {message.files && message.files.length > 0 ? (
-                <FileList files={message.files} part="message-attachments" />
+                <FileList files={message.files} part="message-attachments" t={t} />
               ) : (
                 message.attachments > 0 && (
                   <p data-cd-part="attachments-note">
-                    {message.attachments === 1
-                      ? '1 attachment'
-                      : `${message.attachments} attachments`}
+                    {pluralText(
+                      widget.texts,
+                      'message.attachments',
+                      message.attachments,
+                      widget.locale,
+                    )}
                   </p>
                 )
               )}
               {message.citations.length > 0 && (
-                <ol data-cd-part="citations" aria-label="Sources">
+                <ol data-cd-part="citations" aria-label={t('message.sources')}>
                   {message.citations.map((citation) => (
                     <li key={citation.index} data-cd-part="citation">
                       {citation.url ? (
@@ -663,7 +686,7 @@ export function App({ config, client, bridge, fixture }: AppProps) {
       )}
       <form data-cd-part="composer" onSubmit={onSubmit}>
         {pending.length > 0 && (
-          <FileList files={pending} part="attachments" onRemove={removeFile} />
+          <FileList files={pending} part="attachments" t={t} onRemove={removeFile} />
         )}
         <div data-cd-part="composer-box">
           {dictation === 'idle' ? (
@@ -684,8 +707,8 @@ export function App({ config, client, bridge, fixture }: AppProps) {
                   <button
                     type="button"
                     data-cd-part="attach"
-                    aria-label="Attach files"
-                    title="Attach files"
+                    aria-label={t('composer.attach')}
+                    title={t('composer.attach')}
                     disabled={busy || pending.length >= allowed.maxPerMessage}
                     onClick={() => fileRef.current?.click()}
                   >
@@ -708,8 +731,8 @@ export function App({ config, client, bridge, fixture }: AppProps) {
                 <button
                   type="button"
                   data-cd-part="voice"
-                  aria-label="Dictate a message"
-                  title="Dictate a message"
+                  aria-label={t('composer.dictate')}
+                  title={t('composer.dictate')}
                   onClick={() => void startDictation()}
                 >
                   <MicIcon />
@@ -718,8 +741,8 @@ export function App({ config, client, bridge, fixture }: AppProps) {
               <button
                 type="submit"
                 data-cd-part="send"
-                aria-label="Send"
-                title="Send"
+                aria-label={t('composer.send')}
+                title={t('composer.send')}
                 disabled={!canSend}
               >
                 <SendIcon />
@@ -729,7 +752,7 @@ export function App({ config, client, bridge, fixture }: AppProps) {
             <div data-cd-part="recorder" data-state={dictation}>
               <span data-cd-part="recorder-level" ref={levelRef} aria-hidden="true" />
               <span data-cd-part="recorder-label" role="status">
-                {dictation === 'recording' ? 'Listening…' : 'Transcribing…'}
+                {dictation === 'recording' ? t('dictation.listening') : t('dictation.transcribing')}
               </span>
               {dictation === 'recording' && (
                 <>
@@ -739,8 +762,8 @@ export function App({ config, client, bridge, fixture }: AppProps) {
                   <button
                     type="button"
                     data-cd-part="recorder-cancel"
-                    aria-label="Cancel dictation"
-                    title="Cancel dictation"
+                    aria-label={t('dictation.cancel')}
+                    title={t('dictation.cancel')}
                     onClick={cancelDictation}
                   >
                     <CloseIcon />
@@ -751,7 +774,7 @@ export function App({ config, client, bridge, fixture }: AppProps) {
                     ref={doneRef}
                     onClick={() => void finishDictation()}
                   >
-                    Done
+                    {t('dictation.done')}
                   </button>
                 </>
               )}
@@ -759,6 +782,19 @@ export function App({ config, client, bridge, fixture }: AppProps) {
           )}
         </div>
       </form>
-    </div>
+      {widget.disclosure !== false && (
+        <p data-cd-part="disclosure">
+          {t('disclosure.text')}
+          {widget.disclosure.privacyUrl && (
+            <>
+              {' '}
+              <a href={widget.disclosure.privacyUrl} target="_blank" rel="noopener noreferrer">
+                {t('disclosure.privacy')}
+              </a>
+            </>
+          )}
+        </p>
+      )}
+    </main>
   );
 }

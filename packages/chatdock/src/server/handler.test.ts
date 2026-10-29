@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { defineBot } from '../bot/define-bot';
 import { ChatdockError } from '../errors';
 import type { ModelGateway, TranscriptionRequest, TurnRequest } from '../gateway';
@@ -7,6 +8,7 @@ import { memoryStore } from '../limits/store';
 import type { ProtocolEvent } from '../protocol/events';
 import { decodeEvent, SseParser } from '../protocol/sse';
 import { createTokenService, type TokenService } from '../security/tokens';
+import { defineTool } from '../tools/define-tool';
 import type { EmbedAssets } from './embed-page';
 import { createRequestHandler, type RequestHandler } from './handler';
 
@@ -47,6 +49,35 @@ const voiceBot = defineBot({
   model: 'test-model',
   instructions: 'Listen.',
   voice: { model: 'gpt-transcribe', maxSeconds: 10 },
+});
+
+const multilingualBot = defineBot({
+  id: 'multilingual',
+  model: 'test-model',
+  instructions: 'Help.',
+  widget: {
+    locale: 'auto',
+    title: 'Brightloop',
+    css: '[data-cd-part="bubble"] { border-radius: 4px; }',
+  },
+});
+
+const secretiveBot = defineBot({
+  id: 'secretive',
+  model: 'secret-model',
+  instructions: 'SECRET-INSTRUCTIONS',
+  limits: { dailyTokens: 987_654 },
+  tools: [
+    defineTool({
+      name: 'secret_tool',
+      description: 'Hidden',
+      input: z.object({}),
+      execute: () => 1,
+    }),
+  ],
+  knowledge: { vectorStoreId: 'vs_secret' },
+  voice: { model: 'secret-transcribe' },
+  attachments: {},
 });
 
 const tightVoiceBot = defineBot({
@@ -102,7 +133,7 @@ const gateway: ModelGateway = {
 beforeAll(async () => {
   tokens = await createTokenService({ secret: 'aGFuZGxlci10ZXN0cy1zZWNyZXQtMTIzNDU2Nzg5MA' });
   handler = createRequestHandler({
-    bots: [bot, filesBot, docsBot, voiceBot, tightVoiceBot],
+    bots: [bot, filesBot, docsBot, voiceBot, tightVoiceBot, multilingualBot, secretiveBot],
     basePath: '/api/chat',
     assets,
     gateway: () => gateway,
@@ -198,6 +229,55 @@ describe('static routes', () => {
     ).text();
     expect(html).toContain('data-cd-preset="halo"');
     expect(html).not.toContain('"gallery"');
+  });
+
+  it('shows a bot set to auto in the language of the page, else of the browser', async () => {
+    const config = async (url: string, headers: Record<string, string> = {}) => {
+      const html = await (await handler(new Request(url, { headers }))).text();
+      const json = /<script type="application\/json" id="chatdock-config">(.*?)<\/script>/.exec(
+        html,
+      )?.[1];
+      return { html, widget: JSON.parse(json ?? '{}').widget };
+    };
+    const fromPage = await config(`${BASE}/embed/multilingual?lang=pl-PL`);
+    expect(fromPage.html).toContain('<html lang="pl-PL"');
+    expect(fromPage.widget.texts['composer.send']).toBe('Wyślij');
+    expect(fromPage.widget.greeting).toBe('Cześć! W czym mogę pomóc?');
+    const fromBrowser = await config(`${BASE}/embed/multilingual`, {
+      'accept-language': 'pl;q=0.9,en;q=0.8',
+    });
+    expect(fromBrowser.widget.locale).toBe('pl');
+    expect((await config(`${BASE}/embed/multilingual?lang=<x>`)).widget.locale).toBe('en');
+    // A configured text wins in every language.
+    expect(fromPage.widget.title).toBe('Brightloop');
+  });
+
+  it("appends the bot's own CSS after the theme, outside the library's layer", async () => {
+    const html = await (await handler(new Request(`${BASE}/embed/multilingual`))).text();
+    const href = /href="(\/api\/chat\/theme\/multilingual\.css\?[^"]+)"/.exec(html)?.[1];
+    const css = await (await handler(new Request(`${APP}${href}`))).text();
+    expect(css.endsWith('}\n[data-cd-part="bubble"] { border-radius: 4px; }')).toBe(true);
+  });
+
+  it('never exposes server configuration to browsers', async () => {
+    const urls = [`${BASE}/embed/secretive`, `${BASE}/widget.js?bot=secretive`];
+    const html = await (await handler(new Request(urls[0] ?? ''))).text();
+    const themeHref = /href="(\/api\/chat\/theme\/[^"]+)"/.exec(html)?.[1] ?? '';
+    const bodies = await Promise.all(
+      [...urls, `${APP}${themeHref}`].map(async (url) => (await handler(new Request(url))).text()),
+    );
+    for (const body of bodies) {
+      for (const secret of [
+        'SECRET-INSTRUCTIONS',
+        'secret-model',
+        'secret_tool',
+        'vs_secret',
+        'secret-transcribe',
+        '987654',
+      ]) {
+        expect(body).not.toContain(secret);
+      }
+    }
   });
 
   it('returns 404 for unknown bots and routes', async () => {
@@ -389,6 +469,24 @@ describe('POST /messages', () => {
       post('/messages', { botId: 'support', text: '   ' }, { authorization: `Bearer ${access}` }),
     );
     expect(empty.status).toBe(400);
+  });
+
+  it('passes the page context to the turn and refuses an overlong one', async () => {
+    const access = await session();
+    const send = (context: string) =>
+      handler(
+        post(
+          '/messages',
+          { botId: 'support', text: 'Hi', context },
+          {
+            authorization: `Bearer ${access}`,
+          },
+        ),
+      );
+    const response = await send('  Pricing page  ');
+    await events(response);
+    expect(turns.at(-1)?.pageContext).toBe('Pricing page');
+    expect((await send('x'.repeat(1001))).status).toBe(400);
   });
 
   it('passes only the validated locale as context, never client-supplied page data', async () => {
@@ -697,7 +795,11 @@ describe('attachments', () => {
     expect(await stolen.json()).toMatchObject({ error: { code: 'invalid_input' } });
     const extra = await attach(owner);
     const third = await attach(owner);
-    expect((await send([handle, extra, third], owner)).status).toBe(400);
+    const tooMany = await send([handle, extra, third], owner);
+    expect(tooMany.status).toBe(400);
+    expect(await tooMany.json()).toMatchObject({
+      error: { key: 'error.tooManyFiles', params: { count: 2 } },
+    });
   });
 
   it('reserves tokens per PDF page, refuses long PDFs and assumes the worst for hidden pages', async () => {

@@ -1,4 +1,5 @@
 import type { Bot } from '../bot/define-bot';
+import { TEXT_LOCALES, textLocale, textsFor } from '../i18n/texts';
 import { LAUNCHER_PLACEHOLDER, type LauncherLook } from '../protocol/launcher';
 
 const initials = (title: string): string =>
@@ -12,14 +13,29 @@ const initials = (title: string): string =>
 export function launcherLook(bot: Bot): LauncherLook {
   const { theme } = bot.widget;
   const tokens = theme.colorScheme === 'dark' ? theme.dark : theme.light;
+  const texts = Object.fromEntries(
+    TEXT_LOCALES.map((locale) => {
+      const all = textsFor(locale, bot.widget.texts);
+      return [
+        locale,
+        {
+          label: all['launcher.label'] ?? '',
+          open: all['launcher.open'] ?? '',
+          close: all['launcher.close'] ?? '',
+        },
+      ];
+    }),
+  );
   return {
     style: theme.variants.launcher,
-    label: bot.widget.launcherLabel,
+    texts,
+    ...(bot.widget.locale === 'auto' ? {} : { locale: textLocale(bot.widget.locale) }),
     accent: tokens.accent,
     onAccent: tokens.onAccent,
     orb: tokens.orb,
     ...(bot.widget.avatar ? { avatar: bot.widget.avatar } : {}),
     initials: initials(bot.widget.title),
+    title: bot.widget.title,
     light: theme.light.background,
     dark: theme.dark.background,
     scheme: theme.colorScheme,

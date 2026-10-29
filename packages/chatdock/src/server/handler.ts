@@ -7,7 +7,7 @@ import {
   PDF_PAGE_TOKENS,
 } from '../attachments/files';
 import type { Bot } from '../bot/define-bot';
-import { ChatdockError, toChatdockError } from '../errors';
+import { ChatdockError, type ChatdockErrorOptions, toChatdockError } from '../errors';
 import type { ModelGateway, TurnAttachment } from '../gateway';
 import type { Limits } from '../limits/limits';
 import { newVisitorId, type TokenService } from '../security/tokens';
@@ -51,6 +51,7 @@ export interface HandlerConfig {
 export type RequestHandler = (request: Request) => Promise<Response>;
 
 const MAX_BODY_BYTES = 256 * 1024;
+const LOCALE_TAG = /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
 /** Upload metadata travels in headers because the body is the raw file. */
 const BOT_HEADER = 'x-chatdock-bot';
 const FILENAME_HEADER = 'x-chatdock-filename';
@@ -77,6 +78,8 @@ const messageBody = z.object({
   text: z.string(),
   /** Handles from POST /attachments; raw OpenAI file IDs fail verification. */
   attachments: z.array(z.string().min(1).max(4096)).max(10).optional(),
+  /** chatdock('configure', { context }) from the host page: untrusted, like the message itself. */
+  context: z.string().max(1000).optional(),
   resumeToken: z.string().max(4096).optional(),
   locale: z
     .string()
@@ -100,6 +103,8 @@ function errorResponse(error: ChatdockError): Response {
         code: error.code,
         message: error.message,
         ...(retry ? { retryAfterMs: retry } : {}),
+        ...(error.key ? { key: error.key } : {}),
+        ...(error.params ? { params: error.params } : {}),
       },
     },
     error.status,
@@ -132,9 +137,9 @@ function assertSameOrigin(request: Request): void {
 async function readBytes(
   request: Request,
   limit: number,
-  message = 'Request body is too large.',
+  tooLargeError: ChatdockErrorOptions = { message: 'Request body is too large.' },
 ): Promise<Uint8Array> {
-  const tooLarge = (): ChatdockError => new ChatdockError('invalid_input', { message });
+  const tooLarge = (): ChatdockError => new ChatdockError('invalid_input', tooLargeError);
   if (Number(request.headers.get('content-length') ?? 0) > limit) throw tooLarge();
   if (!request.body) return new Uint8Array();
   const reader = request.body.getReader();
@@ -193,11 +198,16 @@ async function verifyAttachments(
   const unique = [...new Set(handles)];
   if (unique.length === 0) return { attachments: [], attachmentTokens: 0 };
   if (!bot.attachments) {
-    throw new ChatdockError('invalid_input', { message: 'This assistant does not accept files.' });
+    throw new ChatdockError('invalid_input', {
+      message: 'This assistant does not accept files.',
+      key: 'error.filesNotAccepted',
+    });
   }
   if (unique.length > bot.attachments.maxPerMessage) {
     throw new ChatdockError('invalid_input', {
       message: `Attach up to ${bot.attachments.maxPerMessage} files per message.`,
+      key: 'error.tooManyFiles',
+      params: { count: bot.attachments.maxPerMessage },
     });
   }
   const files = new Map<string, TurnAttachment>();
@@ -207,6 +217,7 @@ async function verifyAttachments(
     if (grant.visitorId !== visitorId) {
       throw new ChatdockError('invalid_input', {
         message: 'An attachment expired or is invalid. Please attach it again.',
+        key: 'error.attachmentExpired',
       });
     }
     if (files.has(grant.fileId)) continue;
@@ -252,8 +263,21 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     });
   };
 
+  /**
+   * The visitor's language for a bot set to `auto`: their page's `lang` (sent by the loader),
+   * else their browser's first language, else English.
+   */
+  const localeFor = (bot: Bot, query: URLSearchParams, request: Request): string => {
+    if (bot.widget.locale !== 'auto') return bot.widget.locale;
+    const candidates = [
+      query.get('lang'),
+      (request.headers.get('accept-language') ?? '').split(',')[0]?.split(';')[0]?.trim(),
+    ];
+    return candidates.find((tag) => tag && LOCALE_TAG.test(tag) && tag.length <= 35) ?? 'en';
+  };
+
   /** The bot's theme, or in gallery mode the preset and scheme asked for in the query. */
-  const viewFor = (bot: Bot, query: URLSearchParams): EmbedView => {
+  const viewFor = (bot: Bot, query: URLSearchParams, request: Request): EmbedView => {
     let theme: ResolvedTheme = bot.widget.theme;
     let gallery: GalleryState | undefined;
     const overrides = new URLSearchParams();
@@ -273,17 +297,18 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       }
       if (colorScheme !== bot.widget.theme.colorScheme) overrides.set('scheme', colorScheme);
     }
-    overrides.set('v', themeAsset(theme).hash);
+    overrides.set('v', themeAsset(theme, bot.widget.css).hash);
     return {
+      locale: localeFor(bot, query, request),
       theme,
       gallery,
       themeHref: `${config.basePath}/theme/${bot.id}.css?${overrides}`,
     };
   };
 
-  const serveTheme = (botId: string, query: URLSearchParams): Response => {
+  const serveTheme = (botId: string, query: URLSearchParams, request: Request): Response => {
     const bot = findBot(botId);
-    const { css, hash } = themeAsset(viewFor(bot, query).theme);
+    const { css, hash } = themeAsset(viewFor(bot, query, request).theme, bot.widget.css);
     return new Response(css, {
       headers: {
         'Content-Type': 'text/css; charset=utf-8',
@@ -296,9 +321,10 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     });
   };
 
-  const serveEmbed = (botId: string, query: URLSearchParams): Response => {
+  const serveEmbed = (botId: string, query: URLSearchParams, request: Request): Response => {
     const bot = findBot(botId);
-    return new Response(renderEmbedPage(bot, config.basePath, config.assets, viewFor(bot, query)), {
+    const page = renderEmbedPage(bot, config.basePath, config.assets, viewFor(bot, query, request));
+    return new Response(page, {
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
         'Content-Security-Policy': embedContentSecurityPolicy(bot),
@@ -402,14 +428,19 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     if ((text.length === 0 && attachments.length === 0) || text.length > bot.limits.maxInputChars) {
       throw new ChatdockError('invalid_input', {
         message: `Messages must be between 1 and ${bot.limits.maxInputChars} characters.`,
+        key: 'error.messageLength',
+        params: { max: bot.limits.maxInputChars },
       });
     }
-    const context = { locale: body.locale ?? bot.widget.locale };
+    const context = {
+      locale: body.locale ?? (bot.widget.locale === 'auto' ? 'en' : bot.widget.locale),
+    };
+    const pageContext = body.context?.trim() || undefined;
     const reservation = await config.limits.beginTurn(bot, {
       clientIp: config.clientIp(request),
       visitorId,
       conversationId,
-      inputChars: text.length + bot.instructions(context).length,
+      inputChars: text.length + bot.instructions(context).length + (pageContext?.length ?? 0),
       attachmentTokens,
     });
     const stream = streamTurn({
@@ -417,6 +448,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       bot,
       text,
       attachments,
+      pageContext,
       context,
       visitorId,
       conversationId,
@@ -450,13 +482,18 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     if (!allowed) {
       throw new ChatdockError('invalid_input', {
         message: 'This assistant does not accept files.',
+        key: 'error.filesNotAccepted',
       });
     }
     const tokens = await config.tokens();
     const { visitorId } = await tokens.verifyAccess(bearerToken(request), bot.id);
     await config.limits.checkUpload(bot, { clientIp: config.clientIp(request), visitorId });
     const megabytes = Math.floor((allowed.maxBytes / 1_000_000) * 10) / 10;
-    const bytes = await readBytes(request, allowed.maxBytes, `Files can be up to ${megabytes} MB.`);
+    const bytes = await readBytes(request, allowed.maxBytes, {
+      message: `Files can be up to ${megabytes} MB.`,
+      key: 'error.fileTooLarge',
+      params: { size: `${megabytes} MB` },
+    });
     const file = detectFile(bytes);
     if (
       !file ||
@@ -469,7 +506,15 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       ]
         .filter(Boolean)
         .join(' or ');
-      throw new ChatdockError('invalid_input', { message: `Only ${types} files are supported.` });
+      throw new ChatdockError('invalid_input', {
+        message: `Only ${types} files are supported.`,
+        key:
+          allowed.images && allowed.pdf
+            ? 'error.fileType.both'
+            : allowed.images
+              ? 'error.fileType.images'
+              : 'error.fileType.pdf',
+      });
     }
     let cost = IMAGE_TOKENS;
     if (file.kind === 'pdf') {
@@ -477,6 +522,8 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       if (pages !== undefined && pages > allowed.maxPdfPages) {
         throw new ChatdockError('invalid_input', {
           message: `PDFs can have up to ${allowed.maxPdfPages} pages.`,
+          key: 'error.pdfPages',
+          params: { max: allowed.maxPdfPages },
         });
       }
       // A PDF that hides its structure is charged as if it had the most pages allowed.
@@ -518,6 +565,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     if (!voice) {
       throw new ChatdockError('invalid_input', {
         message: 'This assistant does not accept voice input.',
+        key: 'error.voiceNotAccepted',
       });
     }
     const tokens = await config.tokens();
@@ -529,15 +577,15 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     let bytes: Uint8Array;
     let audio: ReturnType<typeof detectAudio>;
     try {
-      bytes = await readBytes(
-        request,
-        maxAudioBytes(voice.maxSeconds),
-        'This recording is too long.',
-      );
+      bytes = await readBytes(request, maxAudioBytes(voice.maxSeconds), {
+        message: 'This recording is too long.',
+        key: 'error.recordingTooLong',
+      });
       audio = detectAudio(bytes);
       if (!audio) {
         throw new ChatdockError('invalid_input', {
           message: 'This recording format is not supported.',
+          key: 'error.recordingFormat',
         });
       }
     } catch (error) {
@@ -610,9 +658,9 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       const query = new URL(request.url).searchParams;
       if (path === '/widget.js') return serveLoader(query);
       const embed = /^\/embed\/([a-z0-9-]{1,48})$/.exec(path);
-      if (embed?.[1]) return serveEmbed(embed[1], query);
+      if (embed?.[1]) return serveEmbed(embed[1], query, request);
       const theme = /^\/theme\/([a-z0-9-]{1,48})\.css$/.exec(path);
-      if (theme?.[1]) return serveTheme(theme[1], query);
+      if (theme?.[1]) return serveTheme(theme[1], query, request);
       const asset = /^\/assets\/([a-zA-Z0-9.-]{1,80})$/.exec(path);
       if (asset?.[1]) return serveAsset(asset[1]);
     } else if (method === 'POST') {

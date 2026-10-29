@@ -863,6 +863,21 @@
     cursor: default;
   }
 
+  /* The AI notice (EU AI Act, art. 50). */
+  [data-cd-part="disclosure"] {
+    margin: calc(var(--cd-space) * -0.5) 0 0;
+    padding: 0 calc(var(--cd-space) * 2) calc(var(--cd-space) * 1.25);
+    color: var(--cd-color-muted);
+    font-size: 0.72rem;
+    line-height: 1.4;
+    text-align: center;
+  }
+
+  [data-cd-part="disclosure"] a {
+    color: inherit;
+    text-underline-offset: 2px;
+  }
+
   /* ---------- Attachments ---------- */
 
   :is([data-cd-part="attachments"], [data-cd-part="message-attachments"]) {

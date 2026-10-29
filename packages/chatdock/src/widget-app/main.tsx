@@ -1,4 +1,5 @@
 import { createRoot } from 'react-dom/client';
+import { formatText } from '../i18n/format';
 import type { EmbedConfig } from '../server/embed-page';
 import { App } from './app';
 import { ChatClient } from './chat-client';
@@ -23,6 +24,10 @@ if (root) {
     botId: config.botId,
     locale: config.widget.locale,
     storage: browserStorage(),
+    translate: (key, params) => {
+      const template = config.widget.texts[key];
+      return template === undefined ? undefined : formatText(template, params);
+    },
   });
   createRoot(root).render(
     <App
@@ -30,6 +35,7 @@ if (root) {
       client={client}
       bridge={connectToHost(config.allowedOrigins)}
       fixture={config.gallery ? FIXTURES[config.gallery] : undefined}
+      inline={new URLSearchParams(window.location.search).get('mode') === 'inline'}
     />,
   );
 }

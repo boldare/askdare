@@ -1,4 +1,5 @@
 import type { Bot } from '../bot/define-bot';
+import { textsFor } from '../i18n/texts';
 import { PROTOCOL_VERSION } from '../protocol/version';
 import { themeAttributes, themeStylesheet } from '../theme/css';
 import type { PresetName, ThemeVariants } from '../theme/presets';
@@ -31,9 +32,11 @@ export const GALLERY_STATES = [
 export type GalleryState = (typeof GALLERY_STATES)[number];
 
 /** The widget settings the iframe app needs; colors arrive as the theme stylesheet. */
-export type EmbedWidget = Omit<Bot['widget'], 'theme'> & {
+export type EmbedWidget = Omit<Bot['widget'], 'theme' | 'css' | 'texts'> & {
   readonly preset: PresetName;
   readonly variants: ThemeVariants;
+  /** Every text in the visitor's language, overrides applied; plural keys included. */
+  readonly texts: Readonly<Record<string, string>>;
 };
 
 /** Public configuration handed to the iframe app. Must never contain secrets. */
@@ -72,6 +75,8 @@ function scriptSafeJson(value: unknown): string {
 }
 
 export interface EmbedView {
+  /** The language this visitor sees: the configured one, or for `auto` their page's or browser's. */
+  readonly locale: string;
   readonly theme: ResolvedTheme;
   /** Theme stylesheet URL, content-hashed. */
   readonly themeHref: string;
@@ -79,14 +84,26 @@ export interface EmbedView {
 }
 
 export function embedConfig(bot: Bot, basePath: string, view?: EmbedView): EmbedConfig {
-  const { theme, ...widget } = bot.widget;
+  const { theme, css: _css, texts: overrides, ...widget } = bot.widget;
   const resolved = view?.theme ?? theme;
+  const locale = view?.locale ?? (widget.locale === 'auto' ? 'en' : widget.locale);
+  const texts = textsFor(locale, overrides);
   return {
     protocolVersion: PROTOCOL_VERSION,
     basePath,
     botId: bot.id,
     allowedOrigins: bot.security.allowedOrigins,
-    widget: { ...widget, preset: resolved.preset, variants: resolved.variants },
+    widget: {
+      ...widget,
+      locale,
+      title: texts['header.title'] ?? widget.title,
+      greeting: texts['welcome.greeting'] ?? widget.greeting,
+      placeholder: texts['composer.placeholder'] ?? widget.placeholder,
+      launcherLabel: texts['launcher.label'] ?? widget.launcherLabel,
+      texts,
+      preset: resolved.preset,
+      variants: resolved.variants,
+    },
     ...(view?.gallery ? { gallery: view.gallery } : {}),
     ...(bot.attachments ? { attachments: bot.attachments } : {}),
     ...(bot.voice ? { voice: { maxSeconds: bot.voice.maxSeconds } } : {}),
@@ -113,20 +130,26 @@ export function embedContentSecurityPolicy(bot: Bot): string {
   ].join('; ');
 }
 
-/** Stylesheet and content hash of a theme, cached per distinct theme. */
-const stylesheets = new WeakMap<ResolvedTheme, { css: string; hash: string }>();
+/** Stylesheet and content hash of a theme plus a bot's own CSS, cached per distinct pair. */
+const stylesheets = new WeakMap<ResolvedTheme, Map<string, { css: string; hash: string }>>();
 
-export function themeAsset(theme: ResolvedTheme): { css: string; hash: string } {
-  let asset = stylesheets.get(theme);
+export function themeAsset(theme: ResolvedTheme, custom = ''): { css: string; hash: string } {
+  let byCustom = stylesheets.get(theme);
+  if (!byCustom) {
+    byCustom = new Map();
+    stylesheets.set(theme, byCustom);
+  }
+  let asset = byCustom.get(custom);
   if (!asset) {
-    const css = themeStylesheet(theme);
+    // The bot's CSS comes after the theme and outside the library's layer, so it wins.
+    const css = custom ? `${themeStylesheet(theme)}\n${custom}` : themeStylesheet(theme);
     // FNV-1a: only a cache key for the URL, not a security boundary.
     let value = 0x811c9dc5;
     for (let index = 0; index < css.length; index += 1) {
       value = Math.imul(value ^ css.charCodeAt(index), 0x01000193) >>> 0;
     }
     asset = { css, hash: value.toString(16).padStart(8, '0') };
-    stylesheets.set(theme, asset);
+    byCustom.set(custom, asset);
   }
   return asset;
 }
@@ -143,11 +166,11 @@ export function renderEmbedPage(
     .join('');
   return [
     '<!doctype html>',
-    `<html lang="${escapeHtml(bot.widget.locale)}"${attributes}>`,
+    `<html lang="${escapeHtml(config.widget.locale)}"${attributes}>`,
     '<head>',
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
-    `<title>${escapeHtml(bot.widget.title)}</title>`,
+    `<title>${escapeHtml(config.widget.title)}</title>`,
     `<link rel="stylesheet" href="${basePath}/assets/${assets.fontsCssFile}">`,
     `<link rel="stylesheet" href="${basePath}/assets/${assets.widgetCssFile}">`,
     `<link rel="stylesheet" href="${escapeHtml(view.themeHref)}">`,

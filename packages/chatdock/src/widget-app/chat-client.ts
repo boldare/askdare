@@ -12,6 +12,14 @@ export interface ChatClientOptions {
   readonly fetch?: typeof fetch;
   /** Abort a stream after this long without any bytes (events or heartbeats). Default 45 s. */
   readonly watchdogMs?: number;
+  /**
+   * Looks up a dictionary text (the visitor's language) for an error key; undefined when there is
+   * none, which keeps the English message.
+   */
+  readonly translate?: (
+    key: string,
+    params?: Readonly<Record<string, string | number>>,
+  ) => string | undefined;
 }
 
 interface Session {
@@ -30,6 +38,8 @@ interface ErrorBody {
 
 export interface OutgoingMessage {
   readonly text: string;
+  /** What the host page says about itself (chatdock('configure')); untrusted on the server. */
+  readonly context?: string | undefined;
   /** Handles returned by {@link ChatClient.upload}. */
   readonly attachments?: readonly string[];
 }
@@ -62,9 +72,7 @@ const json = (value: unknown): RequestBody => ({
 
 const RENEW_MARGIN_SECONDS = 30;
 
-function errorEvent(code: ErrorCode, message: string, retryAfterMs?: number): ProtocolEvent {
-  return { type: 'error', code, message, retryAfterMs };
-}
+type ErrorEvent = Extract<ProtocolEvent, { type: 'error' }>;
 
 /**
  * Talks to the chatdock API from the iframe: keeps the access token in memory, the resume token
@@ -83,6 +91,17 @@ export class ChatClient {
     this.#options = options;
     this.#fetch = options.fetch ?? ((input, init) => fetch(input, init));
     this.#resumeKey = `chatdock:${options.botId}:resume`;
+  }
+
+  /** A client-side error: the dictionary text for `key`, else the English message. */
+  #error(code: ErrorCode, key: string, english: string): ErrorEvent {
+    return { type: 'error', code, key, message: this.#options.translate?.(key) ?? english };
+  }
+
+  /** A server error in the visitor's language when it carries a known key. */
+  #localize(event: ErrorEvent): ErrorEvent {
+    const text = event.key ? this.#options.translate?.(event.key, event.params) : undefined;
+    return text ? { ...event, message: text } : event;
   }
 
   /** Forgets the stored conversation so the next message starts a new one. */
@@ -146,7 +165,7 @@ export class ChatClient {
       );
       if (!response.ok) {
         const event = await this.#errorFromResponse(response);
-        return { ok: false, message: event.type === 'error' ? event.message : 'Upload failed.' };
+        return { ok: false, message: event.message };
       }
       const body = (await response.json()) as { attachment?: Partial<UploadedFile> };
       const uploaded = body.attachment;
@@ -155,11 +174,18 @@ export class ChatClient {
         (uploaded.kind !== 'image' && uploaded.kind !== 'pdf') ||
         typeof uploaded.name !== 'string'
       ) {
-        return { ok: false, message: 'Upload failed.' };
+        return {
+          ok: false,
+          message: this.#error(
+            'upstream_error',
+            'error.uploadFailed',
+            'The file could not be uploaded.',
+          ).message,
+        };
       }
       return { ok: true, file: { id: uploaded.id, kind: uploaded.kind, name: uploaded.name } };
     } catch {
-      return { ok: false, message: 'Connection problem. Please try again.' };
+      return { ok: false, message: this.#connectionError('upstream_error').message };
     }
   }
 
@@ -176,17 +202,21 @@ export class ChatClient {
       }));
       if (!response.ok) {
         const event = await this.#errorFromResponse(response);
-        return {
-          ok: false,
-          message: event.type === 'error' ? event.message : 'Transcription failed.',
-        };
+        return { ok: false, message: event.message };
       }
       const body = (await response.json()) as { text?: unknown };
       return typeof body.text === 'string'
         ? { ok: true, text: body.text }
-        : { ok: false, message: 'Transcription failed.' };
+        : {
+            ok: false,
+            message: this.#error(
+              'upstream_error',
+              'error.transcriptionFailed',
+              'The recording could not be transcribed.',
+            ).message,
+          };
     } catch {
-      return { ok: false, message: 'Connection problem. Please try again.' };
+      return { ok: false, message: this.#connectionError('upstream_error').message };
     }
   }
 
@@ -206,6 +236,7 @@ export class ChatClient {
             text: message.text,
             locale: this.#options.locale,
             ...(message.attachments?.length ? { attachments: message.attachments } : {}),
+            ...(message.context ? { context: message.context } : {}),
             ...(resumeToken ? { resumeToken } : {}),
           });
         },
@@ -217,7 +248,11 @@ export class ChatClient {
       }
       if (response.headers.get(PROTOCOL_HEADER) !== String(PROTOCOL_VERSION)) {
         onEvent(
-          errorEvent('bot_unavailable', 'The assistant was updated. Please reload the page.'),
+          this.#error(
+            'bot_unavailable',
+            'error.updated',
+            'The assistant was updated. Please reload the page.',
+          ),
         );
         return;
       }
@@ -225,11 +260,10 @@ export class ChatClient {
     } catch (error) {
       if (signal?.aborted) return;
       onEvent(
-        errorEvent(
+        this.#connectionError(
           error instanceof DOMException && error.name === 'TimeoutError'
             ? 'timeout'
             : 'upstream_error',
-          'Connection problem. Please try again.',
         ),
       );
     }
@@ -296,7 +330,11 @@ export class ChatClient {
     return this.#session;
   }
 
-  async #errorFromResponse(response: Response): Promise<ProtocolEvent> {
+  #connectionError(code: ErrorCode): ErrorEvent {
+    return this.#error(code, 'error.connection', 'Connection problem. Please try again.');
+  }
+
+  async #errorFromResponse(response: Response): Promise<ErrorEvent> {
     let body: ErrorBody = {};
     try {
       body = (await response.json()) as ErrorBody;
@@ -308,9 +346,13 @@ export class ChatClient {
       event: 'error',
       data: JSON.stringify({ type: 'error', ...body.error }),
     });
-    return result.ok
-      ? result.event
-      : errorEvent('upstream_error', 'The assistant is temporarily unavailable. Please try again.');
+    return result.ok && result.event.type === 'error'
+      ? this.#localize(result.event)
+      : this.#error(
+          'upstream_error',
+          'error.upstream_error',
+          'The assistant is temporarily unavailable. Please try again.',
+        );
   }
 
   async #readStream(
@@ -347,10 +389,14 @@ export class ChatClient {
           } else if (result.event.type === 'error' && result.event.code === 'not_found') {
             this.reset(); // the conversation is gone (e.g. deleted by retention): start a new one
           }
-          onEvent(result.event);
+          onEvent(result.event.type === 'error' ? this.#localize(result.event) : result.event);
         }
       }
-      if (stalled) onEvent(errorEvent('timeout', 'The connection stalled. Please try again.'));
+      if (stalled) {
+        onEvent(
+          this.#error('timeout', 'error.stalled', 'The connection stalled. Please try again.'),
+        );
+      }
     } finally {
       clearTimeout(timer);
       signal?.removeEventListener('abort', onAbort);

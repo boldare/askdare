@@ -9,9 +9,35 @@ import type { LauncherLook } from '../protocol/launcher';
 
 type Command = 'open' | 'close' | 'toggle';
 
+/** What a page may change at runtime (ADR-0008): texts and its own context, nothing else. */
+interface ConfigureOptions {
+  /** Greeting on the welcome screen, for example per page. */
+  readonly greeting?: string;
+  /** Suggested questions on the welcome screen, up to 4. */
+  readonly starters?: readonly string[];
+  /** Describes the page to the assistant; passed on as untrusted data, at most 1000 characters. */
+  readonly context?: string;
+}
+
 interface ChatdockGlobal {
   (command: Command): void;
+  (command: 'configure', options: ConfigureOptions): void;
   readonly loaded: true;
+}
+
+/** Keeps only the allowed fields with the right types; the iframe and server check them again. */
+function configureMessage(options: unknown): Record<string, unknown> {
+  const input = (typeof options === 'object' && options !== null ? options : {}) as Record<
+    string,
+    unknown
+  >;
+  const message: Record<string, unknown> = { v: 1, type: 'configure' };
+  if (typeof input['greeting'] === 'string') message['greeting'] = input['greeting'];
+  if (typeof input['context'] === 'string') message['context'] = input['context'];
+  if (Array.isArray(input['starters'])) {
+    message['starters'] = input['starters'].filter((item) => typeof item === 'string');
+  }
+  return message;
 }
 
 declare global {
@@ -59,6 +85,8 @@ const STYLES = `
   :host([data-chatdock-scheme=auto]) [part=panel] { background: var(--d); }
 }
 [part=panel][hidden] { display: none; }
+[part=panel].inline { position: static; width: 100%; height: 100%; border-radius: inherit;
+  box-shadow: none; animation: none; }
 iframe { display: block; width: 100%; height: 100%; border: 0; }
 @keyframes in { from { opacity: 0; transform: translateY(10px) scale(.97); } }
 @media (max-width: 480px) {
@@ -96,9 +124,28 @@ function boot(): void {
   }
   const appOrigin = scriptUrl.origin;
   const basePath = scriptUrl.pathname.replace(/\/widget\.js$/, '');
-  const embedUrl = `${appOrigin}${basePath}/embed/${encodeURIComponent(botId)}`;
+  // Inline: the chat fills an element of the page instead of floating. data-launcher="none":
+  // the page opens the chat from its own button, with chatdock('open').
+  const target = script.dataset['mode'] === 'inline' ? script.dataset['target'] : undefined;
+  const container = target ? document.querySelector(target) : null;
+  if (target && !container) console.warn(`[chatdock] No element matches ${target}.`);
+  const inline = container !== null;
+  const withLauncher = !inline && script.dataset['launcher'] !== 'none';
+  // The page's language, for bots set to `auto`, and the mode, for the chat's own controls.
+  const hostLang = document.documentElement.lang;
+  const query = new URLSearchParams({
+    ...(hostLang ? { lang: hostLang } : {}),
+    ...(inline ? { mode: 'inline' } : {}),
+  });
+  const search = query.toString();
+  const embedUrl = `${appOrigin}${basePath}/embed/${encodeURIComponent(botId)}${
+    search ? `?${search}` : ''
+  }`;
 
   const look = looks()[botId];
+  const language = (look?.locale ?? hostLang ?? navigator.language).toLowerCase().split('-')[0];
+  const texts = look?.texts[language ?? 'en'] ??
+    look?.texts['en'] ?? { label: 'Ask us', open: 'Open chat', close: 'Close chat' };
   const host = document.createElement('div');
   host.dataset['chatdock'] = botId;
   host.dataset['chatdockScheme'] = look?.scheme ?? 'auto';
@@ -129,7 +176,7 @@ function boot(): void {
   launcher.type = 'button';
   launcher.className = look?.style ?? 'circle';
   launcher.setAttribute('part', 'launcher');
-  launcher.setAttribute('aria-label', 'Open chat');
+  launcher.setAttribute('aria-label', texts.open);
   launcher.setAttribute('aria-expanded', 'false');
   const icon = document.createElement('span');
   icon.style.display = 'contents';
@@ -150,17 +197,25 @@ function boot(): void {
     }
     const label = document.createElement('span');
     label.className = 'lb';
-    label.textContent = look.label;
+    label.textContent = texts.label;
     launcher.append(avatar, label);
   }
   launcher.append(icon);
   const panel = document.createElement('div');
   panel.setAttribute('part', 'panel');
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-label', look?.title ?? 'Chat');
   panel.hidden = true;
-  shadow.append(panel, launcher);
+  if (inline) panel.className = 'inline';
+  shadow.append(panel);
+  if (withLauncher) shadow.append(launcher);
 
   let iframe: HTMLIFrameElement | undefined;
   let port: MessagePort | undefined;
+  /** The latest configure() call, delivered once the chat is connected (and again after reloads). */
+  let configured: Record<string, unknown> | undefined;
+  /** Where focus was before opening, so closing returns it (a page's own trigger, for example). */
+  let returnFocus: HTMLElement | undefined;
 
   const connect = (frame: HTMLIFrameElement): void => {
     port?.close();
@@ -174,9 +229,13 @@ function boot(): void {
     };
     // Explicit target origin: only our own app can receive the port.
     frame.contentWindow?.postMessage({ v: 1, type: 'chatdock:init' }, appOrigin, [channel.port2]);
+    if (configured) port.postMessage(configured);
   };
 
   const open = (): void => {
+    if (!inline && panel.hidden && document.activeElement instanceof HTMLElement) {
+      returnFocus = document.activeElement;
+    }
     if (!iframe) {
       iframe = document.createElement('iframe');
       iframe.title = 'Chat';
@@ -190,27 +249,33 @@ function boot(): void {
     panel.hidden = false;
     showIcon(true);
     launcher.setAttribute('aria-expanded', 'true');
-    launcher.setAttribute('aria-label', 'Close chat');
+    launcher.setAttribute('aria-label', texts.close);
     iframe.focus();
   };
 
   function close(): void {
+    if (inline || panel.hidden) return;
     // The iframe keeps running while hidden; let it stop anything live, such as a dictation.
     port?.postMessage({ v: 1, type: 'hidden' });
     panel.hidden = true;
     showIcon(false);
     launcher.setAttribute('aria-expanded', 'false');
-    launcher.setAttribute('aria-label', 'Open chat');
-    launcher.focus();
+    launcher.setAttribute('aria-label', texts.open);
+    (withLauncher ? launcher : returnFocus)?.focus();
   }
 
   launcher.addEventListener('click', () => (panel.hidden ? open() : close()));
-  (document.body ?? document.documentElement).append(host);
+  (container ?? document.body ?? document.documentElement).append(host);
+  if (inline) open();
 
-  const api = ((command: Command) => {
+  const api = ((command: Command | 'configure', options?: ConfigureOptions) => {
     if (command === 'open') open();
     else if (command === 'close') close();
     else if (command === 'toggle') (panel.hidden ? open : close)();
+    else if (command === 'configure') {
+      configured = configureMessage(options);
+      port?.postMessage(configured);
+    }
   }) as ChatdockGlobal;
   Object.defineProperty(api, 'loaded', { value: true });
   window.chatdock = api;
