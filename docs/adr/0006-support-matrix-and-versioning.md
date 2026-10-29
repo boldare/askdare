@@ -31,7 +31,8 @@ A library runs inside its users' apps, so every supported combination of version
   - `defineBot`, `defineTool`, `createChatHandler` (and `defineTheme`);
   - the script tag's `data-*` attributes and the `chatdock()` JS API;
   - `--cd-*` tokens, `data-cd-part` names and dictionary keys;
-  - the protocol version.
+  - the protocol version;
+  - ports implemented by official add-ons: `RateLimitStore` (and `CounterHit`).
 
   Everything else is internal.
 - **Guards:**
