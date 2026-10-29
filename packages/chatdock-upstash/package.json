@@ -1,0 +1,48 @@
+{
+  "name": "@boldare/chatdock-upstash",
+  "version": "0.0.0",
+  "description": "Shared rate limits and budgets for @boldare/chatdock, stored in Upstash Redis.",
+  "license": "MIT",
+  "author": "Boldare",
+  "keywords": [
+    "chatdock",
+    "rate-limit",
+    "upstash",
+    "redis"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc -p tsconfig.json",
+    "check:package": "publint --strict && attw --pack . --profile esm-only && node ../../scripts/check-dts-no-leak.mjs dist"
+  },
+  "peerDependencies": {
+    "@boldare/chatdock": "workspace:^",
+    "@upstash/redis": "^1.35.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@boldare/chatdock": "workspace:^",
+    "@upstash/redis": "^1.40.0",
+    "publint": "^0.3.25",
+    "tsdown": "^0.23.3"
+  }
+}
