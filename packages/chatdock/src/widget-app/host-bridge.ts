@@ -1,6 +1,8 @@
 /** Messages exchanged with the loader over a dedicated MessagePort. Versioned; unknown ones are ignored. */
 export type HostMessage =
-  | { readonly v: 1; readonly type: 'chatdock:init' }
+  /** `identity`: the latest chatdock('identify') before the chat connected. */
+  | { readonly v: 1; readonly type: 'chatdock:init'; readonly identity?: string | null }
+  | { readonly v: 1; readonly type: 'identify'; readonly token: string | null }
   | { readonly v: 1; readonly type: 'ready' }
   | { readonly v: 1; readonly type: 'close' }
   | { readonly v: 1; readonly type: 'hidden' }
@@ -14,6 +16,15 @@ export interface PageOptions {
 }
 
 const MAX_CONTEXT = 1_000;
+/** How long to wait for the loader before the first request, when it never says hello. */
+const HANDSHAKE_TIMEOUT_MS = 3_000;
+const JWT = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
+
+/** A JWT-shaped string or null (sign out); anything else is ignored. The server verifies it. */
+function identityToken(value: unknown): string | null | undefined {
+  if (value === null) return null;
+  return typeof value === 'string' && value.length <= 4096 && JWT.test(value) ? value : undefined;
+}
 
 function pageOptions(data: Record<string, unknown>): PageOptions {
   const greeting = typeof data['greeting'] === 'string' ? data['greeting'].trim() : '';
@@ -41,6 +52,13 @@ export interface HostBridge {
   onHidden(listener: () => void): () => void;
   /** Called with each chatdock('configure') from the host page; returns an unsubscribe function. */
   onConfigure(listener: (options: PageOptions) => void): () => void;
+  /**
+   * Settles once the loader has connected (or after a few seconds without it): by then the
+   * page's first chatdock('identify') has arrived, so the first request can carry it.
+   */
+  readonly handshake: Promise<void>;
+  /** Called with each chatdock('identify') (a token, or null to sign out); replays the latest. */
+  onIdentify(listener: (token: string | null) => void): () => void;
 }
 
 /**
@@ -53,6 +71,19 @@ export function connectToHost(allowedOrigins: readonly string[]): HostBridge {
   const hiddenListeners = new Set<() => void>();
   const configureListeners = new Set<(options: PageOptions) => void>();
   let latest: PageOptions | undefined;
+  const identifyListeners = new Set<(token: string | null) => void>();
+  let identity: string | null | undefined;
+  const setIdentity = (token: string | null | undefined): void => {
+    if (token === undefined) return;
+    identity = token;
+    for (const listener of identifyListeners) listener(token);
+  };
+  let connected: () => void = () => {};
+  const handshake = new Promise<void>((resolve) => {
+    connected = resolve;
+    if (embedded) setTimeout(resolve, HANDSHAKE_TIMEOUT_MS);
+    else resolve();
+  });
   const allowed = new Set([window.location.origin, ...allowedOrigins]);
 
   const onMessage = (event: MessageEvent): void => {
@@ -67,11 +98,15 @@ export function connectToHost(allowedOrigins: readonly string[]): HostBridge {
       } else if (portEvent.data['type'] === 'configure') {
         latest = pageOptions(portEvent.data);
         for (const listener of configureListeners) listener(latest);
+      } else if (portEvent.data['type'] === 'identify') {
+        setIdentity(identityToken(portEvent.data['token']));
       }
     };
     port.start();
     port.postMessage({ v: 1, type: 'ready' } satisfies HostMessage);
     window.removeEventListener('message', onMessage);
+    setIdentity(identityToken((data as { identity?: unknown }).identity));
+    connected();
   };
   if (embedded) window.addEventListener('message', onMessage);
 
@@ -88,6 +123,12 @@ export function connectToHost(allowedOrigins: readonly string[]): HostBridge {
       configureListeners.add(listener);
       if (latest) listener(latest);
       return () => configureListeners.delete(listener);
+    },
+    handshake,
+    onIdentify(listener) {
+      identifyListeners.add(listener);
+      if (identity !== undefined) listener(identity);
+      return () => identifyListeners.delete(listener);
     },
   };
 }

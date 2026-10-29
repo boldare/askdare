@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { parseEnv } from 'node:util';
 import { type DoctorCheck, type DoctorReport, doctorReportSchema } from '../protocol/doctor';
+import { createIdentityVerifier } from '../security/identity';
 import { createTokenService } from '../security/tokens';
 import {
   addCommand,
@@ -164,6 +165,16 @@ async function environment(
             : 'CHAT_SECRET is strong.',
         ),
       );
+    } catch (error) {
+      checks.push(fail((error as Error).message.replace('[chatdock] ', '')));
+    }
+  }
+  // Optional: only for sites that sign visitors in (ADR-0009).
+  const identitySecret = env['IDENTITY_SECRET'];
+  if (identitySecret) {
+    try {
+      createIdentityVerifier({ secret: identitySecret, chatSecret: secret });
+      checks.push(ok('IDENTITY_SECRET is strong and differs from CHAT_SECRET.'));
     } catch (error) {
       checks.push(fail((error as Error).message.replace('[chatdock] ', '')));
     }

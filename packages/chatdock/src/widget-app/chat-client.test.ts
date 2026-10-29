@@ -371,3 +371,29 @@ describe('conversation history', () => {
     expect(chat.hasConversation()).toBe(false);
   });
 });
+
+describe('ChatClient.identify', () => {
+  it('sends the identity once, then lets the access token carry it', async () => {
+    const { fetch, calls } = fakeFetch({
+      messages: () => new Response(sse([]), { headers: streamHeaders }),
+    });
+    const chat = client(fetch);
+    await chat.identify('header.payload.signature');
+    await chat.send({ text: 'Hi' }, () => {});
+    const sessions = calls.filter((call) => call.url.endsWith('/session'));
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0]?.body['identityToken']).toBe('header.payload.signature');
+    expect(calls.at(-1)?.body['identityToken']).toBeUndefined();
+  });
+
+  it("forgets another user's conversation, and says so", async () => {
+    const storage = memoryStorage();
+    storage.set('chatdock:support:resume', 'resume-of-ada');
+    const { fetch, calls } = fakeFetch({ messages: () => new Response(null, { status: 500 }) });
+    const chat = client(fetch, storage);
+    // The server answers resumable: false, as for a conversation of another signed-in user.
+    expect(await chat.identify(null)).toBe(true);
+    expect(chat.hasConversation()).toBe(false);
+    expect(calls[0]?.body).toMatchObject({ identityToken: null, resumeToken: 'resume-of-ada' });
+  });
+});

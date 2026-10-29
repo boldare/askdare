@@ -301,9 +301,44 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
     };
   }, [bridge, discardRecording, inline]);
 
+  // The page signs the visitor in and out with chatdock('identify') (ADR-0009). The first request
+  // waits for the loader, so it already carries the identity of a signed-in visitor.
+  const [identityReady, setIdentityReady] = useState(fixture !== undefined);
+  useEffect(() => {
+    if (fixture) return;
+    let active = true;
+    let unsubscribe = (): void => {};
+    let queue = Promise.resolve();
+    const apply = (token: string | null): void => {
+      queue = queue.then(async () => {
+        // Another user's conversation is gone from this browser: so is what it showed.
+        if ((await client.identify(token)) && active) {
+          setMessages([]);
+          setError(undefined);
+        }
+      });
+    };
+    void bridge.handshake
+      .then(() => {
+        if (active) unsubscribe = bridge.onIdentify(apply);
+        return queue;
+      })
+      .finally(() => {
+        if (active) setIdentityReady(true);
+      });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [bridge, client, fixture]);
+
   // Restore the stored conversation once (about 2 s upstream, so show a loading state).
   useEffect(() => {
-    if (fixture || !client.hasConversation()) return;
+    if (fixture || !identityReady) return;
+    if (!client.hasConversation()) {
+      setLoading(false);
+      return;
+    }
     const controller = new AbortController();
     client
       .loadHistory(controller.signal)
@@ -313,7 +348,7 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
       })
       .finally(() => setLoading(false));
     return () => controller.abort();
-  }, [client, fixture, t]);
+  }, [client, fixture, identityReady, t]);
 
   // Follow the conversation, including each streamed delta of the latest message.
   const latestText = messages.at(-1)?.text;
@@ -324,7 +359,8 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
 
   const uploading = pending.some((file) => file.status === 'uploading');
   const ready = pending.filter((file) => file.status === 'ready');
-  const canSend = !busy && !loading && !uploading && (draft.trim() !== '' || ready.length > 0);
+  const canSend =
+    identityReady && !busy && !loading && !uploading && (draft.trim() !== '' || ready.length > 0);
 
   const attach = async (file: File): Promise<void> => {
     if (!allowed) return;

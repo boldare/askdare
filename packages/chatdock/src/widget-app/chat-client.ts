@@ -88,6 +88,8 @@ export class ChatClient {
   #sentContext: string | undefined;
   /** Shared by concurrent callers, so parallel uploads end up with one visitor. */
   #opening: Promise<Session> | undefined;
+  /** chatdock('identify') not yet sent: a token, or null to sign out (ADR-0009). */
+  #identity: string | null | undefined;
 
   constructor(options: ChatClientOptions) {
     this.#options = options;
@@ -104,6 +106,22 @@ export class ChatClient {
   #localize(event: ErrorEvent): ErrorEvent {
     const text = event.key ? this.#options.translate?.(event.key, event.params) : undefined;
     return text ? { ...event, message: text } : event;
+  }
+
+  /**
+   * Signs the visitor in (a token from the site's backend) or out (null) right away. Resolves to
+   * true when the stored conversation belonged to someone else and is gone from this browser.
+   */
+  async identify(token: string | null): Promise<boolean> {
+    await this.#opening?.catch(() => undefined);
+    const hadConversation = this.hasConversation();
+    this.#identity = token;
+    try {
+      await this.#ensureSession(true);
+    } catch {
+      // The next request tries again, with the identity still pending.
+    }
+    return hadConversation && !this.hasConversation();
   }
 
   /** Forgets the stored conversation so the next message starts a new one. */
@@ -322,6 +340,7 @@ export class ChatClient {
     const resumeToken = this.#options.storage.get(this.#resumeKey);
     // The previous access token keeps the same visitor, so files uploaded before a renewal stay theirs.
     const accessToken = this.#session?.accessToken;
+    const identityToken = this.#identity;
     const response = await this.#fetch(`${this.#options.basePath}/session`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -329,6 +348,7 @@ export class ChatClient {
         botId: this.#options.botId,
         ...(resumeToken ? { resumeToken } : {}),
         ...(accessToken ? { accessToken } : {}),
+        ...(identityToken === undefined ? {} : { identityToken }),
       }),
     });
     if (!response.ok) throw new Error(`Session request failed with ${response.status}`);
@@ -336,7 +356,17 @@ export class ChatClient {
       accessToken: string;
       expiresAt: number;
       resumable: boolean;
+      identified?: boolean;
+      identityProblem?: string;
     };
+    // Sent once: the identity now lives in the access token.
+    if (this.#identity === identityToken) this.#identity = undefined;
+    if (identityToken && !body.identified) {
+      console.warn(
+        `[chatdock] chatdock('identify') was refused (${body.identityProblem ?? 'unknown'}); the chat continues anonymously.`,
+      );
+    }
+    // Gone, or started by another signed-in user: either way not for this visitor now.
     if (!body.resumable && resumeToken) this.reset();
     this.#session = { accessToken: body.accessToken, expiresAt: body.expiresAt };
     return this.#session;

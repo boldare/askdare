@@ -186,15 +186,16 @@ describe('chatdock doctor', () => {
     await writeFile(join(root, '.gitignore'), 'node_modules\n');
     await writeFile(
       join(root, '.env.local'),
-      'CHAT_SECRET=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nCHATDOCK_MODEL=\n',
+      'CHAT_SECRET=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nCHATDOCK_MODEL=\nIDENTITY_SECRET=short\n',
     );
     const { failures, text } = await run(app());
     expect(text).toContain('✗ app/api/chat/[...path]/route.ts uses the Edge runtime.');
     expect(text).toContain('✗ OPENAI_API_KEY is not set.');
     expect(text).toContain('✗ CHAT_SECRET must be at least 32 random characters');
     expect(text).toContain('✗ CHATDOCK_MODEL is empty.');
+    expect(text).toContain('✗ IDENTITY_SECRET must be at least 32 random characters');
     expect(text).toContain('✗ .env.local holds secrets but is not in .gitignore.');
     expect(text).toContain('! Skipped: the live checks need CHAT_SECRET.');
-    expect(failures).toBe(5);
+    expect(failures).toBe(6);
   });
 });

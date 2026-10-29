@@ -1,6 +1,7 @@
 import { EncryptJWT, errors, jwtDecrypt } from 'jose';
 import type { AttachmentKind } from '../attachments/files';
 import { ChatdockError } from '../errors';
+import type { VerifiedIdentity, VisitorIdentity } from './identity';
 
 const ISSUER = 'chatdock';
 const ACCESS_TYP = 'chatdock-access+jwt';
@@ -41,11 +42,15 @@ export interface IssuedToken {
 
 export interface AccessGrant {
   readonly visitorId: string;
+  /** The signed-in user, until the identity token's `exp` (ADR-0009). */
+  readonly identity?: VerifiedIdentity | undefined;
 }
 
 export interface ResumeGrant {
   readonly visitorId: string;
   readonly conversationId: string;
+  /** Set when the conversation started while signed in: only that user may resume it. */
+  readonly identityKey?: string | undefined;
 }
 
 export interface AttachmentGrant {
@@ -62,7 +67,11 @@ export interface AttachmentGrant {
  * conversation or file IDs.
  */
 export interface TokenService {
-  issueAccess(botId: string, visitorId: string): Promise<IssuedToken>;
+  issueAccess(
+    botId: string,
+    visitorId: string,
+    identity?: VerifiedIdentity | undefined,
+  ): Promise<IssuedToken>;
   /** Throws `unauthorized` or `session_expired`. */
   verifyAccess(token: string, botId: string): Promise<AccessGrant>;
   /**
@@ -108,6 +117,17 @@ async function deriveKey(secret: string, name: string): Promise<DerivedKey> {
     byte.toString(16).padStart(2, '0'),
   ).join('');
   return { kid, key: await derive('chatdock token encryption v1', 256) };
+}
+
+/** The identity an access token carries, while it lasts. Our own encrypted claim: no re-check needed. */
+function identityOf(payload: Record<string, unknown>, now: number) {
+  const { idn, ixp } = payload;
+  if (typeof idn !== 'string' || typeof ixp !== 'number' || ixp <= now) return undefined;
+  try {
+    return { identity: JSON.parse(idn) as VisitorIdentity, expiresAt: ixp };
+  } catch {
+    return undefined;
+  }
 }
 
 export async function createTokenService(options: TokenServiceOptions): Promise<TokenService> {
@@ -162,7 +182,14 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
   }
 
   return {
-    issueAccess: (botId, visitorId) => issue(ACCESS_TYP, botId, visitorId, accessTtl),
+    issueAccess: (botId, visitorId, identity) =>
+      issue(
+        ACCESS_TYP,
+        botId,
+        visitorId,
+        accessTtl,
+        identity ? { idn: JSON.stringify(identity.identity), ixp: identity.expiresAt } : {},
+      ),
 
     async verifyAccess(token, botId) {
       try {
@@ -170,7 +197,7 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
         if (typeof payload.sub !== 'string' || !VISITOR_ID.test(payload.sub)) {
           throw new ChatdockError('unauthorized');
         }
-        return { visitorId: payload.sub };
+        return { visitorId: payload.sub, identity: identityOf(payload, now()) };
       } catch (error) {
         if (error instanceof errors.JWTExpired) {
           throw new ChatdockError('session_expired', { cause: error });
@@ -185,28 +212,36 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
         if (typeof payload.sub !== 'string' || !VISITOR_ID.test(payload.sub)) {
           throw new ChatdockError('unauthorized');
         }
-        return { visitorId: payload.sub };
+        return { visitorId: payload.sub, identity: identityOf(payload, now()) };
       } catch (error) {
         throw new ChatdockError('unauthorized', { cause: error });
       }
     },
 
     issueResume: (botId, grant) =>
-      issue(RESUME_TYP, botId, grant.visitorId, resumeTtl, { cid: grant.conversationId }),
+      issue(RESUME_TYP, botId, grant.visitorId, resumeTtl, {
+        cid: grant.conversationId,
+        ...(grant.identityKey ? { ids: grant.identityKey } : {}),
+      }),
 
     async verifyResume(token, botId) {
       try {
         const { payload } = await verify(token, RESUME_TYP, botId);
-        const cid = payload['cid'];
+        const { cid, ids } = payload;
         if (
           typeof payload.sub !== 'string' ||
           !VISITOR_ID.test(payload.sub) ||
           typeof cid !== 'string' ||
-          !CONVERSATION_ID.test(cid)
+          !CONVERSATION_ID.test(cid) ||
+          (ids !== undefined && typeof ids !== 'string')
         ) {
           throw new ChatdockError('not_found');
         }
-        return { visitorId: payload.sub, conversationId: cid };
+        return {
+          visitorId: payload.sub,
+          conversationId: cid,
+          ...(ids === undefined ? {} : { identityKey: ids }),
+        };
       } catch (error) {
         throw new ChatdockError('not_found', { cause: error });
       }

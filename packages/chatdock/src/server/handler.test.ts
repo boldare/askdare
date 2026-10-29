@@ -1,3 +1,4 @@
+import { SignJWT } from 'jose';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { defineBot } from '../bot/define-bot';
@@ -8,6 +9,7 @@ import { memoryStore } from '../limits/store';
 import { doctorReportSchema } from '../protocol/doctor';
 import type { ProtocolEvent } from '../protocol/events';
 import { decodeEvent, SseParser } from '../protocol/sse';
+import { createIdentityVerifier } from '../security/identity';
 import { createTokenService, type TokenService } from '../security/tokens';
 import { defineTool } from '../tools/define-tool';
 import type { EmbedAssets } from './embed-page';
@@ -15,6 +17,9 @@ import { createRequestHandler, type RequestHandler } from './handler';
 
 const APP = 'https://app.example.com';
 const BASE = `${APP}/api/chat`;
+
+const IDENTITY_SECRET = 'aGFuZGxlci1pZGVudGl0eS1zZWNyZXQtMTIzNDU2Nzg5MA';
+const identityVerifier = createIdentityVerifier({ secret: IDENTITY_SECRET });
 
 const assets: EmbedAssets = {
   // Backticks, as the minifier writes the placeholder.
@@ -148,6 +153,7 @@ beforeAll(async () => {
     limits: createLimits({ store: memoryStore() }),
     clientIp: (request) => request.headers.get('x-test-ip') ?? 'test',
     onError: () => {},
+    identity: () => identityVerifier,
   });
 });
 
@@ -627,6 +633,113 @@ describe('limits', () => {
       }),
     );
     expect(doctor.status).toBe(503);
+  });
+});
+
+describe('identity', () => {
+  const sign = (sub: string, secret = IDENTITY_SECRET) =>
+    new SignJWT({ name: `User ${sub}`, plan: 'pro' })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setSubject(sub)
+      .setAudience('support')
+      .setIssuedAt()
+      .setExpirationTime('10m')
+      .sign(new TextEncoder().encode(secret));
+
+  type SessionReply = {
+    accessToken: string;
+    resumable: boolean;
+    identified: boolean;
+    identityKey?: string;
+    identityProblem?: string;
+  };
+  const open = async (fields: Record<string, unknown>): Promise<SessionReply> =>
+    (
+      await handler(post('/session', { botId: 'support', ...fields }))
+    ).json() as Promise<SessionReply>;
+
+  /** Sends one message and returns the conversation's resume token. */
+  const converse = async (session: SessionReply, resumeToken?: string) => {
+    const response = await handler(
+      post(
+        '/messages',
+        { botId: 'support', text: 'Hi', ...(resumeToken ? { resumeToken } : {}) },
+        { authorization: `Bearer ${session.accessToken}` },
+      ),
+    );
+    if (response.status !== 200) return { status: response.status, resumeToken: undefined };
+    const created = (await events(response)).find((event) => event.type === 'conversation.created');
+    return {
+      status: 200,
+      resumeToken: created?.type === 'conversation.created' ? created.resumeToken : resumeToken,
+    };
+  };
+
+  it('gives tools and instructions the verified user, and keeps it through renewals', async () => {
+    const session = await open({ identityToken: await sign('ada') });
+    expect(session).toMatchObject({
+      identified: true,
+      identityKey: expect.stringMatching(/^[0-9a-f]{32}$/),
+    });
+    await converse(session);
+    expect(turns.at(-1)?.context.identity).toEqual({
+      id: 'ada',
+      name: 'User ada',
+      claims: { plan: 'pro' },
+    });
+
+    const renewed = await open({ accessToken: session.accessToken });
+    expect(renewed).toMatchObject({ identified: true, identityKey: session.identityKey });
+  });
+
+  it('never trusts a forged token, and says why to the widget', async () => {
+    const forged = await sign('ada', 'Zm9yZ2VkLWJ5LWFuLWF0dGFja2VyLTEyMzQ1Njc4OTA');
+    const session = await open({ identityToken: forged });
+    expect(session).toMatchObject({ identified: false, identityProblem: 'signature' });
+    expect(session.identityKey).toBeUndefined();
+    await converse(session);
+    expect(turns.at(-1)?.context.identity).toBeUndefined();
+  });
+
+  it("keeps a signed-in user's conversation from anyone else on the same browser", async () => {
+    const ada = await open({ identityToken: await sign('ada') });
+    const { resumeToken } = await converse(ada);
+    expect(resumeToken).toBeDefined();
+
+    // Same browser (same visitor), now signed in as someone else, or signed out.
+    for (const identityToken of [await sign('bob'), null]) {
+      const other = await open({ accessToken: ada.accessToken, resumeToken, identityToken });
+      expect(other.resumable).toBe(false);
+      expect((await converse(other, resumeToken)).status).toBe(404);
+      const history = await handler(
+        post(
+          '/history',
+          { botId: 'support', resumeToken },
+          { authorization: `Bearer ${other.accessToken}` },
+        ),
+      );
+      expect(history.status).toBe(404);
+    }
+
+    const again = await open({
+      accessToken: ada.accessToken,
+      resumeToken,
+      identityToken: await sign('ada'),
+    });
+    expect(again.resumable).toBe(true);
+    expect((await converse(again, resumeToken)).status).toBe(200);
+  });
+
+  it('lets an anonymous conversation continue after signing in', async () => {
+    const anonymous = await open({});
+    const { resumeToken } = await converse(anonymous);
+    const signedIn = await open({
+      accessToken: anonymous.accessToken,
+      resumeToken,
+      identityToken: await sign('ada'),
+    });
+    expect(signedIn).toMatchObject({ resumable: true, identified: true });
+    expect((await converse(signedIn, resumeToken)).status).toBe(200);
   });
 });
 
