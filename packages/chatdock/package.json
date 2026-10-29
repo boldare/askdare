@@ -1,0 +1,46 @@
+{
+  "name": "@boldare/chatdock",
+  "version": "0.0.0",
+  "description": "Embeddable AI chatbot for Next.js, built on the official OpenAI SDK.",
+  "license": "MIT",
+  "author": "Boldare",
+  "keywords": [
+    "chatbot",
+    "ai",
+    "assistant",
+    "nextjs",
+    "widget",
+    "embed",
+    "openai",
+    "responses-api"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc -p tsconfig.json",
+    "check:package": "publint --strict && attw --pack . --profile esm-only && node ../../scripts/check-dts-no-leak.mjs dist"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "publint": "^0.3.25",
+    "tsdown": "^0.23.3"
+  }
+}

@@ -52,4 +52,24 @@ Review AI-generated changes like any other contribution.
 
 ## Development
 
-Setup commands are added together with the workspace tooling.
+**Prerequisites:**
+- Node.js 22.18 or newer (24 recommended, see `.nvmrc`).
+- pnpm 12. If your global pnpm is older, either run `npx pnpm@12.16.1 …` or install pnpm 12.
+
+```bash
+pnpm install        # installs dependencies and the git hooks (lefthook)
+pnpm check          # lint, typecheck, tests, build, package checks; must pass before merging
+pnpm test:watch     # Vitest in watch mode
+pnpm format         # apply Biome formatting and safe fixes
+pnpm changeset      # describe a change to a published package
+```
+
+**Git hooks:**
+- `pre-commit` runs Biome on staged files.
+- `commit-msg` checks the Conventional Commits format.
+
+**Supply-chain settings** (`pnpm-workspace.yaml`):
+- Dependency install scripts are blocked unless allowed in `allowBuilds`.
+- Versions published less than a day ago are not installed (`minimumReleaseAge`).
+
+**Spikes:** throwaway experiments live in `spikes/` (see [spikes/README.md](spikes/README.md)).

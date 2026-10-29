@@ -1,0 +1,11 @@
+packages:
+  - packages/*
+  - examples/*
+
+# Supply-chain hardening: don't install versions published less than a day ago.
+minimumReleaseAge: 1440
+
+# Dependency lifecycle scripts are blocked unless explicitly allowed here.
+allowBuilds:
+  # Hooks are installed by our own `prepare` script instead.
+  lefthook: false

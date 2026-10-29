@@ -1,0 +1,14 @@
+# Binaries are called from node_modules directly so hooks work regardless of
+# which pnpm version is installed globally.
+pre-commit:
+  parallel: true
+  jobs:
+    - name: biome
+      glob: "*.{js,mjs,ts,tsx,json,jsonc,css}"
+      run: ./node_modules/.bin/biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+      stage_fixed: true
+
+commit-msg:
+  jobs:
+    - name: commitlint
+      run: ./node_modules/.bin/commitlint --edit {1}
