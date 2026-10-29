@@ -12,6 +12,7 @@ Short records of decisions that are expensive to reverse. One decision per file,
 | [0006](0006-support-matrix-and-versioning.md) | Support matrix and versioning policy | Accepted |
 | [0007](0007-tooling.md) | Tooling | Accepted (spike S2 confirms packaging) |
 | [0008](0008-ui-customization-and-themes.md) | UI customization layers and built-in themes | Accepted |
+| [0009](0009-visitor-identity.md) | Visitor identity with identify() | Accepted |
 
 ## Template
 
