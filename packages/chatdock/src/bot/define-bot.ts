@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { TEXT_KEYS, type TextKey, textsFor } from '../i18n/texts';
+import { canonicalLocale, TEXT_KEYS, type TextKey, textsFor } from '../i18n/texts';
 import { PRESET_NAMES, type PresetName } from '../theme/presets';
 import {
   type ColorScheme,
@@ -161,6 +161,12 @@ export interface BotDefinition {
   readonly limits?: BotLimits;
   /** Server-side functions the model may call; see `defineTool`. Keep it under about 20. */
   readonly tools?: readonly Tool[];
+  /**
+   * Accept a description of the page from `chatdock('configure', { context })` and pass it to the
+   * model with the visitor's message. Any script on the page, or the visitor, can set it, so it
+   * gets no more trust than what visitors type. Off by default.
+   */
+  readonly pageContext?: boolean;
   /** Documents the model searches with OpenAI file search and cites in its answers. */
   readonly knowledge?: KnowledgeConfig | undefined;
   /**
@@ -183,6 +189,7 @@ export interface Bot {
   readonly instructions: (context: BotContext) => string;
   readonly limits: Required<BotLimits>;
   readonly tools: readonly Tool[];
+  readonly pageContext: boolean;
   readonly knowledge: Required<KnowledgeConfig> | undefined;
   readonly attachments: Required<AttachmentConfig> | undefined;
   readonly voice: Required<VoiceConfig> | undefined;
@@ -210,10 +217,8 @@ const DEFAULT_LIMITS: Required<BotLimits> = {
   voiceSecondsPerIpPerDay: 600,
 };
 
-/** A BCP 47 tag such as en or pl-PL. */
-const LOCALE = /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
 /** An https URL or a path on your app (no protocol-relative URLs). */
-const LINK = /^(https:\/\/[^\s"'<>]{1,500}|\/(?!\/)[^\s"'<>]{0,500})$/;
+const LINK = /^(https:\/\/[^\s"'<>\\]{1,500}|\/(?![/\\])[^\s"'<>\\]{0,500})$/;
 
 /** A same-origin path (served by your app, allowed by the iframe CSP) or a small raster data URL. */
 const AVATAR =
@@ -276,6 +281,7 @@ const definitionSchema = z.object({
       'must not use the reserved name file_search',
     )
     .optional(),
+  pageContext: z.boolean().optional(),
   knowledge: z
     .object({
       vectorStoreId: z.string().regex(/^vs_[A-Za-z0-9_-]+$/, 'must be a vector store ID like vs_…'),
@@ -307,12 +313,15 @@ const definitionSchema = z.object({
       locale: z
         .string()
         .refine(
-          (value) => value === 'auto' || LOCALE.test(value),
+          (value) => value === 'auto' || canonicalLocale(value) !== undefined,
           'must be auto or a BCP 47 tag like en or pl-PL',
         )
         .optional(),
       texts: z
-        .record(z.enum(TEXT_KEYS as [TextKey, ...TextKey[]]), z.string().trim().min(1).max(300))
+        .partialRecord(
+          z.enum(TEXT_KEYS as [TextKey, ...TextKey[]]),
+          z.string().trim().min(1).max(300),
+        )
         .optional(),
       disclosure: z
         .union([
@@ -383,6 +392,7 @@ export function defineBot(definition: BotDefinition): Bot {
     instructions: typeof instructions === 'string' ? () => instructions : instructions,
     limits: Object.freeze({ ...DEFAULT_LIMITS, ...definition.limits }),
     tools: Object.freeze([...(definition.tools ?? [])]),
+    pageContext: definition.pageContext ?? false,
     knowledge: definition.knowledge
       ? Object.freeze({
           vectorStoreId: definition.knowledge.vectorStoreId,

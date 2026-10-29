@@ -9,6 +9,8 @@ export interface LauncherTexts {
   /** Accessible names of the button while the chat is closed and open. */
   readonly open: string;
   readonly close: string;
+  /** Accessible name of the chat dialog. */
+  readonly title: string;
 }
 
 export interface LauncherLook {
@@ -24,8 +26,6 @@ export interface LauncherLook {
   /** A path on the app (made absolute by the loader) or a data: image. */
   readonly avatar?: string;
   readonly initials: string;
-  /** Accessible name of the chat dialog. */
-  readonly title: string;
   /** Panel background while the chat loads, per color scheme. */
   readonly light: string;
   readonly dark: string;

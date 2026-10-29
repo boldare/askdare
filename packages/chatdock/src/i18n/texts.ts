@@ -81,7 +81,12 @@ const EN = {
     'Another dictation is still being transcribed. Please try again in a moment.',
 } as const;
 
-export type TextKey = keyof typeof EN;
+/** Plural texts: the base plus a CLDR category, every category overridable. */
+const PLURAL_BASES = ['message.attachments'] as const;
+const PLURAL_FORMS = ['zero', 'one', 'two', 'few', 'many', 'other'] as const;
+export type TextKey =
+  | keyof typeof EN
+  | `${(typeof PLURAL_BASES)[number]}.${(typeof PLURAL_FORMS)[number]}`;
 export type Texts = Readonly<Record<TextKey, string>>;
 
 const PL: Partial<Record<TextKey | `${string}.${'few' | 'many'}`, string>> = {
@@ -160,6 +165,16 @@ const PL: Partial<Record<TextKey | `${string}.${'few' | 'many'}`, string>> = {
   'error.dictationBusy': 'Poprzednie nagranie jest jeszcze przepisywane. Spróbuj za chwilę.',
 };
 
+/** The canonical form of a BCP 47 tag that Intl accepts (plural rules need it), else undefined. */
+export function canonicalLocale(tag: string): string | undefined {
+  if (tag.length > 35) return undefined;
+  try {
+    return Intl.getCanonicalLocales(tag)[0];
+  } catch {
+    return undefined;
+  }
+}
+
 /** Languages with a built-in dictionary; any other locale shows English texts. */
 export const TEXT_LOCALES = ['en', 'pl'] as const;
 export type TextLocale = (typeof TEXT_LOCALES)[number];
@@ -175,7 +190,13 @@ export function textLocale(locale: string): TextLocale {
   return TEXT_LOCALES.includes(primary) ? primary : 'en';
 }
 
-export const TEXT_KEYS: readonly TextKey[] = Object.keys(EN) as TextKey[];
+/** Every key `widget.texts` accepts. */
+export const TEXT_KEYS: readonly TextKey[] = [
+  ...new Set([
+    ...(Object.keys(EN) as TextKey[]),
+    ...PLURAL_BASES.flatMap((base) => PLURAL_FORMS.map((form) => `${base}.${form}` as TextKey)),
+  ]),
+];
 
 /**
  * The full dictionary for a locale with overrides applied. Plural forms beyond `one`/`other`

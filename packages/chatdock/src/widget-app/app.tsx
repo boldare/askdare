@@ -291,14 +291,15 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
     window.addEventListener('keydown', onKey);
     document.addEventListener('visibilitychange', onVisibility);
     const unsubscribe = bridge.onHidden(onHidden);
-    inputRef.current?.focus();
+    // A floating chat was just opened by the visitor; an inline one only loaded with the page.
+    if (!inline) inputRef.current?.focus();
     return () => {
       window.removeEventListener('keydown', onKey);
       document.removeEventListener('visibilitychange', onVisibility);
       unsubscribe();
       discardRecording();
     };
-  }, [bridge, discardRecording]);
+  }, [bridge, discardRecording, inline]);
 
   // Restore the stored conversation once (about 2 s upstream, so show a loading state).
   useEffect(() => {
@@ -414,7 +415,8 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
         status: 'done',
       },
     ]);
-    await client.send({ text, attachments: handles, context: page.context }, (event) => {
+    const context = config.pageContext ? page.context : undefined;
+    await client.send({ text, attachments: handles, context }, (event) => {
       const next = activityFor(event, t);
       if (next !== undefined) setActivity(next);
       if (event.type === 'error') {

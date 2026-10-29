@@ -22,6 +22,8 @@ export const bots = [
         `Reply in the language of the user's message; default to ${locale}.`,
       ].join(' '),
     tools: [currentTime, exchangeRate],
+    // Pages may describe themselves with chatdock('configure', { context }); see docs/styling.md.
+    pageContext: true,
     // Documents from knowledge/, uploaded with `pnpm kb:sync`. Without the ID the bot has none.
     knowledge: vectorStoreId ? { vectorStoreId } : undefined,
     // Images and PDFs, up to 4 MB and 3 per message; they expire after 30 days.

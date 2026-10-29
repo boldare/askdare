@@ -17,7 +17,12 @@ export function pluralText(
   count: number,
   locale: string,
 ): string {
-  const category = new Intl.PluralRules(locale).select(count);
+  let category: Intl.LDMLPluralRule = 'other';
+  try {
+    category = new Intl.PluralRules(locale).select(count);
+  } catch {
+    // An unusual tag: fall back to the generic form rather than break the chat.
+  }
   const template = texts[`${base}.${category}`] ?? texts[`${base}.other`] ?? '';
   return formatText(template, { count });
 }

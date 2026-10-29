@@ -1,5 +1,9 @@
 import type { Bot } from '../bot/define-bot';
-import { textsFor } from '../i18n/texts';
+import { textLocale, textsFor } from '../i18n/texts';
+
+const uiLanguage = (locale: string): string =>
+  locale.toLowerCase().split('-')[0] === textLocale(locale) ? locale : textLocale(locale);
+
 import { PROTOCOL_VERSION } from '../protocol/version';
 import { themeAttributes, themeStylesheet } from '../theme/css';
 import type { PresetName, ThemeVariants } from '../theme/presets';
@@ -46,6 +50,8 @@ export interface EmbedConfig {
   readonly botId: string;
   readonly allowedOrigins: readonly string[];
   readonly widget: EmbedWidget;
+  /** Whether the bot accepts a page description from chatdock('configure', { context }). */
+  readonly pageContext: boolean;
   /** Only in gallery mode: render this state from fixtures instead of talking to the server. */
   readonly gallery?: GalleryState;
   /** What the visitor may attach; absent when attachments are off. */
@@ -93,6 +99,7 @@ export function embedConfig(bot: Bot, basePath: string, view?: EmbedView): Embed
     basePath,
     botId: bot.id,
     allowedOrigins: bot.security.allowedOrigins,
+    pageContext: bot.pageContext,
     widget: {
       ...widget,
       locale,
@@ -166,7 +173,8 @@ export function renderEmbedPage(
     .join('');
   return [
     '<!doctype html>',
-    `<html lang="${escapeHtml(config.widget.locale)}"${attributes}>`,
+    // The language the interface is written in: English for a locale without a dictionary.
+    `<html lang="${escapeHtml(uiLanguage(config.widget.locale))}"${attributes}>`,
     '<head>',
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">',

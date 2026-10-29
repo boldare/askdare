@@ -84,6 +84,8 @@ export class ChatClient {
   readonly #fetch: typeof fetch;
   readonly #resumeKey: string;
   #session: Session | undefined;
+  /** The page context the current conversation already has, so it is sent only when it changes. */
+  #sentContext: string | undefined;
   /** Shared by concurrent callers, so parallel uploads end up with one visitor. */
   #opening: Promise<Session> | undefined;
 
@@ -106,6 +108,7 @@ export class ChatClient {
 
   /** Forgets the stored conversation so the next message starts a new one. */
   reset(): void {
+    this.#sentContext = undefined;
     this.#options.storage.remove(this.#resumeKey);
   }
 
@@ -225,6 +228,7 @@ export class ChatClient {
     onEvent: (event: ProtocolEvent) => void,
     signal?: AbortSignal,
   ): Promise<void> {
+    const context = message.context !== this.#sentContext ? message.context : undefined;
     try {
       const response = await this.#authorized(
         'POST',
@@ -236,7 +240,7 @@ export class ChatClient {
             text: message.text,
             locale: this.#options.locale,
             ...(message.attachments?.length ? { attachments: message.attachments } : {}),
-            ...(message.context ? { context: message.context } : {}),
+            ...(context ? { context } : {}),
             ...(resumeToken ? { resumeToken } : {}),
           });
         },
@@ -256,7 +260,15 @@ export class ChatClient {
         );
         return;
       }
-      await this.#readStream(response.body, onEvent, signal);
+      await this.#readStream(
+        response.body,
+        (event) => {
+          // The turn reached the model, so the conversation now holds this context.
+          if (event.type === 'message.start' && context) this.#sentContext = context;
+          onEvent(event);
+        },
+        signal,
+      );
     } catch (error) {
       if (signal?.aborted) return;
       onEvent(

@@ -22,6 +22,7 @@ export function launcherLook(bot: Bot): LauncherLook {
           label: all['launcher.label'] ?? '',
           open: all['launcher.open'] ?? '',
           close: all['launcher.close'] ?? '',
+          title: all['header.title'] ?? '',
         },
       ];
     }),
@@ -35,7 +36,6 @@ export function launcherLook(bot: Bot): LauncherLook {
     orb: tokens.orb,
     ...(bot.widget.avatar ? { avatar: bot.widget.avatar } : {}),
     initials: initials(bot.widget.title),
-    title: bot.widget.title,
     light: theme.light.background,
     dark: theme.dark.background,
     scheme: theme.colorScheme,

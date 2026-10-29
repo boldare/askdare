@@ -25,6 +25,12 @@ interface ChatdockGlobal {
   readonly loaded: true;
 }
 
+/** The stub a page may define before the script loads: calls queue up in `q`. */
+interface ChatdockStub {
+  (...args: unknown[]): void;
+  q?: unknown[][];
+}
+
 /** Keeps only the allowed fields with the right types; the iframe and server check them again. */
 function configureMessage(options: unknown): Record<string, unknown> {
   const input = (typeof options === 'object' && options !== null ? options : {}) as Record<
@@ -42,7 +48,7 @@ function configureMessage(options: unknown): Record<string, unknown> {
 
 declare global {
   interface Window {
-    chatdock?: ChatdockGlobal;
+    chatdock?: ChatdockGlobal | ChatdockStub;
   }
 }
 
@@ -85,6 +91,7 @@ const STYLES = `
   :host([data-chatdock-scheme=auto]) [part=panel] { background: var(--d); }
 }
 [part=panel][hidden] { display: none; }
+[part=panel].solo { bottom: 24px; }
 [part=panel].inline { position: static; width: 100%; height: 100%; border-radius: inherit;
   box-shadow: none; animation: none; }
 iframe { display: block; width: 100%; height: 100%; border: 0; }
@@ -113,7 +120,10 @@ function looks(): Record<string, LauncherLook> {
 }
 
 function boot(): void {
-  if (window.chatdock?.loaded) return;
+  const existing = window.chatdock as Partial<ChatdockGlobal> & ChatdockStub;
+  if (existing?.loaded) return;
+  // Calls made before the script loaded, through the documented stub.
+  const queued = Array.isArray(existing?.q) ? existing.q : [];
   const script = document.currentScript;
   if (!(script instanceof HTMLScriptElement) || !script.src) return;
   const scriptUrl = new URL(script.src);
@@ -127,7 +137,12 @@ function boot(): void {
   // Inline: the chat fills an element of the page instead of floating. data-launcher="none":
   // the page opens the chat from its own button, with chatdock('open').
   const target = script.dataset['mode'] === 'inline' ? script.dataset['target'] : undefined;
-  const container = target ? document.querySelector(target) : null;
+  let container: Element | null = null;
+  try {
+    container = target ? document.querySelector(target) : null;
+  } catch {
+    // An invalid selector: warned about below, and the chat floats instead.
+  }
   if (target && !container) console.warn(`[chatdock] No element matches ${target}.`);
   const inline = container !== null;
   const withLauncher = !inline && script.dataset['launcher'] !== 'none';
@@ -143,9 +158,10 @@ function boot(): void {
   }`;
 
   const look = looks()[botId];
-  const language = (look?.locale ?? hostLang ?? navigator.language).toLowerCase().split('-')[0];
+  // `lang` is '' on pages without one: then the visitor's browser decides.
+  const language = (look?.locale || hostLang || navigator.language).toLowerCase().split('-')[0];
   const texts = look?.texts[language ?? 'en'] ??
-    look?.texts['en'] ?? { label: 'Ask us', open: 'Open chat', close: 'Close chat' };
+    look?.texts['en'] ?? { label: 'Ask us', open: 'Open chat', close: 'Close chat', title: 'Chat' };
   const host = document.createElement('div');
   host.dataset['chatdock'] = botId;
   host.dataset['chatdockScheme'] = look?.scheme ?? 'auto';
@@ -204,9 +220,10 @@ function boot(): void {
   const panel = document.createElement('div');
   panel.setAttribute('part', 'panel');
   panel.setAttribute('role', 'dialog');
-  panel.setAttribute('aria-label', look?.title ?? 'Chat');
+  panel.setAttribute('aria-label', texts.title);
   panel.hidden = true;
   if (inline) panel.className = 'inline';
+  else if (!withLauncher) panel.className = 'solo';
   shadow.append(panel);
   if (withLauncher) shadow.append(launcher);
 
@@ -232,9 +249,11 @@ function boot(): void {
     if (configured) port.postMessage(configured);
   };
 
-  const open = (): void => {
-    if (!inline && panel.hidden && document.activeElement instanceof HTMLElement) {
-      returnFocus = document.activeElement;
+  const open = (focus = true): void => {
+    if (!inline && panel.hidden) {
+      // Our own launcher shows up as the host element; the page's own trigger as itself.
+      const active = document.activeElement;
+      returnFocus = active instanceof HTMLElement && active !== host ? active : undefined;
     }
     if (!iframe) {
       iframe = document.createElement('iframe');
@@ -250,7 +269,7 @@ function boot(): void {
     showIcon(true);
     launcher.setAttribute('aria-expanded', 'true');
     launcher.setAttribute('aria-label', texts.close);
-    iframe.focus();
+    if (focus) iframe.focus();
   };
 
   function close(): void {
@@ -261,12 +280,14 @@ function boot(): void {
     showIcon(false);
     launcher.setAttribute('aria-expanded', 'false');
     launcher.setAttribute('aria-label', texts.open);
-    (withLauncher ? launcher : returnFocus)?.focus();
+    // Back to whatever opened the chat: the page's own button, else the launcher.
+    (returnFocus?.isConnected ? returnFocus : withLauncher ? launcher : undefined)?.focus();
   }
 
   launcher.addEventListener('click', () => (panel.hidden ? open() : close()));
   (container ?? document.body ?? document.documentElement).append(host);
-  if (inline) open();
+  // An inline chat is part of the page: it must not take focus or scroll the page on load.
+  if (inline) open(false);
 
   const api = ((command: Command | 'configure', options?: ConfigureOptions) => {
     if (command === 'open') open();
@@ -279,6 +300,7 @@ function boot(): void {
   }) as ChatdockGlobal;
   Object.defineProperty(api, 'loaded', { value: true });
   window.chatdock = api;
+  for (const args of queued) (api as (...call: unknown[]) => void)(...args);
 }
 
 boot();

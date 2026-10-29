@@ -9,6 +9,7 @@ import {
 import type { Bot } from '../bot/define-bot';
 import { ChatdockError, type ChatdockErrorOptions, toChatdockError } from '../errors';
 import type { ModelGateway, TurnAttachment } from '../gateway';
+import { canonicalLocale } from '../i18n/texts';
 import type { Limits } from '../limits/limits';
 import { newVisitorId, type TokenService } from '../security/tokens';
 import { PRESET_NAMES, type PresetName } from '../theme/presets';
@@ -51,7 +52,6 @@ export interface HandlerConfig {
 export type RequestHandler = (request: Request) => Promise<Response>;
 
 const MAX_BODY_BYTES = 256 * 1024;
-const LOCALE_TAG = /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
 /** Upload metadata travels in headers because the body is the raw file. */
 const BOT_HEADER = 'x-chatdock-bot';
 const FILENAME_HEADER = 'x-chatdock-filename';
@@ -273,7 +273,11 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       query.get('lang'),
       (request.headers.get('accept-language') ?? '').split(',')[0]?.split(';')[0]?.trim(),
     ];
-    return candidates.find((tag) => tag && LOCALE_TAG.test(tag) && tag.length <= 35) ?? 'en';
+    for (const tag of candidates) {
+      const canonical = tag ? canonicalLocale(tag) : undefined;
+      if (canonical) return canonical;
+    }
+    return 'en';
   };
 
   /** The bot's theme, or in gallery mode the preset and scheme asked for in the query. */
@@ -435,7 +439,8 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     const context = {
       locale: body.locale ?? (bot.widget.locale === 'auto' ? 'en' : bot.widget.locale),
     };
-    const pageContext = body.context?.trim() || undefined;
+    // Only for bots that opted in; others never pass it on.
+    const pageContext = bot.pageContext ? body.context?.trim() || undefined : undefined;
     const reservation = await config.limits.beginTurn(bot, {
       clientIp: config.clientIp(request),
       visitorId,
