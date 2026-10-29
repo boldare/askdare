@@ -46,7 +46,7 @@ When a bot has `voice` enabled, `POST /transcriptions` takes a recording as the 
 
 ## Identity
 
-`POST /session` takes an optional `identityToken`: the JWT from `chatdock('identify')`, or `null` to sign out. Without it, a renewal keeps the identity the previous access token had. The answer adds `identified` (boolean), `identityKey` (an opaque hash that changes with the user) and, when a token was refused, `identityProblem`. Identities travel inside the encrypted access token; clients never see the claims ([ADR-0009](adr/0009-visitor-identity.md)).
+`POST /session` takes an optional `identityToken`: the JWT from `chatdock('identify')`, or `null` to sign out. Without it, a renewal keeps the identity the previous access token had. Widgets send the page's latest token with every session request. The answer adds `identified` (boolean), `identityKey` (an HMAC that tells users apart without revealing them; widgets keep one conversation handle per key), `resumeToken` when signing in adopted an anonymous conversation, and `identityProblem` when a token was refused. A signed-in access token expires with the identity token. Identities travel inside the encrypted access token; clients never see the claims ([ADR-0009](adr/0009-visitor-identity.md)).
 
 ## Diagnostics
 

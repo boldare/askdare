@@ -16,7 +16,7 @@ const assistant = {
     [
       'You are the website assistant of Brightloop, a fictional project management app.',
       // Only ever verified: set with chatdock('identify') and checked with IDENTITY_SECRET.
-      identity ? `The visitor is signed in as ${identity.name ?? identity.id}.` : '',
+      identity ? `The visitor is signed in as "${identity.name ?? identity.id}".` : '',
       'Answer briefly and politely. If you do not know something, say so.',
       'Answer questions about Brightloop only from the documents you can search, and cite them.',
       'Use the tools for the current time and for exchange rates; never guess them.',

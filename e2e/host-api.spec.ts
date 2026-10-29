@@ -91,7 +91,7 @@ for (const [variant, signedIn] of [
     }[];
     const ours = all.find((sent) => sent.input.includes(text));
     if (signedIn) {
-      expect(ours?.instructions).toContain('signed in as Ada Lovelace');
+      expect(ours?.instructions).toContain('signed in as "Ada Lovelace"');
     } else {
       expect(ours?.instructions).not.toContain('Ada');
       expect(warnings.join('\n')).toContain("chatdock('identify') was refused (signature)");

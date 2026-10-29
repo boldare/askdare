@@ -65,8 +65,8 @@ Any language with a JWT library works the same way.
 <script src="https://app.example.com/api/chat/widget.js?bot=support" async></script>
 ```
 
-- On sign-out, call `chatdock('identify', null)`. Single-page apps call `identify` again whenever the user changes.
-- The token is checked once, when the chat opens its session. After that the chat keeps the identity until the token's `exp`; sign in again with a fresh token to extend it.
+- On sign-out, call `chatdock('identify', null)`. Anything that isn't a token, `undefined` included, signs out too. Single-page apps call `identify` whenever the user changes; repeating the same token costs nothing.
+- The chat sends the token with every session request, about every 15 minutes, and the server checks it each time. The identity ends with the token's `exp`; after that the chat continues anonymously until the page calls `identify` with a fresh token. Long-lived pages should do that before `exp`.
 - A token that fails the check leaves the chat anonymous. The browser console says why: `signature`, `expired`, `audience`, `lifetime`, `claims`, `too_large`, `malformed`, or `disabled` when the app has no `IDENTITY_SECRET`.
 
 ## 4. Use it
@@ -77,7 +77,8 @@ defineBot({
   instructions: ({ locale, identity }) =>
     [
       'You are the assistant of our store.',
-      identity ? `The visitor is signed in as ${identity.name ?? identity.id}.` : 'The visitor is not signed in.',
+      // The name is the user's own text: quoted, and one line (chatdock removes line breaks).
+      identity ? `The visitor is signed in as "${identity.name ?? identity.id}".` : 'The visitor is not signed in.',
       `Reply in ${locale}.`,
     ].join(' '),
   tools: [orderStatus],
@@ -94,10 +95,10 @@ export const orderStatus = defineTool({
 });
 ```
 
-`identity` is `{ id, name?, email?, claims }`, and only ever holds what your backend signed.
+`identity` is `{ id, name?, email?, claims }`, and only ever holds what your backend signed. `null` in `name` or `email` counts as missing.
 
 ## What it protects
 
-- **A conversation belongs to who started it.** A conversation started while signed in can't be resumed, read or deleted by anyone else on the same browser: another user, or the same browser after sign-out. An anonymous conversation continues after the visitor signs in.
+- **A conversation belongs to who started it.** A conversation started while signed in can't be resumed, read or deleted by anyone else on the same browser: another user, or the same browser after sign-out. The browser keeps each user's conversation apart, so signing back in brings it back. An anonymous conversation becomes the user's when they sign in during it.
 - **Abuse is traced to the person.** OpenAI receives a hash of the user's ID as `safety_identifier`, so its abuse checks follow a person across devices.
 - **What it doesn't do:** the token is valid until `exp` for whoever holds it, like any bearer token. Keep `exp` short, and keep `IDENTITY_SECRET` in your backend's secrets, never in a page or a repository.
