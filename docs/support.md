@@ -30,7 +30,7 @@ Older browsers may show the chat with a plainer look or not at all. Dictation al
 | | Gzipped | Budget |
 | --- | --- | --- |
 | The loader (`widget.js`), on every page | about 3 KB | 5 KB |
-| The chat itself, when the visitor opens it | about 37 KB, plus 5 KB of styles | 50 KB and 8 KB |
+| The chat itself, when the visitor opens it | about 34 KB, plus 5 KB of styles | 50 KB and 8 KB |
 | One theme's fonts, from your app | up to 82 KB | 82 KB |
 
 The build fails when one of these grows past its budget.

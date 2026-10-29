@@ -2,9 +2,9 @@ name: Live smoke
 
 # Daily: one text turn, one tool call, file search and an image against the real OpenAI API, so
 # a retired model or a changed API shows up before a user reports it (ADR-0006).
-# Needs a key from a dedicated OpenAI project with a hard spend limit (docs/live-testing.md):
-#   secret SMOKE_OPENAI_API_KEY; variables SMOKE_MODEL, and optionally SMOKE_VECTOR_STORE_ID
-#   and SMOKE_TRANSCRIBE_MODEL.
+# Needs a key from a dedicated OpenAI project with a hard spend limit (docs/live-testing.md), in
+# the `live-smoke` environment: secret SMOKE_OPENAI_API_KEY; variables SMOKE_MODEL, and optionally
+# SMOKE_VECTOR_STORE_ID and SMOKE_TRANSCRIBE_MODEL.
 on:
   schedule:
     - cron: "41 5 * * *"
@@ -22,14 +22,14 @@ jobs:
     name: real OpenAI API
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      OPENAI_API_KEY: ${{ secrets.SMOKE_OPENAI_API_KEY }}
-      SMOKE_MODEL: ${{ vars.SMOKE_MODEL }}
-      SMOKE_VECTOR_STORE_ID: ${{ vars.SMOKE_VECTOR_STORE_ID }}
-      SMOKE_TRANSCRIBE_MODEL: ${{ vars.SMOKE_TRANSCRIBE_MODEL }}
+    # Dispatching runs it on any branch: only maintainers who approve the environment get the key.
+    environment: live-smoke
     steps:
       - name: Skip without a key
         id: key
+        env:
+          OPENAI_API_KEY: ${{ secrets.SMOKE_OPENAI_API_KEY }}
+          SMOKE_MODEL: ${{ vars.SMOKE_MODEL }}
         run: |
           if [ -z "$OPENAI_API_KEY" ] || [ -z "$SMOKE_MODEL" ]; then
             echo "SMOKE_OPENAI_API_KEY or SMOKE_MODEL is not set; skipping." >> "$GITHUB_STEP_SUMMARY"
@@ -50,5 +50,11 @@ jobs:
           cache: pnpm
       - if: steps.key.outputs.ready == 'true'
         run: pnpm install --frozen-lockfile
+      # The key reaches this step only: not the actions, the install or the build before it.
       - if: steps.key.outputs.ready == 'true'
         run: pnpm smoke
+        env:
+          OPENAI_API_KEY: ${{ secrets.SMOKE_OPENAI_API_KEY }}
+          SMOKE_MODEL: ${{ vars.SMOKE_MODEL }}
+          SMOKE_VECTOR_STORE_ID: ${{ vars.SMOKE_VECTOR_STORE_ID }}
+          SMOKE_TRANSCRIBE_MODEL: ${{ vars.SMOKE_TRANSCRIBE_MODEL }}

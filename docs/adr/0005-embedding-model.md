@@ -17,7 +17,7 @@ v1 used an iframe, but it had a broken script API, `postMessage('*')` and no ori
   - It renders the launcher in a shadow root, which host CSS can style through `::part`.
   - It creates the iframe lazily, on first open.
 - **iframe:**
-  - It points at a page served by the **library's own route handler**. The prebuilt iframe app (written against React's API, built with Preact and Vite 8, about 37 KB gzipped) is inlined into the package as string modules, with no runtime file-system reads. The app runs alone in its iframe, so Preact is invisible to sites; the headless React package for 0.2 (ADR-0008) stays on React.
+  - It points at a page served by the **library's own route handler**. The prebuilt iframe app (written against React's API, built with Preact and Vite 8, about 34 KB gzipped) is inlined into the package as string modules, with no runtime file-system reads. The app runs alone in its iframe, so Preact is invisible to sites; the headless React package for 0.2 (ADR-0008) stays on React.
   - The host app's layout, Tailwind, proxy or Cache Components settings can't affect it.
   - The API is same-origin with the iframe, so **no CORS** is needed.
 - **Headers** on the embed response:
