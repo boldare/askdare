@@ -72,6 +72,64 @@ function client(
   });
 }
 
+describe('ChatClient.upload', () => {
+  function uploadFetch(respond: () => Response): {
+    fetch: typeof fetch;
+    requests: { url: string; headers: Headers; body: unknown }[];
+  } {
+    const requests: { url: string; headers: Headers; body: unknown }[] = [];
+    const impl = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = String(input);
+      if (url.endsWith('/session')) {
+        return Response.json({ accessToken: 'tok', expiresAt: Date.now() / 1000 + 900 });
+      }
+      requests.push({ url, headers: new Headers(init?.headers), body: init?.body });
+      return respond();
+    };
+    return { fetch: impl as typeof fetch, requests };
+  }
+
+  it('sends the raw file with the bot and the encoded name in headers', async () => {
+    const { fetch, requests } = uploadFetch(() =>
+      Response.json({ attachment: { id: 'handle', kind: 'image', name: 'Zdjęcie.jpg', size: 3 } }),
+    );
+    const blob = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' });
+    const result = await client(fetch).upload(blob, 'Zdjęcie.jpg');
+    expect(result).toEqual({
+      ok: true,
+      file: { id: 'handle', kind: 'image', name: 'Zdjęcie.jpg' },
+    });
+    const [sent] = requests;
+    expect(sent?.url).toBe('/api/chat/attachments');
+    expect(sent?.body).toBe(blob);
+    expect(sent?.headers.get('content-type')).toBe('application/octet-stream');
+    expect(sent?.headers.get('authorization')).toBe('Bearer tok');
+    expect(sent?.headers.get('x-chatdock-bot')).toBe('support');
+    expect(sent?.headers.get('x-chatdock-filename')).toBe(encodeURIComponent('Zdjęcie.jpg'));
+  });
+
+  it("reports the server's message when a file is refused", async () => {
+    const { fetch } = uploadFetch(() =>
+      Response.json(
+        { error: { code: 'invalid_input', message: 'Files can be up to 4 MB.' } },
+        { status: 400 },
+      ),
+    );
+    await expect(client(fetch).upload(new Blob(['x']), 'big.pdf')).resolves.toEqual({
+      ok: false,
+      message: 'Files can be up to 4 MB.',
+    });
+  });
+
+  it('sends attachment handles with the message', async () => {
+    const { fetch, calls } = fakeFetch({
+      messages: () => new Response(sse([]), { headers: streamHeaders }),
+    });
+    await client(fetch).send({ text: '', attachments: ['h1', 'h2'] }, () => {});
+    expect(calls.at(-1)?.body).toMatchObject({ text: '', attachments: ['h1', 'h2'] });
+  });
+});
+
 describe('ChatClient', () => {
   it('opens a session, streams events and stores the resume token', async () => {
     const storage = memoryStorage();
@@ -88,7 +146,7 @@ describe('ChatClient', () => {
         ),
     });
     const events: ProtocolEvent[] = [];
-    await client(fetch, storage).send('Hello', (event) => events.push(event));
+    await client(fetch, storage).send({ text: 'Hello' }, (event) => events.push(event));
 
     expect(calls.map((call) => call.url)).toEqual(['/api/chat/session', '/api/chat/messages']);
     expect(calls[1]?.auth).toBe('Bearer token-1');
@@ -110,7 +168,7 @@ describe('ChatClient', () => {
         Response.json({ accessToken: 't', expiresAt: Date.now() / 1000 + 900, resumable: true }),
       messages: () => new Response(sse([]), { headers: streamHeaders }),
     });
-    await client(fetch, storage).send('Again', () => {});
+    await client(fetch, storage).send({ text: 'Again' }, () => {});
     expect(calls[0]?.body).toMatchObject({ resumeToken: 'resume-1' });
     expect(calls[1]?.body).toMatchObject({ resumeToken: 'resume-1' });
   });
@@ -126,7 +184,7 @@ describe('ChatClient', () => {
           : new Response(sse([]), { headers: streamHeaders }),
     });
     const events: ProtocolEvent[] = [];
-    await client(fetch).send('Hi', (event) => events.push(event));
+    await client(fetch).send({ text: 'Hi' }, (event) => events.push(event));
     expect(calls.map((call) => call.url.split('/').at(-1))).toEqual([
       'session',
       'messages',
@@ -146,7 +204,7 @@ describe('ChatClient', () => {
         Response.json({ error: { code: 'not_found', message: 'Not found.' } }, { status: 404 }),
     });
     const events: ProtocolEvent[] = [];
-    await client(fetch, storage).send('Hi', (event) => events.push(event));
+    await client(fetch, storage).send({ text: 'Hi' }, (event) => events.push(event));
     expect(events).toEqual([{ type: 'error', code: 'not_found', message: 'Not found.' }]);
     expect(storage.get('chatdock:support:resume')).toBeUndefined();
   });
@@ -157,7 +215,7 @@ describe('ChatClient', () => {
         new Response(sse([]), { headers: { ...streamHeaders, 'x-chatdock-protocol': '2' } }),
     });
     const events: ProtocolEvent[] = [];
-    await client(fetch).send('Hi', (event) => events.push(event));
+    await client(fetch).send({ text: 'Hi' }, (event) => events.push(event));
     expect(events).toMatchObject([{ type: 'error', code: 'bot_unavailable' }]);
   });
 
@@ -166,7 +224,7 @@ describe('ChatClient', () => {
       messages: () => new Response(sse([], { hang: true }), { headers: streamHeaders }),
     });
     const events: ProtocolEvent[] = [];
-    await client(fetch, memoryStorage(), 30).send('Hi', (event) => events.push(event));
+    await client(fetch, memoryStorage(), 30).send({ text: 'Hi' }, (event) => events.push(event));
     expect(events).toMatchObject([{ type: 'error', code: 'timeout' }]);
   });
 
@@ -175,7 +233,7 @@ describe('ChatClient', () => {
       throw new TypeError('fetch failed');
     }) as typeof fetch;
     const events: ProtocolEvent[] = [];
-    await client(failing).send('Hi', (event) => events.push(event));
+    await client(failing).send({ text: 'Hi' }, (event) => events.push(event));
     expect(events).toMatchObject([{ type: 'error', code: 'upstream_error' }]);
   });
 });
