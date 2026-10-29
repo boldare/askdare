@@ -26,14 +26,18 @@ export function createOpenAIGateway(options: OpenAIGatewayOptions): ModelGateway
   });
 
   return {
-    async createConversation({ botId, visitorId }) {
+    async createConversation({ botId, visitorId }, signal) {
       try {
-        const conversation = await client.conversations.create({
-          metadata: { chatdock_bot: botId, chatdock_visitor: visitorId },
-        });
+        const conversation = await client.conversations.create(
+          { metadata: { chatdock_bot: botId, chatdock_visitor: visitorId } },
+          signal ? { signal } : undefined,
+        );
         return conversation.id;
       } catch (error) {
-        throw fromOpenAIError(error, false);
+        throw fromOpenAIError(
+          error,
+          signal?.reason instanceof DOMException && signal.reason.name === 'TimeoutError',
+        );
       }
     },
 

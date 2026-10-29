@@ -12,7 +12,10 @@ export interface CounterHit {
  * `@boldare/chatdock-upstash`. Implementations must be atomic per key.
  */
 export interface RateLimitStore {
-  /** Adds `amount` (0 reads without changing) to `key`, starting a `windowMs` window if none is open. */
+  /**
+   * Adds `amount` to `key`, starting a `windowMs` window if none is open. `0` reads without
+   * changing; negative amounts refund.
+   */
   hit(key: string, windowMs: number, amount: number): Promise<CounterHit>;
   /** True for stores that are shared across server instances. */
   readonly shared: boolean;
@@ -21,32 +24,55 @@ export interface RateLimitStore {
 export interface MemoryStoreOptions {
   /** Clock in ms, for tests. */
   readonly now?: () => number;
-  /** Upper bound on tracked keys; the oldest windows are evicted first. Default 50 000. */
+  /** Upper bound on tracked keys. Default 50 000. */
   readonly maxKeys?: number;
 }
 
-/** Per-process counters. Limits are per instance, so they are weak on serverless platforms. */
+/** Windows up to this length are short-lived rate counters and may be evicted under pressure. */
+const EVICTABLE_WINDOW_MS = 60 * 60_000;
+
+interface Window {
+  count: number;
+  resetAt: number;
+  readonly windowMs: number;
+}
+
+/**
+ * Per-process counters, kept in least-recently-used order. When full, it drops expired windows,
+ * then the least recently used short-lived rate counters. It never evicts long windows (budgets,
+ * conversation lengths): when only those remain, it fails closed instead of forgetting spend.
+ */
 export function memoryStore(options: MemoryStoreOptions = {}): RateLimitStore {
   const now = options.now ?? Date.now;
   const maxKeys = options.maxKeys ?? 50_000;
-  const windows = new Map<string, { count: number; resetAt: number }>();
+  const windows = new Map<string, Window>();
+
+  const makeRoom = (time: number): void => {
+    for (const [key, window] of windows) {
+      if (window.resetAt <= time) windows.delete(key);
+    }
+    for (const [key, window] of windows) {
+      if (windows.size < maxKeys) return;
+      if (window.windowMs <= EVICTABLE_WINDOW_MS) windows.delete(key);
+    }
+    if (windows.size >= maxKeys) {
+      throw new Error('[chatdock] In-memory rate-limit store is full; use a shared store.');
+    }
+  };
 
   return {
     shared: false,
     async hit(key, windowMs, amount) {
       const time = now();
       let window = windows.get(key);
-      if (!window || window.resetAt <= time) {
-        windows.delete(key);
-        if (windows.size >= maxKeys) {
-          for (const [staleKey, stale] of windows) {
-            if (stale.resetAt <= time || windows.size >= maxKeys) windows.delete(staleKey);
-            if (windows.size < maxKeys) break;
-          }
-        }
-        window = { count: 0, resetAt: time + windowMs };
-        windows.set(key, window);
+      if (window && window.resetAt > time) {
+        windows.delete(key); // re-inserted below: most recently used goes last
+      } else {
+        if (window) windows.delete(key);
+        if (windows.size >= maxKeys) makeRoom(time);
+        window = { count: 0, resetAt: time + windowMs, windowMs };
       }
+      windows.set(key, window);
       window.count += amount;
       return { count: window.count, resetMs: window.resetAt - time };
     },

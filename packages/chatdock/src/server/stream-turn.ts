@@ -18,7 +18,8 @@ export interface StreamTurnOptions {
   readonly signal: AbortSignal;
   /** Issues the client-side handle for a newly created conversation. */
   readonly issueResumeToken: (conversationId: string) => Promise<string>;
-  readonly onUsage?: ((usage: TokenUsage) => void) | undefined;
+  /** Called after a completed turn with real usage and the conversation it belongs to. */
+  readonly onUsage?: ((usage: TokenUsage, conversationId: string) => void) | undefined;
   /** Server-side reporting hook. Receives client-safe errors with internals in `cause`. */
   readonly onError?: ((error: ChatdockError) => void) | undefined;
   readonly heartbeatIntervalMs?: number | undefined;
@@ -88,10 +89,10 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
       const run = async (): Promise<void> => {
         let conversationId = options.conversationId;
         if (conversationId === undefined) {
-          conversationId = await gateway.createConversation({
-            botId: bot.id,
-            visitorId: options.visitorId,
-          });
+          conversationId = await gateway.createConversation(
+            { botId: bot.id, visitorId: options.visitorId },
+            signal,
+          );
           emit({
             type: 'conversation.created',
             resumeToken: await options.issueResumeToken(conversationId),
@@ -110,7 +111,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           signal,
           emit,
         });
-        options.onUsage?.(result.usage);
+        options.onUsage?.(result.usage, conversationId);
         emit({ type: 'message.end', messageId, reason: result.reason });
       };
 

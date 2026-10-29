@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
-/** Per-request context available when building instructions. Treat `pageUrl` as untrusted. */
+/** Per-request context available when building instructions. */
 export interface BotContext {
+  /** Validated BCP 47 tag chosen by the widget. */
   readonly locale: string;
-  readonly pageUrl?: string | undefined;
 }
 
 export interface BotLimits {
@@ -17,8 +17,12 @@ export interface BotLimits {
   readonly turnTimeoutMs?: number;
   /** Input plus output tokens per UTC day across all visitors; then `budget_exceeded`. Default 2 000 000. */
   readonly dailyTokens?: number;
-  /** New sessions per client IP per hour. Default 20. */
+  /** Input plus output tokens per client IP per UTC day. Default 200 000. */
+  readonly dailyTokensPerIp?: number;
+  /** New sessions per client IP per hour (renewals by returning visitors count separately). Default 30. */
   readonly sessionsPerIpPerHour?: number;
+  /** New conversations per client IP per hour. Default 20. */
+  readonly conversationsPerIpPerHour?: number;
   /** Messages per visitor per minute. Default 10. */
   readonly messagesPerVisitorPerMinute?: number;
   /** Messages per client IP per minute, across visitors. Default 30. */
@@ -70,7 +74,9 @@ const DEFAULT_LIMITS: Required<BotLimits> = {
   maxSteps: 5,
   turnTimeoutMs: 120_000,
   dailyTokens: 2_000_000,
-  sessionsPerIpPerHour: 20,
+  dailyTokensPerIp: 200_000,
+  sessionsPerIpPerHour: 30,
+  conversationsPerIpPerHour: 20,
   messagesPerVisitorPerMinute: 10,
   messagesPerIpPerMinute: 30,
   maxTurns: 50,
@@ -87,14 +93,16 @@ const origin = z.string().refine((value) => {
   try {
     const url = new URL(value);
     return (
-      (url.protocol === 'https:' || url.protocol === 'http:') &&
+      (url.protocol === 'https:' ||
+        (url.protocol === 'http:' &&
+          /^(localhost|127\.0\.0\.1|\[::1\]|.+\.localhost)$/.test(url.hostname))) &&
       url.origin === value &&
       /^[a-z0-9.-]+$|^\[[0-9a-f:]+\]$/i.test(url.hostname)
     );
   } catch {
     return false;
   }
-}, 'must be an origin like https://www.example.com (scheme and host only, no path or wildcard)');
+}, 'must be an https origin like https://www.example.com (no path or wildcard; http only for localhost)');
 
 const definitionSchema = z.object({
   id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,47}$/, 'use 1-48 lowercase letters, digits or dashes'),
@@ -107,7 +115,9 @@ const definitionSchema = z.object({
       maxSteps: z.number().int().min(1).max(20).optional(),
       turnTimeoutMs: z.number().int().min(1_000).max(900_000).optional(),
       dailyTokens: z.number().int().min(1_000).optional(),
+      dailyTokensPerIp: z.number().int().min(100).optional(),
       sessionsPerIpPerHour: z.number().int().min(1).max(10_000).optional(),
+      conversationsPerIpPerHour: z.number().int().min(1).max(10_000).optional(),
       messagesPerVisitorPerMinute: z.number().int().min(1).max(1_000).optional(),
       messagesPerIpPerMinute: z.number().int().min(1).max(10_000).optional(),
       maxTurns: z.number().int().min(1).max(1_000).optional(),

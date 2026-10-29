@@ -34,8 +34,10 @@ export interface ChatHandlerLimitsOptions {
    * several instances serve traffic; use `@boldare/chatdock-upstash` there.
    */
   readonly store?: RateLimitStore;
-  /** How to read the client IP behind your proxy. Default `auto` (detects Vercel and Heroku). */
+  /** How to read the client IP behind your proxy. Default `auto` (Vercel, otherwise one proxy). */
   readonly trustProxy?: TrustProxy;
+  /** Input plus output tokens per UTC day across all bots. Unlimited by default. */
+  readonly globalDailyTokens?: number;
 }
 
 export type RouteHandler = (request: Request) => Promise<Response>;
@@ -99,18 +101,26 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
       (gateway ??= createOpenAIGateway({
         apiKey: required(options.openaiApiKey ?? process.env['OPENAI_API_KEY'], 'OPENAI_API_KEY'),
       })),
-    tokens: () =>
-      (tokens ??= (async () =>
-        createTokenService({
-          secret: required(options.secret ?? process.env['CHAT_SECRET'], 'CHAT_SECRET'),
-          previousSecrets:
-            options.previousSecrets ??
-            (process.env['CHAT_SECRET_PREVIOUS'] ?? '')
-              .split(',')
-              .map((secret) => secret.trim())
-              .filter(Boolean),
-        }))()),
-    limits: createLimits({ store, disabled: () => process.env['CHATDOCK_DISABLED'] === 'true' }),
+    tokens: () => {
+      tokens ??= createTokenService({
+        secret: required(options.secret ?? process.env['CHAT_SECRET'], 'CHAT_SECRET'),
+        previousSecrets:
+          options.previousSecrets ??
+          (process.env['CHAT_SECRET_PREVIOUS'] ?? '')
+            .split(',')
+            .map((secret) => secret.trim())
+            .filter(Boolean),
+      }).catch((error: unknown) => {
+        tokens = undefined; // retry on the next request instead of failing forever
+        throw error;
+      });
+      return tokens;
+    },
+    limits: createLimits({
+      store,
+      globalDailyTokens: options.limits?.globalDailyTokens,
+      disabled: () => process.env['CHATDOCK_DISABLED'] === 'true',
+    }),
     clientIp: (request) => getClientIp(request, trustProxy),
   });
 

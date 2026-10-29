@@ -1,4 +1,10 @@
-import { APIConnectionError, APIConnectionTimeoutError, APIError, APIUserAbortError } from 'openai';
+import {
+  APIConnectionError,
+  APIConnectionTimeoutError,
+  APIError,
+  APIUserAbortError,
+  NotFoundError,
+} from 'openai';
 import { ChatdockError, TurnAbortedError } from '../errors';
 
 function retryAfterMs(headers: Headers | undefined): number | undefined {
@@ -29,6 +35,13 @@ export function fromOpenAIError(error: unknown, deadlineExceeded: boolean): Erro
     return new ChatdockError('timeout', { cause: error });
   if (error instanceof APIConnectionError)
     return new ChatdockError('upstream_error', { cause: error });
+  if (error instanceof NotFoundError) {
+    // Most often the conversation was deleted (retention); the client then starts a new one.
+    return new ChatdockError('not_found', {
+      message: 'This conversation is no longer available.',
+      cause: error,
+    });
+  }
   if (error instanceof APIError) {
     if (error.status === 401 || error.status === 403) {
       return new ChatdockError('bot_unavailable', { cause: error });
