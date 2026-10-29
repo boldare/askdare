@@ -32,7 +32,8 @@ A library runs inside its users' apps, so every supported combination of version
   - the script tag's `data-*` attributes and the `chatdock()` JS API;
   - `--cd-*` tokens, `data-cd-part` names and dictionary keys;
   - the protocol version;
-  - ports implemented by official add-ons: `RateLimitStore` (and `CounterHit`).
+  - ports implemented by official add-ons: `RateLimitStore` (and `CounterHit`);
+  - the `chatdock` commands and their options (`init`, `doctor`, `kb sync`), but not their printed output or the `/doctor` report behind `doctor`.
 
   Everything else is internal.
 - **Guards:**
