@@ -208,6 +208,44 @@ describe('streamTurn', () => {
     expect(gateway.requests).toEqual([]);
   });
 
+  it('deletes a new conversation when the visitor leaves while its handle is issued', async () => {
+    const visitor = new AbortController();
+    const deleted: string[] = [];
+    const gateway = {
+      ...fakeGateway(async () => COMPLETED),
+      deleteConversation: async (id: string) => {
+        deleted.push(id);
+      },
+    };
+    await collect(
+      streamTurn(
+        options({
+          gateway,
+          signal: visitor.signal,
+          issueResumeToken: async (id) => {
+            visitor.abort();
+            return `resume:${id}`;
+          },
+        }),
+      ),
+    );
+    expect(deleted).toEqual(['conv_new']);
+    expect(gateway.requests).toEqual([]);
+  });
+
+  it('still streams when keeping the turn alive is not possible', async () => {
+    const { events } = await collect(
+      streamTurn(
+        options({
+          waitUntil: () => {
+            throw new Error('after() outside a request scope');
+          },
+        }),
+      ),
+    );
+    expect(events.at(-1)).toMatchObject({ type: 'message.end' });
+  });
+
   it('deletes a new conversation whose handle never reached the visitor', async () => {
     const visitor = new AbortController();
     const deleted: string[] = [];

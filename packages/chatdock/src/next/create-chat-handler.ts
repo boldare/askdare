@@ -1,4 +1,5 @@
-import { after } from 'next/server';
+// The .js suffix: Next.js has no exports map, so plain Node ESM can't resolve `next/server`.
+import { after } from 'next/server.js';
 import type { Bot } from '../bot/define-bot';
 import { ChatdockError } from '../errors';
 import type { ModelGateway } from '../gateway';
@@ -92,7 +93,13 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
     bots: options.bots,
     basePath,
     // A turn outlives a visitor who disconnects; on serverless hosts this keeps the function alive.
-    waitUntil: (work) => after(work),
+    waitUntil: (work) => {
+      try {
+        after(work);
+      } catch {
+        // No request scope or no platform waitUntil: the turn still runs while the process lives.
+      }
+    },
     assets: {
       loaderJs: LOADER_JS,
       widgetJs: WIDGET_JS,
