@@ -64,6 +64,41 @@ test('the page sets the greeting, suggestions and its context, and nothing else'
   expect(JSON.stringify(ours)).not.toContain('not-allowed');
 });
 
+for (const [variant, signedIn] of [
+  ['identity', true],
+  ['forged', false],
+] as const) {
+  test(`identify(): ${signedIn ? 'a signed-in visitor reaches the assistant as themselves' : 'a forged identity reaches nothing'}`, async ({
+    page,
+    request,
+  }) => {
+    const warnings: string[] = [];
+    page.on('console', (message) => {
+      if (message.type() === 'warning') warnings.push(message.text());
+    });
+    await page.goto(`${HOST}?variant=${variant}`);
+    await page.locator('[part="launcher"]').click();
+    const chat = page.frameLocator('iframe[title="Chat"]');
+    const text = `Who am I? (${variant})`;
+    await chat.getByRole('textbox').fill(text);
+    await chat.getByRole('textbox').press('Enter');
+    await expect(
+      chat.locator('[data-cd-part="message"][data-role="assistant"]').last(),
+    ).toContainText(`You said: ${text}`);
+    const all = (await (await request.get(`${MOCK_OPENAI}/debug/requests`)).json()) as {
+      instructions: string;
+      input: string;
+    }[];
+    const ours = all.find((sent) => sent.input.includes(text));
+    if (signedIn) {
+      expect(ours?.instructions).toContain('signed in as Ada Lovelace');
+    } else {
+      expect(ours?.instructions).not.toContain('Ada');
+      expect(warnings.join('\n')).toContain("chatdock('identify') was refused (signature)");
+    }
+  });
+}
+
 test('a bot set to auto speaks the language of the page', async ({ page }) => {
   await page.goto(`${HOST}?lang=pl`);
   await page.getByRole('button', { name: 'Otwórz czat' }).click();
