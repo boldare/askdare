@@ -1,6 +1,6 @@
 # ADR-0004: Threat model for a public, anonymous chatbot
 
-- **Status:** Accepted. The full `THREAT_MODEL.md` follows in step 2.5.
+- **Status:** Accepted. Detailed in [THREAT_MODEL.md](../../THREAT_MODEL.md) and [the going-public guide](../going-public.md).
 - **Date:** 2026-10-29
 
 ## Context

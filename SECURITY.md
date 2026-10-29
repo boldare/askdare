@@ -34,4 +34,4 @@ Prompt injection that causes **only** off-topic answers is a known limitation of
 
 ## Hardening your deployment
 
-The threat model and the checklist to complete before any public deployment are in [ADR-0004](docs/adr/0004-threat-model.md).
+The threat model is in [THREAT_MODEL.md](THREAT_MODEL.md); complete [the going-public checklist](docs/going-public.md) before any public deployment.
