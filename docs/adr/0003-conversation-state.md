@@ -21,7 +21,7 @@ Two lessons shape the design:
 - **History on reload.** `conversations.items.list(conv, { order: 'asc' })` maps items to domain types and ignores unknown item types. Only user and assistant messages plus citations are shown; tool calls and reasoning stay hidden.
 - **Dynamic context.** Page URL, identity and similar go into per-request `instructions`. They are never stored in the conversation.
 - **Deletion.** `DELETE /conversations/:id` plus a "delete conversation" button removes the conversation and its uploaded files.
-- **Own storage is an add-on.** Redis or Postgres (`@chatdock/store-postgres`, after 0.1) covers retention, export, ZDR/EU data residency and independence from OpenAI.
+- **Own storage is an add-on.** Redis or Postgres (`@boldare/chatdock-store-postgres`, after 0.1) covers retention, export, ZDR/EU data residency and independence from OpenAI.
 
 ## Consequences and trade-offs (documented in the README)
 

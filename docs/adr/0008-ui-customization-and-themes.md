@@ -22,8 +22,8 @@ Simple changes are configuration; hard changes are code. Logic (streaming, secur
 | 1. Configuration | `widget: {...}` in `defineBot`: typed, Zod-validated | 0.1 |
 | 2. Custom CSS | `widget.css` injected into the iframe. Library styles live in `@layer chatdock`, so user CSS wins without `!important`. Stable parts via `[data-cd-part]` plus state attributes. The launcher is stylable from host CSS via `::part`. | 0.1 |
 | 3. Host page JavaScript | `chatdock('open' \| 'close' \| 'configure')`, `data-launcher="none"` for a custom trigger, `data-mode="inline"` | 0.1 |
-| 4. Headless React | `chatdock/react`: `useChat()`, primitives `<Chat.*>`, slots, `toolRenderers` | 0.2 |
-| 5. Eject | `npx chatdock add ui` copies the default UI source into the user's repo, shadcn-style | 0.2 |
+| 4. Headless React | `@boldare/chatdock/react`: `useChat()`, primitives `<Chat.*>`, slots, `toolRenderers` | 0.2 |
+| 5. Eject | `npx @boldare/chatdock add ui` copies the default UI source into the user's repo, shadcn-style | 0.2 |
 
 ### Rules
 
