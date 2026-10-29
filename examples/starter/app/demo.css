@@ -1,0 +1,538 @@
+/*
+ * The demo page follows the chat's theme: the same colors, type and orb as each preset, so the
+ * page and the chat look like one product. Boldare's own palette drives Aura.
+ */
+body {
+  margin: 0;
+}
+
+.demo {
+  --orb-aura:
+    radial-gradient(circle at 33% 24%, #ffffff 0%, #ffffffd9 6%, #ffffff00 19%),
+    radial-gradient(circle at 70% 84%, #9df3e6 0%, #9df3e600 44%),
+    radial-gradient(circle at 50% 28%, #ffa3c6 0%, #f28bbb 24%, #b8a1f6 60%, #7dd8d0 100%);
+  --orb-sage: radial-gradient(
+    circle at 34% 28%,
+    #ffffff 0%,
+    #e6eedf 26%,
+    #a9c29b 62%,
+    #6d8c62 100%
+  );
+  --orb-halo: radial-gradient(
+    circle at 36% 28%,
+    #ffffff 0%,
+    #eef5ff 14%,
+    #b4d0ff 44%,
+    #5b8ff2 76%,
+    #2a5fd6 100%
+  );
+  --orb-care: radial-gradient(
+    circle at 34% 28%,
+    #ffffff 0%,
+    #d9d4ff 30%,
+    #7b72e8 66%,
+    #3730a3 100%
+  );
+  --gutter: clamp(16px, 4vw, 48px);
+  --width: 1180px;
+
+  min-height: 100vh;
+  background-color: var(--bg);
+  background-image: var(--glow);
+  background-repeat: no-repeat;
+  background-size: 100% 1200px;
+  color: var(--ink);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.demo[data-theme="aura"] {
+  --font: "Plus Jakarta Sans Variable", system-ui, sans-serif;
+  --bg: #fdfbfd;
+  --glow:
+    radial-gradient(45% 38% at 0% 0%, #ffd9e6 0%, #ffd9e600 70%),
+    radial-gradient(42% 36% at 100% 6%, #e2dbff 0%, #e2dbff00 70%),
+    radial-gradient(55% 32% at 70% 100%, #d2f3ec 0%, #d2f3ec00 70%);
+  --ink: #242424;
+  --soft: #857f8d;
+  --muted: #5f5a68;
+  --button: linear-gradient(115deg, #c2386f, #6b52e0);
+  --on-button: #ffffff;
+  --card: #ffffffb8;
+  --line: #2424241a;
+  --soft-weight: 500;
+  --strong-weight: 800;
+  --radius: 24px;
+  --orb: var(--orb-aura);
+}
+
+.demo[data-theme="sage"] {
+  --font: "Geist Variable", system-ui, sans-serif;
+  --bg: #f2f3ef;
+  --glow:
+    radial-gradient(55% 42% at 92% 0%, #dbe7cf 0%, #dbe7cf00 70%),
+    radial-gradient(40% 35% at 0% 32%, #e7ede0 0%, #e7ede000 70%);
+  --ink: #1a201c;
+  --soft: #6a726c;
+  --muted: #535b55;
+  --button: #111311;
+  --on-button: #f5f6f2;
+  --card: #ffffffcc;
+  --line: #1a201c17;
+  --soft-weight: 300;
+  --strong-weight: 500;
+  --radius: 28px;
+  --orb: var(--orb-sage);
+}
+
+.demo[data-theme="halo"] {
+  --font: "Geist Variable", system-ui, sans-serif;
+  --bg: #ffffff;
+  --glow:
+    radial-gradient(70% 48% at 50% -6%, #d3e4ff 0%, #d3e4ff00 70%),
+    linear-gradient(180deg, #f3f8ff 0%, #ffffff00 70%);
+  --ink: #0d1526;
+  --soft: #0d1526;
+  --muted: #4f5b72;
+  --button: #1f5fe0;
+  --on-button: #ffffff;
+  --card: #ffffffd9;
+  --line: #0d15261a;
+  --soft-weight: 700;
+  --strong-weight: 700;
+  --radius: 22px;
+  --orb: var(--orb-halo);
+}
+
+.demo[data-theme="care"] {
+  --font: "Atkinson Hyperlegible Next Variable", system-ui, sans-serif;
+  --bg: #ffffff;
+  --glow: radial-gradient(60% 40% at 100% 0%, #efedff 0%, #efedff00 70%);
+  --ink: #111827;
+  --soft: #111827;
+  --muted: #3d4455;
+  --button: #3730a3;
+  --on-button: #ffffff;
+  --card: #f7f6ff;
+  --line: #11182726;
+  --soft-weight: 700;
+  --strong-weight: 700;
+  --radius: 16px;
+  --orb: var(--orb-care);
+}
+
+.demo a {
+  color: inherit;
+}
+
+.demo :focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+/* ---------- Navigation ---------- */
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: var(--width);
+  margin: 0 auto;
+  padding: 20px var(--gutter);
+}
+
+.brand {
+  display: flex;
+}
+
+.brand img {
+  height: 16px;
+  width: auto;
+}
+
+.product {
+  padding-left: 16px;
+  border-left: 1px solid var(--line);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.nav nav {
+  display: flex;
+  gap: 24px;
+  margin-left: auto;
+  font-size: 0.92rem;
+}
+
+.nav nav a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.nav nav a:hover {
+  color: var(--ink);
+}
+
+.demo .button {
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 22px;
+  border-radius: 999px;
+  background: var(--button);
+  color: var(--on-button);
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 10px 24px -12px var(--ink);
+}
+
+.demo .button.small {
+  padding: 9px 16px;
+  font-size: 0.9rem;
+}
+
+/* ---------- Hero ---------- */
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  align-items: center;
+  gap: clamp(32px, 5vw, 72px);
+  max-width: var(--width);
+  margin: 0 auto;
+  padding: clamp(24px, 5vw, 56px) var(--gutter) 72px;
+}
+
+.eyebrow {
+  display: inline-block;
+  margin: 0 0 20px;
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.demo h1,
+.demo h2 {
+  margin: 0;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.demo h1 {
+  font-size: clamp(2.5rem, 5.4vw, 4.4rem);
+  line-height: 1.03;
+}
+
+.demo :is(h1, h2) span {
+  color: var(--soft);
+  font-weight: var(--soft-weight);
+}
+
+.demo :is(h1, h2) strong {
+  font-weight: var(--strong-weight);
+}
+
+.lead {
+  max-width: 34em;
+  margin: 24px 0 32px;
+  color: var(--muted);
+  font-size: 1.12rem;
+  line-height: 1.6;
+}
+
+.switches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 28px;
+}
+
+.switches fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.switches legend {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  backdrop-filter: blur(12px);
+}
+
+.demo .segmented a {
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 0.92rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.demo .segmented a:hover {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+
+.demo .segmented a[aria-current] {
+  background: var(--button);
+  color: var(--on-button);
+}
+
+.note {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.stage {
+  display: grid;
+  place-items: center;
+  min-height: 660px;
+}
+
+.chat-frame {
+  width: min(420px, 100%);
+  height: 660px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow:
+    0 40px 80px -30px color-mix(in srgb, var(--ink) 40%, transparent),
+    0 2px 8px color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+/* The theme's orb, large: glossy with a reflection in Aura, ringed in Halo. */
+.orb-stage {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 56px;
+  isolation: isolate;
+  text-align: center;
+}
+
+.orb-stage::before {
+  content: "";
+  position: absolute;
+  inset: -40px -20px 30%;
+  z-index: -1;
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--ink) 10%, transparent) 1px, transparent 1.5px)
+    0 0 / 16px 16px;
+  mask-image: radial-gradient(closest-side, #000 25%, transparent 100%);
+}
+
+.orb {
+  display: block;
+  width: clamp(200px, 26vw, 300px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--orb);
+  box-shadow:
+    inset 0 -18px 40px rgb(255 255 255 / 0.35),
+    inset 0 14px 30px rgb(255 255 255 / 0.6),
+    0 50px 80px -40px color-mix(in srgb, var(--ink) 45%, transparent);
+  animation: float 7s ease-in-out infinite;
+}
+
+.demo[data-theme="aura"] .orb {
+  box-shadow:
+    inset 0 -18px 40px rgb(255 255 255 / 0.35),
+    inset 0 14px 30px rgb(255 255 255 / 0.6);
+  -webkit-box-reflect: below 14px linear-gradient(transparent 55%, rgb(255 255 255 / 0.4));
+}
+
+.demo[data-theme="halo"] .orb {
+  box-shadow:
+    inset 0 0 0 3px rgb(255 255 255 / 0.55),
+    inset 0 -24px 48px rgb(31 95 224 / 0.35),
+    0 0 0 28px rgb(31 95 224 / 0.07),
+    0 0 0 60px rgb(31 95 224 / 0.04),
+    0 50px 90px -30px rgb(31 95 224 / 0.5);
+}
+
+.orb-stage p {
+  max-width: 22em;
+  margin: 0;
+  color: var(--muted);
+}
+
+@keyframes float {
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+/* ---------- Sections ---------- */
+
+.section {
+  max-width: var(--width);
+  margin: 0 auto;
+  padding: 72px var(--gutter);
+}
+
+.demo h2 {
+  max-width: 22em;
+  margin-bottom: 36px;
+  font-size: clamp(1.8rem, 3.4vw, 2.8rem);
+  line-height: 1.1;
+}
+
+.cards,
+.steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  backdrop-filter: blur(14px);
+}
+
+.card h3 {
+  margin: 16px 0 8px;
+  font-size: 1.08rem;
+  letter-spacing: -0.01em;
+}
+
+.card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.dot {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--orb);
+}
+
+.steps .step {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--button);
+  color: var(--on-button);
+  font-weight: 700;
+}
+
+.steps code {
+  display: block;
+  margin-top: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  font:
+    0.82rem / 1.5 ui-monospace,
+    "SF Mono",
+    Menlo,
+    monospace;
+  overflow-wrap: anywhere;
+}
+
+.mini-orb {
+  display: block;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 -6px 14px rgb(255 255 255 / 0.35),
+    inset 0 5px 12px rgb(255 255 255 / 0.6);
+}
+
+[data-preview="aura"] .mini-orb {
+  background: var(--orb-aura);
+}
+
+[data-preview="sage"] .mini-orb {
+  background: var(--orb-sage);
+}
+
+[data-preview="halo"] .mini-orb {
+  background: var(--orb-halo);
+}
+
+[data-preview="care"] .mini-orb {
+  background: var(--orb-care);
+}
+
+.demo .themes a {
+  display: inline-block;
+  margin-top: 16px;
+  font-weight: 600;
+}
+
+/* ---------- Footer ---------- */
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  max-width: var(--width);
+  margin: 0 auto;
+  padding: 40px var(--gutter) 56px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.footer img {
+  height: 12px;
+  width: auto;
+}
+
+.footer p {
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stage {
+    min-height: 0;
+  }
+
+  .nav nav {
+    display: none;
+  }
+
+  .demo .nav .button {
+    margin-left: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orb {
+    animation: none;
+  }
+}
