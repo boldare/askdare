@@ -27,6 +27,8 @@ export interface HandlerConfig {
   readonly clientIp: (request: Request) => string;
   readonly onError?: ((error: ChatdockError) => void) | undefined;
   readonly heartbeatIntervalMs?: number | undefined;
+  /** Keeps a turn running after its response ends, e.g. Next.js `after`; see `streamTurn`. */
+  readonly waitUntil?: ((work: Promise<unknown>) => void) | undefined;
 }
 
 export type RequestHandler = (request: Request) => Promise<Response>;
@@ -333,6 +335,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       },
       onError: report,
       heartbeatIntervalMs: config.heartbeatIntervalMs,
+      waitUntil: config.waitUntil,
     });
     return new Response(stream, { headers: STREAM_HEADERS });
   };

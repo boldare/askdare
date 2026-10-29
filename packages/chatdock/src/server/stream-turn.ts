@@ -16,8 +16,10 @@ export interface StreamTurnOptions {
   readonly visitorId: string;
   /** Conversation to continue; a new one is created when absent. */
   readonly conversationId?: string | undefined;
-  /** Aborted when the visitor disconnects. */
+  /** Aborted when the visitor disconnects. Ends the stream, not a model call already under way. */
   readonly signal: AbortSignal;
+  /** Keeps the turn alive after the response ends (serverless platforms), e.g. Next.js `after`. */
+  readonly waitUntil?: ((work: Promise<unknown>) => void) | undefined;
   /** Issues the client-side handle for a newly created conversation. */
   readonly issueResumeToken: (conversationId: string) => Promise<string>;
   /** Called after a completed turn with real usage and the conversation it belongs to. */
@@ -53,7 +55,11 @@ function logError(error: ChatdockError): void {
 /**
  * Streams one chat turn as protocol v1 SSE. Sends a comment before any upstream call (Heroku's
  * 30 s first-byte rule), heartbeats on an independent timer (55 s idle rule), and enforces the
- * bot's turn deadline. A visitor disconnect aborts the upstream request and ends silently.
+ * bot's turn deadline.
+ *
+ * A visitor who disconnects stops the stream, not the model: once the model call has started, it
+ * runs to completion, so the turn is charged its real usage (an aborted response is gone, usage
+ * included) and the answer is waiting in the conversation when they return.
  */
 export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Array> {
   const { bot, gateway } = options;
@@ -86,20 +92,28 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         options.heartbeatIntervalMs ?? 15_000,
       );
       const deadline = AbortSignal.timeout(bot.limits.turnTimeoutMs);
-      const signal = AbortSignal.any([options.signal, deadline]);
+      const visitorLeft = (): boolean => options.signal.aborted;
 
       const run = async (): Promise<void> => {
+        // Nothing has been spent upstream yet.
+        if (visitorLeft()) return;
         let conversationId = options.conversationId;
         if (conversationId === undefined) {
           conversationId = await gateway.createConversation(
             { botId: bot.id, visitorId: options.visitorId },
-            signal,
+            deadline,
           );
+          if (visitorLeft()) {
+            // They never received its handle, so nobody could reach or delete it later.
+            await gateway.deleteConversation(conversationId);
+            return;
+          }
           emit({
             type: 'conversation.created',
             resumeToken: await options.issueResumeToken(conversationId),
           });
         }
+        if (visitorLeft()) return;
         emit({ type: 'user.ack', messageId: generateId() });
         const messageId = generateId();
         emit({ type: 'message.start', messageId });
@@ -112,17 +126,16 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           visitorId: options.visitorId,
           safetyIdentifier: await sha256Hex(options.visitorId),
           messageId,
-          signal,
+          signal: deadline,
           emit,
         });
         options.onUsage?.(result.usage, conversationId);
         emit({ type: 'message.end', messageId, reason: result.reason });
       };
 
-      run()
+      const work = run()
         .catch((error: unknown) => {
-          const visitorLeft = options.signal.aborted && !deadline.aborted;
-          if (visitorLeft || error instanceof TurnAbortedError) return;
+          if (error instanceof TurnAbortedError) return;
           const failure = deadline.aborted
             ? new ChatdockError('timeout', { cause: error })
             : toChatdockError(error);
@@ -135,6 +148,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           });
         })
         .finally(finish);
+      options.waitUntil?.(work);
     },
     cancel() {
       closed = true;
