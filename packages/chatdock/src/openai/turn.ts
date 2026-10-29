@@ -1,5 +1,5 @@
 import type OpenAI from 'openai';
-import type { ResponseInputItem } from 'openai/resources/responses/responses';
+import type { ResponseInputContent, ResponseInputItem } from 'openai/resources/responses/responses';
 import type { TokenUsage, TurnRequest, TurnResult } from '../gateway';
 import type { MessageEndReason } from '../protocol/events';
 import { fromOpenAIError } from './errors';
@@ -20,6 +20,23 @@ function endReason(outcome: StepOutcome): MessageEndReason {
   if (outcome.incompleteReason === 'max_output_tokens') return 'max_output_tokens';
   if (outcome.incompleteReason === 'content_filter') return 'content_filter';
   return 'completed';
+}
+
+/** The visitor's message: plain text, or text plus the attached images and PDFs. */
+function userInput(request: TurnRequest): ResponseInputItem {
+  const attachments = request.attachments ?? [];
+  if (attachments.length === 0) return { role: 'user', content: request.text };
+  const content: ResponseInputContent[] = request.text
+    ? [{ type: 'input_text', text: request.text }]
+    : [];
+  for (const attachment of attachments) {
+    content.push(
+      attachment.kind === 'image'
+        ? { type: 'input_image', file_id: attachment.fileId, detail: 'auto' }
+        : { type: 'input_file', file_id: attachment.fileId },
+    );
+  }
+  return { role: 'user', content };
 }
 
 const addUsage = (a: TokenUsage, b: TokenUsage): TokenUsage => ({
@@ -74,7 +91,7 @@ export async function runTurn(client: OpenAI, request: TurnRequest): Promise<Tur
   const { bot } = request;
   const citations = new CitationRegistry();
   let usage: TokenUsage = { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0 };
-  let input: ResponseInputItem[] = [{ role: 'user', content: request.text }];
+  let input: ResponseInputItem[] = [userInput(request)];
   let repairs = 0;
   try {
     for (let step = 1; step <= bot.limits.maxSteps; step += 1) {

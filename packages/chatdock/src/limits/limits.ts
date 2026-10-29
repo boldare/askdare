@@ -22,6 +22,13 @@ export interface TurnLimitKeys {
   readonly conversationId?: string | undefined;
   /** Characters sent to the model besides history (instructions + message), for the estimate. */
   readonly inputChars: number;
+  /** Server estimate for the attached files (from their handles). */
+  readonly attachmentTokens?: number;
+}
+
+export interface UploadLimitKeys {
+  readonly clientIp: string;
+  readonly visitorId: string;
 }
 
 /** Budget held for a turn in flight. Without `settle`, the estimate stays charged. */
@@ -36,6 +43,8 @@ export interface Limits {
   beginTurn(bot: Bot, keys: TurnLimitKeys): Promise<TurnReservation>;
   /** History reads and deletions: no tokens, but they still cost upstream calls. */
   checkConversationAccess(bot: Bot, visitorId: string): Promise<void>;
+  /** File uploads: no tokens until sent (then reserved with the turn), but they use storage. */
+  checkUpload(bot: Bot, keys: UploadLimitKeys): Promise<void>;
 }
 
 export interface LimitsOptions {
@@ -117,6 +126,12 @@ export function createLimits(options: LimitsOptions): Limits {
       await enforce(`cd:r:${bot.id}:${visitorId}`, MINUTE, 20);
     },
 
+    async checkUpload(bot, keys) {
+      assertEnabled();
+      await enforce(`cd:uv:${bot.id}:${keys.visitorId}`, HOUR, bot.limits.uploadsPerVisitorPerHour);
+      await enforce(`cd:ui:${bot.id}:${keys.clientIp}`, HOUR, bot.limits.uploadsPerIpPerHour);
+    },
+
     async beginTurn(bot, keys) {
       assertEnabled();
       const { limits } = bot;
@@ -144,6 +159,7 @@ export function createLimits(options: LimitsOptions): Limits {
         historyTokens +
         Math.ceil(keys.inputChars / 2) +
         limits.maxOutputTokens +
+        (keys.attachmentTokens ?? 0) +
         (bot.knowledge ? bot.knowledge.maxResults * SEARCH_RESULT_TOKENS : 0);
       const list = budgets(bot, keys.clientIp);
       await reserve(list, estimate);

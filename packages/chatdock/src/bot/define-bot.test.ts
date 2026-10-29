@@ -16,8 +16,29 @@ describe('defineBot', () => {
       messagesPerVisitorPerMinute: 10,
       messagesPerIpPerMinute: 30,
       maxTurns: 50,
+      uploadsPerVisitorPerHour: 20,
+      uploadsPerIpPerHour: 60,
     });
     expect(bot.instructions({ locale: 'en' })).toBe('Be helpful.');
+    expect(bot.attachments).toBeUndefined();
+  });
+
+  it('defaults attachments to images and PDFs up to 4 MB, 3 per message', () => {
+    const bot = defineBot({ id: 'a', model: 'm', instructions: 'x', attachments: { pdf: false } });
+    expect(bot.attachments).toEqual({
+      images: true,
+      pdf: false,
+      maxBytes: 4_000_000,
+      maxPerMessage: 3,
+    });
+    expect(() =>
+      defineBot({
+        id: 'a',
+        model: 'm',
+        instructions: 'x',
+        attachments: { images: false, pdf: false },
+      }),
+    ).toThrow(/attachments must allow images or pdf/);
   });
 
   it('keeps instruction functions and overrides selected limits', () => {

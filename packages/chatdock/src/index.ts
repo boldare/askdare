@@ -1,9 +1,11 @@
 export type {
+  AttachmentConfig,
   Bot,
   BotContext,
   BotDefinition,
   BotLimits,
   BotSecurity,
+  KnowledgeConfig,
   WidgetConfig,
 } from './bot/define-bot';
 export { defineBot } from './bot/define-bot';
