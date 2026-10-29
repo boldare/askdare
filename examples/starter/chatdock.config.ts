@@ -30,6 +30,9 @@ const assistant = {
   // Dictation: speech is transcribed into the message field, up to 60 seconds.
   voice: { model: process.env.CHATDOCK_TRANSCRIBE_MODEL ?? 'gpt-transcribe' },
   security: { allowedOrigins },
+  // Four bots share one OpenAI project: each gets a quarter of the default daily budgets, and
+  // the route caps them together (globalDailyTokens).
+  limits: { dailyTokens: 500_000, dailyTokensPerIp: 50_000 },
 } satisfies Omit<BotDefinition, 'id'>;
 
 const starters = [

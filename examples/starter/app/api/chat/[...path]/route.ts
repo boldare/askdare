@@ -8,4 +8,6 @@ export const { GET, POST, DELETE } = createChatHandler({
   bots,
   // The state gallery (/gallery) for design review and visual tests; keep it off in production.
   gallery: process.env.CHATDOCK_GALLERY === '1',
+  // All bots of the demo together, per UTC day.
+  limits: { globalDailyTokens: 2_000_000 },
 });
