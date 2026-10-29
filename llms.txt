@@ -8,6 +8,7 @@ Set it up with `npx @boldare/chatdock init` and verify it with `npx @boldare/cha
 
 - [Getting started](docs/getting-started.md): install, `init`, `.env.local`, `doctor`, embedding on other sites
 - [Tools](docs/tools.md): `defineTool`, Zod schemas, what a tool may trust
+- [Signed-in visitors](docs/identity.md): `chatdock('identify')`, IDENTITY_SECRET, `context.identity`
 - [Knowledge base](docs/knowledge-base.md): `chatdock kb sync`, vector stores, citations
 - [Attachments](docs/attachments.md): images and PDFs from visitors
 - [Voice input](docs/voice-input.md): dictation and its limits

@@ -17,6 +17,7 @@ import { getClientIp, type TrustProxy } from '../limits/client-ip';
 import { createLimits } from '../limits/limits';
 import { memoryStore, type RateLimitStore } from '../limits/store';
 import { createOpenAIGateway } from '../openai/gateway';
+import { createIdentityVerifier, type IdentityVerifier } from '../security/identity';
 import { createTokenService, type TokenService } from '../security/tokens';
 import { createRequestHandler } from '../server/handler';
 
@@ -30,6 +31,12 @@ export interface ChatHandlerOptions {
   readonly secret?: string;
   /** Former secrets still accepted during rotation. Default: comma-separated `process.env.CHAT_SECRET_PREVIOUS`. */
   readonly previousSecrets?: readonly string[];
+  /**
+   * Secret the site's backend signs identity tokens with, for `chatdock('identify')` (ADR-0009).
+   * At least 32 random characters, different from `secret`. Default `process.env.IDENTITY_SECRET`;
+   * without one, identity is off.
+   */
+  readonly identitySecret?: string;
   readonly limits?: ChatHandlerLimitsOptions;
   /**
    * Serves the state gallery: `/embed/<bot>?gallery=<state>&preset=<preset>&scheme=<scheme>`
@@ -89,6 +96,8 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
   if (ids.length === 0) throw new TypeError('[chatdock] Define at least one bot.');
 
   let gateway: ModelGateway | undefined;
+  /** null: no IDENTITY_SECRET, so identity is off. */
+  let identity: IdentityVerifier | null | undefined;
   let tokens: Promise<TokenService> | undefined;
   const store = options.limits?.store ?? memoryStore();
   if (!store.shared && process.env['NODE_ENV'] === 'production') {
@@ -140,6 +149,18 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
         throw error;
       });
       return tokens;
+    },
+    identity: () => {
+      if (identity === undefined) {
+        const secret = options.identitySecret ?? process.env['IDENTITY_SECRET'];
+        identity = secret
+          ? createIdentityVerifier({
+              secret,
+              chatSecret: options.secret ?? process.env['CHAT_SECRET'],
+            })
+          : null;
+      }
+      return identity ?? undefined;
     },
     limits: createLimits({
       store,

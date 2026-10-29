@@ -22,6 +22,8 @@ interface ConfigureOptions {
 interface ChatdockGlobal {
   (command: Command): void;
   (command: 'configure', options: ConfigureOptions): void;
+  /** A JWT from the site's backend for the signed-in user, or null on sign-out (ADR-0009). */
+  (command: 'identify', token: string | null): void;
   readonly loaded: true;
 }
 
@@ -250,6 +252,8 @@ function boot(): void {
     let port: MessagePort | undefined;
     /** The latest configure() call, delivered once the chat is connected (and again after reloads). */
     let configured: Record<string, unknown> | undefined;
+    /** The latest identify() call: sent with the handshake, so the chat's first request has it. */
+    let identity: string | null | undefined;
     /** Where focus was before opening, so closing returns it (a page's own trigger, for example). */
     let returnFocus: HTMLElement | undefined;
 
@@ -264,7 +268,11 @@ function boot(): void {
         if (event.data.type === 'ready') launcher.dataset['ready'] = '';
       };
       // Explicit target origin: only our own app can receive the port.
-      frame.contentWindow?.postMessage({ v: 1, type: 'chatdock:init' }, appOrigin, [channel.port2]);
+      frame.contentWindow?.postMessage(
+        { v: 1, type: 'chatdock:init', ...(identity === undefined ? {} : { identity }) },
+        appOrigin,
+        [channel.port2],
+      );
       if (configured) port.postMessage(configured);
     };
 
@@ -308,11 +316,18 @@ function boot(): void {
     // An inline chat is part of the page: it must not take focus or scroll the page on load.
     if (inline) open(false);
 
-    const api = ((command: Command | 'configure', options?: ConfigureOptions) => {
+    const api = ((command: Command | 'configure' | 'identify', options?: unknown) => {
       if (command === 'open') open();
       else if (command === 'close') close();
       else if (command === 'toggle') (panel.hidden ? open : close)();
-      else if (command === 'configure') {
+      else if (command === 'identify') {
+        // A token, else signed out: a missing token must never keep the previous user signed in.
+        if (typeof options !== 'string' && options !== null) {
+          console.warn("[chatdock] chatdock('identify') expects a token or null; signing out.");
+        }
+        identity = typeof options === 'string' ? options : null;
+        port?.postMessage({ v: 1, type: 'identify', token: identity });
+      } else if (command === 'configure') {
         configured = configureMessage(options);
         port?.postMessage(configured);
       }

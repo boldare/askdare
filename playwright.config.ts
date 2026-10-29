@@ -6,6 +6,8 @@ const ALLOWED_HOST = 'http://127.0.0.1:4100';
 
 // Runs against a production build of examples/starter (`pnpm e2e` builds it first). OpenAI is
 // replaced by e2e/servers/mock-openai.mjs, so no key or network access is needed.
+const IDENTITY_SECRET = 'e2e-identity-secret-shared-with-the-host-page';
+
 export default defineConfig({
   testDir: 'e2e',
   fullyParallel: false,
@@ -46,7 +48,8 @@ export default defineConfig({
       command: 'node e2e/servers/host-page.mjs',
       url: `${ALLOWED_HOST}/`,
       reuseExistingServer: false,
-      env: { APP_ORIGIN, HOST_PORT: '4100', FOREIGN_PORT: '4101' },
+      // The host page signs visitors in like a site's backend would, with the app's IDENTITY_SECRET.
+      env: { APP_ORIGIN, HOST_PORT: '4100', FOREIGN_PORT: '4101', IDENTITY_SECRET },
     },
     {
       command: './node_modules/.bin/next start --port 3100',
@@ -60,6 +63,7 @@ export default defineConfig({
         OPENAI_API_KEY: 'sk-e2e-not-a-real-key',
         OPENAI_BASE_URL: 'http://127.0.0.1:4110/v1',
         CHAT_SECRET: 'e2e-secret-that-is-long-enough-for-tests',
+        IDENTITY_SECRET,
         CHATDOCK_MODEL: 'mock-model',
         CHATDOCK_TRANSCRIBE_MODEL: 'mock-transcribe',
         // Lets the visual tests render fixture states; it never changes a live conversation.

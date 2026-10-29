@@ -105,6 +105,7 @@ async function invoke(
           botId: request.bot.id,
           visitorId: request.visitorId,
           locale: request.context.locale,
+          identity: request.context.identity,
           signal,
         }),
       tool.timeoutMs,

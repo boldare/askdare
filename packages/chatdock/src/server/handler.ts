@@ -12,7 +12,8 @@ import type { ModelGateway, TurnAttachment } from '../gateway';
 import { canonicalLocale } from '../i18n/texts';
 import type { Limits } from '../limits/limits';
 import type { DoctorReport } from '../protocol/doctor';
-import { newVisitorId, type TokenService } from '../security/tokens';
+import type { IdentityFailure, IdentityVerifier, VerifiedIdentity } from '../security/identity';
+import { newVisitorId, type ResumeGrant, type TokenService } from '../security/tokens';
 import { PRESET_NAMES, type PresetName } from '../theme/presets';
 import { type ColorScheme, type ResolvedTheme, resolveTheme } from '../theme/theme';
 import { detectAudio, languageHints, maxAudioBytes, worstCaseSeconds } from '../voice/audio';
@@ -48,6 +49,11 @@ export interface HandlerConfig {
   readonly gallery?: boolean | undefined;
   /** `next dev`: browsers revalidate the loader, so a changed launcher shows on the next reload. */
   readonly development?: boolean | undefined;
+  /**
+   * Checks identity tokens from the site's backend (IDENTITY_SECRET); undefined turns identity off.
+   * Resolved lazily, like the token service.
+   */
+  readonly identity?: (() => IdentityVerifier | undefined) | undefined;
   /** Whether the limits store is shared across instances; reported by `chatdock doctor`. */
   readonly sharedLimits?: boolean | undefined;
   /** Keeps a turn running after its response ends, e.g. Next.js `after`; see `streamTurn`. */
@@ -70,7 +76,12 @@ const sessionBody = z.object({
   botId: z.string().max(64),
   resumeToken: z.string().max(4096).optional(),
   /** The previous access token, so a renewal keeps the visitor before they have a conversation. */
-  accessToken: z.string().max(4096).optional(),
+  accessToken: z.string().max(8192).optional(),
+  /**
+   * chatdock('identify') from the page: a JWT signed by the site's backend, or null to sign out.
+   * Absent: a renewal keeps the identity the previous access token had.
+   */
+  identityToken: z.string().max(4096).nullable().optional(),
 });
 
 const conversationBody = z.object({
@@ -184,6 +195,18 @@ async function readJson<T>(request: Request, schema: z.ZodType<T>): Promise<T> {
   const parsed = schema.safeParse(json);
   if (!parsed.success) throw new ChatdockError('invalid_input');
   return parsed.data;
+}
+
+/**
+ * Whether the current session may use a conversation: anonymous conversations stay open to their
+ * visitor, signed-in ones only to the same user (ADR-0009).
+ */
+function sameOwner(grant: ResumeGrant, visitorId: string, key: string | undefined): boolean {
+  // A signed-in user's conversation follows them, even when the visitor ID changed (an expired
+  // session on a laptop that slept); an anonymous one stays with its visitor.
+  return grant.identityKey === undefined
+    ? grant.visitorId === visitorId
+    : grant.identityKey === key;
 }
 
 function bearerToken(request: Request): string {
@@ -385,36 +408,78 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     });
   };
 
+  /** With identity off (no IDENTITY_SECRET), identities in older access tokens no longer count. */
+  const keyed = <Grant extends { identity?: VerifiedIdentity | undefined }>(grant: Grant): Grant =>
+    config.identity?.() ? grant : { ...grant, identity: undefined };
+  const keyOf = (bot: Bot, identity: VerifiedIdentity): Promise<string | undefined> =>
+    config.identity?.()?.key(bot.id, identity.identity) ?? Promise.resolve(undefined);
+
   const createSession = async (request: Request): Promise<Response> => {
     assertSameOrigin(request);
     const body = await readJson(request, sessionBody);
     const bot = findBot(body.botId);
     const tokens = await config.tokens();
     let returningVisitorId: string | undefined;
-    let resumable = false;
+    let resume: ResumeGrant | undefined;
     if (body.resumeToken) {
       try {
-        returningVisitorId = (await tokens.verifyResume(body.resumeToken, bot.id)).visitorId;
-        resumable = true;
+        resume = await tokens.verifyResume(body.resumeToken, bot.id);
+        returningVisitorId = resume.visitorId;
       } catch {
         // A stale or forged handle just starts a fresh visitor.
       }
     }
-    if (!returningVisitorId && body.accessToken) {
+    let identity: VerifiedIdentity | undefined;
+    if (body.accessToken) {
       try {
-        returningVisitorId = (await tokens.verifyRenewal(body.accessToken, bot.id)).visitorId;
+        const renewal = await tokens.verifyRenewal(body.accessToken, bot.id);
+        returningVisitorId ??= renewal.visitorId;
+        if (renewal.visitorId === returningVisitorId) identity = renewal.identity;
       } catch {
         // Too old or forged: start a fresh visitor.
       }
     }
+    // identify(): a new identity replaces the old one; null signs out.
+    let identityProblem: IdentityFailure | 'disabled' | undefined;
+    if (body.identityToken !== undefined) {
+      identity = undefined;
+      if (body.identityToken !== null) {
+        const verifier = config.identity?.();
+        const result = verifier
+          ? await verifier.verify(body.identityToken, bot.id)
+          : ({ ok: false, reason: 'disabled' } as const);
+        if (result.ok) identity = result.verified;
+        else identityProblem = result.reason;
+      }
+    }
+    if (!config.identity?.()) identity = undefined;
+    const key = identity ? await keyOf(bot, identity) : undefined;
+    // A conversation started while signed in belongs to that user (ADR-0009).
+    const resumable = resume !== undefined && sameOwner(resume, resume.visitorId, key);
     // Renewals by returning visitors count per visitor, so people behind one NAT don't lock each other out.
     await config.limits.checkSession(bot, {
       clientIp: config.clientIp(request),
       returningVisitorId,
     });
     const visitorId = returningVisitorId ?? newVisitorId();
-    const access = await tokens.issueAccess(bot.id, visitorId);
-    return jsonResponse({ accessToken: access.token, expiresAt: access.expiresAt, resumable });
+    const access = await tokens.issueAccess(bot.id, visitorId, identity);
+    // Signing in during an anonymous conversation adopts it: from now on only this user may resume
+    // it, so it doesn't stay readable on the browser after sign-out.
+    const adopted =
+      resume && resumable && key && resume.identityKey === undefined
+        ? (await tokens.issueResume(bot.id, { ...resume, identityKey: key })).token
+        : undefined;
+    return jsonResponse({
+      accessToken: access.token,
+      expiresAt: access.expiresAt,
+      resumable,
+      ...(adopted ? { resumeToken: adopted } : {}),
+      identified: identity !== undefined,
+      // Which user's conversation this browser should show: an HMAC, it says nothing about them.
+      ...(key ? { identityKey: key } : {}),
+      // Why identify() was refused, for the site's developers (never set otherwise).
+      ...(identityProblem ? { identityProblem } : {}),
+    });
   };
 
   const sendMessage = async (request: Request): Promise<Response> => {
@@ -422,11 +487,14 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     const body = await readJson(request, messageBody);
     const bot = findBot(body.botId);
     const tokens = await config.tokens();
-    const { visitorId } = await tokens.verifyAccess(bearerToken(request), bot.id);
+    const { visitorId, identity } = keyed(await tokens.verifyAccess(bearerToken(request), bot.id));
+    const key = identity ? await keyOf(bot, identity) : undefined;
     let conversationId: string | undefined;
     if (body.resumeToken) {
       const grant = await tokens.verifyResume(body.resumeToken, bot.id);
-      if (grant.visitorId !== visitorId) throw new ChatdockError('not_found');
+      if (!sameOwner(grant, visitorId, key)) {
+        throw new ChatdockError('not_found');
+      }
       conversationId = grant.conversationId;
     }
     const { attachments, attachmentTokens } = await verifyAttachments(
@@ -445,6 +513,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     }
     const context = {
       locale: body.locale ?? (bot.widget.locale === 'auto' ? 'en' : bot.widget.locale),
+      identity: identity?.identity,
     };
     // Only for bots that opted in; others never pass it on.
     const pageContext = bot.pageContext ? body.context?.trim() || undefined : undefined;
@@ -466,7 +535,8 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       conversationId,
       signal: request.signal,
       issueResumeToken: async (id) =>
-        (await tokens.issueResume(bot.id, { visitorId, conversationId: id })).token,
+        (await tokens.issueResume(bot.id, { visitorId, conversationId: id, identityKey: key }))
+          .token,
       onUsage: (usage, id) => {
         reservation.settle(usage, id).catch((error: unknown) => report(toChatdockError(error)));
       },
@@ -639,9 +709,12 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     const body = await readJson(request, conversationBody);
     const bot = findBot(body.botId);
     const tokens = await config.tokens();
-    const { visitorId } = await tokens.verifyAccess(bearerToken(request), bot.id);
+    const { visitorId, identity } = keyed(await tokens.verifyAccess(bearerToken(request), bot.id));
     const grant = await tokens.verifyResume(body.resumeToken, bot.id);
-    if (grant.visitorId !== visitorId) throw new ChatdockError('not_found');
+    const key = identity ? await keyOf(bot, identity) : undefined;
+    if (!sameOwner(grant, visitorId, key)) {
+      throw new ChatdockError('not_found');
+    }
     await config.limits.checkConversationAccess(bot, visitorId);
     return { bot, conversationId: grant.conversationId };
   };

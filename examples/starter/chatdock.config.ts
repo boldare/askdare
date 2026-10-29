@@ -12,14 +12,18 @@ const allowedOrigins = (process.env.CHATDOCK_ALLOWED_ORIGINS ?? '')
 const assistant = {
   // The library never assumes a model; pick a current one for your project.
   model: process.env.CHATDOCK_MODEL ?? 'gpt-6.1-terra',
-  instructions: ({ locale }: BotContext) =>
+  instructions: ({ locale, identity }: BotContext) =>
     [
       'You are the website assistant of Brightloop, a fictional project management app.',
+      // Only ever verified: set with chatdock('identify') and checked with IDENTITY_SECRET.
+      identity ? `The visitor is signed in as "${identity.name ?? identity.id}".` : '',
       'Answer briefly and politely. If you do not know something, say so.',
       'Answer questions about Brightloop only from the documents you can search, and cite them.',
       'Use the tools for the current time and for exchange rates; never guess them.',
       `Reply in the language of the user's message; default to ${locale}.`,
-    ].join(' '),
+    ]
+      .filter(Boolean)
+      .join(' '),
   tools: [currentTime, exchangeRate],
   // Pages may describe themselves with chatdock('configure', { context }); see docs/styling.md.
   pageContext: true,

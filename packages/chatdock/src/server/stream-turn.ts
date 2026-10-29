@@ -125,7 +125,10 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           pageContext: options.pageContext,
           context: options.context,
           visitorId: options.visitorId,
-          safetyIdentifier: await sha256Hex(options.visitorId),
+          // The signed-in user when there is one, so abuse is traced to a person across devices.
+          safetyIdentifier: await sha256Hex(
+            options.context.identity ? `user:${options.context.identity.id}` : options.visitorId,
+          ),
           messageId,
           signal: deadline,
           emit,

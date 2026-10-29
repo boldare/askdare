@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { VisitorIdentity } from '../security/identity';
 
 /** What a tool may know about the request. Identity here is verified, never chosen by the model. */
 export interface ToolContext {
@@ -6,6 +7,11 @@ export interface ToolContext {
   /** Server-generated, pseudonymous visitor ID. */
   readonly visitorId: string;
   readonly locale: string;
+  /**
+   * The signed-in user, verified with IDENTITY_SECRET (ADR-0009); undefined for anonymous
+   * visitors. Trust only this for who the visitor is, never the model's arguments.
+   */
+  readonly identity?: VisitorIdentity | undefined;
   /** Aborted when the visitor leaves, the turn deadline passes or the tool times out. */
   readonly signal: AbortSignal;
 }

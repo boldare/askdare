@@ -46,7 +46,7 @@ Goal: **bound the damage** (dollars per day, requests per IP or visitor) and **p
 - **Logs** contain no message content or PII by default. Errors map to stable codes with no internals or stack traces.
 - **Optional:**
   - a `HumanVerifier` port with a Cloudflare Turnstile adapter, checked at session creation only;
-  - `identify()` with a separate `IDENTITY_SECRET` JWT issued by the host's backend (may slip to 0.2).
+  - `identify()` with a separate `IDENTITY_SECRET` JWT issued by the host's backend ([ADR-0009](0009-visitor-identity.md)).
 
 ## Required before any public deployment, including demos
 

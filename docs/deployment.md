@@ -9,6 +9,7 @@ chatdock runs wherever Next.js runs on Node.js. It needs no database: conversati
 | `OPENAI_API_KEY` | A key from the OpenAI project for **this** environment. Use separate projects for development and production. |
 | `CHAT_SECRET` | A new secret per environment: `openssl rand -base64 32`. Don't reuse the one from `.env.local`. |
 | `CHATDOCK_MODEL` | If your config reads the model from it, as the `init` template does. |
+| `IDENTITY_SECRET` | Only for [signed-in visitors](identity.md). Shared with your site's backend, different from `CHAT_SECRET`. |
 | `KB_VECTOR_STORE_ID` | Only with a knowledge base. Vector stores belong to one OpenAI project, so run `kb sync` with the production key to get the production store. |
 
 Set them in your host's settings, never in files you commit.

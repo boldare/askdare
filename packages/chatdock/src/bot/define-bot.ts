@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { canonicalLocale, TEXT_KEYS, type TextKey, textsFor } from '../i18n/texts';
+import type { VisitorIdentity } from '../security/identity';
 import { PRESET_NAMES, type PresetName } from '../theme/presets';
 import {
   type ColorScheme,
@@ -15,6 +16,8 @@ import type { Tool } from '../tools/define-tool';
 export interface BotContext {
   /** Validated BCP 47 tag chosen by the widget. */
   readonly locale: string;
+  /** The signed-in user, verified with IDENTITY_SECRET (ADR-0009); undefined when anonymous. */
+  readonly identity?: VisitorIdentity | undefined;
 }
 
 export interface BotLimits {

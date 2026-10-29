@@ -80,6 +80,7 @@ Browsers refuse to show the chat on sites that aren't on the list.
 |---|---|
 | Answer from your documents, with citations | [Knowledge base](knowledge-base.md) |
 | Let the bot call your own functions | [Tools](tools.md) |
+| Know who is signed in | [Signed-in visitors](identity.md) |
 | Accept images and PDFs | [Attachments](attachments.md) |
 | Let visitors dictate | [Voice input](voice-input.md) |
 | Change texts, language, colors or the button | [Styling](styling.md) and [Themes](themes.md) |
