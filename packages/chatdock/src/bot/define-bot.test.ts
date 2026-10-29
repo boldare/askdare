@@ -25,6 +25,22 @@ describe('defineBot', () => {
     expect(bot.limits.maxOutputTokens).toBe(1024);
   });
 
+  it('defaults the widget config and keeps allowed origins unique', () => {
+    const bot = defineBot({
+      id: 'a',
+      model: 'm',
+      instructions: 'x',
+      security: { allowedOrigins: ['https://example.com', 'https://example.com'] },
+      widget: { title: 'Helper', locale: 'pl' },
+    });
+    expect(bot.security.allowedOrigins).toEqual(['https://example.com']);
+    expect(bot.widget).toMatchObject({
+      title: 'Helper',
+      locale: 'pl',
+      greeting: expect.any(String),
+    });
+  });
+
   it('is frozen', () => {
     const bot = defineBot({ id: 'a', model: 'm', instructions: 'x' });
     expect(Object.isFrozen(bot)).toBe(true);
@@ -36,6 +52,25 @@ describe('defineBot', () => {
     [{ id: 'ok', model: '  ', instructions: 'x' }, /model is required/],
     [{ id: 'ok', model: 'm', instructions: '' }, /instructions/],
     [{ id: 'ok', model: 'm', instructions: 'x', limits: { maxSteps: 50 } }, /limits\.maxSteps/],
+    [
+      {
+        id: 'ok',
+        model: 'm',
+        instructions: 'x',
+        security: { allowedOrigins: ['https://*.example.com'] },
+      },
+      /security\.allowedOrigins\.0 must be an origin/,
+    ],
+    [
+      {
+        id: 'ok',
+        model: 'm',
+        instructions: 'x',
+        security: { allowedOrigins: ['https://example.com/path'] },
+      },
+      /must be an origin/,
+    ],
+    [{ id: 'ok', model: 'm', instructions: 'x', widget: { locale: 'english please' } }, /BCP 47/],
   ])('rejects invalid definitions (%#)', (definition, message) => {
     expect(() => defineBot(definition)).toThrow(message);
   });

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Bot } from '../bot/define-bot';
+import { type Bot, defineBot } from '../bot/define-bot';
 import { ChatdockError } from '../errors';
 import type { ModelGateway, TurnRequest, TurnResult } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
@@ -7,9 +7,7 @@ import { decodeEvent, SseParser } from '../protocol/sse';
 import { STREAM_HEADERS, type StreamTurnOptions, streamTurn } from './stream-turn';
 
 const bot: Bot = {
-  id: 'support',
-  model: 'test-model',
-  instructions: () => 'Be brief.',
+  ...defineBot({ id: 'support', model: 'test-model', instructions: 'Be brief.' }),
   limits: { maxOutputTokens: 256, maxInputChars: 1000, maxSteps: 3, turnTimeoutMs: 5_000 },
 };
 
