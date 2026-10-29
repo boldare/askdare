@@ -122,8 +122,6 @@ function looks(): Record<string, LauncherLook> {
 function boot(): void {
   const existing = window.chatdock as Partial<ChatdockGlobal> & ChatdockStub;
   if (existing?.loaded) return;
-  // Calls made before the script loaded, through the documented stub.
-  const queued = Array.isArray(existing?.q) ? existing.q : [];
   const script = document.currentScript;
   if (!(script instanceof HTMLScriptElement) || !script.src) return;
   const scriptUrl = new URL(script.src);
@@ -154,6 +152,11 @@ function boot(): void {
   }
 
   function mount(script: HTMLScriptElement, container: Element | null, botId: string): void {
+    // A second copy of the snippet may have mounted while this one waited for the page.
+    const current = window.chatdock as Partial<ChatdockGlobal> & ChatdockStub;
+    if (current?.loaded) return;
+    // Calls made through the documented stub, up to now: some may come while mounting waits.
+    const queued = Array.isArray(current?.q) ? current.q : [];
     if (target && !container) console.warn(`[chatdock] No element matches ${target}.`);
     const inline = container !== null;
     const withLauncher = !inline && script.dataset['launcher'] !== 'none';
