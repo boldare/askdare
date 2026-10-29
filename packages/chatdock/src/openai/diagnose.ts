@@ -9,15 +9,23 @@ const OPTIONS = { timeout: 20_000, maxRetries: 0 } as const;
 interface Failure {
   readonly status: number | undefined;
   readonly code: string | undefined;
+  /** A restricted key without the scope: 401 `missing_scope` ("Missing scopes: …"), or 403. */
+  readonly forbidden: boolean;
 }
 
-/** Only the status and code: OpenAI messages may quote part of the key. */
+/** Only the status and code leave this module: OpenAI messages may quote part of the key. */
 function failureOf(error: unknown): Failure {
-  if (error instanceof APIConnectionError) return { status: undefined, code: 'connection' };
-  if (error instanceof APIError) {
-    return { status: error.status, code: typeof error.code === 'string' ? error.code : undefined };
+  if (error instanceof APIConnectionError) {
+    return { status: undefined, code: 'connection', forbidden: false };
   }
-  return { status: undefined, code: undefined };
+  if (error instanceof APIError) {
+    const code = typeof error.code === 'string' ? error.code : undefined;
+    const forbidden =
+      error.status === 403 ||
+      (error.status === 401 && (code === 'missing_scope' || /missing scopes/i.test(error.message)));
+    return { status: error.status, code, forbidden };
+  }
+  return { status: undefined, code: undefined, forbidden: false };
 }
 
 const KEY_REJECTED: DoctorCheck = {
@@ -28,10 +36,9 @@ const KEY_REJECTED: DoctorCheck = {
 
 /** The common outcomes; `forbidden` names the permission a restricted key needs. */
 function failed(what: string, failure: Failure, forbidden: string): DoctorCheck {
-  if (failure.status === 401) return KEY_REJECTED;
-  if (failure.status === 403) {
+  if (failure.forbidden)
     return { status: 'fail', title: `The key may not ${what}.`, fix: forbidden };
-  }
+  if (failure.status === 401) return KEY_REJECTED;
   if (failure.code === 'insufficient_quota') {
     return {
       status: 'fail',
@@ -84,7 +91,7 @@ async function checkModel(client: OpenAI, model: string, use: string): Promise<D
         fix: `Check ${use} in defineBot, and the project's model allowlist.`,
       };
     }
-    if (failure.status === 403) {
+    if (failure.forbidden) {
       return {
         status: 'warn',
         title: 'The key may not look up models, so the model name was not checked.',
@@ -126,21 +133,25 @@ export async function diagnoseBot(
     }
   }
 
+  let conversationId: string | undefined;
   try {
-    const conversation = await client.conversations.create(
-      { metadata: { chatdock_doctor: 'true' } },
-      OPTIONS,
-    );
-    await client.conversations.delete(conversation.id, OPTIONS);
+    conversationId = (
+      await client.conversations.create({ metadata: { chatdock_doctor: 'true' } }, OPTIONS)
+    ).id;
+    await client.conversations.delete(conversationId, OPTIONS);
     checks.push({ status: 'ok', title: 'The key can create and delete conversations.' });
   } catch (error) {
     checks.push(
       failed(
-        'create and delete conversations',
+        conversationId === undefined ? 'create conversations' : 'delete conversations',
         failureOf(error),
         'Give the key write access to conversations; chat history lives there.',
       ),
     );
+    if (conversationId !== undefined) {
+      // Second chance, so the empty test conversation doesn't stay forever.
+      await client.conversations.delete(conversationId, OPTIONS).catch(() => undefined);
+    }
   }
 
   if (request.vectorStoreId !== undefined) {

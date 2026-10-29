@@ -564,6 +564,15 @@ describe('doctor', () => {
     expect(diagnoses.find((request) => request.vectorStoreId?.startsWith('vs_'))).toBeDefined();
     expect(diagnoses.find((request) => request.transcriptionModel !== undefined)).toBeDefined();
   });
+
+  it('allows a few runs per minute for the whole app', async () => {
+    const statuses: number[] = [];
+    for (let run = 0; run < 3; run++) {
+      statuses.push((await doctor((await tokens.issueDoctor()).token)).status);
+    }
+    // One run happened in the previous test.
+    expect(statuses).toEqual([200, 200, 429]);
+  });
 });
 
 describe('limits', () => {
@@ -611,6 +620,13 @@ describe('limits', () => {
     const response = await disabled(post('/session', { botId: 'support' }));
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ error: { code: 'bot_unavailable' } });
+    const doctor = await disabled(
+      new Request(`${BASE}/doctor`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${(await tokens.issueDoctor()).token}` },
+      }),
+    );
+    expect(doctor.status).toBe(503);
   });
 });
 

@@ -667,6 +667,8 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
   let doctorRunning = false;
   const runDoctor = async (request: Request): Promise<Response> => {
     await (await config.tokens()).verifyDoctor(bearerToken(request));
+    // The kill switch stops it too, and the shared store bounds runs across instances.
+    await config.limits.checkDoctor();
     if (doctorRunning) throw new ChatdockError('rate_limited', { retryAfterMs: 5_000 });
     doctorRunning = true;
     try {

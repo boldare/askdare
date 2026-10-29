@@ -57,6 +57,8 @@ export interface Limits {
   checkUpload(bot: Bot, keys: UploadLimitKeys): Promise<void>;
   /** Dictations: rate per visitor, then the longest allowed duration reserved against daily speech budgets. */
   beginTranscription(bot: Bot, keys: UploadLimitKeys): Promise<TranscriptionReservation>;
+  /** `chatdock doctor` runs, which make small OpenAI requests: a few per minute for the whole app. */
+  checkDoctor(): Promise<void>;
 }
 
 export interface LimitsOptions {
@@ -136,6 +138,11 @@ export function createLimits(options: LimitsOptions): Limits {
       } else {
         await enforce(`cd:s:${bot.id}:${keys.clientIp}`, HOUR, bot.limits.sessionsPerIpPerHour);
       }
+    },
+
+    async checkDoctor() {
+      assertEnabled();
+      await enforce('cd:doctor', MINUTE, 3);
     },
 
     async checkConversationAccess(bot, visitorId) {

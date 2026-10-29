@@ -89,6 +89,39 @@ describe('diagnose', () => {
     expect(JSON.stringify(checks)).not.toContain('sk-');
   });
 
+  it('tells a missing scope from a rejected key', async () => {
+    server.use(
+      http.get(url('/models/:model'), () =>
+        HttpResponse.json(
+          {
+            error: {
+              message: 'Missing scopes: api.model.read.',
+              type: 'invalid_request_error',
+              code: null,
+            },
+          },
+          { status: 401 },
+        ),
+      ),
+      http.post(url('/responses'), () =>
+        error(401, 'missing_scope', 'Missing scopes: api.responses.write.'),
+      ),
+      ...healthy,
+    );
+    const checks = await gateway.diagnose({ model: 'gpt-test', attachments: false });
+    expect(checks.slice(0, 2)).toEqual([
+      expect.objectContaining({
+        status: 'warn',
+        title: 'The key may not look up models, so the model name was not checked.',
+      }),
+      expect.objectContaining({
+        status: 'fail',
+        title: 'The key may not create responses with gpt-test.',
+        fix: 'Allow "Responses API: Write" for the key.',
+      }),
+    ]);
+  });
+
   it('names the missing model, store and permissions', async () => {
     server.use(
       http.get(url('/models/gpt-test'), () => error(404, 'model_not_found')),
@@ -101,12 +134,31 @@ describe('diagnose', () => {
     const titles = checks.filter((check) => check.status === 'fail').map((check) => check.title);
     expect(titles).toEqual([
       "Model gpt-test isn't available to this OpenAI project.",
-      'The key may not create and delete conversations.',
+      'The key may not create conversations.',
       "Vector store vs_kb doesn't exist in this OpenAI project.",
       'The OpenAI project is out of credit or reached its spend limit.',
     ]);
     // No response is attempted with a model the project doesn't have.
     expect(calls).not.toContain('POST /responses');
+  });
+
+  it('tries again to delete the test conversation when the first delete fails', async () => {
+    let deletes = 0;
+    server.use(
+      http.delete(url('/conversations/:id'), () => {
+        deletes += 1;
+        return deletes === 1 ? error(500, 'server_error') : HttpResponse.json({ deleted: true });
+      }),
+      ...healthy,
+    );
+    const checks = await gateway.diagnose({ model: 'gpt-test', attachments: false });
+    expect(checks).toContainEqual(
+      expect.objectContaining({
+        status: 'fail',
+        title: 'Could not delete conversations (HTTP 500, server_error).',
+      }),
+    );
+    expect(deletes).toBe(2);
   });
 
   it('warns about an empty knowledge base and skips features the bot does not use', async () => {
