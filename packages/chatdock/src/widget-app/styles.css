@@ -108,6 +108,62 @@
     overflow-wrap: anywhere;
   }
 
+  [data-cd-part="message"][data-role="assistant"] [data-cd-part="bubble"] {
+    white-space: normal;
+  }
+
+  [data-cd-part="bubble"] > :first-child {
+    margin-top: 0;
+  }
+
+  [data-cd-part="bubble"] > :last-child {
+    margin-bottom: 0;
+  }
+
+  [data-cd-part="bubble"] :is(p, ul, ol, pre, table) {
+    margin: 0 0 var(--cd-space);
+  }
+
+  [data-cd-part="bubble"] :is(ul, ol) {
+    padding-left: calc(var(--cd-space) * 2.5);
+  }
+
+  [data-cd-part="bubble"] code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.9em;
+    background: rgb(15 23 42 / 0.06);
+    padding: 0.1em 0.3em;
+    border-radius: 4px;
+  }
+
+  [data-cd-part="bubble"] pre {
+    overflow-x: auto;
+    padding: var(--cd-space);
+    border-radius: var(--cd-radius-small);
+    background: rgb(15 23 42 / 0.06);
+  }
+
+  [data-cd-part="bubble"] pre code {
+    background: none;
+    padding: 0;
+  }
+
+  [data-cd-part="bubble"] table {
+    border-collapse: collapse;
+    display: block;
+    overflow-x: auto;
+  }
+
+  [data-cd-part="bubble"] :is(th, td) {
+    border: 1px solid var(--cd-color-border);
+    padding: 4px 8px;
+    text-align: left;
+  }
+
+  [data-cd-part="bubble"] a {
+    color: var(--cd-color-accent);
+  }
+
   [data-cd-part="message"][data-role="user"] [data-cd-part="bubble"] {
     background: var(--cd-color-accent);
     color: var(--cd-color-on-accent);
