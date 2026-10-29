@@ -15,10 +15,10 @@
     "test:watch": "vitest",
     "smoke": "vitest run --config vitest.smoke.config.ts",
     "check:packages": "pnpm --filter \"./packages/*\" run check:package",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check:packages",
+    "check": "pnpm lint && pnpm --filter @boldare/chatdock run build:assets && pnpm typecheck && pnpm test && pnpm build && pnpm check:packages",
     "changeset": "changeset",
     "release": "pnpm build && changeset publish",
-    "prepare": "lefthook install"
+    "prepare": "lefthook install && pnpm --filter @boldare/chatdock run build:assets"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.3",
