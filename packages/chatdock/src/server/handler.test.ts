@@ -229,14 +229,14 @@ describe('static routes', () => {
   it('links fonts and a content-hashed theme stylesheet and sets the variant attributes', async () => {
     const html = await (await handler(new Request(`${BASE}/embed/support`))).text();
     expect(html).toContain('/api/chat/assets/fonts.222.css');
-    expect(html).toContain('data-cd-preset="halo"');
+    expect(html).toContain('data-cd-preset="aura"');
     expect(html).toContain('data-cd-welcome="hero"');
     const href = /href="(\/api\/chat\/theme\/support\.css\?v=[0-9a-f]{8})"/.exec(html)?.[1];
     expect(href).toBeDefined();
     const theme = await handler(new Request(`${APP}${href}`));
     expect(theme.headers.get('cache-control')).toContain('immutable');
     const css = await theme.text();
-    expect(css).toContain('--cd-color-accent:#1f5fe0');
+    expect(css).toContain('--cd-color-accent:#6b52e0');
     expect(css).toContain('@media (prefers-color-scheme: dark)');
   });
 
@@ -248,9 +248,9 @@ describe('static routes', () => {
 
   it('ignores gallery parameters unless gallery mode is on', async () => {
     const html = await (
-      await handler(new Request(`${BASE}/embed/support?gallery=streaming&preset=aura&scheme=dark`))
+      await handler(new Request(`${BASE}/embed/support?gallery=streaming&preset=sage&scheme=dark`))
     ).text();
-    expect(html).toContain('data-cd-preset="halo"');
+    expect(html).toContain('data-cd-preset="aura"');
     expect(html).not.toContain('"gallery"');
   });
 

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { EmbedWidget } from '../server/embed-page';
 import { ArrowIcon, CheckIcon, SparkIcon } from './icons';
 
@@ -8,6 +9,14 @@ const initials = (title: string): string =>
     .slice(0, 2)
     .map((word) => word[0]?.toUpperCase() ?? '')
     .join('') || 'AI';
+
+/** `**words**` in a greeting are shown in bold, as in Aura's two-weight headline; nothing else is markup. */
+function emphasized(text: string): ReactNode[] {
+  return text.split('**').map((part, index) =>
+    // biome-ignore lint/suspicious/noArrayIndexKey: the parts of a fixed string never move
+    index % 2 === 1 ? <strong key={index}>{part}</strong> : part,
+  );
+}
 
 /** The assistant's face: the configured picture, else the preset's orb, icon or initials. */
 export function Avatar({
@@ -85,7 +94,7 @@ export function Welcome({
         <div data-cd-part="intro">
           <Avatar widget={widget} size="small" />
           <div data-cd-part="intro-card">
-            <p data-cd-part="greeting">{widget.greeting}</p>
+            <p data-cd-part="greeting">{emphasized(widget.greeting)}</p>
             {starters}
           </div>
         </div>
@@ -106,7 +115,7 @@ export function Welcome({
             <span data-cd-part="presence">{widget.texts['welcome.online']}</span>
           </div>
         </div>
-        <p data-cd-part="greeting">{widget.greeting}</p>
+        <p data-cd-part="greeting">{emphasized(widget.greeting)}</p>
         {starters}
       </section>
     );
@@ -114,7 +123,7 @@ export function Welcome({
   return (
     <section data-cd-part="welcome" data-layout="hero" aria-label={widget.texts['welcome.label']}>
       <Avatar widget={widget} size="large" />
-      <h2 data-cd-part="greeting">{widget.greeting}</h2>
+      <h2 data-cd-part="greeting">{emphasized(widget.greeting)}</h2>
       {starters}
     </section>
   );

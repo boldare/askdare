@@ -39,9 +39,9 @@ There are four presets, each with a light and a dark variant. Every preset is bu
 
 | Preset | Character |
 |---|---|
-| **Halo** (default) | Clean, white to ice blue, frosted orb, centered greeting with icon chips |
-| **Aura** | Voice-first soft glass: pastel gradient mesh, iridescent orb, gradient composer border |
-| **Sage** | Calm and editorial: sage neutrals, persona card with an "Online" pill, black pill CTAs |
+| **Aura** (default) | Voice-first soft glass in Boldare's palette (coral, violet, teal): glossy bubble orb with a reflection, two-weight headline, card composer with a Send pill |
+| **Halo** | Clean, white to ice blue, frosted orb in rings of light, bold question, pill chips, round field with a soft blue mic |
+| **Sage** | A calm companion: sage and mint, light type, persona card with an "Online" pill, black pill CTAs, mic beside the field |
 | **Care** | Trust-first and structured: indigo and lavender, mascot, capability checklist, Atkinson Hyperlegible, AAA text contrast |
 
 Each preset is a set of tokens plus defaults for these component variants:
@@ -52,6 +52,8 @@ Each preset is a set of tokens plus defaults for these component variants:
 - `surface`
 - `density`
 - `composer`
+
+Update (2026-10-29): Aura replaced Halo as the default, and Aura, Halo and Sage moved closer to their inspirations. Each preset now also has a few rules of its own in the widget stylesheet, written only with parts, tokens and variant attributes (`:root[data-cd-preset="…"]`), the same means a site has in `widget.css`.
 
 Implementation (step 3.6): 17 tokens (11 colors, the backdrop and orb paint, two font families, base size, radius); see [Themes](../themes.md). The server renders a bot's theme as a content-hashed stylesheet (the iframe CSP forbids inline styles) and sets the variants as `data-cd-*` attributes on the iframe document. The requested bot's launcher look is inlined into `widget.js?bot=<id>` (only that bot's, so the script never lists other bots), and the launcher is drawn right on first paint without another request.
 

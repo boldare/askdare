@@ -5,10 +5,10 @@ import { PRESETS } from './presets';
 import { defineTheme, resolveTheme, themeWarnings } from './theme';
 
 describe('resolveTheme', () => {
-  it('starts from Halo and follows the system color scheme by default', () => {
+  it('starts from Aura and follows the system color scheme by default', () => {
     const theme = resolveTheme(undefined, 'auto');
-    expect(theme.preset).toBe('halo');
-    expect(theme.light).toEqual(PRESETS.halo.light);
+    expect(theme.preset).toBe('aura');
+    expect(theme.light).toEqual(PRESETS.aura.light);
     expect(theme.variants.welcome).toBe('hero');
   });
 

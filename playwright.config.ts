@@ -62,7 +62,6 @@ export default defineConfig({
         CHAT_SECRET: 'e2e-secret-that-is-long-enough-for-tests',
         CHATDOCK_MODEL: 'mock-model',
         CHATDOCK_TRANSCRIBE_MODEL: 'mock-transcribe',
-        CHATDOCK_THEME: '',
         // Lets the visual tests render fixture states; it never changes a live conversation.
         CHATDOCK_GALLERY: '1',
         KB_VECTOR_STORE_ID: '',

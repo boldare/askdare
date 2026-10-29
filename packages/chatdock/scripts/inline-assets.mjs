@@ -18,13 +18,12 @@ const FONT_STYLESHEETS = [
   '@fontsource-variable/geist/wght.css',
   '@fontsource-variable/plus-jakarta-sans/wght.css',
   '@fontsource-variable/atkinson-hyperlegible-next/wght.css',
-  '@fontsource/fraunces/300.css',
 ];
 /** Families each preset renders with, to check the budget. */
 const PRESET_FONTS = {
   halo: ['Geist Variable'],
   aura: ['Plus Jakarta Sans Variable'],
-  sage: ['Geist Variable', 'Fraunces'],
+  sage: ['Geist Variable'],
   care: ['Atkinson Hyperlegible Next Variable'],
 };
 

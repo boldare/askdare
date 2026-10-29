@@ -123,7 +123,7 @@ export function resolveTheme(
 ): ResolvedTheme {
   const definition: ThemeDefinition =
     typeof theme === 'string' ? { extends: theme } : (theme ?? {});
-  const name = definition.extends ?? 'halo';
+  const name = definition.extends ?? 'aura';
   const preset = PRESETS[name];
   const light = { ...withAccent(preset.light, definition.accent), ...definition.tokens };
   const dark = {
