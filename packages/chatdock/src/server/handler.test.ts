@@ -730,7 +730,7 @@ describe('identity', () => {
     expect((await converse(again, resumeToken)).status).toBe(200);
   });
 
-  it('lets an anonymous conversation continue after signing in', async () => {
+  it('adopts an anonymous conversation on sign-in, so it leaves with the user', async () => {
     const anonymous = await open({});
     const { resumeToken } = await converse(anonymous);
     const signedIn = await open({
@@ -739,7 +739,40 @@ describe('identity', () => {
       identityToken: await sign('ada'),
     });
     expect(signedIn).toMatchObject({ resumable: true, identified: true });
-    expect((await converse(signedIn, resumeToken)).status).toBe(200);
+    const adopted = (signedIn as SessionReply & { resumeToken?: string }).resumeToken;
+    expect(adopted).toBeDefined();
+    expect((await converse(signedIn, adopted)).status).toBe(200);
+
+    // After sign-out, the next person on this browser can't read it.
+    const signedOut = await open({
+      accessToken: signedIn.accessToken,
+      resumeToken: adopted,
+      identityToken: null,
+    });
+    expect(signedOut.resumable).toBe(false);
+    expect((await converse(signedOut, adopted)).status).toBe(404);
+  });
+
+  it("follows the user when the browser's visitor changed, and ends with the token", async () => {
+    const ada = await open({ identityToken: await sign('ada') });
+    const { resumeToken } = await converse(ada);
+    // A laptop that slept past the renewal grace: a new visitor, the same signed-in user.
+    const later = await open({ identityToken: await sign('ada') });
+    expect((await converse(later, resumeToken)).status).toBe(200);
+
+    const short = await new SignJWT({})
+      .setProtectedHeader({ alg: 'HS256' })
+      .setSubject('ada')
+      .setAudience('support')
+      .setIssuedAt()
+      .setExpirationTime('60s')
+      .sign(new TextEncoder().encode(IDENTITY_SECRET));
+    const session = (await (
+      await handler(post('/session', { botId: 'support', identityToken: short }))
+    ).json()) as {
+      expiresAt: number;
+    };
+    expect(session.expiresAt).toBeLessThanOrEqual(Date.now() / 1000 + 61);
   });
 });
 

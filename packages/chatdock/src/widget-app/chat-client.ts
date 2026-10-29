@@ -82,19 +82,30 @@ type ErrorEvent = Extract<ProtocolEvent, { type: 'error' }>;
 export class ChatClient {
   readonly #options: ChatClientOptions;
   readonly #fetch: typeof fetch;
-  readonly #resumeKey: string;
+  readonly #botId: string;
   #session: Session | undefined;
   /** The page context the current conversation already has, so it is sent only when it changes. */
   #sentContext: string | undefined;
   /** Shared by concurrent callers, so parallel uploads end up with one visitor. */
   #opening: Promise<Session> | undefined;
-  /** chatdock('identify') not yet sent: a token, or null to sign out (ADR-0009). */
+  /**
+   * The page's latest chatdock('identify'): a token, or null when signed out (ADR-0009). Sent with
+   * every session request, so the server re-checks it and the identity ends with the token.
+   */
   #identity: string | null | undefined;
+  /** Set when the identity changed: no request may use the previous user's session any more. */
+  #identityChanged = false;
+  /** Tokens already reported as refused, so a renewal doesn't warn again. */
+  #refused: string | undefined;
+  /** The signed-in user, as an opaque key from the server; undefined while anonymous. */
+  #identityKey: string | undefined;
+  /** The previous user's access token while their identity is replaced: renews the visitor only. */
+  #renewal: string | undefined;
 
   constructor(options: ChatClientOptions) {
     this.#options = options;
     this.#fetch = options.fetch ?? ((input, init) => fetch(input, init));
-    this.#resumeKey = `chatdock:${options.botId}:resume`;
+    this.#botId = options.botId;
   }
 
   /** A client-side error: the dictionary text for `key`, else the English message. */
@@ -113,31 +124,47 @@ export class ChatClient {
    * true when the stored conversation belonged to someone else and is gone from this browser.
    */
   async identify(token: string | null): Promise<boolean> {
-    await this.#opening?.catch(() => undefined);
-    const hadConversation = this.hasConversation();
+    // Single-page apps may repeat it on every route change: only a change costs a request.
+    if (token === this.#identity) return false;
     this.#identity = token;
+    this.#identityChanged = true;
+    await this.#opening?.catch(() => undefined);
+    const before = this.#resumeKey();
+    // Fail closed: nothing goes out with the previous user's session from here on. If this request
+    // fails, the next one opens a session with the new identity instead.
+    this.#renewal = this.#session?.accessToken ?? this.#renewal;
+    this.#session = undefined;
     try {
-      await this.#ensureSession(true);
+      await this.#ensureSession(false);
     } catch {
       // The next request tries again, with the identity still pending.
     }
-    return hadConversation && !this.hasConversation();
+    return this.#resumeKey() !== before;
+  }
+
+  /**
+   * Where this browser keeps the conversation: one place per signed-in user and one for anonymous
+   * visits, so signing out or in never hands a conversation to someone else, nor loses it.
+   */
+  #resumeKey(): string {
+    const base = `chatdock:${this.#botId}:resume`;
+    return this.#identityKey ? `${base}:${this.#identityKey}` : base;
   }
 
   /** Forgets the stored conversation so the next message starts a new one. */
   reset(): void {
     this.#sentContext = undefined;
-    this.#options.storage.remove(this.#resumeKey);
+    this.#options.storage.remove(this.#resumeKey());
   }
 
   /** True when this browser holds a conversation to resume. */
   hasConversation(): boolean {
-    return this.#options.storage.get(this.#resumeKey) !== undefined;
+    return this.#options.storage.get(this.#resumeKey()) !== undefined;
   }
 
   /** Loads the visible part of the stored conversation; empty when there is none or it is gone. */
   async loadHistory(signal?: AbortSignal): Promise<readonly HistoryMessage[]> {
-    const resumeToken = this.#options.storage.get(this.#resumeKey);
+    const resumeToken = this.#options.storage.get(this.#resumeKey());
     if (!resumeToken) return [];
     const response = await this.#authorized(
       'POST',
@@ -156,7 +183,7 @@ export class ChatClient {
 
   /** Deletes the conversation on the server (best effort) and forgets it in this browser. */
   async deleteConversation(): Promise<void> {
-    const resumeToken = this.#options.storage.get(this.#resumeKey);
+    const resumeToken = this.#options.storage.get(this.#resumeKey());
     try {
       if (resumeToken) {
         await this.#authorized('DELETE', '/conversation', () =>
@@ -252,7 +279,7 @@ export class ChatClient {
         'POST',
         '/messages',
         () => {
-          const resumeToken = this.#options.storage.get(this.#resumeKey);
+          const resumeToken = this.#options.storage.get(this.#resumeKey());
           return json({
             botId: this.#options.botId,
             text: message.text,
@@ -326,7 +353,12 @@ export class ChatClient {
 
   async #ensureSession(renew: boolean): Promise<Session> {
     const now = Date.now() / 1000;
-    if (!renew && this.#session && this.#session.expiresAt - RENEW_MARGIN_SECONDS > now) {
+    if (
+      !renew &&
+      !this.#identityChanged &&
+      this.#session &&
+      this.#session.expiresAt - RENEW_MARGIN_SECONDS > now
+    ) {
       return this.#session;
     }
     this.#opening ??= this.#openSession().finally(() => {
@@ -337,10 +369,11 @@ export class ChatClient {
 
   /** Not tied to one caller's signal, because other callers may be waiting for the same session. */
   async #openSession(): Promise<Session> {
-    const resumeToken = this.#options.storage.get(this.#resumeKey);
+    const resumeToken = this.#options.storage.get(this.#resumeKey());
     // The previous access token keeps the same visitor, so files uploaded before a renewal stay theirs.
-    const accessToken = this.#session?.accessToken;
+    const accessToken = this.#session?.accessToken ?? this.#renewal;
     const identityToken = this.#identity;
+    const sentFrom = this.#resumeKey();
     const response = await this.#fetch(`${this.#options.basePath}/session`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -356,18 +389,28 @@ export class ChatClient {
       accessToken: string;
       expiresAt: number;
       resumable: boolean;
+      resumeToken?: string;
       identified?: boolean;
+      identityKey?: string;
       identityProblem?: string;
     };
-    // Sent once: the identity now lives in the access token.
-    if (this.#identity === identityToken) this.#identity = undefined;
-    if (identityToken && !body.identified) {
+    if (this.#identity === identityToken) this.#identityChanged = false;
+    this.#renewal = undefined;
+    this.#identityKey = body.identified ? body.identityKey : undefined;
+    if (identityToken && !body.identified && this.#refused !== identityToken) {
+      this.#refused = identityToken;
       console.warn(
         `[chatdock] chatdock('identify') was refused (${body.identityProblem ?? 'unknown'}); the chat continues anonymously.`,
       );
     }
-    // Gone, or started by another signed-in user: either way not for this visitor now.
-    if (!body.resumable && resumeToken) this.reset();
+    if (body.resumeToken) {
+      // Signed in during an anonymous conversation: it is now this user's, kept in their place.
+      this.#options.storage.set(this.#resumeKey(), body.resumeToken);
+      if (sentFrom !== this.#resumeKey()) this.#options.storage.remove(sentFrom);
+    } else if (!body.resumable && resumeToken && sentFrom === this.#resumeKey()) {
+      // Gone from the server.
+      this.reset();
+    }
     this.#session = { accessToken: body.accessToken, expiresAt: body.expiresAt };
     return this.#session;
   }
@@ -427,7 +470,7 @@ export class ChatClient {
           const result = decodeEvent(raw);
           if (!result.ok) continue;
           if (result.event.type === 'conversation.created') {
-            this.#options.storage.set(this.#resumeKey, result.event.resumeToken);
+            this.#options.storage.set(this.#resumeKey(), result.event.resumeToken);
           } else if (result.event.type === 'error' && result.event.code === 'not_found') {
             this.reset(); // the conversation is gone (e.g. deleted by retention): start a new one
           }

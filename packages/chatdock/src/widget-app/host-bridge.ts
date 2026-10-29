@@ -20,10 +20,16 @@ const MAX_CONTEXT = 1_000;
 const HANDSHAKE_TIMEOUT_MS = 3_000;
 const JWT = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 
-/** A JWT-shaped string or null (sign out); anything else is ignored. The server verifies it. */
+/**
+ * A JWT-shaped string, or null to sign out; the server verifies it. Any other string signs out
+ * too, so a broken token never leaves the previous user signed in.
+ */
 function identityToken(value: unknown): string | null | undefined {
   if (value === null) return null;
-  return typeof value === 'string' && value.length <= 4096 && JWT.test(value) ? value : undefined;
+  if (typeof value !== 'string') return undefined;
+  if (value.length <= 4096 && JWT.test(value)) return value;
+  console.warn("[chatdock] chatdock('identify') got something that isn't a JWT; signing out.");
+  return null;
 }
 
 function pageOptions(data: Record<string, unknown>): PageOptions {

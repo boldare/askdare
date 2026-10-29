@@ -304,6 +304,8 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
   // The page signs the visitor in and out with chatdock('identify') (ADR-0009). The first request
   // waits for the loader, so it already carries the identity of a signed-in visitor.
   const [identityReady, setIdentityReady] = useState(fixture !== undefined);
+  /** Counts switches between users' conversations, to load the one this browser should show. */
+  const [shown, setShown] = useState(0);
   useEffect(() => {
     if (fixture) return;
     let active = true;
@@ -311,10 +313,11 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
     let queue = Promise.resolve();
     const apply = (token: string | null): void => {
       queue = queue.then(async () => {
-        // Another user's conversation is gone from this browser: so is what it showed.
+        // Signed in, out or as someone else: show that person's conversation, if any.
         if ((await client.identify(token)) && active) {
           setMessages([]);
           setError(undefined);
+          setShown((count) => count + 1);
         }
       });
     };
@@ -332,13 +335,16 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
     };
   }, [bridge, client, fixture]);
 
-  // Restore the stored conversation once (about 2 s upstream, so show a loading state).
+  // Restore the stored conversation (about 2 s upstream, so show a loading state), and again
+  // whenever the signed-in user changes.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `shown` only says when to reload
   useEffect(() => {
     if (fixture || !identityReady) return;
     if (!client.hasConversation()) {
       setLoading(false);
       return;
     }
+    setLoading(true);
     const controller = new AbortController();
     client
       .loadHistory(controller.signal)
@@ -348,7 +354,7 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
       })
       .finally(() => setLoading(false));
     return () => controller.abort();
-  }, [client, fixture, identityReady, t]);
+  }, [client, fixture, identityReady, shown, t]);
 
   // Follow the conversation, including each streamed delta of the latest message.
   const latestText = messages.at(-1)?.text;
@@ -429,7 +435,13 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
   /** Sends the draft, or a suggested question picked on the welcome screen. */
   const send = async (picked?: string): Promise<void> => {
     const text = (picked ?? draft).trim();
-    if (picked === undefined ? !canSend : busy || loading || uploading || text === '') return;
+    if (
+      picked === undefined
+        ? !canSend
+        : !identityReady || busy || loading || uploading || text === ''
+    ) {
+      return;
+    }
     const files: SentFile[] = ready.flatMap(({ name, kind, previewUrl }) =>
       kind ? [{ name, kind, previewUrl }] : [],
     );
@@ -648,7 +660,11 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
         aria-busy={loading}
       >
         {showWelcome && (
-          <Welcome widget={widget} disabled={busy} onPick={(text) => void send(text)} />
+          <Welcome
+            widget={widget}
+            disabled={busy || !identityReady}
+            onPick={(text) => void send(text)}
+          />
         )}
         {loading && (
           <p data-cd-part="status" role="status">

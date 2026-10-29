@@ -26,6 +26,11 @@ export type IdentityFailure =
   | 'too_large';
 
 export interface IdentityVerifier {
+  /**
+   * Binds conversations to a user of a bot: an HMAC with IDENTITY_SECRET, so the key reveals
+   * nothing about the user even when their ID is guessable (an email, a number).
+   */
+  key(botId: string, identity: VisitorIdentity): Promise<string>;
   /** Never throws: a failure says why, for the site's developers, and grants nothing. */
   verify(
     token: string,
@@ -46,10 +51,26 @@ const MAX_CLAIMS = 20;
 const REGISTERED = new Set(['iss', 'sub', 'aud', 'exp', 'nbf', 'iat', 'jti', 'name', 'email']);
 const encoder = new TextEncoder();
 
+/**
+ * Display names are often edited by the users themselves and may end up in instructions: one
+ * line, no control characters.
+ */
+const oneLine = (text: string): string =>
+  text
+    .normalize('NFKC')
+    .replace(/\p{Cc}+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 /** The identity part of a JWT payload, or undefined when a claim has the wrong shape. */
 export function identityFromClaims(payload: Record<string, unknown>): VisitorIdentity | undefined {
-  const { sub, name, email } = payload;
+  const { sub } = payload;
   if (typeof sub !== 'string' || sub.length === 0 || sub.length > 256) return undefined;
+  // null is a missing value (a nullable column), not a broken token.
+  const field = (value: unknown): unknown =>
+    typeof value === 'string' ? oneLine(value) || undefined : (value ?? undefined);
+  const name = field(payload['name']);
+  const email = field(payload['email']);
   if (name !== undefined && (typeof name !== 'string' || name.length > 200)) return undefined;
   if (email !== undefined && (typeof email !== 'string' || email.length > 320)) return undefined;
   const claims: Record<string, string | number | boolean> = {};
@@ -91,8 +112,22 @@ export function createIdentityVerifier(options: {
   }
   const key = encoder.encode(secret);
   const now = options.now ?? (() => Math.floor(Date.now() / 1000));
+  const hmac = crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, [
+    'sign',
+  ]);
 
   return {
+    async key(botId, identity) {
+      const mac = await crypto.subtle.sign(
+        'HMAC',
+        await hmac,
+        encoder.encode(`chatdock identity key v1\n${botId}\n${identity.id}`),
+      );
+      return Array.from(new Uint8Array(mac).slice(0, 16), (byte) =>
+        byte.toString(16).padStart(2, '0'),
+      ).join('');
+    },
+
     async verify(token, botId) {
       let payload: Record<string, unknown>;
       try {
@@ -100,6 +135,8 @@ export function createIdentityVerifier(options: {
           algorithms: ['HS256'],
           audience: botId,
           requiredClaims: ['sub', 'iat', 'exp'],
+          // Also refuses an `iat` in the future, which would stretch the lifetime cap.
+          maxTokenAge: MAX_LIFETIME_SECONDS,
           currentDate: new Date(now() * 1000),
           clockTolerance: 30,
         }));
@@ -111,10 +148,18 @@ export function createIdentityVerifier(options: {
         if (error instanceof errors.JWTClaimValidationFailed && error.claim === 'aud') {
           return { ok: false, reason: 'audience' };
         }
+        if (error instanceof errors.JWTClaimValidationFailed && error.claim === 'iat') {
+          return { ok: false, reason: 'lifetime' };
+        }
         return { ok: false, reason: 'malformed' };
       }
       const { iat, exp } = payload;
-      if (typeof iat !== 'number' || typeof exp !== 'number' || exp - iat > MAX_LIFETIME_SECONDS) {
+      if (
+        typeof iat !== 'number' ||
+        typeof exp !== 'number' ||
+        exp <= iat ||
+        exp - iat > MAX_LIFETIME_SECONDS
+      ) {
         return { ok: false, reason: 'lifetime' };
       }
       const identity = identityFromClaims(payload);
@@ -122,15 +167,13 @@ export function createIdentityVerifier(options: {
       if (encoder.encode(JSON.stringify(identity)).length > MAX_IDENTITY_BYTES) {
         return { ok: false, reason: 'too_large' };
       }
-      return { ok: true, verified: { identity, expiresAt: exp } };
+      // Inside the clock tolerance, but over: the next request would be anonymous anyway.
+      if (exp <= now()) return { ok: false, reason: 'expired' };
+      // Never longer than the cap from now, whatever the token says.
+      return {
+        ok: true,
+        verified: { identity, expiresAt: Math.min(exp, now() + MAX_LIFETIME_SECONDS) },
+      };
     },
   };
-}
-
-/** Binds conversations to a user of a bot without putting the user's ID in tokens or logs. */
-export async function identityKey(botId: string, identity: VisitorIdentity): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', encoder.encode(`${botId}\n${identity.id}`));
-  return Array.from(new Uint8Array(digest).slice(0, 16), (byte) =>
-    byte.toString(16).padStart(2, '0'),
-  ).join('');
 }

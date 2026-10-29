@@ -321,11 +321,12 @@ function boot(): void {
       else if (command === 'close') close();
       else if (command === 'toggle') (panel.hidden ? open : close)();
       else if (command === 'identify') {
-        // A token or null; the iframe and the server check it.
-        if (typeof options === 'string' || options === null) {
-          identity = options;
-          port?.postMessage({ v: 1, type: 'identify', token: identity });
+        // A token, else signed out: a missing token must never keep the previous user signed in.
+        if (typeof options !== 'string' && options !== null) {
+          console.warn("[chatdock] chatdock('identify') expects a token or null; signing out.");
         }
+        identity = typeof options === 'string' ? options : null;
+        port?.postMessage({ v: 1, type: 'identify', token: identity });
       } else if (command === 'configure') {
         configured = configureMessage(options);
         port?.postMessage(configured);

@@ -373,27 +373,76 @@ describe('conversation history', () => {
 });
 
 describe('ChatClient.identify', () => {
-  it('sends the identity once, then lets the access token carry it', async () => {
+  const session = (fields: Record<string, unknown> = {}) =>
+    Response.json({
+      accessToken: `access-${Math.random()}`,
+      expiresAt: Date.now() / 1000 + 900,
+      resumable: true,
+      identified: false,
+      ...fields,
+    });
+  const ok = () => new Response(sse([]), { headers: streamHeaders });
+
+  it('sends the identity with every session request, and only a change costs one', async () => {
+    let renewals = 0;
     const { fetch, calls } = fakeFetch({
-      messages: () => new Response(sse([]), { headers: streamHeaders }),
+      session: () => session({ identified: true, identityKey: 'k-ada' }),
+      // The first message finds the session expired: the renewal carries the identity again.
+      messages: () => (renewals++ === 0 ? new Response(null, { status: 401 }) : ok()),
     });
     const chat = client(fetch);
-    await chat.identify('header.payload.signature');
+    await chat.identify('ada.jwt.token');
+    expect(await chat.identify('ada.jwt.token')).toBe(false);
     await chat.send({ text: 'Hi' }, () => {});
     const sessions = calls.filter((call) => call.url.endsWith('/session'));
-    expect(sessions).toHaveLength(1);
-    expect(sessions[0]?.body['identityToken']).toBe('header.payload.signature');
-    expect(calls.at(-1)?.body['identityToken']).toBeUndefined();
+    expect(sessions.map((call) => call.body['identityToken'])).toEqual([
+      'ada.jwt.token',
+      'ada.jwt.token',
+    ]);
   });
 
-  it("forgets another user's conversation, and says so", async () => {
+  it("keeps each user's conversation in its own place, and adopts an anonymous one on sign-in", async () => {
     const storage = memoryStorage();
-    storage.set('chatdock:support:resume', 'resume-of-ada');
-    const { fetch, calls } = fakeFetch({ messages: () => new Response(null, { status: 500 }) });
+    storage.set('chatdock:support:resume', 'resume-anonymous');
+    let signedIn = true;
+    const { fetch } = fakeFetch({
+      session: () =>
+        signedIn
+          ? session({ identified: true, identityKey: 'k-ada', resumeToken: 'resume-adopted' })
+          : session(),
+      messages: ok,
+    });
     const chat = client(fetch, storage);
-    // The server answers resumable: false, as for a conversation of another signed-in user.
+    expect(await chat.identify('ada.jwt.token')).toBe(true);
+    expect(storage.get('chatdock:support:resume:k-ada')).toBe('resume-adopted');
+    expect(storage.get('chatdock:support:resume')).toBeUndefined();
+
+    signedIn = false;
     expect(await chat.identify(null)).toBe(true);
     expect(chat.hasConversation()).toBe(false);
-    expect(calls[0]?.body).toMatchObject({ identityToken: null, resumeToken: 'resume-of-ada' });
+    // Still there for Ada, and only for her.
+    expect(storage.get('chatdock:support:resume:k-ada')).toBe('resume-adopted');
+  });
+
+  it("never sends a request with the previous user's session once they sign out", async () => {
+    let failSignOut = false;
+    let access = 'access-ada';
+    const { fetch, calls } = fakeFetch({
+      session: () =>
+        failSignOut ? new Response(null, { status: 503 }) : session({ accessToken: access }),
+      messages: ok,
+    });
+    const chat = client(fetch);
+    await chat.identify('ada.jwt.token');
+    failSignOut = true;
+    await chat.identify(null);
+    failSignOut = false;
+    access = 'access-anonymous';
+    await chat.send({ text: 'Hi' }, () => {});
+    const message = calls.find((call) => call.url.endsWith('/messages'));
+    expect(message?.auth).toBe('Bearer access-anonymous');
+    expect(calls.filter((call) => call.url.endsWith('/session')).at(-1)?.body).toMatchObject({
+      identityToken: null,
+    });
   });
 });

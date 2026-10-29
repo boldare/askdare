@@ -122,12 +122,10 @@ async function deriveKey(secret: string, name: string): Promise<DerivedKey> {
 /** The identity an access token carries, while it lasts. Our own encrypted claim: no re-check needed. */
 function identityOf(payload: Record<string, unknown>, now: number) {
   const { idn, ixp } = payload;
-  if (typeof idn !== 'string' || typeof ixp !== 'number' || ixp <= now) return undefined;
-  try {
-    return { identity: JSON.parse(idn) as VisitorIdentity, expiresAt: ixp };
-  } catch {
+  if (typeof idn !== 'object' || idn === null || typeof ixp !== 'number' || ixp <= now) {
     return undefined;
   }
+  return { identity: idn as VisitorIdentity, expiresAt: ixp };
 }
 
 export async function createTokenService(options: TokenServiceOptions): Promise<TokenService> {
@@ -147,7 +145,7 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
     botId: string,
     subject: string,
     ttl: number,
-    claims: Record<string, string | number> = {},
+    claims: Record<string, unknown> = {},
   ): Promise<IssuedToken> {
     const issuedAt = now();
     const expiresAt = issuedAt + ttl;
@@ -187,8 +185,10 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
         ACCESS_TYP,
         botId,
         visitorId,
-        accessTtl,
-        identity ? { idn: JSON.stringify(identity.identity), ixp: identity.expiresAt } : {},
+        // A signed-in session ends with the identity token, then renews with the page's latest one.
+        identity ? Math.max(1, Math.min(accessTtl, identity.expiresAt - now())) : accessTtl,
+        // An object, not a JSON string: escaping it twice would bloat the token.
+        identity ? { idn: { ...identity.identity }, ixp: identity.expiresAt } : {},
       ),
 
     async verifyAccess(token, botId) {
