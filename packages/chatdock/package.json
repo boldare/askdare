@@ -4,6 +4,13 @@
   "description": "Embeddable AI chatbot for Next.js, built on the official OpenAI SDK.",
   "license": "MIT",
   "author": "Boldare",
+  "homepage": "https://github.com/boldare/chatdock#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/boldare/chatdock.git",
+    "directory": "packages/chatdock"
+  },
+  "bugs": "https://github.com/boldare/chatdock/issues",
   "keywords": [
     "chatbot",
     "ai",
@@ -34,11 +41,13 @@
     "chatdock": "./dist/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "docs",
+    "llms.txt"
   ],
   "scripts": {
     "build:assets": "vite build -c vite.widget.config.ts && vite build -c vite.loader.config.ts && node scripts/inline-assets.mjs",
-    "build": "pnpm run build:assets && tsdown",
+    "build": "pnpm run build:assets && tsdown && node scripts/copy-docs.mjs",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.browser.json",
     "check:package": "publint --strict && attw --pack . --profile esm-only && node ../../scripts/check-dts-no-leak.mjs dist"
   },

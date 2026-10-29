@@ -5,7 +5,7 @@ Complete every step before the chat is reachable from the internet, demos includ
 ## 1. OpenAI project
 
 1. Create a **dedicated project** for this deployment in the OpenAI dashboard. Don't reuse a project that other apps use.
-2. Create a **restricted API key** with only the permissions chatdock needs (Responses, Conversations, and later Files/Vector stores for the knowledge base).
+2. Create a **restricted API key** with only the permissions chatdock needs: Responses API (write), conversations (write) and List models (read); add Vector Stores (read) for a knowledge base, Files (write) for attachments and Model capabilities (request) for voice input. `npx @boldare/chatdock doctor` tells you which one is missing.
 3. Set an **allowlist of models** to the one your bot uses.
 4. Set a **monthly budget with "Enforce a hard limit"** and email alerts at 50% and 80%. Send a test alert.
 
@@ -66,7 +66,7 @@ export const { GET, POST, DELETE } = createChatHandler({
   - Clients with data-residency or zero-retention requirements need the planned own-storage add-on.
 - **Disclosures:**
   - Publish a privacy notice that names OpenAI (and Upstash, if used) as processors.
-  - Tell visitors they are talking to an AI. A built-in disclosure is planned for the widget; until then, add it to the bot's greeting.
+  - Tell visitors they are talking to an AI. The chat says so under the message field by default; add `widget.disclosure.privacyUrl` to link your privacy notice ([Styling](styling.md#1-configuration)).
 
 ## 7. Final check
 
@@ -77,3 +77,4 @@ export const { GET, POST, DELETE } = createChatHandler({
 - [ ] Instructions contain no secrets.
 - [ ] Privacy notice, retention decision and AI disclosure are in place.
 - [ ] You know how to flip `CHATDOCK_DISABLED=true`.
+- [ ] `npx @boldare/chatdock doctor --url <your app> --env-file <production env>` reports no problems ([Deployment](deployment.md)).
