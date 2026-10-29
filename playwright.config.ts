@@ -13,7 +13,19 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',
   use: { trace: 'retain-on-failure' },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        // A fake microphone (a steady tone) for the dictation test, granted without a prompt.
+        permissions: ['microphone'],
+        launchOptions: {
+          args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
+        },
+      },
+    },
+  ],
   webServer: [
     {
       command: 'node e2e/servers/mock-openai.mjs',
@@ -40,6 +52,8 @@ export default defineConfig({
         OPENAI_BASE_URL: 'http://127.0.0.1:4110/v1',
         CHAT_SECRET: 'e2e-secret-that-is-long-enough-for-tests',
         CHATDOCK_MODEL: 'mock-model',
+        CHATDOCK_TRANSCRIBE_MODEL: 'mock-transcribe',
+        KB_VECTOR_STORE_ID: '',
         CHATDOCK_ALLOWED_ORIGINS: ALLOWED_HOST,
         CHAT_SECRET_PREVIOUS: '',
         CHATDOCK_DISABLED: '',

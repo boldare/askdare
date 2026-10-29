@@ -114,6 +114,27 @@ test('sends an image and a PDF, and deletes them with the conversation', async (
     .toEqual(filesBefore);
 });
 
+test('dictates into the message field without sending', async ({ page }) => {
+  await page.goto(ALLOWED_HOST);
+  const chat = await openChat(page);
+  await chat.getByRole('button', { name: 'Dictate a message' }).click();
+  // Chromium's fake microphone can take seconds to start in a freshly launched browser.
+  await expect(chat.getByRole('status').filter({ hasText: 'Listening…' })).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.waitForTimeout(1_500);
+  await chat.getByRole('button', { name: 'Done' }).click();
+  await expect(chat.getByRole('textbox')).toHaveValue('Mock transcript');
+  await expect(chat.locator('[data-cd-part="message"]')).toHaveCount(0);
+
+  // Escape cancels a dictation instead of closing the chat.
+  await chat.getByRole('button', { name: 'Dictate a message' }).click();
+  await expect(chat.getByRole('status').filter({ hasText: 'Listening…' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(chat.getByRole('textbox')).toHaveValue('Mock transcript');
+  await expect(page.locator('iframe[title="Chat"]')).toBeVisible();
+});
+
 test('finishes a reply after the visitor leaves mid-answer', async ({ page, request }) => {
   await page.goto(ALLOWED_HOST);
   const chat = await openChat(page);
