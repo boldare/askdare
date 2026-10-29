@@ -10,7 +10,14 @@ for (const file of ['.env.smoke.local', 'examples/starter/.env']) {
     break;
   }
 }
-process.env['SMOKE_MODEL'] ??= process.env['CHATDOCK_MODEL'];
+// process.env stores strings, so assigning undefined would set "undefined".
+for (const [name, fallback] of [
+  ['SMOKE_MODEL', 'CHATDOCK_MODEL'],
+  ['SMOKE_VECTOR_STORE_ID', 'KB_VECTOR_STORE_ID'],
+] as const) {
+  const value = process.env[fallback];
+  if (!process.env[name] && value) process.env[name] = value;
+}
 
 export default defineConfig({
   test: {
