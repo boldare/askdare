@@ -6,9 +6,6 @@ export interface DetectedFile {
   readonly extension: string;
 }
 
-/** Rough input cost of one image (detail `auto`) and of one PDF page (text plus page image). */
-const IMAGE_TOKENS = 1_500;
-const PDF_PAGE_TOKENS = 1_500;
 const MAX_NAME = 80;
 
 const ascii = (text: string): number[] => Array.from(text, (char) => char.charCodeAt(0));
@@ -61,17 +58,97 @@ export function detectFile(bytes: Uint8Array): DetectedFile | undefined {
   return undefined;
 }
 
-/** Page objects when they are readable, otherwise about one page per 100 KB. */
-export function estimatePdfPages(bytes: Uint8Array): number {
-  const text = new TextDecoder('latin1').decode(bytes);
-  const pages = text.match(/\/Type\s*\/Page(?![A-Za-z])/g)?.length ?? 0;
-  return Math.max(1, pages || Math.ceil(bytes.byteLength / 100_000));
+/** Decompressed bytes scanned per PDF while counting pages, so a zip bomb can't exhaust memory. */
+const INFLATE_BUDGET = 32 * 1024 * 1024;
+
+const latin1 = (bytes: Uint8Array): string => new TextDecoder('latin1').decode(bytes);
+
+/** PDF names may escape characters as #xx, so /P#61ge is /Page. */
+const unescapeNames = (text: string): string =>
+  text.replace(/#([0-9A-Fa-f]{2})/g, (_match, hex: string) =>
+    String.fromCharCode(Number.parseInt(hex, 16)),
+  );
+
+function pageCounts(text: string): { readonly objects: number; readonly declared: number } {
+  const clean = unescapeNames(text);
+  let declared = 0;
+  for (const match of clean.matchAll(/\/Count\s+(\d+)/g)) {
+    declared = Math.max(declared, Number(match[1]));
+  }
+  return { objects: clean.match(/\/Type\s*\/Page(?![A-Za-z])/g)?.length ?? 0, declared };
 }
 
-/** Input tokens a file adds to a turn, reserved against the budgets before the model runs. */
-export function estimateAttachmentTokens(file: DetectedFile, bytes: Uint8Array): number {
-  return file.kind === 'image' ? IMAGE_TOKENS : estimatePdfPages(bytes) * PDF_PAGE_TOKENS;
+async function inflate(
+  data: Uint8Array,
+  budget: { left: number },
+): Promise<Uint8Array | undefined> {
+  try {
+    const reader = new Blob([data])
+      .stream()
+      .pipeThrough(new DecompressionStream('deflate'))
+      .getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      budget.left -= value.byteLength;
+      if (budget.left < 0) {
+        await reader.cancel();
+        return undefined;
+      }
+      chunks.push(value);
+    }
+    const out = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      out.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return out;
+  } catch {
+    return undefined;
+  }
 }
+
+/**
+ * Pages of a PDF: the larger of the page objects found and the page count the file declares,
+ * including both inside compressed object streams. Returns `undefined` when the file hides its
+ * structure (encryption, unknown filters, broken streams), so callers can assume the worst.
+ */
+export async function countPdfPages(bytes: Uint8Array): Promise<number | undefined> {
+  const text = latin1(bytes);
+  if (/\/Encrypt\b/.test(text)) return undefined;
+  let { objects, declared } = pageCounts(text);
+  const budget = { left: INFLATE_BUDGET };
+  // `endstream` has no word boundary before `stream`, so this finds stream starts only.
+  for (const match of text.matchAll(/\bstream(\r\n|\n|\r)/g)) {
+    const start = match.index + match[0].length;
+    const objectStart = Math.max(0, text.lastIndexOf(' obj', match.index));
+    const dictionary = unescapeNames(text.slice(objectStart, match.index));
+    if (!/\/Type\s*\/ObjStm\b/.test(dictionary)) continue;
+    const filter = /\/Filter\s*(\[[^\]]*\]|\/[A-Za-z0-9]+)/.exec(dictionary)?.[1] ?? '';
+    if (filter.replace(/[[\]\s]/g, '') !== '/FlateDecode' || /\/DecodeParms/.test(dictionary)) {
+      return undefined;
+    }
+    const length = /\/Length\s+(\d+)(?!\s+\d+\s+R)/.exec(dictionary);
+    const end = length ? start + Number(length[1]) : text.indexOf('endstream', start);
+    if (end < start) return undefined;
+    const inflated = await inflate(bytes.subarray(start, end), budget);
+    if (!inflated) return undefined;
+    const inner = pageCounts(latin1(inflated));
+    objects += inner.objects;
+    declared = Math.max(declared, inner.declared);
+  }
+  const pages = Math.max(objects, declared);
+  return pages > 0 ? pages : undefined;
+}
+
+/** Input tokens one image adds to a turn (detail `auto`). */
+export const IMAGE_TOKENS = 1_500;
+/** Input tokens one PDF page adds: its extracted text plus a high-detail page image. */
+export const PDF_PAGE_TOKENS = 2_000;
 
 /**
  * A safe file name for OpenAI: the visitor's base name without paths or control characters, and

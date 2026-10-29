@@ -130,6 +130,7 @@ export function createLimits(options: LimitsOptions): Limits {
       assertEnabled();
       await enforce(`cd:uv:${bot.id}:${keys.visitorId}`, HOUR, bot.limits.uploadsPerVisitorPerHour);
       await enforce(`cd:ui:${bot.id}:${keys.clientIp}`, HOUR, bot.limits.uploadsPerIpPerHour);
+      await enforce(`cd:ud:${bot.id}:${day()}`, DAY, bot.limits.uploadsPerDay);
     },
 
     async beginTurn(bot, keys) {
@@ -159,7 +160,8 @@ export function createLimits(options: LimitsOptions): Limits {
         historyTokens +
         Math.ceil(keys.inputChars / 2) +
         limits.maxOutputTokens +
-        (keys.attachmentTokens ?? 0) +
+        // Every model call of the turn re-reads the files, and function tools add calls.
+        (keys.attachmentTokens ?? 0) * (bot.tools.length > 0 ? limits.maxSteps : 1) +
         (bot.knowledge ? bot.knowledge.maxResults * SEARCH_RESULT_TOKENS : 0);
       const list = budgets(bot, keys.clientIp);
       await reserve(list, estimate);

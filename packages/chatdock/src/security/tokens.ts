@@ -11,6 +11,8 @@ const MIN_DISTINCT_CHARACTERS = 12;
 const VISITOR_ID = /^v_[0-9a-f]{32}$/;
 const CONVERSATION_ID = /^conv_[A-Za-z0-9_-]{1,128}$/;
 const FILE_ID = /^file-[A-Za-z0-9_-]{1,128}$/;
+/** How long after expiry an access token still identifies its visitor for a renewal. */
+const RENEWAL_GRACE_SECONDS = 60 * 60;
 const encoder = new TextEncoder();
 
 export interface TokenServiceOptions {
@@ -60,6 +62,11 @@ export interface TokenService {
   issueAccess(botId: string, visitorId: string): Promise<IssuedToken>;
   /** Throws `unauthorized` or `session_expired`. */
   verifyAccess(token: string, botId: string): Promise<AccessGrant>;
+  /**
+   * For session renewal: accepts an access token up to 1 hour past its expiry, so a visitor keeps
+   * their identity (and their uploaded files) before they have a conversation. Throws `unauthorized`.
+   */
+  verifyRenewal(token: string, botId: string): Promise<AccessGrant>;
   issueResume(botId: string, grant: ResumeGrant): Promise<IssuedToken>;
   /** Throws `not_found`, so a forged or stale handle reveals nothing. */
   verifyResume(token: string, botId: string): Promise<ResumeGrant>;
@@ -128,7 +135,7 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
     return { token, expiresAt };
   }
 
-  async function verify(token: string, typ: string, botId: string) {
+  async function verify(token: string, typ: string, botId: string, clockTolerance = 0) {
     // Never fall back to a default key: with `dir`, any fixed key would let anyone mint tokens.
     const resolveKey = (header: { kid?: string | undefined }): Uint8Array => {
       const key = header.kid === undefined ? undefined : keys.get(header.kid);
@@ -143,6 +150,7 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
       keyManagementAlgorithms: ['dir'],
       contentEncryptionAlgorithms: ['A256GCM'],
       currentDate: new Date(now() * 1000),
+      clockTolerance,
     });
   }
 
@@ -160,6 +168,18 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
         if (error instanceof errors.JWTExpired) {
           throw new ChatdockError('session_expired', { cause: error });
         }
+        throw new ChatdockError('unauthorized', { cause: error });
+      }
+    },
+
+    async verifyRenewal(token, botId) {
+      try {
+        const { payload } = await verify(token, ACCESS_TYP, botId, RENEWAL_GRACE_SECONDS);
+        if (typeof payload.sub !== 'string' || !VISITOR_ID.test(payload.sub)) {
+          throw new ChatdockError('unauthorized');
+        }
+        return { visitorId: payload.sub };
+      } catch (error) {
         throw new ChatdockError('unauthorized', { cause: error });
       }
     },

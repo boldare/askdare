@@ -1,5 +1,6 @@
+import { deflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { attachmentName, detectFile, estimateAttachmentTokens, estimatePdfPages } from './files';
+import { attachmentName, countPdfPages, detectFile } from './files';
 
 const bytes = (...parts: (string | number[])[]): Uint8Array =>
   new Uint8Array(
@@ -31,16 +32,42 @@ describe('detectFile', () => {
   });
 });
 
-describe('estimates', () => {
-  it('counts PDF page objects, and falls back to the file size', () => {
-    expect(estimatePdfPages(bytes('%PDF /Type /Pages /Type /Page /Type/Page'))).toBe(2);
-    expect(estimatePdfPages(new Uint8Array(250_000))).toBe(3);
+describe('countPdfPages', () => {
+  const objectStream = (body: string, dictionary = '/Filter /FlateDecode'): Uint8Array => {
+    const data = deflateSync(Buffer.from(body, 'latin1'));
+    return bytes(
+      `%PDF-1.7\n7 0 obj\n<< /Type /ObjStm /N 3 /First 10 ${dictionary} /Length ${data.length} >>\nstream\n`,
+      [...data],
+      '\nendstream\nendobj\n%%EOF\n',
+    );
+  };
+
+  it('counts page objects and trusts the larger declared count', async () => {
+    await expect(
+      countPdfPages(bytes('%PDF-1.4 /Type /Pages /Count 2 /Type /Page /Type/Page')),
+    ).resolves.toBe(2);
+    await expect(countPdfPages(bytes('%PDF-1.4 /Type /Pages /Count 9 /Type /Page'))).resolves.toBe(
+      9,
+    );
   });
 
-  it('reserves a fixed cost per image and per PDF page', () => {
-    const pdf = bytes('%PDF-1.7 /Type /Page /Type /Page /Type /Page');
-    const detected = detectFile(pdf);
-    expect(detected && estimateAttachmentTokens(detected, pdf)).toBe(4_500);
+  it('finds pages hidden in compressed object streams and escaped names', async () => {
+    const pages = '<< /Type /Page >> << /Type /P#61ge >> << /T#79pe /Page >>';
+    await expect(countPdfPages(objectStream(pages))).resolves.toBe(3);
+  });
+
+  it('reports unknown when the structure is hidden', async () => {
+    await expect(
+      countPdfPages(objectStream('<< /Type /Page >>', '/Filter /LZWDecode')),
+    ).resolves.toBeUndefined();
+    await expect(
+      countPdfPages(bytes('%PDF-1.7 /Encrypt 5 0 R /Type /Page')),
+    ).resolves.toBeUndefined();
+    await expect(countPdfPages(bytes('%PDF-1.7 nothing here'))).resolves.toBeUndefined();
+    const broken = bytes(
+      '%PDF-1.7\n1 0 obj << /Type /ObjStm /Filter /FlateDecode /Length 4 >>\nstream\nxxxx\nendstream',
+    );
+    await expect(countPdfPages(broken)).resolves.toBeUndefined();
   });
 });
 

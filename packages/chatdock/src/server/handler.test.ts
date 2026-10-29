@@ -37,6 +37,13 @@ const filesBot = defineBot({
   attachments: { pdf: false, maxBytes: 2_000, maxPerMessage: 2 },
 });
 
+const docsBot = defineBot({
+  id: 'docs',
+  model: 'test-model',
+  instructions: 'Read the documents.',
+  attachments: { images: false, maxPdfPages: 3 },
+});
+
 let tokens: TokenService;
 let handler: RequestHandler;
 const turns: TurnRequest[] = [];
@@ -68,7 +75,7 @@ const gateway: ModelGateway = {
 beforeAll(async () => {
   tokens = await createTokenService({ secret: 'aGFuZGxlci10ZXN0cy1zZWNyZXQtMTIzNDU2Nzg5MA' });
   handler = createRequestHandler({
-    bots: [bot, filesBot],
+    bots: [bot, filesBot, docsBot],
     basePath: '/api/chat',
     assets,
     gateway: () => gateway,
@@ -147,6 +154,20 @@ describe('POST /session', () => {
     expect(body.resumable).toBe(false);
     await expect(tokens.verifyAccess(body.accessToken, 'support')).resolves.toMatchObject({
       visitorId: expect.stringMatching(/^v_/),
+    });
+  });
+
+  it('keeps the visitor when renewing with the previous access token', async () => {
+    const visitorId = `v_${'c3'.repeat(16)}`;
+    const previous = (await tokens.issueAccess('support', visitorId)).token;
+    const response = await handler(post('/session', { botId: 'support', accessToken: previous }));
+    const body = (await response.json()) as { accessToken: string; resumable: boolean };
+    expect(body.resumable).toBe(false);
+    await expect(tokens.verifyAccess(body.accessToken, 'support')).resolves.toEqual({ visitorId });
+    const forged = await handler(post('/session', { botId: 'support', accessToken: 'nope' }));
+    const fresh = (await forged.json()) as { accessToken: string };
+    await expect(tokens.verifyAccess(fresh.accessToken, 'support')).resolves.not.toEqual({
+      visitorId,
     });
   });
 
@@ -529,6 +550,22 @@ describe('attachments', () => {
     const extra = await attach(owner);
     const third = await attach(owner);
     expect((await send([handle, extra, third], owner)).status).toBe(400);
+  });
+
+  it('reserves tokens per PDF page, refuses long PDFs and assumes the worst for hidden pages', async () => {
+    const auth = {
+      authorization: `Bearer ${(await tokens.issueAccess('docs', `v_${'a9'.repeat(16)}`)).token}`,
+    };
+    const pdf = (body: string) => new TextEncoder().encode(`%PDF-1.7\n${body}\n%%EOF`);
+    const cost = async (body: string) => {
+      const response = await handler(upload(pdf(body), auth, 'docs', 'doc.pdf'));
+      if (response.status !== 200) return response.status;
+      const { attachment } = (await response.json()) as { attachment: { id: string } };
+      return (await tokens.verifyAttachment(attachment.id, 'docs')).tokens;
+    };
+    expect(await cost('/Type /Page /Type /Page')).toBe(2 * 2_000);
+    expect(await cost('/Type /Pages /Count 4')).toBe(400);
+    expect(await cost('no readable pages')).toBe(3 * 2_000);
   });
 
   it('deletes attached files together with the conversation', async () => {

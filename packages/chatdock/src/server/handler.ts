@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { attachmentName, detectFile, estimateAttachmentTokens } from '../attachments/files';
+import {
+  attachmentName,
+  countPdfPages,
+  detectFile,
+  IMAGE_TOKENS,
+  PDF_PAGE_TOKENS,
+} from '../attachments/files';
 import type { Bot } from '../bot/define-bot';
 import { ChatdockError, toChatdockError } from '../errors';
 import type { ModelGateway, TurnAttachment } from '../gateway';
@@ -34,6 +40,8 @@ const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 const sessionBody = z.object({
   botId: z.string().max(64),
   resumeToken: z.string().max(4096).optional(),
+  /** The previous access token, so a renewal keeps the visitor before they have a conversation. */
+  accessToken: z.string().max(4096).optional(),
 });
 
 const conversationBody = z.object({
@@ -251,11 +259,20 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     const bot = findBot(body.botId);
     const tokens = await config.tokens();
     let returningVisitorId: string | undefined;
+    let resumable = false;
     if (body.resumeToken) {
       try {
         returningVisitorId = (await tokens.verifyResume(body.resumeToken, bot.id)).visitorId;
+        resumable = true;
       } catch {
         // A stale or forged handle just starts a fresh visitor.
+      }
+    }
+    if (!returningVisitorId && body.accessToken) {
+      try {
+        returningVisitorId = (await tokens.verifyRenewal(body.accessToken, bot.id)).visitorId;
+      } catch {
+        // Too old or forged: start a fresh visitor.
       }
     }
     // Renewals by returning visitors count per visitor, so people behind one NAT don't lock each other out.
@@ -264,7 +281,6 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       returningVisitorId,
     });
     const visitorId = returningVisitorId ?? newVisitorId();
-    const resumable = returningVisitorId !== undefined;
     const access = await tokens.issueAccess(bot.id, visitorId);
     return jsonResponse({ accessToken: access.token, expiresAt: access.expiresAt, resumable });
   };
@@ -359,6 +375,17 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
         .join(' or ');
       throw new ChatdockError('invalid_input', { message: `Only ${types} files are supported.` });
     }
+    let cost = IMAGE_TOKENS;
+    if (file.kind === 'pdf') {
+      const pages = await countPdfPages(bytes);
+      if (pages !== undefined && pages > allowed.maxPdfPages) {
+        throw new ChatdockError('invalid_input', {
+          message: `PDFs can have up to ${allowed.maxPdfPages} pages.`,
+        });
+      }
+      // A PDF that hides its structure is charged as if it had the most pages allowed.
+      cost = (pages ?? allowed.maxPdfPages) * PDF_PAGE_TOKENS;
+    }
     const name = attachmentName(request.headers.get(FILENAME_HEADER), file);
     const fileId = await config.gateway().uploadFile({
       bytes,
@@ -370,7 +397,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       visitorId,
       fileId,
       kind: file.kind,
-      tokens: estimateAttachmentTokens(file, bytes),
+      tokens: cost,
     });
     return jsonResponse({
       attachment: { id: handle.token, kind: file.kind, name, size: bytes.byteLength },

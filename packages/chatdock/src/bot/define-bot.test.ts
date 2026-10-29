@@ -18,6 +18,7 @@ describe('defineBot', () => {
       maxTurns: 50,
       uploadsPerVisitorPerHour: 20,
       uploadsPerIpPerHour: 60,
+      uploadsPerDay: 500,
     });
     expect(bot.instructions({ locale: 'en' })).toBe('Be helpful.');
     expect(bot.attachments).toBeUndefined();
@@ -30,6 +31,7 @@ describe('defineBot', () => {
       pdf: false,
       maxBytes: 4_000_000,
       maxPerMessage: 3,
+      maxPdfPages: 50,
     });
     expect(() =>
       defineBot({

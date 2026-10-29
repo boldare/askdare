@@ -34,6 +34,8 @@ export interface BotLimits {
   readonly uploadsPerVisitorPerHour?: number;
   /** File uploads per client IP per hour, across visitors. Default 60. */
   readonly uploadsPerIpPerHour?: number;
+  /** File uploads per UTC day across all visitors; bounds storage, since unsent files cost no tokens. Default 500. */
+  readonly uploadsPerDay?: number;
 }
 
 export interface BotSecurity {
@@ -60,6 +62,11 @@ export interface AttachmentConfig {
   readonly maxBytes?: number;
   /** Files per message. Default 3. */
   readonly maxPerMessage?: number;
+  /**
+   * Longest PDF accepted. Each page costs about 2,000 input tokens, reserved before the turn; a
+   * PDF whose pages can't be counted is charged as if it had this many. Default 50.
+   */
+  readonly maxPdfPages?: number;
 }
 
 /** Public widget settings. Everything here is sent to browsers, so never put secrets in it. */
@@ -117,6 +124,7 @@ const DEFAULT_LIMITS: Required<BotLimits> = {
   maxTurns: 50,
   uploadsPerVisitorPerHour: 20,
   uploadsPerIpPerHour: 60,
+  uploadsPerDay: 500,
 };
 
 const DEFAULT_WIDGET: Required<WidgetConfig> = {
@@ -160,6 +168,7 @@ const definitionSchema = z.object({
       maxTurns: z.number().int().min(1).max(1_000).optional(),
       uploadsPerVisitorPerHour: z.number().int().min(1).max(1_000).optional(),
       uploadsPerIpPerHour: z.number().int().min(1).max(10_000).optional(),
+      uploadsPerDay: z.number().int().min(1).max(1_000_000).optional(),
     })
     .optional(),
   tools: z
@@ -191,6 +200,7 @@ const definitionSchema = z.object({
       pdf: z.boolean().optional(),
       maxBytes: z.number().int().min(1_000).max(20_000_000).optional(),
       maxPerMessage: z.number().int().min(1).max(10).optional(),
+      maxPdfPages: z.number().int().min(1).max(500).optional(),
     })
     .refine((value) => value.images !== false || value.pdf !== false, 'must allow images or pdf')
     .optional(),
@@ -239,6 +249,7 @@ export function defineBot(definition: BotDefinition): Bot {
           pdf: definition.attachments.pdf ?? true,
           maxBytes: definition.attachments.maxBytes ?? 4_000_000,
           maxPerMessage: definition.attachments.maxPerMessage ?? 3,
+          maxPdfPages: definition.attachments.maxPdfPages ?? 50,
         })
       : undefined,
     security: Object.freeze({

@@ -107,6 +107,25 @@ describe('token service', () => {
     });
   });
 
+  it('lets a renewal keep the visitor of an access token expired less than an hour ago', async () => {
+    let clock = 1_000_000;
+    const tokens = await createTokenService({ secret: SECRET, now: () => clock });
+    const { token } = await tokens.issueAccess('support', VISITOR);
+    clock += 15 * 60 + 30 * 60;
+    await expect(tokens.verifyRenewal(token, 'support')).resolves.toEqual({ visitorId: VISITOR });
+    clock += 31 * 60;
+    await expect(tokens.verifyRenewal(token, 'support')).rejects.toMatchObject({
+      code: 'unauthorized',
+    });
+    const resume = await tokens.issueResume('support', {
+      visitorId: VISITOR,
+      conversationId: 'conv_1',
+    });
+    await expect(tokens.verifyRenewal(resume.token, 'support')).rejects.toMatchObject({
+      code: 'unauthorized',
+    });
+  });
+
   it('accepts tokens from a previous secret during rotation', async () => {
     const old = await createTokenService({ secret: OLD_SECRET });
     const { token } = await old.issueAccess('support', OTHER_VISITOR);
