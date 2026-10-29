@@ -40,6 +40,10 @@ When a bot has `attachments` enabled, files travel separately from the message:
 
 `id` is an encrypted handle bound to the bot and the visitor, valid for 1 hour. OpenAI file IDs never reach clients, and the server refuses raw file IDs. History (`POST /history`) reports only how many files a message had.
 
+## Dictation
+
+When a bot has `voice` enabled, `POST /transcriptions` takes a recording as the raw body (`Content-Type: application/octet-stream`) with the `Bearer` token and two headers: `x-chatdock-bot` (bot ID) and `x-chatdock-languages` (comma-separated language tags, used as hints). It answers `{ "text": "…" }`. Clients put the text in the message field for the visitor to check; nothing is sent to the model.
+
 ## Error codes
 
 These codes are stable and safe to branch on in the UI:
