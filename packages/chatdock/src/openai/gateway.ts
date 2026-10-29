@@ -1,4 +1,4 @@
-import OpenAI, { NotFoundError, toFile } from 'openai';
+import OpenAI, { BadRequestError, NotFoundError, toFile } from 'openai';
 import type { ModelGateway } from '../gateway';
 import { attachedFileIds, deleteFiles, FILE_TTL_SECONDS } from './attachments';
 import { fromOpenAIError } from './errors';
@@ -82,6 +82,34 @@ export function createOpenAIGateway(options: OpenAIGatewayOptions): ModelGateway
         return await listHistory(client, conversationId, signal);
       } catch (error) {
         throw fromOpenAIError(error, false);
+      }
+    },
+
+    async transcribe({ bytes, filename, mime, model, languages, signal }) {
+      const create = async (hints: readonly string[]) => {
+        const result = await client.audio.transcriptions.create(
+          {
+            file: await toFile(bytes, filename, { type: mime }),
+            model,
+            ...(hints.length > 0 ? { languages: [...hints] } : {}),
+          },
+          signal ? { signal } : undefined,
+        );
+        return {
+          text: result.text,
+          seconds: result.usage?.type === 'duration' ? result.usage.seconds : undefined,
+        };
+      };
+      try {
+        try {
+          return await create(languages);
+        } catch (error) {
+          // The API refuses language codes it doesn't support; the hint is optional.
+          if (!(error instanceof BadRequestError) || languages.length === 0) throw error;
+          return await create([]);
+        }
+      } catch (error) {
+        throw fromOpenAIError(error, signal?.aborted ?? false);
       }
     },
 

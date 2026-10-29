@@ -130,6 +130,15 @@ createServer(async (request, response) => {
       has_more: false,
     });
   }
+  if (request.method === 'POST' && pathname === '/v1/audio/transcriptions') {
+    for await (const _chunk of request) {
+      // Drain the multipart upload; the server already checked it is a recording.
+    }
+    return json(response, 200, {
+      text: 'Mock transcript',
+      usage: { type: 'duration', seconds: 2 },
+    });
+  }
   if (request.method === 'POST' && pathname === '/v1/files') {
     for await (const _chunk of request) {
       // Drain the multipart upload; its content is not needed.

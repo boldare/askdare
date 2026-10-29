@@ -19,9 +19,21 @@ describe('defineBot', () => {
       uploadsPerVisitorPerHour: 20,
       uploadsPerIpPerHour: 60,
       uploadsPerDay: 500,
+      transcriptionsPerVisitorPerHour: 30,
+      voiceSecondsPerDay: 3_600,
+      voiceSecondsPerIpPerDay: 600,
     });
+    expect(bot.voice).toBeUndefined();
     expect(bot.instructions({ locale: 'en' })).toBe('Be helpful.');
     expect(bot.attachments).toBeUndefined();
+  });
+
+  it('requires a transcription model for voice input and defaults to 60 seconds', () => {
+    const bot = defineBot({ id: 'a', model: 'm', instructions: 'x', voice: { model: ' t ' } });
+    expect(bot.voice).toEqual({ model: 't', maxSeconds: 60 });
+    expect(() =>
+      defineBot({ id: 'a', model: 'm', instructions: 'x', voice: { model: '' } }),
+    ).toThrow(/voice\.model is required/);
   });
 
   it('defaults attachments to images and PDFs up to 4 MB, 3 per message', () => {

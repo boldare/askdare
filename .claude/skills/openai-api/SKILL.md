@@ -49,6 +49,7 @@ The OpenAI platform changes monthly. Assistants and Prompts were shut down, and 
   - Send `include: ['file_search_call.results']` on `responses.create` and on `conversations.items.list`. Citations take their title and URL from the results' file attributes.
   - `chatdock kb sync` owns the attributes `path`, `sha256`, `title` and `url` (max 16 keys, values up to 512 characters). Change them in one place: `src/openai/knowledge-sync.ts` and `src/openai/citations.ts`.
   - Only http(s) URLs from attributes reach the client.
+- Transcription: the model comes from bot config (`gpt-transcribe` today; `whisper-1` and `gpt-4o-*-transcribe` shut down on 2027-02-26). Send hints as `languages` (not `language`); the API refuses unsupported codes, so retry without them. `gpt-transcribe` reports usage as `{ type: 'duration', seconds }`, so budgets for speech are in seconds. Accepted containers: webm, mp4/m4a, wav, mp3 (not ogg).
 - Attachments: upload with purpose `user_data` and `expires_after` (30 days, the maximum). Images go in as `input_image` with `file_id`, PDFs as `input_file`. File IDs reach the model only from verified attachment handles, never from the client (spike S1, E7–E9).
 
 ## 5. Tests and live calls

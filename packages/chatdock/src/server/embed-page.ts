@@ -20,6 +20,8 @@ export interface EmbedConfig {
   readonly widget: Bot['widget'];
   /** What the visitor may attach; absent when attachments are off. */
   readonly attachments?: NonNullable<Bot['attachments']>;
+  /** Dictation settings; absent when voice input is off. The model stays on the server. */
+  readonly voice?: { readonly maxSeconds: number };
 }
 
 const HTML_ESCAPES: Readonly<Record<string, string>> = {
@@ -50,6 +52,7 @@ export function embedConfig(bot: Bot, basePath: string): EmbedConfig {
     allowedOrigins: bot.security.allowedOrigins,
     widget: bot.widget,
     ...(bot.attachments ? { attachments: bot.attachments } : {}),
+    ...(bot.voice ? { voice: { maxSeconds: bot.voice.maxSeconds } } : {}),
   };
 }
 

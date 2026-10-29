@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { defineBot } from '../bot/define-bot';
-import type { ModelGateway, TurnRequest } from '../gateway';
+import { ChatdockError } from '../errors';
+import type { ModelGateway, TranscriptionRequest, TurnRequest } from '../gateway';
 import { createLimits } from '../limits/limits';
 import { memoryStore } from '../limits/store';
 import type { ProtocolEvent } from '../protocol/events';
@@ -37,6 +38,21 @@ const filesBot = defineBot({
   attachments: { pdf: false, maxBytes: 2_000, maxPerMessage: 2 },
 });
 
+const voiceBot = defineBot({
+  id: 'voice',
+  model: 'test-model',
+  instructions: 'Listen.',
+  voice: { model: 'gpt-transcribe', maxSeconds: 10 },
+});
+
+const tightVoiceBot = defineBot({
+  id: 'tight-voice',
+  model: 'test-model',
+  instructions: 'Listen.',
+  voice: { model: 'gpt-transcribe', maxSeconds: 30 },
+  limits: { voiceSecondsPerIpPerDay: 60 },
+});
+
 const docsBot = defineBot({
   id: 'docs',
   model: 'test-model',
@@ -49,11 +65,18 @@ let handler: RequestHandler;
 const turns: TurnRequest[] = [];
 const deleted: { id: string; withFiles: boolean | undefined }[] = [];
 const uploads: { filename: string; mime: string; size: number }[] = [];
+const transcriptions: TranscriptionRequest[] = [];
+let failTranscriptions = false;
 
 const gateway: ModelGateway = {
   createConversation: async () => 'conv_1',
   deleteConversation: async (id, options) => {
     deleted.push({ id, withFiles: options?.withFiles });
+  },
+  transcribe: async (request) => {
+    if (failTranscriptions) throw new ChatdockError('upstream_error');
+    transcriptions.push(request);
+    return { text: '  Ile kosztuje plan Business?  ', seconds: 4 };
   },
   uploadFile: async ({ bytes, filename, mime }) => {
     uploads.push({ filename, mime, size: bytes.byteLength });
@@ -75,7 +98,7 @@ const gateway: ModelGateway = {
 beforeAll(async () => {
   tokens = await createTokenService({ secret: 'aGFuZGxlci10ZXN0cy1zZWNyZXQtMTIzNDU2Nzg5MA' });
   handler = createRequestHandler({
-    bots: [bot, filesBot, docsBot],
+    bots: [bot, filesBot, docsBot, voiceBot, tightVoiceBot],
     basePath: '/api/chat',
     assets,
     gateway: () => gateway,
@@ -436,6 +459,93 @@ describe('conversation history and deletion', () => {
     );
     expect(response.status).toBe(204);
     expect(deleted).toContainEqual({ id: 'conv_hist', withFiles: false });
+  });
+});
+
+describe('voice input', () => {
+  const WEBM = new Uint8Array([
+    0x1a,
+    0x45,
+    0xdf,
+    0xa3,
+    0x9f,
+    0x42,
+    0x82,
+    0x84,
+    ...new TextEncoder().encode('webm'),
+    0,
+    0,
+  ]);
+
+  function dictation(body: Uint8Array, headers: Record<string, string>, botId = 'voice'): Request {
+    return new Request(`${BASE}/transcriptions`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/octet-stream',
+        origin: APP,
+        host: 'app.example.com',
+        'x-chatdock-bot': botId,
+        'x-chatdock-languages': 'pl-PL,en',
+        ...headers,
+      },
+      body,
+    });
+  }
+
+  const listener = async () => ({
+    authorization: `Bearer ${(await tokens.issueAccess('voice', `v_${'d4'.repeat(16)}`)).token}`,
+  });
+
+  it('transcribes a recording with the bot model and the visitor language hints', async () => {
+    const response = await handler(dictation(WEBM, await listener()));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ text: 'Ile kosztuje plan Business?' });
+    expect(transcriptions.at(-1)).toMatchObject({
+      filename: 'speech.webm',
+      mime: 'audio/webm',
+      model: 'gpt-transcribe',
+      languages: ['pl', 'en'],
+    });
+  });
+
+  it('refuses other formats, long recordings and bots without voice', async () => {
+    const auth = await listener();
+    const before = transcriptions.length;
+    const ogg = await handler(dictation(new TextEncoder().encode('OggS....'), auth));
+    expect(await ogg.json()).toMatchObject({
+      error: { message: 'This recording format is not supported.' },
+    });
+    const long = await handler(dictation(new Uint8Array(10 * 24_000 + 64_001), auth));
+    expect(await long.json()).toMatchObject({ error: { message: 'This recording is too long.' } });
+    const supportAuth = { authorization: `Bearer ${await session()}` };
+    expect((await handler(dictation(WEBM, supportAuth, 'support'))).status).toBe(400);
+    expect(transcriptions.length).toBe(before);
+  });
+
+  it('does not charge dictations that OpenAI answered with an error', async () => {
+    const auth = {
+      authorization: `Bearer ${(await tokens.issueAccess('tight-voice', `v_${'e5'.repeat(16)}`)).token}`,
+    };
+    const send = () =>
+      handler(dictation(WEBM, { ...auth, 'x-test-ip': 'voice-ip' }, 'tight-voice'));
+    failTranscriptions = true;
+    try {
+      for (let attempt = 0; attempt < 3; attempt += 1) expect((await send()).status).toBe(502);
+    } finally {
+      failTranscriptions = false;
+    }
+    // Three charged failures would have used up the 60-second budget.
+    expect((await send()).status).toBe(200);
+  });
+
+  it('allows the microphone only in the embed page of a bot with voice input', async () => {
+    const policy = async (botId: string) =>
+      (await handler(new Request(`${BASE}/embed/${botId}`))).headers.get('permissions-policy');
+    expect(await policy('voice')).toContain('microphone=(self)');
+    expect(await policy('support')).toContain('microphone=()');
+    const html = await (await handler(new Request(`${BASE}/embed/voice`))).text();
+    expect(html).toContain('"voice":{"maxSeconds":10}');
+    expect(html).not.toContain('gpt-transcribe');
   });
 });
 

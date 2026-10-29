@@ -41,6 +41,10 @@ export interface UploadedFile {
   readonly name: string;
 }
 
+export type TranscriptionResult =
+  | { readonly ok: true; readonly text: string }
+  | { readonly ok: false; readonly message: string };
+
 export type UploadResult =
   | { readonly ok: true; readonly file: UploadedFile }
   | { readonly ok: false; readonly message: string };
@@ -154,6 +158,33 @@ export class ChatClient {
         return { ok: false, message: 'Upload failed.' };
       }
       return { ok: true, file: { id: uploaded.id, kind: uploaded.kind, name: uploaded.name } };
+    } catch {
+      return { ok: false, message: 'Connection problem. Please try again.' };
+    }
+  }
+
+  /** Turns a dictation into text. `languages` are hints such as the browser's and the page's language. */
+  async transcribe(audio: Blob, languages: readonly string[]): Promise<TranscriptionResult> {
+    try {
+      const response = await this.#authorized('POST', '/transcriptions', () => ({
+        contentType: 'application/octet-stream',
+        body: audio,
+        headers: {
+          'x-chatdock-bot': this.#options.botId,
+          'x-chatdock-languages': languages.join(','),
+        },
+      }));
+      if (!response.ok) {
+        const event = await this.#errorFromResponse(response);
+        return {
+          ok: false,
+          message: event.type === 'error' ? event.message : 'Transcription failed.',
+        };
+      }
+      const body = (await response.json()) as { text?: unknown };
+      return typeof body.text === 'string'
+        ? { ok: true, text: body.text }
+        : { ok: false, message: 'Transcription failed.' };
     } catch {
       return { ok: false, message: 'Connection problem. Please try again.' };
     }

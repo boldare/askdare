@@ -148,6 +148,51 @@ describe('deleteConversation when listing fails', () => {
   });
 });
 
+describe('transcribe', () => {
+  it('sends the language hints and reports the billed seconds', async () => {
+    let form: FormData | undefined;
+    server.use(
+      http.post(`${OPENAI_TEST_BASE_URL}/audio/transcriptions`, async ({ request }) => {
+        form = await request.formData();
+        return HttpResponse.json({ text: 'Dzień dobry', usage: { type: 'duration', seconds: 3 } });
+      }),
+    );
+    const result = await gateway.transcribe({
+      bytes: new Uint8Array([1, 2, 3]),
+      filename: 'speech.webm',
+      mime: 'audio/webm',
+      model: 'gpt-transcribe',
+      languages: ['pl', 'en'],
+    });
+    expect(result).toEqual({ text: 'Dzień dobry', seconds: 3 });
+    expect(form?.get('model')).toBe('gpt-transcribe');
+    expect(form?.getAll('languages[]')).toEqual(['pl', 'en']);
+    expect((form?.get('file') as File | undefined)?.name).toBe('speech.webm');
+  });
+
+  it('retries without hints when the model refuses a language code', async () => {
+    const calls: string[][] = [];
+    server.use(
+      http.post(`${OPENAI_TEST_BASE_URL}/audio/transcriptions`, async ({ request }) => {
+        const languages = (await request.formData()).getAll('languages[]').map(String);
+        calls.push(languages);
+        return languages.length > 0
+          ? HttpResponse.json({ error: { message: 'Unsupported language' } }, { status: 400 })
+          : HttpResponse.json({ text: 'Hej' });
+      }),
+    );
+    const result = await gateway.transcribe({
+      bytes: new Uint8Array([1]),
+      filename: 'speech.mp4',
+      mime: 'audio/mp4',
+      model: 'gpt-transcribe',
+      languages: ['xx'],
+    });
+    expect(result).toEqual({ text: 'Hej', seconds: undefined });
+    expect(calls).toEqual([['xx'], []]);
+  });
+});
+
 describe('uploadFile', () => {
   it('stores the file as user_data that expires after 30 days', async () => {
     let form: FormData | undefined;

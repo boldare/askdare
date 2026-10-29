@@ -26,6 +26,8 @@ export const bots = [
     knowledge: vectorStoreId ? { vectorStoreId } : undefined,
     // Images and PDFs, up to 4 MB and 3 per message; they expire after 30 days.
     attachments: {},
+    // Dictation: speech is transcribed into the message field, up to 60 seconds.
+    voice: { model: process.env.CHATDOCK_TRANSCRIBE_MODEL ?? 'gpt-transcribe' },
     security: { allowedOrigins },
     widget: {
       title: 'chatdock demo',

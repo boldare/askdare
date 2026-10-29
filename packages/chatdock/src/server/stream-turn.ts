@@ -103,15 +103,13 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
             { botId: bot.id, visitorId: options.visitorId },
             deadline,
           );
+          const resumeToken = await options.issueResumeToken(conversationId);
           if (visitorLeft()) {
             // They never received its handle, so nobody could reach or delete it later.
             await gateway.deleteConversation(conversationId);
             return;
           }
-          emit({
-            type: 'conversation.created',
-            resumeToken: await options.issueResumeToken(conversationId),
-          });
+          emit({ type: 'conversation.created', resumeToken });
         }
         if (visitorLeft()) return;
         emit({ type: 'user.ack', messageId: generateId() });
@@ -148,7 +146,11 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           });
         })
         .finally(finish);
-      options.waitUntil?.(work);
+      try {
+        options.waitUntil?.(work);
+      } catch {
+        // The turn still runs; only its lifetime after the response isn't extended.
+      }
     },
     cancel() {
       closed = true;

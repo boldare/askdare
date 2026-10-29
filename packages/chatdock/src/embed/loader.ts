@@ -95,7 +95,8 @@ function boot(): void {
       iframe.title = 'Chat';
       iframe.src = embedUrl;
       iframe.referrerPolicy = 'strict-origin';
-      iframe.allow = 'clipboard-write';
+      // The iframe's own Permissions-Policy turns the microphone off unless the bot has voice input.
+      iframe.allow = 'clipboard-write; microphone';
       iframe.addEventListener('load', () => iframe && connect(iframe));
       panel.append(iframe);
     }
@@ -106,6 +107,8 @@ function boot(): void {
   };
 
   function close(): void {
+    // The iframe keeps running while hidden; let it stop anything live, such as a dictation.
+    port?.postMessage({ v: 1, type: 'hidden' });
     panel.hidden = true;
     launcher.setAttribute('aria-expanded', 'false');
     launcher.setAttribute('aria-label', 'Open chat');

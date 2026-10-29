@@ -7,6 +7,11 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 const CONVERSATION_TTL = 30 * DAY;
+/** Dictations transcribing at once, per IP and per bot, which bounds how far parallel requests can overshoot. */
+const TRANSCRIPTIONS_IN_FLIGHT_PER_IP = 2;
+const TRANSCRIPTIONS_IN_FLIGHT_PER_BOT = 10;
+/** In-flight slots expire on their own if a process dies mid-transcription. */
+const IN_FLIGHT_WINDOW = 2 * MINUTE;
 /** Rough input cost of one file search chunk (about 800 tokens by default). */
 const SEARCH_RESULT_TOKENS = 800;
 
@@ -31,6 +36,11 @@ export interface UploadLimitKeys {
   readonly visitorId: string;
 }
 
+/** Speech seconds and an in-flight slot held for a dictation; `settle` charges the billed duration and frees the slot. */
+export interface TranscriptionReservation {
+  settle(seconds: number): Promise<void>;
+}
+
 /** Budget held for a turn in flight. Without `settle`, the estimate stays charged. */
 export interface TurnReservation {
   /** Replaces the estimate with real usage once the turn completed. */
@@ -45,6 +55,8 @@ export interface Limits {
   checkConversationAccess(bot: Bot, visitorId: string): Promise<void>;
   /** File uploads: no tokens until sent (then reserved with the turn), but they use storage. */
   checkUpload(bot: Bot, keys: UploadLimitKeys): Promise<void>;
+  /** Dictations: rate per visitor, then the longest allowed duration reserved against daily speech budgets. */
+  beginTranscription(bot: Bot, keys: UploadLimitKeys): Promise<TranscriptionReservation>;
 }
 
 export interface LimitsOptions {
@@ -131,6 +143,58 @@ export function createLimits(options: LimitsOptions): Limits {
       await enforce(`cd:uv:${bot.id}:${keys.visitorId}`, HOUR, bot.limits.uploadsPerVisitorPerHour);
       await enforce(`cd:ui:${bot.id}:${keys.clientIp}`, HOUR, bot.limits.uploadsPerIpPerHour);
       await enforce(`cd:ud:${bot.id}:${day()}`, DAY, bot.limits.uploadsPerDay);
+    },
+
+    async beginTranscription(bot, keys) {
+      assertEnabled();
+      const { limits } = bot;
+      await enforce(
+        `cd:tv:${bot.id}:${keys.visitorId}`,
+        HOUR,
+        limits.transcriptionsPerVisitorPerHour,
+      );
+      const slots = [
+        { key: `cd:tfi:${bot.id}:${keys.clientIp}`, limit: TRANSCRIPTIONS_IN_FLIGHT_PER_IP },
+        { key: `cd:tfb:${bot.id}`, limit: TRANSCRIPTIONS_IN_FLIGHT_PER_BOT },
+      ];
+      const taken: { readonly key: string }[] = [];
+      const release = () =>
+        Promise.all(taken.map((slot) => store.hit(slot.key, IN_FLIGHT_WINDOW, -1)));
+      for (const slot of slots) {
+        const { count } = await store.hit(slot.key, IN_FLIGHT_WINDOW, 1);
+        taken.push(slot);
+        if (count > slot.limit) {
+          await release();
+          throw new ChatdockError('rate_limited', {
+            retryAfterMs: 5_000,
+            message: 'Another dictation is still being transcribed. Please try again in a moment.',
+          });
+        }
+      }
+      const reserved = bot.voice?.maxSeconds ?? 60;
+      const list: Budget[] = [
+        { key: `cd:vs:${bot.id}:${day()}`, limit: limits.voiceSecondsPerDay },
+        {
+          key: `cd:vsi:${bot.id}:${keys.clientIp}:${day()}`,
+          limit: limits.voiceSecondsPerIpPerDay,
+        },
+      ];
+      try {
+        await reserve(list, reserved);
+      } catch (error) {
+        await release();
+        throw error;
+      }
+      return {
+        async settle(seconds) {
+          // Whole seconds: shared stores count in integers.
+          const difference = Math.ceil(seconds) - reserved;
+          await Promise.all([
+            ...list.map((budget) => store.hit(budget.key, 2 * DAY, difference)),
+            release(),
+          ]);
+        },
+      };
     },
 
     async beginTurn(bot, keys) {

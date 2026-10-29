@@ -36,6 +36,12 @@ export interface BotLimits {
   readonly uploadsPerIpPerHour?: number;
   /** File uploads per UTC day across all visitors; bounds storage, since unsent files cost no tokens. Default 500. */
   readonly uploadsPerDay?: number;
+  /** Dictations per visitor per hour, when voice input is on. Default 30. */
+  readonly transcriptionsPerVisitorPerHour?: number;
+  /** Seconds of speech transcribed per UTC day across all visitors (billed by duration). Default 3600. */
+  readonly voiceSecondsPerDay?: number;
+  /** Seconds of speech transcribed per client IP per UTC day. Default 600. */
+  readonly voiceSecondsPerIpPerDay?: number;
 }
 
 export interface BotSecurity {
@@ -69,6 +75,13 @@ export interface AttachmentConfig {
   readonly maxPdfPages?: number;
 }
 
+export interface VoiceConfig {
+  /** OpenAI transcription model, for example `gpt-transcribe`. Required: the library never assumes a model. */
+  readonly model: string;
+  /** Longest dictation; recording stops by itself at this point. Default 60 seconds. */
+  readonly maxSeconds?: number;
+}
+
 /** Public widget settings. Everything here is sent to browsers, so never put secrets in it. */
 export interface WidgetConfig {
   readonly title?: string;
@@ -94,6 +107,11 @@ export interface BotDefinition {
    * `user_data`) and expire after 30 days, or when the visitor deletes the conversation.
    */
   readonly attachments?: AttachmentConfig | undefined;
+  /**
+   * Lets visitors dictate messages: speech is transcribed by OpenAI into the message field, where
+   * they can check it before sending. Off when absent.
+   */
+  readonly voice?: VoiceConfig | undefined;
   readonly security?: BotSecurity;
   readonly widget?: WidgetConfig;
 }
@@ -106,6 +124,7 @@ export interface Bot {
   readonly tools: readonly Tool[];
   readonly knowledge: Required<KnowledgeConfig> | undefined;
   readonly attachments: Required<AttachmentConfig> | undefined;
+  readonly voice: Required<VoiceConfig> | undefined;
   readonly security: { readonly allowedOrigins: readonly string[] };
   readonly widget: Required<WidgetConfig>;
 }
@@ -125,6 +144,9 @@ const DEFAULT_LIMITS: Required<BotLimits> = {
   uploadsPerVisitorPerHour: 20,
   uploadsPerIpPerHour: 60,
   uploadsPerDay: 500,
+  transcriptionsPerVisitorPerHour: 30,
+  voiceSecondsPerDay: 3_600,
+  voiceSecondsPerIpPerDay: 600,
 };
 
 const DEFAULT_WIDGET: Required<WidgetConfig> = {
@@ -169,6 +191,9 @@ const definitionSchema = z.object({
       uploadsPerVisitorPerHour: z.number().int().min(1).max(1_000).optional(),
       uploadsPerIpPerHour: z.number().int().min(1).max(10_000).optional(),
       uploadsPerDay: z.number().int().min(1).max(1_000_000).optional(),
+      transcriptionsPerVisitorPerHour: z.number().int().min(1).max(1_000).optional(),
+      voiceSecondsPerDay: z.number().int().min(60).optional(),
+      voiceSecondsPerIpPerDay: z.number().int().min(60).optional(),
     })
     .optional(),
   tools: z
@@ -203,6 +228,12 @@ const definitionSchema = z.object({
       maxPdfPages: z.number().int().min(1).max(500).optional(),
     })
     .refine((value) => value.images !== false || value.pdf !== false, 'must allow images or pdf')
+    .optional(),
+  voice: z
+    .object({
+      model: z.string().trim().min(1, 'is required'),
+      maxSeconds: z.number().int().min(5).max(300).optional(),
+    })
     .optional(),
   security: z.object({ allowedOrigins: z.array(origin).max(50).optional() }).optional(),
   widget: z
@@ -250,6 +281,12 @@ export function defineBot(definition: BotDefinition): Bot {
           maxBytes: definition.attachments.maxBytes ?? 4_000_000,
           maxPerMessage: definition.attachments.maxPerMessage ?? 3,
           maxPdfPages: definition.attachments.maxPdfPages ?? 50,
+        })
+      : undefined,
+    voice: definition.voice
+      ? Object.freeze({
+          model: definition.voice.model.trim(),
+          maxSeconds: definition.voice.maxSeconds ?? 60,
         })
       : undefined,
     security: Object.freeze({
