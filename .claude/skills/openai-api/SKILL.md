@@ -44,7 +44,11 @@ The OpenAI platform changes monthly. Assistants and Prompts were shut down, and 
   - Tools are built with `zodResponsesFunction` (strict).
   - Arguments are re-validated with Zod.
   - Calls run in parallel via `Promise.allSettled`, each with a timeout and an output size cap.
-  - The last allowed step uses `tool_choice: 'none'`.
+  - On the last allowed step function calls are switched off: `tool_choice: 'none'`, or `allowed_tools` with only `file_search` when the bot has a knowledge base (keeps the tool list and prompt cache intact).
+- Knowledge base (`file_search`):
+  - Send `include: ['file_search_call.results']` on `responses.create` and on `conversations.items.list`. Citations take their title and URL from the results' file attributes.
+  - `chatdock kb sync` owns the attributes `path`, `sha256`, `title` and `url` (max 16 keys, values up to 512 characters). Change them in one place: `src/openai/knowledge-sync.ts` and `src/openai/citations.ts`.
+  - Only http(s) URLs from attributes reach the client.
 
 ## 5. Tests and live calls
 

@@ -1,50 +1,31 @@
 import type OpenAI from 'openai';
 import type { ConversationItem } from 'openai/resources/conversations/items';
 import type { HistoryCitation, HistoryMessage } from '../protocol/history';
+import { addSources, citationSource, type KnowledgeSources } from './citations';
 
 /** Most recent items fetched per history request; older ones are not shown. */
 const ITEM_LIMIT = 100;
 
-function citationsOf(annotations: readonly unknown[]): HistoryCitation[] {
+function citationsOf(
+  annotations: readonly unknown[],
+  sources: KnowledgeSources,
+): HistoryCitation[] {
   const citations: HistoryCitation[] = [];
   const seen = new Set<string>();
   for (const annotation of annotations) {
-    if (typeof annotation !== 'object' || annotation === null || !('type' in annotation)) continue;
-    let key: string | undefined;
-    let title: string | undefined;
-    let url: string | undefined;
-    if (
-      annotation.type === 'url_citation' &&
-      'url' in annotation &&
-      typeof annotation.url === 'string'
-    ) {
-      if (!/^https?:\/\//i.test(annotation.url)) continue;
-      key = `url:${annotation.url}`;
-      url = annotation.url;
-      title =
-        'title' in annotation && typeof annotation.title === 'string' && annotation.title
-          ? annotation.title
-          : url;
-    } else if (
-      annotation.type === 'file_citation' &&
-      'file_id' in annotation &&
-      typeof annotation.file_id === 'string'
-    ) {
-      key = `file:${annotation.file_id}`;
-      title =
-        'filename' in annotation && typeof annotation.filename === 'string' && annotation.filename
-          ? annotation.filename
-          : 'Document';
-    }
-    if (!key || !title || seen.has(key)) continue;
-    seen.add(key);
-    citations.push({ index: citations.length + 1, title, url });
+    const source = citationSource(annotation, sources);
+    if (!source || seen.has(source.key)) continue;
+    seen.add(source.key);
+    citations.push({ index: citations.length + 1, title: source.title, url: source.url });
   }
   return citations;
 }
 
 /** Maps one stored item to a visible message; tool calls, reasoning and unknown items are skipped. */
-export function toHistoryMessage(item: ConversationItem): HistoryMessage | undefined {
+export function toHistoryMessage(
+  item: ConversationItem,
+  sources: KnowledgeSources = new Map(),
+): HistoryMessage | undefined {
   if (item.type !== 'message' || (item.role !== 'user' && item.role !== 'assistant'))
     return undefined;
   if (item.phase === 'commentary') return undefined;
@@ -70,7 +51,13 @@ export function toHistoryMessage(item: ConversationItem): HistoryMessage | undef
     }
   }
   if (text === '' && attachments === 0) return undefined;
-  return { id: item.id, role: item.role, text, citations: citationsOf(annotations), attachments };
+  return {
+    id: item.id,
+    role: item.role,
+    text,
+    citations: citationsOf(annotations, sources),
+    attachments,
+  };
 }
 
 /**
@@ -84,8 +71,11 @@ export async function listHistory(
 ): Promise<HistoryMessage[]> {
   const page = await client.conversations.items.list(
     conversationId,
-    { order: 'desc', limit: ITEM_LIMIT },
+    // Search results carry the titles and URLs that file citations link to.
+    { order: 'desc', limit: ITEM_LIMIT, include: ['file_search_call.results'] },
     signal ? { signal } : undefined,
   );
-  return page.data.flatMap((item) => toHistoryMessage(item) ?? []).reverse();
+  const sources: KnowledgeSources = new Map();
+  for (const item of page.data) if (item.type === 'file_search_call') addSources(item, sources);
+  return page.data.flatMap((item) => toHistoryMessage(item, sources) ?? []).reverse();
 }

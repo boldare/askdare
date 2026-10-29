@@ -30,6 +30,9 @@
     },
     "./package.json": "./package.json"
   },
+  "bin": {
+    "chatdock": "./dist/cli.js"
+  },
   "files": [
     "dist"
   ],

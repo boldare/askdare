@@ -40,6 +40,13 @@ export interface BotSecurity {
   readonly allowedOrigins?: readonly string[];
 }
 
+export interface KnowledgeConfig {
+  /** Vector store filled by `chatdock kb sync`, usually `process.env.KB_VECTOR_STORE_ID`. */
+  readonly vectorStoreId: string;
+  /** Chunks the model reads per search: more grounds answers better but costs input tokens. Default 5. */
+  readonly maxResults?: number;
+}
+
 /** Public widget settings. Everything here is sent to browsers, so never put secrets in it. */
 export interface WidgetConfig {
   readonly title?: string;
@@ -58,6 +65,8 @@ export interface BotDefinition {
   readonly limits?: BotLimits;
   /** Server-side functions the model may call; see `defineTool`. Keep it under about 20. */
   readonly tools?: readonly Tool[];
+  /** Documents the model searches with OpenAI file search and cites in its answers. */
+  readonly knowledge?: KnowledgeConfig | undefined;
   readonly security?: BotSecurity;
   readonly widget?: WidgetConfig;
 }
@@ -68,6 +77,7 @@ export interface Bot {
   readonly instructions: (context: BotContext) => string;
   readonly limits: Required<BotLimits>;
   readonly tools: readonly Tool[];
+  readonly knowledge: Required<KnowledgeConfig> | undefined;
   readonly security: { readonly allowedOrigins: readonly string[] };
   readonly widget: Required<WidgetConfig>;
 }
@@ -139,6 +149,16 @@ const definitionSchema = z.object({
       (tools) => new Set(tools.map((tool) => tool.name)).size === tools.length,
       'must have unique names',
     )
+    .refine(
+      (tools) => tools.every((tool) => tool.name !== 'file_search'),
+      'must not use the reserved name file_search',
+    )
+    .optional(),
+  knowledge: z
+    .object({
+      vectorStoreId: z.string().regex(/^vs_[A-Za-z0-9_-]+$/, 'must be a vector store ID like vs_…'),
+      maxResults: z.number().int().min(1).max(50).optional(),
+    })
     .optional(),
   security: z.object({ allowedOrigins: z.array(origin).max(50).optional() }).optional(),
   widget: z
@@ -173,6 +193,12 @@ export function defineBot(definition: BotDefinition): Bot {
     instructions: typeof instructions === 'string' ? () => instructions : instructions,
     limits: Object.freeze({ ...DEFAULT_LIMITS, ...definition.limits }),
     tools: Object.freeze([...(definition.tools ?? [])]),
+    knowledge: definition.knowledge
+      ? Object.freeze({
+          vectorStoreId: definition.knowledge.vectorStoreId,
+          maxResults: definition.knowledge.maxResults ?? 5,
+        })
+      : undefined,
     security: Object.freeze({
       allowedOrigins: Object.freeze([...new Set(definition.security?.allowedOrigins ?? [])]),
     }),

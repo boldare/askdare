@@ -1,5 +1,10 @@
 import { zodResponsesFunction } from 'openai/helpers/zod';
-import type { FunctionTool, ResponseInputItem } from 'openai/resources/responses/responses';
+import type {
+  ResponseInputItem,
+  Tool as ResponseTool,
+  ToolChoiceAllowed,
+  ToolChoiceOptions,
+} from 'openai/resources/responses/responses';
 import { z } from 'zod';
 import type { Bot } from '../bot/define-bot';
 import type { TurnRequest } from '../gateway';
@@ -9,13 +14,13 @@ import type { FunctionCall } from './stream-mapper';
 /** Larger tool results are replaced by an error so one call can't flood the context. */
 const MAX_OUTPUT_CHARS = 16_000;
 
-const definitions = new WeakMap<Bot, FunctionTool[]>();
+const definitions = new WeakMap<Bot, ResponseTool[]>();
 
-/** OpenAI strict function tools for a bot, converted once per bot. */
-export function responseTools(bot: Bot): FunctionTool[] {
+/** The bot's tools as the Responses API expects them, converted once per bot. */
+export function responseTools(bot: Bot): ResponseTool[] {
   let tools = definitions.get(bot);
   if (!tools) {
-    tools = bot.tools.map((tool) => {
+    tools = bot.tools.map((tool): ResponseTool => {
       const converted = zodResponsesFunction({
         name: tool.name,
         description: tool.description,
@@ -29,9 +34,27 @@ export function responseTools(bot: Bot): FunctionTool[] {
         strict: true,
       };
     });
+    if (bot.knowledge) {
+      tools.push({
+        type: 'file_search',
+        vector_store_ids: [bot.knowledge.vectorStoreId],
+        max_num_results: bot.knowledge.maxResults,
+      });
+    }
     definitions.set(bot, tools);
   }
   return tools;
+}
+
+/**
+ * On the last step a function call could no longer be answered, so only hosted tools stay
+ * available. Restricting through `allowed_tools` keeps the tool list, and the prompt cache, intact.
+ */
+export function toolChoice(bot: Bot, lastStep: boolean): ToolChoiceOptions | ToolChoiceAllowed {
+  if (!lastStep || bot.tools.length === 0) return 'auto';
+  return bot.knowledge
+    ? { type: 'allowed_tools', mode: 'auto', tools: [{ type: 'file_search' }] }
+    : 'none';
 }
 
 class ToolTimeoutError extends Error {}

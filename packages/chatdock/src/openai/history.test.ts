@@ -105,6 +105,7 @@ describe('listMessages', () => {
     );
     const messages = await gateway.listMessages('conv_1');
     expect(query?.get('order')).toBe('desc');
+    expect(query?.getAll('include[]')).toEqual(['file_search_call.results']);
     expect(messages).toEqual([
       { id: 'msg_2', role: 'user', text: 'What is the dog called?', citations: [], attachments: 1 },
       {
@@ -117,6 +118,64 @@ describe('listMessages', () => {
         ],
         attachments: 0,
       },
+    ]);
+  });
+
+  it('links file citations to the title and URL stored with the searched file', async () => {
+    const result = (fileId: string, title: string, url: string) => ({
+      file_id: fileId,
+      filename: `${fileId}.md`,
+      score: 0.9,
+      text: 'chunk',
+      attributes: { path: `${fileId}.md`, sha256: 'x', title, url },
+    });
+    const citation = (fileId: string) => ({
+      type: 'file_citation',
+      file_id: fileId,
+      filename: `${fileId}.md`,
+      index: 1,
+    });
+    server.use(
+      http.get(`${OPENAI_TEST_BASE_URL}/conversations/conv_kb/items`, () =>
+        HttpResponse.json({
+          object: 'list',
+          data: [
+            {
+              id: 'msg_2',
+              type: 'message',
+              role: 'assistant',
+              status: 'completed',
+              content: [
+                {
+                  type: 'output_text',
+                  text: 'Plans start at 10 EUR.',
+                  annotations: [citation('file_a'), citation('file_b'), citation('file_c')],
+                  logprobs: [],
+                },
+              ],
+            },
+            {
+              id: 'fs_1',
+              type: 'file_search_call',
+              status: 'completed',
+              queries: ['pricing'],
+              results: [
+                result('file_a', 'Pricing', 'https://example.com/pricing'),
+                result('file_b', 'Pricing FAQ', 'https://example.com/pricing'),
+                result('file_c', 'Notes', 'javascript:alert(1)'),
+              ],
+            },
+          ],
+          first_id: 'msg_2',
+          last_id: 'fs_1',
+          has_more: false,
+        }),
+      ),
+    );
+    const [message] = await gateway.listMessages('conv_kb');
+    expect(message?.citations).toEqual([
+      { index: 1, title: 'Pricing', url: 'https://example.com/pricing' },
+      { index: 2, title: 'Notes', url: undefined },
     ]);
   });
 

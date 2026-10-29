@@ -7,6 +7,8 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 const CONVERSATION_TTL = 30 * DAY;
+/** Rough input cost of one file search chunk (about 800 tokens by default). */
+const SEARCH_RESULT_TOKENS = 800;
 
 export interface SessionLimitKeys {
   readonly clientIp: string;
@@ -138,7 +140,11 @@ export function createLimits(options: LimitsOptions): Limits {
         await enforce(`cd:cc:${bot.id}:${keys.clientIp}`, HOUR, limits.conversationsPerIpPerHour);
       }
 
-      const estimate = historyTokens + Math.ceil(keys.inputChars / 2) + limits.maxOutputTokens;
+      const estimate =
+        historyTokens +
+        Math.ceil(keys.inputChars / 2) +
+        limits.maxOutputTokens +
+        (bot.knowledge ? bot.knowledge.maxResults * SEARCH_RESULT_TOKENS : 0);
       const list = budgets(bot, keys.clientIp);
       await reserve(list, estimate);
 

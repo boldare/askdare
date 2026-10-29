@@ -1,10 +1,12 @@
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { defineBot } from '../bot/define-bot';
 import { ChatdockError, TurnAbortedError } from '../errors';
 import type { ModelGateway, TurnRequest } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
+import { defineTool } from '../tools/define-tool';
 import { createOpenAIGateway } from './gateway';
 import {
   type CapturedRequest,
@@ -189,6 +191,117 @@ describe('runTurn', () => {
       },
       { type: 'citation', messageId: 'msg_a', index: 2, title: 'handbook.pdf', url: undefined },
     ]);
+  });
+
+  it('searches the knowledge base and cites files by their stored title and URL', async () => {
+    const capture: CapturedRequest = { body: undefined };
+    const searchCall = {
+      id: 'fs_1',
+      type: 'file_search_call',
+      status: 'completed',
+      queries: ['pricing'],
+      results: [
+        {
+          file_id: 'file_a',
+          filename: 'pricing.md',
+          score: 0.8,
+          text: 'chunk',
+          attributes: { path: 'pricing.md', title: 'Pricing', url: 'https://example.com/pricing' },
+        },
+      ],
+    };
+    server.use(
+      responsesHandler(
+        [
+          { type: 'response.file_search_call.in_progress', item_id: 'fs_1', output_index: 0 },
+          { type: 'response.file_search_call.completed', item_id: 'fs_1', output_index: 0 },
+          { type: 'response.output_item.done', output_index: 0, item: searchCall },
+          ...textTurnEvents(['From $10.'], {
+            extra: [
+              {
+                type: 'response.output_text.annotation.added',
+                item_id: 'msg_out',
+                output_index: 1,
+                content_index: 0,
+                annotation_index: 0,
+                annotation: {
+                  type: 'file_citation',
+                  file_id: 'file_a',
+                  filename: 'pricing.md',
+                  index: 9,
+                },
+              },
+            ],
+          }).slice(1),
+        ],
+        {},
+        capture,
+      ),
+    );
+    const knowledgeBot = defineBot({
+      id: 'kb',
+      model: 'test-model',
+      instructions: 'Use the documents.',
+      knowledge: { vectorStoreId: 'vs_abc', maxResults: 3 },
+    });
+    const { request, events } = turn({ bot: knowledgeBot });
+    await gateway.runTurn(request);
+    expect(capture.body).toMatchObject({
+      tools: [{ type: 'file_search', vector_store_ids: ['vs_abc'], max_num_results: 3 }],
+      tool_choice: 'auto',
+      include: ['file_search_call.results'],
+    });
+    expect(events).toEqual([
+      {
+        type: 'tool.status',
+        messageId: 'msg_a',
+        callId: 'fs_1',
+        name: 'file_search',
+        state: 'running',
+      },
+      {
+        type: 'tool.status',
+        messageId: 'msg_a',
+        callId: 'fs_1',
+        name: 'file_search',
+        state: 'done',
+      },
+      { type: 'text.delta', messageId: 'msg_a', delta: 'From $10.' },
+      {
+        type: 'citation',
+        messageId: 'msg_a',
+        index: 1,
+        title: 'Pricing',
+        url: 'https://example.com/pricing',
+      },
+    ]);
+  });
+
+  it('keeps file search but no functions available on the last step', async () => {
+    const capture: CapturedRequest = { body: undefined };
+    server.use(responsesHandler(textTurnEvents(['Hi']), {}, capture));
+    const { request } = turn({
+      bot: defineBot({
+        id: 'kb',
+        model: 'test-model',
+        instructions: 'Use the documents.',
+        limits: { maxSteps: 1 },
+        tools: [
+          defineTool({
+            name: 'ping',
+            description: 'Ping',
+            input: z.object({}),
+            execute: () => 'pong',
+          }),
+        ],
+        knowledge: { vectorStoreId: 'vs_abc' },
+      }),
+    });
+    await gateway.runTurn(request);
+    expect(capture.body).toMatchObject({
+      tool_choice: { type: 'allowed_tools', mode: 'auto', tools: [{ type: 'file_search' }] },
+    });
+    expect((capture.body as { tools: unknown[] }).tools).toHaveLength(2);
   });
 
   it('streams refusals as text', async () => {

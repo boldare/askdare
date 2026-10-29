@@ -4,7 +4,7 @@ import type { TokenUsage, TurnRequest, TurnResult } from '../gateway';
 import type { MessageEndReason } from '../protocol/events';
 import { fromOpenAIError } from './errors';
 import { CitationRegistry, ResponseStreamMapper, type StepOutcome } from './stream-mapper';
-import { danglingCallId, executeCalls, responseTools } from './tools';
+import { danglingCallId, executeCalls, responseTools, toolChoice } from './tools';
 
 /** Calls left without output by an earlier, aborted turn that one turn will repair. */
 const MAX_REPAIRS = 3;
@@ -51,8 +51,10 @@ async function runStep(
       safety_identifier: request.safetyIdentifier,
       prompt_cache_key: `chatdock:${bot.id}`,
       ...(tools.length > 0
-        ? { tools, tool_choice: lastStep ? 'none' : 'auto', parallel_tool_calls: true }
+        ? { tools, tool_choice: toolChoice(bot, lastStep), parallel_tool_calls: true }
         : {}),
+      // Search results carry the titles and URLs that file citations link to.
+      ...(bot.knowledge ? { include: ['file_search_call.results' as const] } : {}),
     },
     { signal: request.signal },
   );

@@ -27,7 +27,7 @@ Source of truth: `packages/chatdock/src/protocol/`.
 | `reasoning` | `messageId`, `state: started \| done` | The model is thinking; show a status, never content |
 | `text.delta` | `messageId`, `delta` | Append text to the reply (markdown) |
 | `citation` | `messageId`, `index`, `title`, `url?` | Source for marker `[index]`; `url` is http(s) only |
-| `tool.status` | `messageId`, `callId`, `name`, `state: running \| done \| error` | A tool ran; arguments and results stay on the server |
+| `tool.status` | `messageId`, `callId`, `name`, `state: running \| done \| error` | A tool ran; arguments and results stay on the server. `name: file_search` is the knowledge base search |
 | `message.end` | `messageId`, `reason` | The reply finished. Reasons: `completed`, `max_steps`, `max_output_tokens`, `timeout`, `content_filter`, `aborted` |
 | `error` | `code`, `message`, `retryAfterMs?` | The turn failed; `message` is safe to show |
 
