@@ -180,6 +180,8 @@ export function App({ config, client, bridge }: AppProps) {
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  /** In-flight uploads by pending file key, cancelled when the file is removed. */
+  const uploads = useRef(new Map<string, AbortController>());
   const allowed = config.attachments;
 
   useEffect(() => {
@@ -223,21 +225,34 @@ export function App({ config, client, bridge }: AppProps) {
       setPending((current) =>
         current.map((item) => (item.key === key ? { ...item, ...change } : item)),
       );
+    const controller = new AbortController();
+    uploads.current.set(key, controller);
     setPending((current) => [...current, { key, name: file.name, status: 'uploading' }]);
+    const fail = (error: string): void => {
+      uploads.current.delete(key);
+      if (!controller.signal.aborted) update({ status: 'error', error });
+    };
     let prepared: Awaited<ReturnType<typeof prepareFile>>;
     try {
       prepared = await prepareFile(file, allowed);
     } catch {
-      update({ status: 'error', error: 'This file type is not supported.' });
+      fail('This file type is not supported.');
       return;
     }
     if (prepared.blob.size > allowed.maxBytes) {
-      update({ status: 'error', error: `Too large (max ${megabytes(allowed.maxBytes)}).` });
+      fail(`Too large (max ${megabytes(allowed.maxBytes)}).`);
       return;
     }
+    if (controller.signal.aborted) return;
     const previewUrl = prepared.kind === 'image' ? URL.createObjectURL(prepared.blob) : undefined;
     update({ name: prepared.name, kind: prepared.kind, previewUrl });
-    const result = await client.upload(prepared.blob, prepared.name);
+    const result = await client.upload(prepared.blob, prepared.name, controller.signal);
+    uploads.current.delete(key);
+    if (controller.signal.aborted) {
+      // Removed while uploading: the preview may not have reached the rendered list yet.
+      revokePreviews([{ previewUrl }]);
+      return;
+    }
     update(
       result.ok
         ? { status: 'ready', handle: result.file.id, name: result.file.name }
@@ -254,7 +269,15 @@ export function App({ config, client, bridge }: AppProps) {
     for (const file of files.slice(0, Math.max(0, room))) void attach(file);
   };
 
+  const cancelUploads = (keys: Iterable<string>): void => {
+    for (const key of [...keys]) {
+      uploads.current.get(key)?.abort();
+      uploads.current.delete(key);
+    }
+  };
+
   const removeFile = (file: PendingFile): void => {
+    cancelUploads([file.key]);
     revokePreviews([file]);
     setPending((current) => current.filter((item) => item.key !== file.key));
   };
@@ -307,6 +330,7 @@ export function App({ config, client, bridge }: AppProps) {
     setBusy(true);
     await client.deleteConversation().catch(() => undefined);
     revokePreviews(messages.flatMap((message) => message.files ?? []));
+    cancelUploads(uploads.current.keys());
     revokePreviews(pending);
     setPending([]);
     setMessages([]);

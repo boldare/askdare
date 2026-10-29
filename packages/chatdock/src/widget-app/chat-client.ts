@@ -72,6 +72,8 @@ export class ChatClient {
   readonly #fetch: typeof fetch;
   readonly #resumeKey: string;
   #session: Session | undefined;
+  /** Shared by concurrent callers, so parallel uploads end up with one visitor. */
+  #opening: Promise<Session> | undefined;
 
   constructor(options: ChatClientOptions) {
     this.#options = options;
@@ -210,7 +212,7 @@ export class ChatClient {
     signal?: AbortSignal,
   ): Promise<Response> {
     const attempt = async (renew: boolean): Promise<Response> => {
-      const session = await this.#ensureSession(renew, signal);
+      const session = await this.#ensureSession(renew);
       const { contentType, body, headers } = request();
       return this.#fetch(`${this.#options.basePath}${path}`, {
         method,
@@ -227,17 +229,30 @@ export class ChatClient {
     return first.status === 401 ? attempt(true) : first;
   }
 
-  async #ensureSession(renew: boolean, signal: AbortSignal | undefined): Promise<Session> {
+  async #ensureSession(renew: boolean): Promise<Session> {
     const now = Date.now() / 1000;
     if (!renew && this.#session && this.#session.expiresAt - RENEW_MARGIN_SECONDS > now) {
       return this.#session;
     }
+    this.#opening ??= this.#openSession().finally(() => {
+      this.#opening = undefined;
+    });
+    return this.#opening;
+  }
+
+  /** Not tied to one caller's signal, because other callers may be waiting for the same session. */
+  async #openSession(): Promise<Session> {
     const resumeToken = this.#options.storage.get(this.#resumeKey);
+    // The previous access token keeps the same visitor, so files uploaded before a renewal stay theirs.
+    const accessToken = this.#session?.accessToken;
     const response = await this.#fetch(`${this.#options.basePath}/session`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ botId: this.#options.botId, ...(resumeToken ? { resumeToken } : {}) }),
-      ...(signal ? { signal } : {}),
+      body: JSON.stringify({
+        botId: this.#options.botId,
+        ...(resumeToken ? { resumeToken } : {}),
+        ...(accessToken ? { accessToken } : {}),
+      }),
     });
     if (!response.ok) throw new Error(`Session request failed with ${response.status}`);
     const body = (await response.json()) as {

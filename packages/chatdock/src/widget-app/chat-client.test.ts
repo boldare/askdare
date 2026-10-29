@@ -108,6 +108,33 @@ describe('ChatClient.upload', () => {
     expect(sent?.headers.get('x-chatdock-filename')).toBe(encodeURIComponent('Zdjęcie.jpg'));
   });
 
+  it('opens one session for parallel uploads and renews it as the same visitor', async () => {
+    const sessions: Record<string, unknown>[] = [];
+    const impl = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      if (String(input).endsWith('/session')) {
+        sessions.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        // The first session is about to expire, so the next request renews it.
+        const lifetime = sessions.length === 1 ? 10 : 900;
+        return Response.json({
+          accessToken: `tok-${sessions.length}`,
+          expiresAt: Date.now() / 1000 + lifetime,
+          resumable: false,
+        });
+      }
+      return Response.json({ attachment: { id: 'h', kind: 'pdf', name: 'a.pdf' } });
+    };
+    const chat = client(impl as typeof fetch);
+    await Promise.all([
+      chat.upload(new Blob(['a']), 'a.pdf'),
+      chat.upload(new Blob(['b']), 'b.pdf'),
+    ]);
+    expect(sessions).toHaveLength(1);
+    await chat.upload(new Blob(['c']), 'c.pdf');
+    expect(sessions).toHaveLength(2);
+    expect(sessions[1]).toMatchObject({ accessToken: 'tok-1' });
+  });
+
   it("reports the server's message when a file is refused", async () => {
     const { fetch } = uploadFetch(() =>
       Response.json(
