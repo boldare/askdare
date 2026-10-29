@@ -1,0 +1,24 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":semanticCommits", "helpers:pinGitHubActionDigests"],
+  "schedule": ["before 6am on monday"],
+  "minimumReleaseAge": "3 days",
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"]
+  },
+  "packageRules": [
+    {
+      "description": "openai ships type-breaking minors; review them together once a week (ADR-0002).",
+      "matchPackageNames": ["openai"],
+      "groupName": "openai"
+    },
+    {
+      "description": "Non-major dev tooling updates are low risk.",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "dev dependencies (non-major)",
+      "automerge": true
+    }
+  ]
+}
