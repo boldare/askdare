@@ -165,21 +165,64 @@ describe('streamTurn', () => {
     expect(events.at(-1)).toMatchObject({ type: 'error', code: 'timeout' });
   });
 
-  it('ends silently when the visitor disconnects', async () => {
-    const controller = new AbortController();
+  it('finishes a started turn after the visitor leaves and reports its real usage', async () => {
+    const visitor = new AbortController();
+    const onUsage = vi.fn();
     const onError = vi.fn();
-    const gateway = fakeGateway(
-      (request) =>
-        new Promise((_, reject) => {
-          request.signal.addEventListener('abort', () => reject(request.signal.reason));
-          setTimeout(() => controller.abort(), 10);
-        }),
+    let work: Promise<unknown> | undefined;
+    const gateway = fakeGateway(async (request) => {
+      visitor.abort();
+      await sleep(20);
+      expect(request.signal.aborted).toBe(false);
+      return { ...COMPLETED, usage: { inputTokens: 40, cachedInputTokens: 0, outputTokens: 7 } };
+    });
+    const stream = streamTurn(
+      options({
+        gateway,
+        signal: visitor.signal,
+        onUsage,
+        onError,
+        waitUntil: (promise) => {
+          work = promise;
+        },
+      }),
     );
-    const { events } = await collect(
-      streamTurn(options({ gateway, signal: controller.signal, onError })),
+    const reader = stream.getReader();
+    await reader.read();
+    await reader.cancel();
+    await work;
+    expect(onUsage).toHaveBeenCalledWith(
+      { inputTokens: 40, cachedInputTokens: 0, outputTokens: 7 },
+      'conv_new',
     );
-    expect(events.some((event) => event.type === 'error')).toBe(false);
     expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('calls nothing upstream when the visitor left before the turn started', async () => {
+    const visitor = new AbortController();
+    visitor.abort();
+    const gateway = fakeGateway(async () => COMPLETED);
+    await collect(streamTurn(options({ gateway, signal: visitor.signal })));
+    expect(gateway.created).toEqual([]);
+    expect(gateway.requests).toEqual([]);
+  });
+
+  it('deletes a new conversation whose handle never reached the visitor', async () => {
+    const visitor = new AbortController();
+    const deleted: string[] = [];
+    const gateway = {
+      ...fakeGateway(async () => COMPLETED),
+      createConversation: async () => {
+        visitor.abort();
+        return 'conv_orphan';
+      },
+      deleteConversation: async (id: string) => {
+        deleted.push(id);
+      },
+    };
+    await collect(streamTurn(options({ gateway, signal: visitor.signal })));
+    expect(deleted).toEqual(['conv_orphan']);
+    expect(gateway.requests).toEqual([]);
   });
 
   it('declares the streaming headers including the protocol version', () => {

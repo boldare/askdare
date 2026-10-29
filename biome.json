@@ -70,6 +70,16 @@
           }
         }
       }
+    },
+    {
+      "includes": ["packages/chatdock/src/widget-app/**"],
+      "linter": {
+        "rules": {
+          "performance": {
+            "noImgElement": "off"
+          }
+        }
+      }
     }
   ],
   "assist": {

@@ -1,3 +1,4 @@
+import { after } from 'next/server';
 import type { Bot } from '../bot/define-bot';
 import { ChatdockError } from '../errors';
 import type { ModelGateway } from '../gateway';
@@ -90,6 +91,8 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
   const handle = createRequestHandler({
     bots: options.bots,
     basePath,
+    // A turn outlives a visitor who disconnects; on serverless hosts this keeps the function alive.
+    waitUntil: (work) => after(work),
     assets: {
       loaderJs: LOADER_JS,
       widgetJs: WIDGET_JS,
