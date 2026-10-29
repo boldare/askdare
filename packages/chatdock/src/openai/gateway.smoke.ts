@@ -30,6 +30,7 @@ describe.skipIf(!apiKey || !model)('OpenAI gateway (live)', () => {
         text: 'ping',
         context: { locale: 'en' },
         safetyIdentifier: 'chatdock-smoke',
+        visitorId: `v_${'0f'.repeat(16)}`,
         messageId: 'msg_smoke',
         signal: AbortSignal.timeout(60_000),
         emit: (event) => events.push(event),

@@ -106,6 +106,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           conversationId,
           text: options.text,
           context: options.context,
+          visitorId: options.visitorId,
           safetyIdentifier: await sha256Hex(options.visitorId),
           messageId,
           signal,

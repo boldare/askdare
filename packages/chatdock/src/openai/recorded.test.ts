@@ -2,11 +2,13 @@ import { readFileSync } from 'node:fs';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { defineBot } from '../bot/define-bot';
 import type { ModelGateway } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
+import { defineTool } from '../tools/define-tool';
 import { createOpenAIGateway } from './gateway';
-import { OPENAI_TEST_BASE_URL } from './testing/msw';
+import { OPENAI_TEST_BASE_URL, textTurnEvents } from './testing/msw';
 
 /**
  * Streams recorded from the live Responses API in spike S1 (spikes/s1-openai), replayed byte for
@@ -30,6 +32,28 @@ afterAll(() => server.close());
 
 const bot = defineBot({ id: 'support', model: 'gpt-6.1-terra', instructions: 'Be brief.' });
 
+function request(events: ProtocolEvent[]) {
+  return {
+    bot,
+    conversationId: 'conv_recorded',
+    text: 'replayed',
+    context: { locale: 'en' },
+    safetyIdentifier: 'a'.repeat(64),
+    visitorId: `v_${'0f'.repeat(16)}`,
+    messageId: 'msg_r',
+    signal: new AbortController().signal,
+    emit: (event: ProtocolEvent) => events.push(event),
+  };
+}
+
+const textStream = (text: string): string =>
+  textTurnEvents([text])
+    .map(
+      (event, index) =>
+        `event: ${event.type}\ndata: ${JSON.stringify({ ...event, sequence_number: index })}\n\n`,
+    )
+    .join('');
+
 async function replay(name: string): Promise<{ events: ProtocolEvent[]; reason: string }> {
   server.use(
     http.post(
@@ -44,6 +68,7 @@ async function replay(name: string): Promise<{ events: ProtocolEvent[]; reason: 
     text: 'replayed',
     context: { locale: 'en' },
     safetyIdentifier: 'a'.repeat(64),
+    visitorId: `v_${'0f'.repeat(16)}`,
     messageId: 'msg_r',
     signal: new AbortController().signal,
     emit: (event) => events.push(event),
@@ -76,8 +101,43 @@ describe('recorded Responses API streams', () => {
     ]);
   });
 
-  it('keeps tool calls on the server', async () => {
-    const { events } = await replay('function-call');
-    expect(events.some((event) => JSON.stringify(event).includes('get_weather'))).toBe(false);
+  it('runs a recorded tool call and keeps its arguments on the server', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    server.use(
+      http.post(`${OPENAI_TEST_BASE_URL}/responses`, async ({ request }) => {
+        bodies.push((await request.json()) as Record<string, unknown>);
+        const stream = bodies.length === 1 ? fixture('function-call') : textStream('It is 12°C.');
+        return new HttpResponse(stream, { headers: { 'Content-Type': 'text/event-stream' } });
+      }),
+    );
+    const weatherBot = defineBot({
+      id: 'support',
+      model: 'gpt-6.1-terra',
+      instructions: 'Use tools.',
+      tools: [
+        defineTool({
+          name: 'get_weather',
+          description: 'Current weather for a city.',
+          input: z.object({ city: z.string() }),
+          execute: ({ city }) => ({ city, tempC: 12 }),
+        }),
+      ],
+    });
+    const events: ProtocolEvent[] = [];
+    await gateway.runTurn({ ...request(events), bot: weatherBot });
+
+    const call = /"call_id":"(call_[A-Za-z0-9]+)"/.exec(fixture('function-call'))?.[1];
+    expect(bodies[1]?.['input']).toEqual([
+      {
+        type: 'function_call_output',
+        call_id: call,
+        output: JSON.stringify({ city: 'Warsaw', tempC: 12 }),
+      },
+    ]);
+    expect(
+      events.filter((event) => event.type === 'tool.status').map((event) => event.state),
+    ).toEqual(['running', 'done']);
+    expect(JSON.stringify(events)).not.toContain('Warsaw');
+    expect(textOf(events)).toBe('It is 12°C.');
   });
 });
