@@ -10,6 +10,8 @@ During 0.x only the latest minor release receives security fixes.
 
 **Please do not open a public issue.** Report vulnerabilities privately through GitHub's private vulnerability reporting: open the **Security** tab of this repository, then **Report a vulnerability**.
 
+If you can't use GitHub, email **hello@boldare.com** with the subject "chatdock: security". Keep the details for the private channel we will set up with you.
+
 Please include:
 - the affected version and configuration;
 - steps to reproduce, or a proof of concept;
