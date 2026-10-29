@@ -1,0 +1,301 @@
+import { HttpResponse, http } from 'msw';
+import { setupServer } from 'msw/node';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { defineBot } from '../bot/define-bot';
+import { ChatdockError, TurnAbortedError } from '../errors';
+import type { ModelGateway, TurnRequest } from '../gateway';
+import type { ProtocolEvent } from '../protocol/events';
+import { createOpenAIGateway } from './gateway';
+import {
+  type CapturedRequest,
+  conversationsCreateHandler,
+  OPENAI_TEST_BASE_URL,
+  responsesHandler,
+  sseStream,
+  textTurnEvents,
+} from './testing/msw';
+
+const server = setupServer();
+let gateway: ModelGateway;
+beforeAll(() => {
+  server.listen({ onUnhandledFrame: 'error' });
+  // The SDK keeps a reference to fetch, so create the client after MSW has patched it.
+  gateway = createOpenAIGateway({
+    apiKey: 'sk-test',
+    baseURL: OPENAI_TEST_BASE_URL,
+    maxRetries: 0,
+  });
+});
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+
+const bot = defineBot({
+  id: 'support',
+  model: 'test-model',
+  instructions: ({ locale }) => `Answer in ${locale}.`,
+  limits: { maxOutputTokens: 256 },
+});
+
+function turn(overrides: Partial<TurnRequest> = {}): {
+  request: TurnRequest;
+  events: ProtocolEvent[];
+} {
+  const events: ProtocolEvent[] = [];
+  const request: TurnRequest = {
+    bot,
+    conversationId: 'conv_123',
+    text: 'Hello',
+    context: { locale: 'pl' },
+    safetyIdentifier: 'hashed-visitor',
+    messageId: 'msg_a',
+    signal: new AbortController().signal,
+    emit: (event) => events.push(event),
+    ...overrides,
+  };
+  return { request, events };
+}
+
+describe('createConversation', () => {
+  it('creates an OpenAI conversation tagged with bot and visitor', async () => {
+    const capture: CapturedRequest = { body: undefined };
+    server.use(conversationsCreateHandler('conv_new', capture));
+    await expect(gateway.createConversation({ botId: 'support', visitorId: 'v1' })).resolves.toBe(
+      'conv_new',
+    );
+    expect(capture.body).toEqual({ metadata: { chatdock_bot: 'support', chatdock_visitor: 'v1' } });
+  });
+});
+
+describe('deleteConversation', () => {
+  it('treats an already deleted conversation as success', async () => {
+    server.use(
+      http.delete(`${OPENAI_TEST_BASE_URL}/conversations/conv_gone`, () =>
+        HttpResponse.json({ error: { message: 'not found' } }, { status: 404 }),
+      ),
+    );
+    await expect(gateway.deleteConversation('conv_gone')).resolves.toBeUndefined();
+  });
+});
+
+describe('runTurn', () => {
+  it('sends only server-controlled parameters', async () => {
+    const capture: CapturedRequest = { body: undefined };
+    server.use(responsesHandler(textTurnEvents(['Hi']), {}, capture));
+    const { request } = turn();
+    await gateway.runTurn(request);
+    expect(capture.body).toEqual({
+      model: 'test-model',
+      instructions: 'Answer in pl.',
+      input: [{ role: 'user', content: 'Hello' }],
+      conversation: 'conv_123',
+      store: true,
+      stream: true,
+      max_output_tokens: 256,
+      truncation: 'auto',
+      safety_identifier: 'hashed-visitor',
+      prompt_cache_key: 'chatdock:support',
+    });
+  });
+
+  it('streams text deltas and reports usage', async () => {
+    server.use(
+      responsesHandler(
+        textTurnEvents(['Cześć', ', jak ', 'mogę pomóc?'], {
+          usage: { input: 50, cached: 40, output: 9 },
+        }),
+      ),
+    );
+    const { request, events } = turn();
+    const result = await gateway.runTurn(request);
+    expect(events).toEqual([
+      { type: 'text.delta', messageId: 'msg_a', delta: 'Cześć' },
+      { type: 'text.delta', messageId: 'msg_a', delta: ', jak ' },
+      { type: 'text.delta', messageId: 'msg_a', delta: 'mogę pomóc?' },
+    ]);
+    expect(result).toEqual({
+      reason: 'completed',
+      usage: { inputTokens: 50, cachedInputTokens: 40, outputTokens: 9 },
+    });
+  });
+
+  it('maps citations once per source, keeps http(s) URLs only, and hides reasoning content', async () => {
+    const annotation = (value: Record<string, unknown>, index: number) => ({
+      type: 'response.output_text.annotation.added',
+      item_id: 'msg_out',
+      output_index: 1,
+      content_index: 0,
+      annotation_index: index,
+      annotation: value,
+    });
+    const reasoningItem = { id: 'rs_1', type: 'reasoning', summary: [] };
+    server.use(
+      responsesHandler([
+        { type: 'response.output_item.added', output_index: 0, item: reasoningItem },
+        { type: 'response.reasoning_summary_text.delta', delta: 'secret plan' },
+        { type: 'response.output_item.done', output_index: 0, item: reasoningItem },
+        ...textTurnEvents(['See sources.'], {
+          extra: [
+            annotation(
+              {
+                type: 'url_citation',
+                url: 'https://example.com/pricing',
+                title: 'Pricing',
+                start_index: 0,
+                end_index: 3,
+              },
+              0,
+            ),
+            annotation(
+              { type: 'file_citation', file_id: 'file_1', filename: 'handbook.pdf', index: 4 },
+              1,
+            ),
+            annotation(
+              {
+                type: 'url_citation',
+                url: 'https://example.com/pricing',
+                title: 'Pricing',
+                start_index: 5,
+                end_index: 8,
+              },
+              2,
+            ),
+            annotation(
+              {
+                type: 'url_citation',
+                url: 'javascript:alert(1)',
+                title: 'x',
+                start_index: 0,
+                end_index: 1,
+              },
+              3,
+            ),
+          ],
+        }).slice(1),
+      ]),
+    );
+    const { request, events } = turn();
+    await gateway.runTurn(request);
+    expect(events).toEqual([
+      { type: 'reasoning', messageId: 'msg_a', state: 'started' },
+      { type: 'reasoning', messageId: 'msg_a', state: 'done' },
+      { type: 'text.delta', messageId: 'msg_a', delta: 'See sources.' },
+      {
+        type: 'citation',
+        messageId: 'msg_a',
+        index: 1,
+        title: 'Pricing',
+        url: 'https://example.com/pricing',
+      },
+      { type: 'citation', messageId: 'msg_a', index: 2, title: 'handbook.pdf', url: undefined },
+    ]);
+  });
+
+  it('streams refusals as text', async () => {
+    server.use(
+      responsesHandler(
+        textTurnEvents([], {
+          extra: [
+            {
+              type: 'response.refusal.delta',
+              item_id: 'msg_out',
+              output_index: 0,
+              content_index: 0,
+              delta: 'I can’t help with that.',
+            },
+          ],
+        }),
+      ),
+    );
+    const { request, events } = turn();
+    await gateway.runTurn(request);
+    expect(events).toEqual([
+      { type: 'text.delta', messageId: 'msg_a', delta: 'I can’t help with that.' },
+    ]);
+  });
+
+  it.each([
+    ['max_output_tokens', 'max_output_tokens'],
+    ['content_filter', 'content_filter'],
+  ] as const)('ends with reason %s when the response is incomplete', async (incomplete, reason) => {
+    server.use(
+      responsesHandler(
+        textTurnEvents(['Part'], { status: 'incomplete', incompleteReason: incomplete }),
+      ),
+    );
+    const { request } = turn();
+    await expect(gateway.runTurn(request)).resolves.toMatchObject({ reason });
+  });
+
+  it('turns a failed response into a client-safe upstream error', async () => {
+    server.use(
+      responsesHandler([
+        {
+          type: 'response.failed',
+          response: {
+            id: 'r',
+            status: 'failed',
+            error: { code: 'server_error', message: 'internal detail' },
+          },
+        },
+      ]),
+    );
+    const { request } = turn();
+    const error = await gateway.runTurn(request).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ChatdockError);
+    expect(error).toMatchObject({ code: 'upstream_error' });
+    expect((error as Error).message).not.toContain('internal detail');
+  });
+
+  it('fails when the stream ends without a terminal event', async () => {
+    server.use(responsesHandler(textTurnEvents(['cut']).slice(0, -1)));
+    const { request } = turn();
+    await expect(gateway.runTurn(request)).rejects.toMatchObject({ code: 'upstream_error' });
+  });
+
+  it.each([
+    [500, {}, { code: 'upstream_error', retryAfterMs: undefined }],
+    [429, { 'retry-after': '2' }, { code: 'upstream_error', retryAfterMs: 2000 }],
+    [401, {}, { code: 'bot_unavailable' }],
+  ] as const)('maps HTTP %i from OpenAI', async (status, headers, expected) => {
+    server.use(
+      http.post(`${OPENAI_TEST_BASE_URL}/responses`, () =>
+        HttpResponse.json({ error: { message: 'upstream says no' } }, { status, headers }),
+      ),
+    );
+    const { request } = turn();
+    await expect(gateway.runTurn(request)).rejects.toMatchObject(expected);
+  });
+
+  // Aborts use an injected fetch: MSW's socket interception trips an undici assertion on abort.
+  function stalledGateway(): ModelGateway {
+    return createOpenAIGateway({
+      apiKey: 'sk-test',
+      baseURL: OPENAI_TEST_BASE_URL,
+      maxRetries: 0,
+      fetch: async (_input, init) =>
+        new Response(
+          sseStream(
+            textTurnEvents(['slow']).slice(0, -1),
+            { hang: true },
+            init?.signal ?? undefined,
+          ),
+          {
+            headers: { 'Content-Type': 'text/event-stream' },
+          },
+        ),
+    });
+  }
+
+  it('reports a server deadline as a timeout', async () => {
+    const { request } = turn({ signal: AbortSignal.timeout(50) });
+    await expect(stalledGateway().runTurn(request)).rejects.toMatchObject({ code: 'timeout' });
+  });
+
+  it('reports a caller abort as TurnAbortedError', async () => {
+    const controller = new AbortController();
+    const { request } = turn({ signal: controller.signal });
+    const pending = stalledGateway().runTurn(request);
+    setTimeout(() => controller.abort(), 30);
+    await expect(pending).rejects.toBeInstanceOf(TurnAbortedError);
+  });
+});
