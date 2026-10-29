@@ -36,11 +36,17 @@ export function fromOpenAIError(error: unknown, deadlineExceeded: boolean): Erro
   if (error instanceof APIConnectionError)
     return new ChatdockError('upstream_error', { cause: error });
   if (error instanceof NotFoundError) {
-    // Most often the conversation was deleted (retention); the client then starts a new one.
-    return new ChatdockError('not_found', {
-      message: 'This conversation is no longer available.',
-      cause: error,
-    });
+    // Verified live (spike S1): a misconfigured model answers 404 `model_not_found`, a deleted
+    // conversation answers 404 "Conversation with id '…' not found". Only the latter resets the chat.
+    if (error.code === 'model_not_found')
+      return new ChatdockError('bot_unavailable', { cause: error });
+    if (/conversation/i.test(error.message)) {
+      return new ChatdockError('not_found', {
+        message: 'This conversation is no longer available.',
+        cause: error,
+      });
+    }
+    return new ChatdockError('upstream_error', { cause: error });
   }
   if (error instanceof APIError) {
     if (error.status === 401 || error.status === 403) {
