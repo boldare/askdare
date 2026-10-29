@@ -14,6 +14,16 @@ const VARIANTS = {
     <script>document.getElementById('ask').addEventListener('click', () => window.chatdock('open'));</script>`,
   inline: `<div id="chat" style="width: 380px; height: 600px; border: 1px solid #ddd"></div>
     <script src="${SRC}" data-mode="inline" data-target="#chat" async></script>`,
+  queued: `<script>
+      window.chatdock = window.chatdock || function () {
+        (window.chatdock.q = window.chatdock.q || []).push(arguments);
+      };
+      window.chatdock('configure', { greeting: 'Queued before the script loaded.' });
+    </script>
+    <script src="${SRC}" async></script>`,
+  tall: `<div style="height: 2000px">Content above the chat</div>
+    <div id="chat" style="width: 380px; height: 600px"></div>
+    <script src="${SRC}" data-mode="inline" data-target="#chat" async></script>`,
   configure: `<script id="loader" src="${SRC}" async></script>
     <script>
       document.getElementById('loader').addEventListener('load', () => {
@@ -28,7 +38,7 @@ const VARIANTS = {
 };
 
 const page = (port, variant, lang) => `<!doctype html>
-<html lang="${lang}">
+<html${lang === 'none' ? '' : ` lang="${lang}"`}>
   <head><meta charset="utf-8"><title>Host page ${port}</title></head>
   <body>
     <h1>A third-party website on port ${port}</h1>
@@ -43,7 +53,7 @@ for (const port of PORTS) {
       response.writeHead(404).end();
       return;
     }
-    const lang = /^[a-z]{2}(-[A-Z]{2})?$/.test(url.searchParams.get('lang') ?? '')
+    const lang = /^([a-z]{2}(-[A-Z]{2})?|none)$/.test(url.searchParams.get('lang') ?? '')
       ? url.searchParams.get('lang')
       : 'en';
     response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });

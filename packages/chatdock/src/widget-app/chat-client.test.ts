@@ -161,6 +161,28 @@ describe('ChatClient.upload', () => {
     });
   });
 
+  it('sends the page context only when it changes within a conversation', async () => {
+    const { fetch, calls } = fakeFetch({
+      messages: () =>
+        new Response(sse([{ type: 'message.start', messageId: 'm' }]), {
+          headers: streamHeaders,
+        }),
+    });
+    const chat = client(fetch);
+    await chat.send({ text: 'a', context: 'Pricing' }, () => {});
+    await chat.send({ text: 'b', context: 'Pricing' }, () => {});
+    await chat.send({ text: 'c', context: 'Support' }, () => {});
+    chat.reset();
+    await chat.send({ text: 'd', context: 'Support' }, () => {});
+    const sent = calls.filter((call) => call.url.endsWith('/messages'));
+    expect(sent.map((call) => call.body['context'])).toEqual([
+      'Pricing',
+      undefined,
+      'Support',
+      'Support',
+    ]);
+  });
+
   it('sends attachment handles with the message', async () => {
     const { fetch, calls } = fakeFetch({
       messages: () => new Response(sse([]), { headers: streamHeaders }),

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { formatText, pluralText, TEXT_KEYS, textLocale, textsFor } from './texts';
+import { formatText, pluralText, textLocale, textsFor } from './texts';
 
 describe('dictionaries', () => {
   it('translate every key into Polish', () => {
     const english = textsFor('en');
     const polish = textsFor('pl-PL');
-    const untranslated = TEXT_KEYS.filter(
+    const untranslated = Object.keys(english).filter(
       (key) => polish[key] === english[key] && !['welcome.online'].includes(key),
     );
     expect(untranslated).toEqual([]);

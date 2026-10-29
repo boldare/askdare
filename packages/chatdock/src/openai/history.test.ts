@@ -67,6 +67,7 @@ const ITEMS = [
     role: 'user',
     status: 'completed',
     content: [
+      { type: 'input_text', text: '[chatdock:page-context]\nThe website describes the page…' },
       { type: 'input_text', text: 'What is the dog called?' },
       { type: 'input_image', file_id: 'file_img', detail: 'low' },
     ],

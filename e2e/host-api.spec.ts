@@ -40,10 +40,15 @@ test('the page sets the greeting, suggestions and its context, and nothing else'
     chat.locator('[data-cd-part="message"][data-role="assistant"]').last(),
   ).toContainText('You said: How much is the Business plan?');
   // Tests run in parallel, so find this test's request among all the model saw.
-  const all = (await (await request.get(`${MOCK_OPENAI}/debug/instructions`)).json()) as string[];
-  const ours = all.find((text) => text.includes('<page_context>'));
-  expect(ours).toContain('Pricing page listing the Free, Team and Business plans.');
-  expect(ours).not.toContain('not-allowed');
+  const all = (await (await request.get(`${MOCK_OPENAI}/debug/requests`)).json()) as {
+    instructions: string;
+    input: string;
+  }[];
+  const ours = all.find((sent) => sent.input.includes('[chatdock:page-context]'));
+  // In the visitor's turn, never in the bot's instructions.
+  expect(ours?.input).toContain('Pricing page listing the Free, Team and Business plans.');
+  expect(ours?.instructions).not.toContain('Pricing page');
+  expect(JSON.stringify(ours)).not.toContain('not-allowed');
 });
 
 test('a bot set to auto speaks the language of the page', async ({ page }) => {
@@ -54,4 +59,30 @@ test('a bot set to auto speaks the language of the page', async ({ page }) => {
   await expect(chat.getByRole('button', { name: 'Wyślij' })).toBeVisible();
   await expect(chat.getByText('Rozmawiasz z asystentem AI. Może popełniać błędy.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Zamknij czat' })).toBeVisible();
+});
+
+test('calls made before the script loads are queued and run', async ({ page }) => {
+  await page.goto(`${HOST}?variant=queued`);
+  await page.locator('[part="launcher"]').click();
+  await expect(
+    page.frameLocator('iframe[title="Chat"]').getByText('Queued before the script loaded.'),
+  ).toBeVisible();
+});
+
+test('an inline chat neither takes focus nor scrolls the page when it loads', async ({ page }) => {
+  await page.goto(`${HOST}?variant=tall`);
+  const chat = page.frameLocator('#chat iframe');
+  await expect(chat.getByRole('textbox')).toBeAttached();
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('BODY');
+});
+
+test.describe('in a Polish browser', () => {
+  test.use({ locale: 'pl-PL' });
+
+  test('the launcher follows the browser on a page without a language', async ({ page }) => {
+    await page.goto(`${HOST}?lang=none`);
+    await expect(page.getByRole('button', { name: 'Otwórz czat' })).toBeVisible();
+  });
 });

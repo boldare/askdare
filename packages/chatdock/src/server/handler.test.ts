@@ -55,6 +55,7 @@ const multilingualBot = defineBot({
   id: 'multilingual',
   model: 'test-model',
   instructions: 'Help.',
+  pageContext: true,
   widget: {
     locale: 'auto',
     title: 'Brightloop',
@@ -471,22 +472,18 @@ describe('POST /messages', () => {
     expect(empty.status).toBe(400);
   });
 
-  it('passes the page context to the turn and refuses an overlong one', async () => {
-    const access = await session();
-    const send = (context: string) =>
-      handler(
-        post(
-          '/messages',
-          { botId: 'support', text: 'Hi', context },
-          {
-            authorization: `Bearer ${access}`,
-          },
-        ),
+  it('passes page context only for bots that accept it, and refuses an overlong one', async () => {
+    const send = async (botId: string, context: string) => {
+      const access = (await tokens.issueAccess(botId, `v_${'f6'.repeat(16)}`)).token;
+      return handler(
+        post('/messages', { botId, text: 'Hi', context }, { authorization: `Bearer ${access}` }),
       );
-    const response = await send('  Pricing page  ');
-    await events(response);
+    };
+    await events(await send('support', 'Pricing page'));
+    expect(turns.at(-1)?.pageContext).toBeUndefined();
+    await events(await send('multilingual', '  Pricing page  '));
     expect(turns.at(-1)?.pageContext).toBe('Pricing page');
-    expect((await send('x'.repeat(1001))).status).toBe(400);
+    expect((await send('multilingual', 'x'.repeat(1001))).status).toBe(400);
   });
 
   it('passes only the validated locale as context, never client-supplied page data', async () => {
