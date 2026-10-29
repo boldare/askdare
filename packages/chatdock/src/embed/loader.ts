@@ -137,170 +137,187 @@ function boot(): void {
   // Inline: the chat fills an element of the page instead of floating. data-launcher="none":
   // the page opens the chat from its own button, with chatdock('open').
   const target = script.dataset['mode'] === 'inline' ? script.dataset['target'] : undefined;
-  let container: Element | null = null;
-  try {
-    container = target ? document.querySelector(target) : null;
-  } catch {
-    // An invalid selector: warned about below, and the chat floats instead.
-  }
-  if (target && !container) console.warn(`[chatdock] No element matches ${target}.`);
-  const inline = container !== null;
-  const withLauncher = !inline && script.dataset['launcher'] !== 'none';
-  // The page's language, for bots set to `auto`, and the mode, for the chat's own controls.
-  const hostLang = document.documentElement.lang;
-  const query = new URLSearchParams({
-    ...(hostLang ? { lang: hostLang } : {}),
-    ...(inline ? { mode: 'inline' } : {}),
-  });
-  const search = query.toString();
-  const embedUrl = `${appOrigin}${basePath}/embed/${encodeURIComponent(botId)}${
-    search ? `?${search}` : ''
-  }`;
-
-  const look = looks()[botId];
-  // `lang` is '' on pages without one: then the visitor's browser decides.
-  const language = (look?.locale || hostLang || navigator.language).toLowerCase().split('-')[0];
-  const texts = look?.texts[language ?? 'en'] ??
-    look?.texts['en'] ?? { label: 'Ask us', open: 'Open chat', close: 'Close chat', title: 'Chat' };
-  const host = document.createElement('div');
-  host.dataset['chatdock'] = botId;
-  host.dataset['chatdockScheme'] = look?.scheme ?? 'auto';
-  // CSSOM, not a style attribute: allowed under a strict CSP on the host page.
-  for (const [name, value] of [
-    ['--a', look?.accent ?? '#1f5fe0'],
-    ['--o', look?.onAccent ?? '#ffffff'],
-    ['--b', look?.orb ?? 'var(--a)'],
-    ['--l', look?.light ?? '#ffffff'],
-    ['--d', look?.dark ?? '#0a0f1c'],
-    ['--r', look?.radius ? `min(${look.radius}, 24px)` : '18px'],
-  ] as const) {
-    host.style.setProperty(name, value);
-  }
-  const shadow = host.attachShadow({ mode: 'open' });
-  // A constructed stylesheet is not inline style, so a site's strict CSP doesn't block it.
-  // Safari before 16.4 lacks them: fall back to a <style> element.
-  try {
-    const sheet = new CSSStyleSheet();
-    sheet.replaceSync(STYLES);
-    shadow.adoptedStyleSheets = [sheet];
-  } catch {
-    const style = document.createElement('style');
-    style.textContent = STYLES;
-    shadow.append(style);
-  }
-  const launcher = document.createElement('button');
-  launcher.type = 'button';
-  launcher.className = look?.style ?? 'circle';
-  launcher.setAttribute('part', 'launcher');
-  launcher.setAttribute('aria-label', texts.open);
-  launcher.setAttribute('aria-expanded', 'false');
-  const icon = document.createElement('span');
-  icon.style.display = 'contents';
-  const showIcon = (open: boolean): void => {
-    icon.innerHTML = open ? CLOSE_ICON : look?.style === 'circle' || !look ? CHAT_ICON : '';
-  };
-  showIcon(false);
-  if (look?.style === 'pill') {
-    const avatar = document.createElement('span');
-    avatar.className = 'av';
-    avatar.textContent = look.initials;
-    if (look.avatar) {
-      const image = document.createElement('img');
-      image.alt = '';
-      image.src = look.avatar.startsWith('/') ? `${appOrigin}${look.avatar}` : look.avatar;
-      // Blocked by the site's CSP or missing: keep the initials.
-      image.onload = () => avatar.replaceChildren(image);
+  const find = (): Element | null => {
+    try {
+      return target ? document.querySelector(target) : null;
+    } catch {
+      return null; // An invalid selector: warned about below, and the chat floats instead.
     }
-    const label = document.createElement('span');
-    label.className = 'lb';
-    label.textContent = texts.label;
-    launcher.append(avatar, label);
+  };
+  // An async script can run before the page has parsed its target (say, hoisted into <head>).
+  if (target && !find() && document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => mount(script, find(), botId), {
+      once: true,
+    });
+  } else {
+    mount(script, find(), botId);
   }
-  launcher.append(icon);
-  const panel = document.createElement('div');
-  panel.setAttribute('part', 'panel');
-  panel.setAttribute('role', 'dialog');
-  panel.setAttribute('aria-label', texts.title);
-  panel.hidden = true;
-  if (inline) panel.className = 'inline';
-  else if (!withLauncher) panel.className = 'solo';
-  shadow.append(panel);
-  if (withLauncher) shadow.append(launcher);
 
-  let iframe: HTMLIFrameElement | undefined;
-  let port: MessagePort | undefined;
-  /** The latest configure() call, delivered once the chat is connected (and again after reloads). */
-  let configured: Record<string, unknown> | undefined;
-  /** Where focus was before opening, so closing returns it (a page's own trigger, for example). */
-  let returnFocus: HTMLElement | undefined;
+  function mount(script: HTMLScriptElement, container: Element | null, botId: string): void {
+    if (target && !container) console.warn(`[chatdock] No element matches ${target}.`);
+    const inline = container !== null;
+    const withLauncher = !inline && script.dataset['launcher'] !== 'none';
+    // The page's language, for bots set to `auto`, and the mode, for the chat's own controls.
+    const hostLang = document.documentElement.lang;
+    const query = new URLSearchParams({
+      ...(hostLang ? { lang: hostLang } : {}),
+      ...(inline ? { mode: 'inline' } : {}),
+    });
+    const search = query.toString();
+    const embedUrl = `${appOrigin}${basePath}/embed/${encodeURIComponent(botId)}${
+      search ? `?${search}` : ''
+    }`;
 
-  const connect = (frame: HTMLIFrameElement): void => {
-    port?.close();
-    const channel = new MessageChannel();
-    port = channel.port1;
-    port.onmessage = (event: MessageEvent<{ v?: number; type?: string }>) => {
-      if (event.data?.v !== 1) return;
-      if (event.data.type === 'close') close();
-      // The chat has its own close button now, so phones can hide the launcher behind it.
-      if (event.data.type === 'ready') launcher.dataset['ready'] = '';
-    };
-    // Explicit target origin: only our own app can receive the port.
-    frame.contentWindow?.postMessage({ v: 1, type: 'chatdock:init' }, appOrigin, [channel.port2]);
-    if (configured) port.postMessage(configured);
-  };
-
-  const open = (focus = true): void => {
-    if (!inline && panel.hidden) {
-      // Our own launcher shows up as the host element; the page's own trigger as itself.
-      const active = document.activeElement;
-      returnFocus = active instanceof HTMLElement && active !== host ? active : undefined;
+    const look = looks()[botId];
+    // `lang` is '' on pages without one: then the visitor's browser decides.
+    const language = (look?.locale || hostLang || navigator.language).toLowerCase().split('-')[0];
+    const texts = look?.texts[language ?? 'en'] ??
+      look?.texts['en'] ?? {
+        label: 'Ask us',
+        open: 'Open chat',
+        close: 'Close chat',
+        title: 'Chat',
+      };
+    const host = document.createElement('div');
+    host.dataset['chatdock'] = botId;
+    host.dataset['chatdockScheme'] = look?.scheme ?? 'auto';
+    // CSSOM, not a style attribute: allowed under a strict CSP on the host page.
+    for (const [name, value] of [
+      ['--a', look?.accent ?? '#1f5fe0'],
+      ['--o', look?.onAccent ?? '#ffffff'],
+      ['--b', look?.orb ?? 'var(--a)'],
+      ['--l', look?.light ?? '#ffffff'],
+      ['--d', look?.dark ?? '#0a0f1c'],
+      ['--r', look?.radius ? `min(${look.radius}, 24px)` : '18px'],
+    ] as const) {
+      host.style.setProperty(name, value);
     }
-    if (!iframe) {
-      iframe = document.createElement('iframe');
-      iframe.title = 'Chat';
-      iframe.src = embedUrl;
-      iframe.referrerPolicy = 'strict-origin';
-      // The iframe's own Permissions-Policy turns the microphone off unless the bot has voice input.
-      iframe.allow = 'clipboard-write; microphone';
-      iframe.addEventListener('load', () => iframe && connect(iframe));
-      panel.append(iframe);
+    const shadow = host.attachShadow({ mode: 'open' });
+    // A constructed stylesheet is not inline style, so a site's strict CSP doesn't block it.
+    // Safari before 16.4 lacks them: fall back to a <style> element.
+    try {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(STYLES);
+      shadow.adoptedStyleSheets = [sheet];
+    } catch {
+      const style = document.createElement('style');
+      style.textContent = STYLES;
+      shadow.append(style);
     }
-    panel.hidden = false;
-    showIcon(true);
-    launcher.setAttribute('aria-expanded', 'true');
-    launcher.setAttribute('aria-label', texts.close);
-    if (focus) iframe.focus();
-  };
-
-  function close(): void {
-    if (inline || panel.hidden) return;
-    // The iframe keeps running while hidden; let it stop anything live, such as a dictation.
-    port?.postMessage({ v: 1, type: 'hidden' });
-    panel.hidden = true;
-    showIcon(false);
-    launcher.setAttribute('aria-expanded', 'false');
+    const launcher = document.createElement('button');
+    launcher.type = 'button';
+    launcher.className = look?.style ?? 'circle';
+    launcher.setAttribute('part', 'launcher');
     launcher.setAttribute('aria-label', texts.open);
-    // Back to whatever opened the chat: the page's own button, else the launcher.
-    (returnFocus?.isConnected ? returnFocus : withLauncher ? launcher : undefined)?.focus();
-  }
-
-  launcher.addEventListener('click', () => (panel.hidden ? open() : close()));
-  (container ?? document.body ?? document.documentElement).append(host);
-  // An inline chat is part of the page: it must not take focus or scroll the page on load.
-  if (inline) open(false);
-
-  const api = ((command: Command | 'configure', options?: ConfigureOptions) => {
-    if (command === 'open') open();
-    else if (command === 'close') close();
-    else if (command === 'toggle') (panel.hidden ? open : close)();
-    else if (command === 'configure') {
-      configured = configureMessage(options);
-      port?.postMessage(configured);
+    launcher.setAttribute('aria-expanded', 'false');
+    const icon = document.createElement('span');
+    icon.style.display = 'contents';
+    const showIcon = (open: boolean): void => {
+      icon.innerHTML = open ? CLOSE_ICON : look?.style === 'circle' || !look ? CHAT_ICON : '';
+    };
+    showIcon(false);
+    if (look?.style === 'pill') {
+      const avatar = document.createElement('span');
+      avatar.className = 'av';
+      avatar.textContent = look.initials;
+      if (look.avatar) {
+        const image = document.createElement('img');
+        image.alt = '';
+        image.src = look.avatar.startsWith('/') ? `${appOrigin}${look.avatar}` : look.avatar;
+        // Blocked by the site's CSP or missing: keep the initials.
+        image.onload = () => avatar.replaceChildren(image);
+      }
+      const label = document.createElement('span');
+      label.className = 'lb';
+      label.textContent = texts.label;
+      launcher.append(avatar, label);
     }
-  }) as ChatdockGlobal;
-  Object.defineProperty(api, 'loaded', { value: true });
-  window.chatdock = api;
-  for (const args of queued) (api as (...call: unknown[]) => void)(...args);
+    launcher.append(icon);
+    const panel = document.createElement('div');
+    panel.setAttribute('part', 'panel');
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-label', texts.title);
+    panel.hidden = true;
+    if (inline) panel.className = 'inline';
+    else if (!withLauncher) panel.className = 'solo';
+    shadow.append(panel);
+    if (withLauncher) shadow.append(launcher);
+
+    let iframe: HTMLIFrameElement | undefined;
+    let port: MessagePort | undefined;
+    /** The latest configure() call, delivered once the chat is connected (and again after reloads). */
+    let configured: Record<string, unknown> | undefined;
+    /** Where focus was before opening, so closing returns it (a page's own trigger, for example). */
+    let returnFocus: HTMLElement | undefined;
+
+    const connect = (frame: HTMLIFrameElement): void => {
+      port?.close();
+      const channel = new MessageChannel();
+      port = channel.port1;
+      port.onmessage = (event: MessageEvent<{ v?: number; type?: string }>) => {
+        if (event.data?.v !== 1) return;
+        if (event.data.type === 'close') close();
+        // The chat has its own close button now, so phones can hide the launcher behind it.
+        if (event.data.type === 'ready') launcher.dataset['ready'] = '';
+      };
+      // Explicit target origin: only our own app can receive the port.
+      frame.contentWindow?.postMessage({ v: 1, type: 'chatdock:init' }, appOrigin, [channel.port2]);
+      if (configured) port.postMessage(configured);
+    };
+
+    const open = (focus = true): void => {
+      if (!inline && panel.hidden) {
+        // Our own launcher shows up as the host element; the page's own trigger as itself.
+        const active = document.activeElement;
+        returnFocus = active instanceof HTMLElement && active !== host ? active : undefined;
+      }
+      if (!iframe) {
+        iframe = document.createElement('iframe');
+        iframe.title = 'Chat';
+        iframe.src = embedUrl;
+        iframe.referrerPolicy = 'strict-origin';
+        // The iframe's own Permissions-Policy turns the microphone off unless the bot has voice input.
+        iframe.allow = 'clipboard-write; microphone';
+        iframe.addEventListener('load', () => iframe && connect(iframe));
+        panel.append(iframe);
+      }
+      panel.hidden = false;
+      showIcon(true);
+      launcher.setAttribute('aria-expanded', 'true');
+      launcher.setAttribute('aria-label', texts.close);
+      if (focus) iframe.focus();
+    };
+
+    function close(): void {
+      if (inline || panel.hidden) return;
+      // The iframe keeps running while hidden; let it stop anything live, such as a dictation.
+      port?.postMessage({ v: 1, type: 'hidden' });
+      panel.hidden = true;
+      showIcon(false);
+      launcher.setAttribute('aria-expanded', 'false');
+      launcher.setAttribute('aria-label', texts.open);
+      // Back to whatever opened the chat: the page's own button, else the launcher.
+      (returnFocus?.isConnected ? returnFocus : withLauncher ? launcher : undefined)?.focus();
+    }
+
+    launcher.addEventListener('click', () => (panel.hidden ? open() : close()));
+    (container ?? document.body ?? document.documentElement).append(host);
+    // An inline chat is part of the page: it must not take focus or scroll the page on load.
+    if (inline) open(false);
+
+    const api = ((command: Command | 'configure', options?: ConfigureOptions) => {
+      if (command === 'open') open();
+      else if (command === 'close') close();
+      else if (command === 'toggle') (panel.hidden ? open : close)();
+      else if (command === 'configure') {
+        configured = configureMessage(options);
+        port?.postMessage(configured);
+      }
+    }) as ChatdockGlobal;
+    Object.defineProperty(api, 'loaded', { value: true });
+    window.chatdock = api;
+    for (const args of queued) (api as (...call: unknown[]) => void)(...args);
+  }
 }
 
 boot();
