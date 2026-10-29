@@ -19,16 +19,20 @@ We weighed three shapes:
 
 We build a **library for Next.js**, structured as a small core plus optional add-ons in one monorepo.
 
-- **Core:** a single npm package (working name `chatdock`). It is ESM-only and exposes subpath exports:
-  - `chatdock`: `defineBot`, `defineTool`, domain types.
-  - `chatdock/next`: `createChatHandler`.
-  - `chatdock/react`: headless UI, from 0.2.
+- **Core:** a single npm package, `@boldare/chatdock`. It is ESM-only and exposes subpath exports:
+  - `@boldare/chatdock`: `defineBot`, `defineTool`, domain types.
+  - `@boldare/chatdock/next`: `createChatHandler`.
+  - `@boldare/chatdock/react`: headless UI, from 0.2.
   - A `bin` with the CLI (`init`, `doctor`, `kb sync`).
 - **Add-ons:** separate packages that implement core ports, added only when needed:
-  - `@chatdock/upstash`: shared limits, in 0.1.
-  - `@chatdock/store-postgres` and `@chatdock/admin`: later, on demand.
+  - `@boldare/chatdock-upstash`: shared limits, in 0.1.
+  - `@boldare/chatdock-store-postgres` and `@boldare/chatdock-admin`: later, on demand.
 - **Scaffolding:** `create-next-app --example` pointing at `examples/starter`. There is no `create-*` package.
 - **Integration surface:** one route file plus one `<script>` tag.
+- **Naming:**
+  - the package is `@boldare/chatdock`, and add-ons are `@boldare/chatdock-*`;
+  - the CLI binary is `chatdock`, run as `npx @boldare/chatdock <command>`;
+  - no "OpenAI" or "GPT" in any name (OpenAI brand guidelines).
 
 ## Consequences
 

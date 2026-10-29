@@ -30,7 +30,7 @@ Goal: **bound the damage** (dollars per day, requests per IP or visitor) and **p
   - daily budgets per bot and global;
   - max input characters, `max_output_tokens`, max tool steps, max turns;
   - kill switch via an env var.
-  - Counters live in memory by default; `@chatdock/upstash` shares them across instances.
+  - Counters live in memory by default; `@boldare/chatdock-upstash` shares them across instances.
 - **Required deployment guidance:** a dedicated OpenAI project with a restricted key, a model allowlist and a **hard spend limit**. This is the backstop that needs no infrastructure.
 - **Client IP:** `getClientIp(req)` with Vercel and Heroku presets plus `trustProxy`. The leftmost `X-Forwarded-For` value is spoofable.
 - **Transport:** no cookies, Bearer tokens only (no CSRF), JSON-only POST bodies.
