@@ -38,6 +38,7 @@ function fakeGateway(runTurn: (request: TurnRequest) => Promise<TurnResult>): Mo
       return 'conv_new';
     },
     deleteConversation: async () => {},
+    listMessages: async () => [],
     runTurn: (request) => {
       requests.push(request);
       return runTurn(request);

@@ -1,6 +1,7 @@
 import OpenAI, { NotFoundError } from 'openai';
 import type { ModelGateway } from '../gateway';
 import { fromOpenAIError } from './errors';
+import { listHistory } from './history';
 import { runTurn } from './turn';
 
 export interface OpenAIGatewayOptions {
@@ -46,6 +47,14 @@ export function createOpenAIGateway(options: OpenAIGatewayOptions): ModelGateway
         await client.conversations.delete(conversationId);
       } catch (error) {
         if (error instanceof NotFoundError) return;
+        throw fromOpenAIError(error, false);
+      }
+    },
+
+    async listMessages(conversationId, signal) {
+      try {
+        return await listHistory(client, conversationId, signal);
+      } catch (error) {
         throw fromOpenAIError(error, false);
       }
     },

@@ -1,5 +1,6 @@
 import type { Bot, BotContext } from './bot/define-bot';
 import type { MessageEndReason, ProtocolEvent } from './protocol/events';
+import type { HistoryMessage } from './protocol/history';
 
 export interface TokenUsage {
   readonly inputTokens: number;
@@ -37,5 +38,7 @@ export interface TurnResult {
 export interface ModelGateway {
   createConversation(metadata: ConversationMetadata, signal?: AbortSignal): Promise<string>;
   deleteConversation(conversationId: string): Promise<void>;
+  /** Visible messages of a conversation, oldest first. */
+  listMessages(conversationId: string, signal?: AbortSignal): Promise<readonly HistoryMessage[]>;
   runTurn(request: TurnRequest): Promise<TurnResult>;
 }

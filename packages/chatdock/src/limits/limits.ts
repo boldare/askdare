@@ -32,6 +32,8 @@ export interface Limits {
   checkSession(bot: Bot, keys: SessionLimitKeys): Promise<void>;
   /** Enforces rates, then atomically reserves tokens against every budget. */
   beginTurn(bot: Bot, keys: TurnLimitKeys): Promise<TurnReservation>;
+  /** History reads and deletions: no tokens, but they still cost upstream calls. */
+  checkConversationAccess(bot: Bot, visitorId: string): Promise<void>;
 }
 
 export interface LimitsOptions {
@@ -106,6 +108,11 @@ export function createLimits(options: LimitsOptions): Limits {
       } else {
         await enforce(`cd:s:${bot.id}:${keys.clientIp}`, HOUR, bot.limits.sessionsPerIpPerHour);
       }
+    },
+
+    async checkConversationAccess(bot, visitorId) {
+      assertEnabled();
+      await enforce(`cd:r:${bot.id}:${visitorId}`, MINUTE, 20);
     },
 
     async beginTurn(bot, keys) {

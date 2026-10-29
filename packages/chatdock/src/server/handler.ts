@@ -32,6 +32,11 @@ const sessionBody = z.object({
   resumeToken: z.string().max(4096).optional(),
 });
 
+const conversationBody = z.object({
+  botId: z.string().max(64),
+  resumeToken: z.string().min(1).max(4096),
+});
+
 const messageBody = z.object({
   botId: z.string().max(64),
   text: z.string(),
@@ -266,6 +271,33 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     return new Response(stream, { headers: STREAM_HEADERS });
   };
 
+  /** Authenticates the visitor and proves they own the conversation behind the resume token. */
+  const ownedConversation = async (
+    request: Request,
+  ): Promise<{ bot: Bot; conversationId: string }> => {
+    assertSameOrigin(request);
+    const body = await readJson(request, conversationBody);
+    const bot = findBot(body.botId);
+    const tokens = await config.tokens();
+    const { visitorId } = await tokens.verifyAccess(bearerToken(request), bot.id);
+    const grant = await tokens.verifyResume(body.resumeToken, bot.id);
+    if (grant.visitorId !== visitorId) throw new ChatdockError('not_found');
+    await config.limits.checkConversationAccess(bot, visitorId);
+    return { bot, conversationId: grant.conversationId };
+  };
+
+  const readHistory = async (request: Request): Promise<Response> => {
+    const { conversationId } = await ownedConversation(request);
+    const messages = await config.gateway().listMessages(conversationId, request.signal);
+    return jsonResponse({ messages });
+  };
+
+  const deleteConversation = async (request: Request): Promise<Response> => {
+    const { conversationId } = await ownedConversation(request);
+    await config.gateway().deleteConversation(conversationId);
+    return new Response(null, { status: 204, headers: NO_STORE });
+  };
+
   const route = async (request: Request): Promise<Response> => {
     const { pathname } = new URL(request.url);
     if (!pathname.startsWith(`${config.basePath}/`)) throw new ChatdockError('not_found');
@@ -281,6 +313,9 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     } else if (method === 'POST') {
       if (path === '/session') return createSession(request);
       if (path === '/messages') return sendMessage(request);
+      if (path === '/history') return readHistory(request);
+    } else if (method === 'DELETE') {
+      if (path === '/conversation') return deleteConversation(request);
     }
     throw new ChatdockError('not_found');
   };
