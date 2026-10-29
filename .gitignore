@@ -1,0 +1,22 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+.next/
+out/
+*.tsbuildinfo
+
+# tests
+coverage/
+playwright-report/
+test-results/
+
+# secrets — never commit real keys (spikes included)
+.env
+.env.*
+!.env.example
+
+# misc
+*.log
+.DS_Store
