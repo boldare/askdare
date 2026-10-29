@@ -1,13 +1,18 @@
 import { EncryptJWT, errors, jwtDecrypt } from 'jose';
+import type { AttachmentKind } from '../attachments/files';
 import { ChatdockError } from '../errors';
 
 const ISSUER = 'chatdock';
 const ACCESS_TYP = 'chatdock-access+jwt';
 const RESUME_TYP = 'chatdock-resume+jwt';
+const ATTACHMENT_TYP = 'chatdock-attachment+jwt';
 const MIN_SECRET_LENGTH = 32;
 const MIN_DISTINCT_CHARACTERS = 12;
 const VISITOR_ID = /^v_[0-9a-f]{32}$/;
 const CONVERSATION_ID = /^conv_[A-Za-z0-9_-]{1,128}$/;
+const FILE_ID = /^file-[A-Za-z0-9_-]{1,128}$/;
+/** How long after expiry an access token still identifies its visitor for a renewal. */
+const RENEWAL_GRACE_SECONDS = 60 * 60;
 const encoder = new TextEncoder();
 
 export interface TokenServiceOptions {
@@ -19,6 +24,8 @@ export interface TokenServiceOptions {
   readonly accessTtlSeconds?: number;
   /** Default 30 days. */
   readonly resumeTtlSeconds?: number;
+  /** How long an uploaded file can wait to be sent. Default 1 hour. */
+  readonly attachmentTtlSeconds?: number;
   /** Clock in seconds, for tests. */
   readonly now?: () => number;
 }
@@ -38,17 +45,34 @@ export interface ResumeGrant {
   readonly conversationId: string;
 }
 
+export interface AttachmentGrant {
+  readonly visitorId: string;
+  readonly fileId: string;
+  readonly kind: AttachmentKind;
+  /** Server estimate of the input tokens the file adds to a turn. */
+  readonly tokens: number;
+}
+
 /**
- * Issues and verifies the two session tokens (ADR-0004). Both are encrypted (JWE, `dir` +
- * A256GCM), so they are tamper-proof and opaque: clients never see raw OpenAI conversation IDs.
+ * Issues and verifies the session tokens and attachment handles (ADR-0004). All are encrypted
+ * (JWE, `dir` + A256GCM), so they are tamper-proof and opaque: clients never see raw OpenAI
+ * conversation or file IDs.
  */
 export interface TokenService {
   issueAccess(botId: string, visitorId: string): Promise<IssuedToken>;
   /** Throws `unauthorized` or `session_expired`. */
   verifyAccess(token: string, botId: string): Promise<AccessGrant>;
+  /**
+   * For session renewal: accepts an access token up to 1 hour past its expiry, so a visitor keeps
+   * their identity (and their uploaded files) before they have a conversation. Throws `unauthorized`.
+   */
+  verifyRenewal(token: string, botId: string): Promise<AccessGrant>;
   issueResume(botId: string, grant: ResumeGrant): Promise<IssuedToken>;
   /** Throws `not_found`, so a forged or stale handle reveals nothing. */
   verifyResume(token: string, botId: string): Promise<ResumeGrant>;
+  issueAttachment(botId: string, grant: AttachmentGrant): Promise<IssuedToken>;
+  /** Throws `invalid_input` for a forged, expired or foreign handle, and for raw file IDs. */
+  verifyAttachment(token: string, botId: string): Promise<AttachmentGrant>;
 }
 
 interface DerivedKey {
@@ -89,13 +113,14 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
   const now = options.now ?? (() => Math.floor(Date.now() / 1000));
   const accessTtl = options.accessTtlSeconds ?? 15 * 60;
   const resumeTtl = options.resumeTtlSeconds ?? 30 * 24 * 60 * 60;
+  const attachmentTtl = options.attachmentTtlSeconds ?? 60 * 60;
 
   async function issue(
     typ: string,
     botId: string,
     subject: string,
     ttl: number,
-    claims: Record<string, string> = {},
+    claims: Record<string, string | number> = {},
   ): Promise<IssuedToken> {
     const issuedAt = now();
     const expiresAt = issuedAt + ttl;
@@ -110,7 +135,7 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
     return { token, expiresAt };
   }
 
-  async function verify(token: string, typ: string, botId: string) {
+  async function verify(token: string, typ: string, botId: string, clockTolerance = 0) {
     // Never fall back to a default key: with `dir`, any fixed key would let anyone mint tokens.
     const resolveKey = (header: { kid?: string | undefined }): Uint8Array => {
       const key = header.kid === undefined ? undefined : keys.get(header.kid);
@@ -125,6 +150,7 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
       keyManagementAlgorithms: ['dir'],
       contentEncryptionAlgorithms: ['A256GCM'],
       currentDate: new Date(now() * 1000),
+      clockTolerance,
     });
   }
 
@@ -142,6 +168,18 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
         if (error instanceof errors.JWTExpired) {
           throw new ChatdockError('session_expired', { cause: error });
         }
+        throw new ChatdockError('unauthorized', { cause: error });
+      }
+    },
+
+    async verifyRenewal(token, botId) {
+      try {
+        const { payload } = await verify(token, ACCESS_TYP, botId, RENEWAL_GRACE_SECONDS);
+        if (typeof payload.sub !== 'string' || !VISITOR_ID.test(payload.sub)) {
+          throw new ChatdockError('unauthorized');
+        }
+        return { visitorId: payload.sub };
+      } catch (error) {
         throw new ChatdockError('unauthorized', { cause: error });
       }
     },
@@ -165,6 +203,41 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
       } catch (error) {
         throw new ChatdockError('not_found', { cause: error });
       }
+    },
+
+    issueAttachment: (botId, grant) =>
+      issue(ATTACHMENT_TYP, botId, grant.visitorId, attachmentTtl, {
+        fid: grant.fileId,
+        knd: grant.kind,
+        est: grant.tokens,
+      }),
+
+    async verifyAttachment(token, botId) {
+      const invalid = (cause?: unknown): ChatdockError =>
+        new ChatdockError('invalid_input', {
+          message: 'An attachment expired or is invalid. Please attach it again.',
+          cause,
+        });
+      let payload: Awaited<ReturnType<typeof verify>>['payload'];
+      try {
+        ({ payload } = await verify(token, ATTACHMENT_TYP, botId));
+      } catch (error) {
+        throw invalid(error);
+      }
+      const { fid, knd, est } = payload;
+      if (
+        typeof payload.sub !== 'string' ||
+        !VISITOR_ID.test(payload.sub) ||
+        typeof fid !== 'string' ||
+        !FILE_ID.test(fid) ||
+        (knd !== 'image' && knd !== 'pdf') ||
+        typeof est !== 'number' ||
+        !Number.isSafeInteger(est) ||
+        est < 0
+      ) {
+        throw invalid();
+      }
+      return { visitorId: payload.sub, fileId: fid, kind: knd, tokens: est };
     },
   };
 }

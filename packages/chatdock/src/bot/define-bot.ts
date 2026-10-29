@@ -30,6 +30,12 @@ export interface BotLimits {
   readonly messagesPerIpPerMinute?: number;
   /** Turns per conversation before the visitor must start a new one. Default 50. */
   readonly maxTurns?: number;
+  /** File uploads per visitor per hour, when attachments are on. Default 20. */
+  readonly uploadsPerVisitorPerHour?: number;
+  /** File uploads per client IP per hour, across visitors. Default 60. */
+  readonly uploadsPerIpPerHour?: number;
+  /** File uploads per UTC day across all visitors; bounds storage, since unsent files cost no tokens. Default 500. */
+  readonly uploadsPerDay?: number;
 }
 
 export interface BotSecurity {
@@ -45,6 +51,22 @@ export interface KnowledgeConfig {
   readonly vectorStoreId: string;
   /** Chunks the model reads per search: more grounds answers better but costs input tokens. Default 5. */
   readonly maxResults?: number;
+}
+
+export interface AttachmentConfig {
+  /** PNG, JPEG, WebP and GIF. The widget downsizes photos and strips their metadata. Default true. */
+  readonly images?: boolean;
+  /** PDF documents; the model reads their text and page images. Default true. */
+  readonly pdf?: boolean;
+  /** Largest file in bytes. Default 4 MB, which fits Vercel's 4.5 MB request body limit. */
+  readonly maxBytes?: number;
+  /** Files per message. Default 3. */
+  readonly maxPerMessage?: number;
+  /**
+   * Longest PDF accepted. Each page costs about 2,000 input tokens, reserved before the turn; a
+   * PDF whose pages can't be counted is charged as if it had this many. Default 50.
+   */
+  readonly maxPdfPages?: number;
 }
 
 /** Public widget settings. Everything here is sent to browsers, so never put secrets in it. */
@@ -67,6 +89,11 @@ export interface BotDefinition {
   readonly tools?: readonly Tool[];
   /** Documents the model searches with OpenAI file search and cites in its answers. */
   readonly knowledge?: KnowledgeConfig | undefined;
+  /**
+   * Lets visitors attach images and PDFs. Off when absent. Files go to OpenAI (purpose
+   * `user_data`) and expire after 30 days, or when the visitor deletes the conversation.
+   */
+  readonly attachments?: AttachmentConfig | undefined;
   readonly security?: BotSecurity;
   readonly widget?: WidgetConfig;
 }
@@ -78,6 +105,7 @@ export interface Bot {
   readonly limits: Required<BotLimits>;
   readonly tools: readonly Tool[];
   readonly knowledge: Required<KnowledgeConfig> | undefined;
+  readonly attachments: Required<AttachmentConfig> | undefined;
   readonly security: { readonly allowedOrigins: readonly string[] };
   readonly widget: Required<WidgetConfig>;
 }
@@ -94,6 +122,9 @@ const DEFAULT_LIMITS: Required<BotLimits> = {
   messagesPerVisitorPerMinute: 10,
   messagesPerIpPerMinute: 30,
   maxTurns: 50,
+  uploadsPerVisitorPerHour: 20,
+  uploadsPerIpPerHour: 60,
+  uploadsPerDay: 500,
 };
 
 const DEFAULT_WIDGET: Required<WidgetConfig> = {
@@ -135,6 +166,9 @@ const definitionSchema = z.object({
       messagesPerVisitorPerMinute: z.number().int().min(1).max(1_000).optional(),
       messagesPerIpPerMinute: z.number().int().min(1).max(10_000).optional(),
       maxTurns: z.number().int().min(1).max(1_000).optional(),
+      uploadsPerVisitorPerHour: z.number().int().min(1).max(1_000).optional(),
+      uploadsPerIpPerHour: z.number().int().min(1).max(10_000).optional(),
+      uploadsPerDay: z.number().int().min(1).max(1_000_000).optional(),
     })
     .optional(),
   tools: z
@@ -159,6 +193,16 @@ const definitionSchema = z.object({
       vectorStoreId: z.string().regex(/^vs_[A-Za-z0-9_-]+$/, 'must be a vector store ID like vs_…'),
       maxResults: z.number().int().min(1).max(50).optional(),
     })
+    .optional(),
+  attachments: z
+    .object({
+      images: z.boolean().optional(),
+      pdf: z.boolean().optional(),
+      maxBytes: z.number().int().min(1_000).max(20_000_000).optional(),
+      maxPerMessage: z.number().int().min(1).max(10).optional(),
+      maxPdfPages: z.number().int().min(1).max(500).optional(),
+    })
+    .refine((value) => value.images !== false || value.pdf !== false, 'must allow images or pdf')
     .optional(),
   security: z.object({ allowedOrigins: z.array(origin).max(50).optional() }).optional(),
   widget: z
@@ -197,6 +241,15 @@ export function defineBot(definition: BotDefinition): Bot {
       ? Object.freeze({
           vectorStoreId: definition.knowledge.vectorStoreId,
           maxResults: definition.knowledge.maxResults ?? 5,
+        })
+      : undefined,
+    attachments: definition.attachments
+      ? Object.freeze({
+          images: definition.attachments.images ?? true,
+          pdf: definition.attachments.pdf ?? true,
+          maxBytes: definition.attachments.maxBytes ?? 4_000_000,
+          maxPerMessage: definition.attachments.maxPerMessage ?? 3,
+          maxPdfPages: definition.attachments.maxPdfPages ?? 50,
         })
       : undefined,
     security: Object.freeze({

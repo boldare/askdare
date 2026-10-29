@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { defineBot } from '../bot/define-bot';
+import { defineTool } from '../tools/define-tool';
 import { getClientIp, normalizeIp } from './client-ip';
 import { createLimits } from './limits';
 import { memoryStore } from './store';
@@ -218,6 +220,50 @@ describe('budgets', () => {
     await expect(limits.beginTurn(bot, turn('a', 'v'))).rejects.toMatchObject({
       code: 'bot_unavailable',
     });
+  });
+});
+
+describe('attachments', () => {
+  const toolBot = defineBot({
+    id: 'support',
+    model: 'm',
+    instructions: 'x',
+    limits: { maxOutputTokens: 100, maxSteps: 4, dailyTokens: 100_000, dailyTokensPerIp: 100_000 },
+    tools: [
+      defineTool({ name: 'ping', description: 'Ping', input: z.object({}), execute: () => 'pong' }),
+    ],
+  });
+
+  it('reserves file tokens once per model call the turn may make', async () => {
+    const { limits, spent } = setup();
+    await limits.beginTurn(bot, { ...turn('ip-a', 'va'), attachmentTokens: 300 });
+    expect(await spent()).toBe(110 + 300);
+    await limits.beginTurn(toolBot, { ...turn('ip-b', 'vb'), attachmentTokens: 300 });
+    expect(await spent()).toBe(110 + 300 + 110 + 4 * 300);
+  });
+
+  it('caps uploads per visitor, per IP and per bot per day', async () => {
+    const { limits, advance } = setup();
+    const uploadBot = defineBot({
+      id: 'support',
+      model: 'm',
+      instructions: 'x',
+      limits: { uploadsPerVisitorPerHour: 2, uploadsPerIpPerHour: 3, uploadsPerDay: 4 },
+    });
+    await limits.checkUpload(uploadBot, { clientIp: 'ip', visitorId: 'v1' });
+    await limits.checkUpload(uploadBot, { clientIp: 'ip', visitorId: 'v1' });
+    await expect(
+      limits.checkUpload(uploadBot, { clientIp: 'ip', visitorId: 'v1' }),
+    ).rejects.toMatchObject({ code: 'rate_limited' });
+    await limits.checkUpload(uploadBot, { clientIp: 'ip', visitorId: 'v2' });
+    await expect(
+      limits.checkUpload(uploadBot, { clientIp: 'ip', visitorId: 'v3' }),
+    ).rejects.toMatchObject({ code: 'rate_limited' });
+    advance(60 * 60 * 1000);
+    await limits.checkUpload(uploadBot, { clientIp: 'ip-2', visitorId: 'v4' });
+    await expect(
+      limits.checkUpload(uploadBot, { clientIp: 'ip-3', visitorId: 'v5' }),
+    ).rejects.toMatchObject({ code: 'rate_limited' });
   });
 });
 

@@ -6,6 +6,9 @@ const PORT = Number(process.env.MOCK_OPENAI_PORT ?? 4010);
 let nextConversation = 1;
 /** Stored items per conversation, oldest first, as the Conversations API keeps them. */
 const conversations = new Map();
+let nextFile = 1;
+/** Uploaded files that still exist, so tests can check they are deleted. */
+const files = new Set();
 
 // Same shape as the live API's answer for a deleted conversation (spike S1, E11).
 const notFound = (response, id) =>
@@ -80,15 +83,18 @@ createServer(async (request, response) => {
     const body = await readJson(request);
     const items = conversations.get(body.conversation);
     if (!items) return notFound(response, body.conversation);
-    const userText = body.input?.[0]?.content ?? '';
-    const reply = `You said: ${userText} (in ${body.conversation})`;
+    const content = body.input?.[0]?.content ?? '';
+    const parts = typeof content === 'string' ? [{ type: 'input_text', text: content }] : content;
+    const userText = parts.find((part) => part.type === 'input_text')?.text ?? '';
+    const attached = parts.filter((part) => part.file_id).length;
+    const reply = `You said: ${userText} (in ${body.conversation})${attached ? ` [${attached} files]` : ''}`;
     items.push(
       {
         id: `msg_${items.length}`,
         type: 'message',
         role: 'user',
         status: 'completed',
-        content: [{ type: 'input_text', text: userText }],
+        content: parts,
       },
       {
         id: `msg_${items.length + 1}`,
@@ -114,6 +120,21 @@ createServer(async (request, response) => {
       has_more: false,
     });
   }
+  if (request.method === 'POST' && pathname === '/v1/files') {
+    for await (const _chunk of request) {
+      // Drain the multipart upload; its content is not needed.
+    }
+    const id = `file-mock${nextFile++}`;
+    files.add(id);
+    return json(response, 200, { id, object: 'file', purpose: 'user_data', status: 'processed' });
+  }
+  if (request.method === 'DELETE' && pathname.startsWith('/v1/files/')) {
+    const id = pathname.split('/').at(-1);
+    if (!files.delete(id)) return json(response, 404, { error: { message: 'No such file' } });
+    return json(response, 200, { id, deleted: true, object: 'file' });
+  }
+  if (request.method === 'GET' && pathname === '/debug/files')
+    return json(response, 200, [...files]);
   if (request.method === 'DELETE' && pathname.startsWith('/v1/conversations/')) {
     const id = pathname.split('/').at(-1);
     conversations.delete(id);

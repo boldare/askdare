@@ -28,6 +28,34 @@ interface ErrorBody {
   };
 }
 
+export interface OutgoingMessage {
+  readonly text: string;
+  /** Handles returned by {@link ChatClient.upload}. */
+  readonly attachments?: readonly string[];
+}
+
+export interface UploadedFile {
+  /** Opaque handle to send with the message. */
+  readonly id: string;
+  readonly kind: 'image' | 'pdf';
+  readonly name: string;
+}
+
+export type UploadResult =
+  | { readonly ok: true; readonly file: UploadedFile }
+  | { readonly ok: false; readonly message: string };
+
+interface RequestBody {
+  readonly contentType: string;
+  readonly body: BodyInit;
+  readonly headers?: Record<string, string>;
+}
+
+const json = (value: unknown): RequestBody => ({
+  contentType: 'application/json',
+  body: JSON.stringify(value),
+});
+
 const RENEW_MARGIN_SECONDS = 30;
 
 function errorEvent(code: ErrorCode, message: string, retryAfterMs?: number): ProtocolEvent {
@@ -44,6 +72,8 @@ export class ChatClient {
   readonly #fetch: typeof fetch;
   readonly #resumeKey: string;
   #session: Session | undefined;
+  /** Shared by concurrent callers, so parallel uploads end up with one visitor. */
+  #opening: Promise<Session> | undefined;
 
   constructor(options: ChatClientOptions) {
     this.#options = options;
@@ -68,7 +98,7 @@ export class ChatClient {
     const response = await this.#authorized(
       'POST',
       '/history',
-      () => ({ botId: this.#options.botId, resumeToken }),
+      () => json({ botId: this.#options.botId, resumeToken }),
       signal,
     );
     if (response.status === 404) {
@@ -85,18 +115,52 @@ export class ChatClient {
     const resumeToken = this.#options.storage.get(this.#resumeKey);
     try {
       if (resumeToken) {
-        await this.#authorized('DELETE', '/conversation', () => ({
-          botId: this.#options.botId,
-          resumeToken,
-        }));
+        await this.#authorized('DELETE', '/conversation', () =>
+          json({ botId: this.#options.botId, resumeToken }),
+        );
       }
     } finally {
       this.reset();
     }
   }
 
+  /** Uploads one file for the next message. The server checks its type and size again. */
+  async upload(file: Blob, name: string, signal?: AbortSignal): Promise<UploadResult> {
+    try {
+      const response = await this.#authorized(
+        'POST',
+        '/attachments',
+        () => ({
+          contentType: 'application/octet-stream',
+          body: file,
+          headers: {
+            'x-chatdock-bot': this.#options.botId,
+            'x-chatdock-filename': encodeURIComponent(name),
+          },
+        }),
+        signal,
+      );
+      if (!response.ok) {
+        const event = await this.#errorFromResponse(response);
+        return { ok: false, message: event.type === 'error' ? event.message : 'Upload failed.' };
+      }
+      const body = (await response.json()) as { attachment?: Partial<UploadedFile> };
+      const uploaded = body.attachment;
+      if (
+        typeof uploaded?.id !== 'string' ||
+        (uploaded.kind !== 'image' && uploaded.kind !== 'pdf') ||
+        typeof uploaded.name !== 'string'
+      ) {
+        return { ok: false, message: 'Upload failed.' };
+      }
+      return { ok: true, file: { id: uploaded.id, kind: uploaded.kind, name: uploaded.name } };
+    } catch {
+      return { ok: false, message: 'Connection problem. Please try again.' };
+    }
+  }
+
   async send(
-    text: string,
+    message: OutgoingMessage,
     onEvent: (event: ProtocolEvent) => void,
     signal?: AbortSignal,
   ): Promise<void> {
@@ -106,12 +170,13 @@ export class ChatClient {
         '/messages',
         () => {
           const resumeToken = this.#options.storage.get(this.#resumeKey);
-          return {
+          return json({
             botId: this.#options.botId,
-            text,
+            text: message.text,
             locale: this.#options.locale,
+            ...(message.attachments?.length ? { attachments: message.attachments } : {}),
             ...(resumeToken ? { resumeToken } : {}),
-          };
+          });
         },
         signal,
       );
@@ -139,22 +204,24 @@ export class ChatClient {
     }
   }
 
-  /** Sends an authenticated JSON request, renewing an expired session once. */
+  /** Sends an authenticated request, renewing an expired session once. */
   async #authorized(
     method: 'POST' | 'DELETE',
     path: string,
-    body: () => Record<string, unknown>,
+    request: () => RequestBody,
     signal?: AbortSignal,
   ): Promise<Response> {
     const attempt = async (renew: boolean): Promise<Response> => {
-      const session = await this.#ensureSession(renew, signal);
+      const session = await this.#ensureSession(renew);
+      const { contentType, body, headers } = request();
       return this.#fetch(`${this.#options.basePath}${path}`, {
         method,
         headers: {
-          'content-type': 'application/json',
+          ...headers,
+          'content-type': contentType,
           authorization: `Bearer ${session.accessToken}`,
         },
-        body: JSON.stringify(body()),
+        body,
         ...(signal ? { signal } : {}),
       });
     };
@@ -162,17 +229,30 @@ export class ChatClient {
     return first.status === 401 ? attempt(true) : first;
   }
 
-  async #ensureSession(renew: boolean, signal: AbortSignal | undefined): Promise<Session> {
+  async #ensureSession(renew: boolean): Promise<Session> {
     const now = Date.now() / 1000;
     if (!renew && this.#session && this.#session.expiresAt - RENEW_MARGIN_SECONDS > now) {
       return this.#session;
     }
+    this.#opening ??= this.#openSession().finally(() => {
+      this.#opening = undefined;
+    });
+    return this.#opening;
+  }
+
+  /** Not tied to one caller's signal, because other callers may be waiting for the same session. */
+  async #openSession(): Promise<Session> {
     const resumeToken = this.#options.storage.get(this.#resumeKey);
+    // The previous access token keeps the same visitor, so files uploaded before a renewal stay theirs.
+    const accessToken = this.#session?.accessToken;
     const response = await this.#fetch(`${this.#options.basePath}/session`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ botId: this.#options.botId, ...(resumeToken ? { resumeToken } : {}) }),
-      ...(signal ? { signal } : {}),
+      body: JSON.stringify({
+        botId: this.#options.botId,
+        ...(resumeToken ? { resumeToken } : {}),
+        ...(accessToken ? { accessToken } : {}),
+      }),
     });
     if (!response.ok) throw new Error(`Session request failed with ${response.status}`);
     const body = (await response.json()) as {

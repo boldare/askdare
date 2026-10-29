@@ -78,6 +78,98 @@ describe('deleteConversation', () => {
     );
     await expect(gateway.deleteConversation('conv_gone')).resolves.toBeUndefined();
   });
+
+  it('also deletes the files the visitor attached, ignoring ones already gone', async () => {
+    const calls: string[] = [];
+    const userMessage = (id: string, content: unknown[]) => ({
+      id,
+      type: 'message',
+      role: 'user',
+      status: 'completed',
+      content,
+    });
+    server.use(
+      http.get(`${OPENAI_TEST_BASE_URL}/conversations/conv_f/items`, () =>
+        HttpResponse.json({
+          object: 'list',
+          data: [
+            userMessage('msg_2', [
+              { type: 'input_text', text: 'And this?' },
+              { type: 'input_file', file_id: 'file-pdf' },
+            ]),
+            {
+              id: 'msg_x',
+              type: 'message',
+              role: 'assistant',
+              status: 'completed',
+              content: [{ type: 'output_text', text: 'ok', annotations: [], logprobs: [] }],
+            },
+            userMessage('msg_1', [
+              { type: 'input_image', file_id: 'file-img', detail: 'auto' },
+              { type: 'input_image', file_id: 'file-img', detail: 'auto' },
+            ]),
+          ],
+          first_id: 'msg_2',
+          last_id: 'msg_1',
+          has_more: false,
+        }),
+      ),
+      http.delete(`${OPENAI_TEST_BASE_URL}/conversations/conv_f`, () => {
+        calls.push('conversation');
+        return HttpResponse.json({ id: 'conv_f', deleted: true, object: 'conversation.deleted' });
+      }),
+      http.delete(`${OPENAI_TEST_BASE_URL}/files/:id`, ({ params }) => {
+        calls.push(String(params['id']));
+        return params['id'] === 'file-pdf'
+          ? HttpResponse.json({ error: { message: 'gone' } }, { status: 404 })
+          : HttpResponse.json({ id: params['id'], deleted: true, object: 'file' });
+      }),
+    );
+    await gateway.deleteConversation('conv_f', { withFiles: true });
+    expect(calls[0]).toBe('conversation');
+    expect(calls.slice(1).sort()).toEqual(['file-img', 'file-pdf']);
+  });
+});
+
+describe('deleteConversation when listing fails', () => {
+  it('still deletes the conversation and leaves the files to expire', async () => {
+    let deleted = false;
+    server.use(
+      http.get(`${OPENAI_TEST_BASE_URL}/conversations/conv_x/items`, () =>
+        HttpResponse.json({ error: { message: 'boom' } }, { status: 500 }),
+      ),
+      http.delete(`${OPENAI_TEST_BASE_URL}/conversations/conv_x`, () => {
+        deleted = true;
+        return HttpResponse.json({ id: 'conv_x', deleted: true, object: 'conversation.deleted' });
+      }),
+    );
+    await gateway.deleteConversation('conv_x', { withFiles: true });
+    expect(deleted).toBe(true);
+  });
+});
+
+describe('uploadFile', () => {
+  it('stores the file as user_data that expires after 30 days', async () => {
+    let form: FormData | undefined;
+    server.use(
+      http.post(`${OPENAI_TEST_BASE_URL}/files`, async ({ request }) => {
+        form = await request.formData();
+        return HttpResponse.json({ id: 'file-new', object: 'file', purpose: 'user_data' });
+      }),
+    );
+    const id = await gateway.uploadFile({
+      bytes: new Uint8Array([0x25, 0x50, 0x44, 0x46]),
+      filename: 'offer.pdf',
+      mime: 'application/pdf',
+    });
+    expect(id).toBe('file-new');
+    expect(form?.get('purpose')).toBe('user_data');
+    expect(form?.get('expires_after[anchor]')).toBe('created_at');
+    expect(form?.get('expires_after[seconds]')).toBe('2592000');
+    const file = form?.get('file') as File;
+    expect(file.name).toBe('offer.pdf');
+    expect(file.type).toBe('application/pdf');
+  });
 });
 
 describe('runTurn', () => {
@@ -302,6 +394,31 @@ describe('runTurn', () => {
       tool_choice: { type: 'allowed_tools', mode: 'auto', tools: [{ type: 'file_search' }] },
     });
     expect((capture.body as { tools: unknown[] }).tools).toHaveLength(2);
+  });
+
+  it('sends attached files as input parts after the text', async () => {
+    const capture: CapturedRequest = { body: undefined };
+    server.use(responsesHandler(textTurnEvents(['A cat.']), {}, capture));
+    const { request } = turn({
+      text: 'What is this?',
+      attachments: [
+        { fileId: 'file-img', kind: 'image' },
+        { fileId: 'file-pdf', kind: 'pdf' },
+      ],
+    });
+    await gateway.runTurn(request);
+    expect(capture.body).toMatchObject({
+      input: [
+        {
+          role: 'user',
+          content: [
+            { type: 'input_text', text: 'What is this?' },
+            { type: 'input_image', file_id: 'file-img', detail: 'auto' },
+            { type: 'input_file', file_id: 'file-pdf' },
+          ],
+        },
+      ],
+    });
   });
 
   it('streams refusals as text', async () => {

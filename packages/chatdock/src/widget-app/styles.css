@@ -207,8 +207,15 @@
     color: var(--cd-color-danger);
   }
 
+  [data-cd-part="panel"][data-dragging] {
+    outline: 2px dashed var(--cd-color-accent);
+    outline-offset: -6px;
+  }
+
   [data-cd-part="composer"] {
     display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
     gap: var(--cd-space);
     padding: calc(var(--cd-space) * 1.5);
     border-top: 1px solid var(--cd-color-border);
@@ -234,6 +241,107 @@
     color: var(--cd-color-on-accent);
     font: inherit;
     font-weight: 600;
+    cursor: pointer;
+  }
+
+  [data-cd-part="attach"] {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    padding: 0;
+    border: 1px solid var(--cd-color-border);
+    border-radius: var(--cd-radius-small);
+    background: var(--cd-color-background);
+    color: var(--cd-color-muted);
+    cursor: pointer;
+  }
+
+  [data-cd-part="attach"]:hover:not(:disabled) {
+    color: var(--cd-color-accent);
+  }
+
+  [data-cd-part="attach"]:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  :is([data-cd-part="attachments"], [data-cd-part="message-attachments"]) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: calc(var(--cd-space) / 2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  [data-cd-part="attachments"] {
+    flex-basis: 100%;
+  }
+
+  [data-cd-part="message-attachments"] {
+    justify-content: flex-end;
+    margin-top: calc(var(--cd-space) / 2);
+  }
+
+  [data-cd-part="attachment"] {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--cd-space) / 2);
+    max-width: 100%;
+    padding: 4px 6px;
+    border: 1px solid var(--cd-color-border);
+    border-radius: var(--cd-radius-small);
+    background: var(--cd-color-background);
+    font-size: 0.85em;
+  }
+
+  [data-cd-part="attachment"][data-status="error"] {
+    border-color: var(--cd-color-danger);
+  }
+
+  [data-cd-part="attachment-preview"],
+  [data-cd-part="attachment-badge"] {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+  }
+
+  [data-cd-part="attachment-preview"] {
+    object-fit: cover;
+  }
+
+  [data-cd-part="attachment-badge"] {
+    display: grid;
+    place-items: center;
+    background: var(--cd-color-border);
+    font-size: 0.7em;
+    font-weight: 700;
+    color: var(--cd-color-muted);
+  }
+
+  [data-cd-part="attachment-name"] {
+    overflow: hidden;
+    max-width: 160px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  [data-cd-part="attachment-status"] {
+    color: var(--cd-color-muted);
+  }
+
+  [data-cd-part="attachment"][data-status="error"] [data-cd-part="attachment-status"] {
+    color: var(--cd-color-danger);
+  }
+
+  [data-cd-part="attachment-remove"] {
+    padding: 0 4px;
+    border: 0;
+    background: none;
+    color: var(--cd-color-muted);
+    font: inherit;
+    font-size: 1.1em;
     cursor: pointer;
   }
 

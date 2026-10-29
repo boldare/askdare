@@ -1,6 +1,6 @@
 import type { Bot, BotContext } from '../bot/define-bot';
 import { ChatdockError, TurnAbortedError, toChatdockError } from '../errors';
-import type { ModelGateway, TokenUsage } from '../gateway';
+import type { ModelGateway, TokenUsage, TurnAttachment } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
 import { encodeComment, encodeEvent } from '../protocol/sse';
 import { PROTOCOL_HEADER, PROTOCOL_VERSION } from '../protocol/version';
@@ -8,8 +8,10 @@ import { PROTOCOL_HEADER, PROTOCOL_VERSION } from '../protocol/version';
 export interface StreamTurnOptions {
   readonly gateway: ModelGateway;
   readonly bot: Bot;
-  /** Already validated user message. */
+  /** Already validated user message; empty when only files are sent. */
   readonly text: string;
+  /** Files from verified attachment handles. */
+  readonly attachments?: readonly TurnAttachment[];
   readonly context: BotContext;
   readonly visitorId: string;
   /** Conversation to continue; a new one is created when absent. */
@@ -105,6 +107,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           bot,
           conversationId,
           text: options.text,
+          attachments: options.attachments ?? [],
           context: options.context,
           visitorId: options.visitorId,
           safetyIdentifier: await sha256Hex(options.visitorId),

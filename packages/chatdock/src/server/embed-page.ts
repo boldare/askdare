@@ -18,6 +18,8 @@ export interface EmbedConfig {
   readonly botId: string;
   readonly allowedOrigins: readonly string[];
   readonly widget: Bot['widget'];
+  /** What the visitor may attach; absent when attachments are off. */
+  readonly attachments?: NonNullable<Bot['attachments']>;
 }
 
 const HTML_ESCAPES: Readonly<Record<string, string>> = {
@@ -47,6 +49,7 @@ export function embedConfig(bot: Bot, basePath: string): EmbedConfig {
     botId: bot.id,
     allowedOrigins: bot.security.allowedOrigins,
     widget: bot.widget,
+    ...(bot.attachments ? { attachments: bot.attachments } : {}),
   };
 }
 
@@ -61,7 +64,8 @@ export function embedContentSecurityPolicy(bot: Bot): string {
     "script-src 'self'",
     "style-src 'self'",
     "connect-src 'self'",
-    "img-src 'self' data:",
+    // blob: previews the visitor's own files before they are sent.
+    "img-src 'self' data: blob:",
     "font-src 'self'",
     "base-uri 'none'",
     "form-action 'none'",

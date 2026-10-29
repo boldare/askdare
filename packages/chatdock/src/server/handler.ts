@@ -1,7 +1,14 @@
 import { z } from 'zod';
+import {
+  attachmentName,
+  countPdfPages,
+  detectFile,
+  IMAGE_TOKENS,
+  PDF_PAGE_TOKENS,
+} from '../attachments/files';
 import type { Bot } from '../bot/define-bot';
 import { ChatdockError, toChatdockError } from '../errors';
-import type { ModelGateway } from '../gateway';
+import type { ModelGateway, TurnAttachment } from '../gateway';
 import type { Limits } from '../limits/limits';
 import { newVisitorId, type TokenService } from '../security/tokens';
 import { type EmbedAssets, embedContentSecurityPolicy, renderEmbedPage } from './embed-page';
@@ -25,11 +32,16 @@ export interface HandlerConfig {
 export type RequestHandler = (request: Request) => Promise<Response>;
 
 const MAX_BODY_BYTES = 256 * 1024;
+/** Upload metadata travels in headers because the body is the raw file. */
+const BOT_HEADER = 'x-chatdock-bot';
+const FILENAME_HEADER = 'x-chatdock-filename';
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 
 const sessionBody = z.object({
   botId: z.string().max(64),
   resumeToken: z.string().max(4096).optional(),
+  /** The previous access token, so a renewal keeps the visitor before they have a conversation. */
+  accessToken: z.string().max(4096).optional(),
 });
 
 const conversationBody = z.object({
@@ -40,6 +52,8 @@ const conversationBody = z.object({
 const messageBody = z.object({
   botId: z.string().max(64),
   text: z.string(),
+  /** Handles from POST /attachments; raw OpenAI file IDs fail verification. */
+  attachments: z.array(z.string().min(1).max(4096)).max(10).optional(),
   resumeToken: z.string().max(4096).optional(),
   locale: z
     .string()
@@ -92,11 +106,14 @@ function assertSameOrigin(request: Request): void {
 }
 
 /** Reads at most `limit` bytes and cancels the upload as soon as it grows past the limit. */
-async function readBody(request: Request, limit: number): Promise<string> {
-  const tooLarge = (): ChatdockError =>
-    new ChatdockError('invalid_input', { message: 'Request body is too large.' });
+async function readBytes(
+  request: Request,
+  limit: number,
+  message = 'Request body is too large.',
+): Promise<Uint8Array> {
+  const tooLarge = (): ChatdockError => new ChatdockError('invalid_input', { message });
   if (Number(request.headers.get('content-length') ?? 0) > limit) throw tooLarge();
-  if (!request.body) return '';
+  if (!request.body) return new Uint8Array();
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
   let size = 0;
@@ -116,7 +133,7 @@ async function readBody(request: Request, limit: number): Promise<string> {
     bytes.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  return new TextDecoder().decode(bytes);
+  return bytes;
 }
 
 async function readJson<T>(request: Request, schema: z.ZodType<T>): Promise<T> {
@@ -124,7 +141,7 @@ async function readJson<T>(request: Request, schema: z.ZodType<T>): Promise<T> {
   if (!contentType.toLowerCase().startsWith('application/json')) {
     throw new ChatdockError('invalid_input', { message: 'Expected an application/json body.' });
   }
-  const text = await readBody(request, MAX_BODY_BYTES);
+  const text = new TextDecoder().decode(await readBytes(request, MAX_BODY_BYTES));
   let json: unknown;
   try {
     json = JSON.parse(text);
@@ -141,6 +158,39 @@ function bearerToken(request: Request): string {
   const match = /^Bearer\s+(\S+)$/i.exec(header);
   if (!match?.[1]) throw new ChatdockError('unauthorized');
   return match[1];
+}
+
+/** Turns attachment handles into files, rejecting foreign, expired and duplicate handles. */
+async function verifyAttachments(
+  bot: Bot,
+  tokens: TokenService,
+  visitorId: string,
+  handles: readonly string[],
+): Promise<{ attachments: TurnAttachment[]; attachmentTokens: number }> {
+  const unique = [...new Set(handles)];
+  if (unique.length === 0) return { attachments: [], attachmentTokens: 0 };
+  if (!bot.attachments) {
+    throw new ChatdockError('invalid_input', { message: 'This assistant does not accept files.' });
+  }
+  if (unique.length > bot.attachments.maxPerMessage) {
+    throw new ChatdockError('invalid_input', {
+      message: `Attach up to ${bot.attachments.maxPerMessage} files per message.`,
+    });
+  }
+  const files = new Map<string, TurnAttachment>();
+  let attachmentTokens = 0;
+  for (const handle of unique) {
+    const grant = await tokens.verifyAttachment(handle, bot.id);
+    if (grant.visitorId !== visitorId) {
+      throw new ChatdockError('invalid_input', {
+        message: 'An attachment expired or is invalid. Please attach it again.',
+      });
+    }
+    if (files.has(grant.fileId)) continue;
+    files.set(grant.fileId, { fileId: grant.fileId, kind: grant.kind });
+    attachmentTokens += grant.tokens;
+  }
+  return { attachments: [...files.values()], attachmentTokens };
 }
 
 /**
@@ -209,11 +259,20 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     const bot = findBot(body.botId);
     const tokens = await config.tokens();
     let returningVisitorId: string | undefined;
+    let resumable = false;
     if (body.resumeToken) {
       try {
         returningVisitorId = (await tokens.verifyResume(body.resumeToken, bot.id)).visitorId;
+        resumable = true;
       } catch {
         // A stale or forged handle just starts a fresh visitor.
+      }
+    }
+    if (!returningVisitorId && body.accessToken) {
+      try {
+        returningVisitorId = (await tokens.verifyRenewal(body.accessToken, bot.id)).visitorId;
+      } catch {
+        // Too old or forged: start a fresh visitor.
       }
     }
     // Renewals by returning visitors count per visitor, so people behind one NAT don't lock each other out.
@@ -222,7 +281,6 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       returningVisitorId,
     });
     const visitorId = returningVisitorId ?? newVisitorId();
-    const resumable = returningVisitorId !== undefined;
     const access = await tokens.issueAccess(bot.id, visitorId);
     return jsonResponse({ accessToken: access.token, expiresAt: access.expiresAt, resumable });
   };
@@ -239,8 +297,14 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       if (grant.visitorId !== visitorId) throw new ChatdockError('not_found');
       conversationId = grant.conversationId;
     }
+    const { attachments, attachmentTokens } = await verifyAttachments(
+      bot,
+      tokens,
+      visitorId,
+      body.attachments ?? [],
+    );
     const text = body.text.trim();
-    if (text.length === 0 || text.length > bot.limits.maxInputChars) {
+    if ((text.length === 0 && attachments.length === 0) || text.length > bot.limits.maxInputChars) {
       throw new ChatdockError('invalid_input', {
         message: `Messages must be between 1 and ${bot.limits.maxInputChars} characters.`,
       });
@@ -251,11 +315,13 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       visitorId,
       conversationId,
       inputChars: text.length + bot.instructions(context).length,
+      attachmentTokens,
     });
     const stream = streamTurn({
       gateway: config.gateway(),
       bot,
       text,
+      attachments,
       context,
       visitorId,
       conversationId,
@@ -269,6 +335,73 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       heartbeatIntervalMs: config.heartbeatIntervalMs,
     });
     return new Response(stream, { headers: STREAM_HEADERS });
+  };
+
+  /**
+   * Stores one file for the visitor's next message. The body is the raw file; its type is detected
+   * from its bytes. Returns an encrypted handle, so the client never learns the OpenAI file ID.
+   */
+  const uploadAttachment = async (request: Request): Promise<Response> => {
+    assertSameOrigin(request);
+    const contentType = request.headers.get('content-type') ?? '';
+    if (!contentType.toLowerCase().startsWith('application/octet-stream')) {
+      throw new ChatdockError('invalid_input', {
+        message: 'Expected an application/octet-stream body.',
+      });
+    }
+    const bot = findBot(request.headers.get(BOT_HEADER) ?? '');
+    const allowed = bot.attachments;
+    if (!allowed) {
+      throw new ChatdockError('invalid_input', {
+        message: 'This assistant does not accept files.',
+      });
+    }
+    const tokens = await config.tokens();
+    const { visitorId } = await tokens.verifyAccess(bearerToken(request), bot.id);
+    await config.limits.checkUpload(bot, { clientIp: config.clientIp(request), visitorId });
+    const megabytes = Math.floor((allowed.maxBytes / 1_000_000) * 10) / 10;
+    const bytes = await readBytes(request, allowed.maxBytes, `Files can be up to ${megabytes} MB.`);
+    const file = detectFile(bytes);
+    if (
+      !file ||
+      (file.kind === 'image' && !allowed.images) ||
+      (file.kind === 'pdf' && !allowed.pdf)
+    ) {
+      const types = [
+        allowed.images ? 'images (PNG, JPEG, WebP, GIF)' : '',
+        allowed.pdf ? 'PDF' : '',
+      ]
+        .filter(Boolean)
+        .join(' or ');
+      throw new ChatdockError('invalid_input', { message: `Only ${types} files are supported.` });
+    }
+    let cost = IMAGE_TOKENS;
+    if (file.kind === 'pdf') {
+      const pages = await countPdfPages(bytes);
+      if (pages !== undefined && pages > allowed.maxPdfPages) {
+        throw new ChatdockError('invalid_input', {
+          message: `PDFs can have up to ${allowed.maxPdfPages} pages.`,
+        });
+      }
+      // A PDF that hides its structure is charged as if it had the most pages allowed.
+      cost = (pages ?? allowed.maxPdfPages) * PDF_PAGE_TOKENS;
+    }
+    const name = attachmentName(request.headers.get(FILENAME_HEADER), file);
+    const fileId = await config.gateway().uploadFile({
+      bytes,
+      filename: name,
+      mime: file.mime,
+      signal: request.signal,
+    });
+    const handle = await tokens.issueAttachment(bot.id, {
+      visitorId,
+      fileId,
+      kind: file.kind,
+      tokens: cost,
+    });
+    return jsonResponse({
+      attachment: { id: handle.token, kind: file.kind, name, size: bytes.byteLength },
+    });
   };
 
   /** Authenticates the visitor and proves they own the conversation behind the resume token. */
@@ -293,8 +426,10 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
   };
 
   const deleteConversation = async (request: Request): Promise<Response> => {
-    const { conversationId } = await ownedConversation(request);
-    await config.gateway().deleteConversation(conversationId);
+    const { bot, conversationId } = await ownedConversation(request);
+    await config
+      .gateway()
+      .deleteConversation(conversationId, { withFiles: bot.attachments !== undefined });
     return new Response(null, { status: 204, headers: NO_STORE });
   };
 
@@ -314,6 +449,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       if (path === '/session') return createSession(request);
       if (path === '/messages') return sendMessage(request);
       if (path === '/history') return readHistory(request);
+      if (path === '/attachments') return uploadAttachment(request);
     } else if (method === 'DELETE') {
       if (path === '/conversation') return deleteConversation(request);
     }

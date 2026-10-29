@@ -107,6 +107,25 @@ describe('token service', () => {
     });
   });
 
+  it('lets a renewal keep the visitor of an access token expired less than an hour ago', async () => {
+    let clock = 1_000_000;
+    const tokens = await createTokenService({ secret: SECRET, now: () => clock });
+    const { token } = await tokens.issueAccess('support', VISITOR);
+    clock += 15 * 60 + 30 * 60;
+    await expect(tokens.verifyRenewal(token, 'support')).resolves.toEqual({ visitorId: VISITOR });
+    clock += 31 * 60;
+    await expect(tokens.verifyRenewal(token, 'support')).rejects.toMatchObject({
+      code: 'unauthorized',
+    });
+    const resume = await tokens.issueResume('support', {
+      visitorId: VISITOR,
+      conversationId: 'conv_1',
+    });
+    await expect(tokens.verifyRenewal(resume.token, 'support')).rejects.toMatchObject({
+      code: 'unauthorized',
+    });
+  });
+
   it('accepts tokens from a previous secret during rotation', async () => {
     const old = await createTokenService({ secret: OLD_SECRET });
     const { token } = await old.issueAccess('support', OTHER_VISITOR);
@@ -126,6 +145,30 @@ describe('token service', () => {
     await expect(createTokenService({ secret: SECRET, previousSecrets: ['xx'] })).rejects.toThrow(
       /CHAT_SECRET_PREVIOUS must be/,
     );
+  });
+});
+
+describe('attachment handles', () => {
+  const grant = { visitorId: VISITOR, fileId: 'file-Abc123', kind: 'pdf', tokens: 4500 } as const;
+
+  it('round-trips the file and keeps its ID opaque', async () => {
+    const tokens = await createTokenService({ secret: SECRET });
+    const { token } = await tokens.issueAttachment('support', grant);
+    expect(token).not.toContain('Abc123');
+    await expect(tokens.verifyAttachment(token, 'support')).resolves.toEqual(grant);
+  });
+
+  it('rejects raw file IDs, other token types, other bots and expired handles', async () => {
+    let clock = 1_000_000;
+    const tokens = await createTokenService({ secret: SECRET, now: () => clock });
+    const invalid = { code: 'invalid_input' };
+    await expect(tokens.verifyAttachment('file-Abc123', 'support')).rejects.toMatchObject(invalid);
+    const access = await tokens.issueAccess('support', VISITOR);
+    await expect(tokens.verifyAttachment(access.token, 'support')).rejects.toMatchObject(invalid);
+    const { token } = await tokens.issueAttachment('support', grant);
+    await expect(tokens.verifyAttachment(token, 'sales')).rejects.toMatchObject(invalid);
+    clock += 60 * 60 + 1;
+    await expect(tokens.verifyAttachment(token, 'support')).rejects.toMatchObject(invalid);
   });
 });
 

@@ -29,15 +29,35 @@ const bot = defineBot({
   widget: { title: 'Help </script><script>alert(1)</script>' },
 });
 
+const filesBot = defineBot({
+  id: 'files',
+  model: 'test-model',
+  instructions: 'Read the files.',
+  limits: { uploadsPerVisitorPerHour: 3 },
+  attachments: { pdf: false, maxBytes: 2_000, maxPerMessage: 2 },
+});
+
+const docsBot = defineBot({
+  id: 'docs',
+  model: 'test-model',
+  instructions: 'Read the documents.',
+  attachments: { images: false, maxPdfPages: 3 },
+});
+
 let tokens: TokenService;
 let handler: RequestHandler;
 const turns: TurnRequest[] = [];
-const deleted: string[] = [];
+const deleted: { id: string; withFiles: boolean | undefined }[] = [];
+const uploads: { filename: string; mime: string; size: number }[] = [];
 
 const gateway: ModelGateway = {
   createConversation: async () => 'conv_1',
-  deleteConversation: async (id) => {
-    deleted.push(id);
+  deleteConversation: async (id, options) => {
+    deleted.push({ id, withFiles: options?.withFiles });
+  },
+  uploadFile: async ({ bytes, filename, mime }) => {
+    uploads.push({ filename, mime, size: bytes.byteLength });
+    return `file-${uploads.length}`;
   },
   listMessages: async (id) => [
     { id: 'm1', role: 'user', text: `history of ${id}`, citations: [], attachments: 0 },
@@ -55,7 +75,7 @@ const gateway: ModelGateway = {
 beforeAll(async () => {
   tokens = await createTokenService({ secret: 'aGFuZGxlci10ZXN0cy1zZWNyZXQtMTIzNDU2Nzg5MA' });
   handler = createRequestHandler({
-    bots: [bot],
+    bots: [bot, filesBot, docsBot],
     basePath: '/api/chat',
     assets,
     gateway: () => gateway,
@@ -134,6 +154,20 @@ describe('POST /session', () => {
     expect(body.resumable).toBe(false);
     await expect(tokens.verifyAccess(body.accessToken, 'support')).resolves.toMatchObject({
       visitorId: expect.stringMatching(/^v_/),
+    });
+  });
+
+  it('keeps the visitor when renewing with the previous access token', async () => {
+    const visitorId = `v_${'c3'.repeat(16)}`;
+    const previous = (await tokens.issueAccess('support', visitorId)).token;
+    const response = await handler(post('/session', { botId: 'support', accessToken: previous }));
+    const body = (await response.json()) as { accessToken: string; resumable: boolean };
+    expect(body.resumable).toBe(false);
+    await expect(tokens.verifyAccess(body.accessToken, 'support')).resolves.toEqual({ visitorId });
+    const forged = await handler(post('/session', { botId: 'support', accessToken: 'nope' }));
+    const fresh = (await forged.json()) as { accessToken: string };
+    await expect(tokens.verifyAccess(fresh.accessToken, 'support')).resolves.not.toEqual({
+      visitorId,
     });
   });
 
@@ -401,6 +435,155 @@ describe('conversation history and deletion', () => {
       }),
     );
     expect(response.status).toBe(204);
-    expect(deleted).toContain('conv_hist');
+    expect(deleted).toContainEqual({ id: 'conv_hist', withFiles: false });
+  });
+});
+
+describe('attachments', () => {
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
+  const SVG = new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"></svg>');
+  const PDF = new TextEncoder().encode('%PDF-1.7\n1 0 obj << /Type /Page >> endobj');
+
+  function upload(
+    bytes: Uint8Array,
+    headers: Record<string, string>,
+    botId = 'files',
+    name = 'photo.png',
+  ): Request {
+    return new Request(`${BASE}/attachments`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/octet-stream',
+        origin: APP,
+        host: 'app.example.com',
+        'x-chatdock-bot': botId,
+        'x-chatdock-filename': encodeURIComponent(name),
+        ...headers,
+      },
+      body: bytes,
+    });
+  }
+
+  async function visitor(id: string) {
+    const access = (await tokens.issueAccess('files', id)).token;
+    return { authorization: `Bearer ${access}` };
+  }
+
+  async function attach(auth: Record<string, string>, name = 'photo.png'): Promise<string> {
+    const response = await handler(upload(PNG, auth, 'files', name));
+    expect(response.status).toBe(200);
+    return ((await response.json()) as { attachment: { id: string } }).attachment.id;
+  }
+
+  it('stores an image under a safe name and returns an opaque handle', async () => {
+    const auth = await visitor(`v_${'a1'.repeat(16)}`);
+    const response = await handler(upload(PNG, auth, 'files', '../../secret/évil name.svg'));
+    expect(response.status).toBe(200);
+    const { attachment } = (await response.json()) as {
+      attachment: { id: string; kind: string; name: string; size: number };
+    };
+    expect(attachment).toMatchObject({ kind: 'image', name: 'évil name.png', size: PNG.length });
+    expect(attachment.id).not.toContain('file-');
+    expect(uploads.at(-1)).toEqual({ filename: 'évil name.png', mime: 'image/png', size: 12 });
+  });
+
+  it('rejects SVG, disabled types, oversized files and bots without attachments', async () => {
+    const auth = await visitor(`v_${'a2'.repeat(16)}`);
+    const before = uploads.length;
+    const svg = await handler(upload(SVG, auth, 'files', 'logo.png'));
+    expect(svg.status).toBe(400);
+    expect(await svg.json()).toMatchObject({
+      error: { message: 'Only images (PNG, JPEG, WebP, GIF) files are supported.' },
+    });
+    expect((await handler(upload(PDF, auth))).status).toBe(400);
+    const large = await handler(upload(new Uint8Array(3_000).fill(0xff), auth));
+    expect(await large.json()).toMatchObject({ error: { message: 'Files can be up to 0 MB.' } });
+    const supportAuth = { authorization: `Bearer ${await session()}` };
+    expect((await handler(upload(PNG, supportAuth, 'support'))).status).toBe(400);
+    expect(uploads.length).toBe(before);
+  });
+
+  it('requires a session and a same-origin raw body', async () => {
+    expect((await handler(upload(PNG, {}))).status).toBe(401);
+    const auth = await visitor(`v_${'a3'.repeat(16)}`);
+    const json = await handler(upload(PNG, { ...auth, 'content-type': 'application/json' }));
+    expect(json.status).toBe(400);
+    const cross = await handler(upload(PNG, { ...auth, origin: 'https://evil.example' }));
+    expect(cross.status).toBe(401);
+  });
+
+  it('limits uploads per visitor', async () => {
+    const auth = await visitor(`v_${'a4'.repeat(16)}`);
+    for (let index = 0; index < 3; index += 1) await attach(auth);
+    const limited = await handler(upload(PNG, auth));
+    expect(limited.status).toBe(429);
+  });
+
+  it('sends attached files with the message, text optional', async () => {
+    const auth = await visitor(`v_${'a5'.repeat(16)}`);
+    const first = await attach(auth);
+    const second = await attach(auth);
+    const response = await handler(
+      post('/messages', { botId: 'files', text: '', attachments: [first, second, first] }, auth),
+    );
+    expect(response.status).toBe(200);
+    await events(response);
+    expect(turns.at(-1)).toMatchObject({
+      text: '',
+      attachments: [
+        { fileId: expect.stringMatching(/^file-/), kind: 'image' },
+        { fileId: expect.stringMatching(/^file-/), kind: 'image' },
+      ],
+    });
+  });
+
+  it("rejects raw file IDs, another visitor's handles and too many files", async () => {
+    const owner = await visitor(`v_${'a6'.repeat(16)}`);
+    const intruder = await visitor(`v_${'a7'.repeat(16)}`);
+    const handle = await attach(owner);
+    const send = (attachments: string[], auth: Record<string, string>) =>
+      handler(post('/messages', { botId: 'files', text: 'Look', attachments }, auth));
+    expect((await send(['file-abc123'], owner)).status).toBe(400);
+    const stolen = await send([handle], intruder);
+    expect(stolen.status).toBe(400);
+    expect(await stolen.json()).toMatchObject({ error: { code: 'invalid_input' } });
+    const extra = await attach(owner);
+    const third = await attach(owner);
+    expect((await send([handle, extra, third], owner)).status).toBe(400);
+  });
+
+  it('reserves tokens per PDF page, refuses long PDFs and assumes the worst for hidden pages', async () => {
+    const auth = {
+      authorization: `Bearer ${(await tokens.issueAccess('docs', `v_${'a9'.repeat(16)}`)).token}`,
+    };
+    const pdf = (body: string) => new TextEncoder().encode(`%PDF-1.7\n${body}\n%%EOF`);
+    const cost = async (body: string) => {
+      const response = await handler(upload(pdf(body), auth, 'docs', 'doc.pdf'));
+      if (response.status !== 200) return response.status;
+      const { attachment } = (await response.json()) as { attachment: { id: string } };
+      return (await tokens.verifyAttachment(attachment.id, 'docs')).tokens;
+    };
+    expect(await cost('/Type /Page /Type /Page')).toBe(2 * 2_000);
+    expect(await cost('/Type /Pages /Count 4')).toBe(400);
+    expect(await cost('no readable pages')).toBe(3 * 2_000);
+  });
+
+  it('deletes attached files together with the conversation', async () => {
+    const id = `v_${'a8'.repeat(16)}`;
+    const resume = await tokens.issueResume('files', { visitorId: id, conversationId: 'conv_f' });
+    const response = await handler(
+      new Request(`${BASE}/conversation`, {
+        method: 'DELETE',
+        headers: {
+          'content-type': 'application/json',
+          origin: APP,
+          host: 'app.example.com',
+          ...(await visitor(id)),
+        },
+        body: JSON.stringify({ botId: 'files', resumeToken: resume.token }),
+      }),
+    );
+    expect(response.status).toBe(204);
+    expect(deleted).toContainEqual({ id: 'conv_f', withFiles: true });
   });
 });
