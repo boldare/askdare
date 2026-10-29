@@ -4,6 +4,7 @@ import {
   type KeyboardEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react';
@@ -54,6 +55,13 @@ export interface PendingFile {
 }
 
 const megabytes = (bytes: number): string => `${Math.floor(bytes / 100_000) / 10} MB`;
+
+/** False for an assistant message that ended (or failed) before any text, files or sources. */
+const hasContent = (message: Message): boolean =>
+  message.role === 'user' ||
+  message.status === 'streaming' ||
+  message.text !== '' ||
+  message.citations.length > 0;
 
 /** Grows the message field with its content, up to the height set in CSS. */
 function fitToContent(field: HTMLTextAreaElement): void {
@@ -229,6 +237,12 @@ export function App({ config, client, bridge, fixture }: AppProps) {
   const uploads = useRef(new Map<string, AbortController>());
   const allowed = config.attachments;
 
+  // Fit the field to its text whenever it changes, typed or not (a transcript, a restored draft).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the field shows draft, which sets its height
+  useLayoutEffect(() => {
+    if (inputRef.current && dictation === 'idle') fitToContent(inputRef.current);
+  }, [draft, dictation]);
+
   /** Stops a dictation and throws the audio away. Stable, so effects can depend on it. */
   const discardRecording = useCallback((): void => {
     clearTimeout(limitRef.current);
@@ -364,10 +378,7 @@ export function App({ config, client, bridge, fixture }: AppProps) {
     const handles = ready.flatMap((file) => (file.handle ? [file.handle] : []));
     revokePreviews(pending.filter((file) => file.status !== 'ready'));
     setPending([]);
-    if (picked === undefined) {
-      setDraft('');
-      if (inputRef.current) inputRef.current.style.height = '';
-    }
+    if (picked === undefined) setDraft('');
     setError(undefined);
     setBusy(true);
     setMessages((current) => [
@@ -586,7 +597,7 @@ export function App({ config, client, bridge, fixture }: AppProps) {
             Loading the conversation…
           </p>
         )}
-        {messages.map((message) => (
+        {messages.filter(hasContent).map((message) => (
           <div
             key={message.id}
             data-cd-part="message"
@@ -689,10 +700,7 @@ export function App({ config, client, bridge, fixture }: AppProps) {
                 value={draft}
                 placeholder={widget.placeholder}
                 aria-label={widget.placeholder}
-                onChange={(event) => {
-                  setDraft(event.target.value);
-                  fitToContent(event.target);
-                }}
+                onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={onKeyDown}
                 onPaste={onPaste}
               />

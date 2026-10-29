@@ -78,13 +78,11 @@ export function Welcome({
   if (layout === 'intro') {
     return (
       <section data-cd-part="welcome" data-layout="intro" aria-label="Welcome">
-        <div data-cd-part="message" data-role="assistant" data-status="done">
+        <div data-cd-part="intro">
           <Avatar widget={widget} size="small" />
-          <div data-cd-part="message-body">
-            <div data-cd-part="bubble">
-              <p data-cd-part="greeting">{widget.greeting}</p>
-              {starters}
-            </div>
+          <div data-cd-part="intro-card">
+            <p data-cd-part="greeting">{widget.greeting}</p>
+            {starters}
           </div>
         </div>
       </section>

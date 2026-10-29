@@ -124,7 +124,7 @@
 
   :root[data-cd-welcome="persona"] [data-cd-part="title"] {
     font-size: 1.15rem;
-    font-weight: 400;
+    font-weight: 300;
     letter-spacing: 0;
   }
 
@@ -175,7 +175,7 @@
     height: 30px;
     overflow: hidden;
     border-radius: 50%;
-    font-family: var(--cd-font-family-heading);
+    font-family: var(--cd-font-family);
     font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.02em;
@@ -371,7 +371,6 @@
 
   [data-cd-part="bubble"] :is(h1, h2, h3, h4) {
     margin: calc(var(--cd-space) * 1.5) 0 calc(var(--cd-space) * 0.75);
-    font-family: var(--cd-font-family-heading);
     font-size: 1em;
     font-weight: 650;
     line-height: 1.35;
@@ -672,8 +671,31 @@
   }
 
   /* Intro: an opening message that lists what the assistant can help with. */
-  [data-cd-part="welcome"][data-layout="intro"] [data-cd-part="message"] {
-    max-width: 100%;
+  /* Looks like the assistant's first message, but is not one: own parts, so it is never counted. */
+  [data-cd-part="intro"] {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--cd-space);
+    animation: cd-rise 260ms var(--cd-ease) both;
+  }
+
+  [data-cd-part="intro"] > [data-cd-part="avatar"] {
+    margin-top: 2px;
+  }
+
+  [data-cd-part="intro-card"] {
+    flex: 1;
+    min-width: 0;
+    padding: calc(var(--cd-space) * 1.25) calc(var(--cd-space) * 1.75);
+    border-radius: var(--cd-radius);
+    border-top-left-radius: calc(var(--cd-radius-small) * 0.6);
+    background: var(--cd-color-surface);
+  }
+
+  :root[data-cd-surface="glass"] [data-cd-part="intro-card"] {
+    border: 1px solid color-mix(in srgb, var(--cd-color-background) 60%, transparent);
+    background: var(--cd-glass);
+    backdrop-filter: blur(12px) saturate(140%);
   }
 
   [data-cd-part="welcome"][data-layout="intro"] [data-cd-part="greeting"] {
@@ -681,7 +703,8 @@
     font-size: 1.02rem;
   }
 
-  [data-cd-part="welcome"][data-layout="intro"] [data-cd-part="starters"] {
+  [data-cd-part="intro-card"] [data-cd-part="starters"] {
+    padding: 0;
     gap: 0;
     margin-top: var(--cd-space);
   }
