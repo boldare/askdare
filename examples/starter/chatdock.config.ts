@@ -1,4 +1,5 @@
 import { defineBot } from '@boldare/chatdock';
+import { currentTime, exchangeRate } from './tools';
 
 // Origins allowed to embed the widget, comma-separated (the app's own origin is always allowed).
 const allowedOrigins = (process.env.CHATDOCK_ALLOWED_ORIGINS ?? '')
@@ -15,8 +16,10 @@ export const bots = [
       [
         'You are the website assistant of an example company.',
         'Answer briefly and politely. If you do not know something, say so.',
+        'Use the tools for the current time and for exchange rates; never guess them.',
         `Reply in the language of the user's message; default to ${locale}.`,
       ].join(' '),
+    tools: [currentTime, exchangeRate],
     security: { allowedOrigins },
     widget: {
       title: 'chatdock demo',
