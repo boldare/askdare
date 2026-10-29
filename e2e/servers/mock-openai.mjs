@@ -9,6 +9,8 @@ const conversations = new Map();
 let nextFile = 1;
 /** Uploaded files that still exist, so tests can check they are deleted. */
 const files = new Set();
+/** Each streamed reply and whether the caller read it to the end or hung up. */
+const replies = [];
 
 // Same shape as the live API's answer for a deleted conversation (spike S1, E11).
 const notFound = (response, id) =>
@@ -34,6 +36,13 @@ const json = (response, status, body) => {
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function streamResponse(response, text) {
+  const reply = { text, outcome: 'streaming' };
+  replies.push(reply);
+  response.on('close', () => {
+    if (!response.writableEnded) reply.outcome = 'aborted';
+  });
+  // "[slow]" in a message makes the reply take about a second, so tests can leave mid-answer.
+  const pause = text.includes('[slow]') ? 150 : 20;
   response.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
   let sequence = 0;
   const send = (event) =>
@@ -42,7 +51,7 @@ async function streamResponse(response, text) {
     );
   send({ type: 'response.created', response: { id: 'resp_mock', status: 'in_progress' } });
   for (const word of text.split(/(?<= )/)) {
-    await sleep(20);
+    await sleep(pause);
     send({
       type: 'response.output_text.delta',
       item_id: 'msg',
@@ -69,6 +78,7 @@ async function streamResponse(response, text) {
     },
   });
   response.end();
+  if (reply.outcome === 'streaming') reply.outcome = 'completed';
 }
 
 createServer(async (request, response) => {
@@ -135,6 +145,8 @@ createServer(async (request, response) => {
   }
   if (request.method === 'GET' && pathname === '/debug/files')
     return json(response, 200, [...files]);
+  if (request.method === 'GET' && pathname === '/debug/replies')
+    return json(response, 200, replies);
   if (request.method === 'DELETE' && pathname.startsWith('/v1/conversations/')) {
     const id = pathname.split('/').at(-1);
     conversations.delete(id);

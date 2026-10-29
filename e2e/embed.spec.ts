@@ -114,6 +114,27 @@ test('sends an image and a PDF, and deletes them with the conversation', async (
     .toEqual(filesBefore);
 });
 
+test('finishes a reply after the visitor leaves mid-answer', async ({ page, request }) => {
+  await page.goto(ALLOWED_HOST);
+  const chat = await openChat(page);
+  await chat.getByRole('textbox').fill('[slow] keep going');
+  await chat.getByRole('textbox').press('Enter');
+  await expect(
+    chat.locator('[data-cd-part="message"][data-role="assistant"]').last(),
+  ).toContainText('You said');
+  await page.goto('about:blank');
+
+  // The server keeps reading the model's stream, so the turn is charged its real usage.
+  const outcome = async () => {
+    const replies = (await (await request.get(`${MOCK_OPENAI}/debug/replies`)).json()) as {
+      text: string;
+      outcome: string;
+    }[];
+    return replies.find((reply) => reply.text.includes('[slow] keep going'))?.outcome;
+  };
+  await expect.poll(outcome, { timeout: 10_000 }).toBe('completed');
+});
+
 test('closes from inside the iframe with Escape and returns focus', async ({ page }) => {
   await page.goto(ALLOWED_HOST);
   const chat = await openChat(page);
