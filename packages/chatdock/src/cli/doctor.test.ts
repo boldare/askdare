@@ -56,12 +56,15 @@ beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), 'chatdock-doctor-'));
   await mkdir(join(root, '.git'));
   await mkdir(join(root, 'app/api/chat/[...path]'), { recursive: true });
-  await writeFile(
-    join(root, 'package.json'),
-    JSON.stringify({
-      dependencies: { next: '16.4.3', react: '19.3.1', zod: '4.6.7', '@boldare/chatdock': '0.1.0' },
-    }),
-  );
+  const installed = { next: '16.4.3', react: '19.3.1', zod: '4.6.7', '@boldare/chatdock': '0.1.0' };
+  await writeFile(join(root, 'package.json'), JSON.stringify({ dependencies: installed }));
+  for (const [name, version] of Object.entries(installed)) {
+    await mkdir(join(root, 'node_modules', name), { recursive: true });
+    await writeFile(
+      join(root, 'node_modules', name, 'package.json'),
+      JSON.stringify({ name, version }),
+    );
+  }
   await writeFile(
     join(root, 'app/api/chat/[...path]/route.ts'),
     'export const maxDuration = 300;\nexport const { GET, POST, DELETE } = createChatHandler({ bots });\n',
@@ -74,14 +77,14 @@ afterEach(() => rm(root, { recursive: true, force: true }));
 
 async function run(
   handle: (request: Request) => Promise<Response>,
-  options: { envFile?: string } = {},
+  options: { envFile?: string; url?: string; shell?: NodeJS.ProcessEnv } = {},
 ): Promise<{ failures: number; text: string }> {
   const failures = await doctor({
     root,
-    url: URL_BASE,
+    url: options.url ?? URL_BASE,
     basePath: '/api/chat',
     envFile: options.envFile,
-    shell: {},
+    shell: options.shell ?? {},
     fetch: async (input, init) => handle(new Request(input, init)),
     print: (line) => output.push(line),
   });
@@ -92,7 +95,7 @@ describe('chatdock doctor', () => {
   it('passes a healthy app and reports what it checked', async () => {
     const { failures, text } = await run(app({ development: true }));
     expect(failures).toBe(0);
-    expect(text).toMatch(/✓ next 16\.4\.3, react 19\.3\.1, zod 4\.6\.7, @boldare\/chatdock \d/);
+    expect(text).toContain('✓ next 16.4.3, react 19.3.1, zod 4.6.7, @boldare/chatdock 0.1.0');
     expect(text).toContain('✓ app/api/chat/[...path]/route.ts (maxDuration 300 s)');
     expect(text).toContain('Environment (.env.local)');
     expect(text).toContain('✓ CHAT_SECRET is strong.');
@@ -153,6 +156,26 @@ describe('chatdock doctor', () => {
     });
     expect(down.text).toContain(`✗ Could not reach ${URL_BASE}/api/chat/doctor.`);
     expect(down.text).toContain('Start the app (npm run dev)');
+  });
+
+  it('checks a deployed app with only its CHAT_SECRET, which wins over the shell', async () => {
+    await writeFile(join(root, '.env.production.local'), `CHAT_SECRET=${SECRET}\n`);
+    const { failures, text } = await run(app(), {
+      url: 'https://chat.example.com',
+      envFile: './.env.production.local',
+      shell: { CHAT_SECRET: 'c2hlbGwtc2VjcmV0LXRoYXQtaXMtbm90LXRoZS1hcHBz' },
+    });
+    expect(text).toContain('Environment (./.env.production.local)');
+    expect(text).not.toContain('OPENAI_API_KEY');
+    expect(text).toContain('✓ Model gpt-test is available.');
+    expect(failures).toBe(0);
+  });
+
+  it('reports packages that are declared but not installed', async () => {
+    await rm(join(root, 'node_modules/next'), { recursive: true });
+    const { text } = await run(app());
+    expect(text).toContain('✗ next is not installed.');
+    expect(text).toContain('→ Run npm install.');
   });
 
   it('checks the local files and environment without the app', async () => {

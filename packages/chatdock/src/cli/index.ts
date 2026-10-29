@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
-import { doctor } from './doctor';
+import { doctor, isLocal } from './doctor';
 import { InitError, init } from './init';
 import { KB_USAGE, kbSync } from './kb-sync';
 import { UsageError } from './usage';
@@ -70,7 +70,16 @@ async function runDoctor(args: readonly string[]): Promise<number> {
     console.log(USAGE);
     return 0;
   }
-  if (!/^https?:\/\/[^/]+/.test(values.url)) throw new UsageError('--url must be an http(s) URL.');
+  let target: URL;
+  try {
+    target = new URL(values.url);
+  } catch {
+    throw new UsageError('--url must be a URL such as https://your-app.example.com.');
+  }
+  if (target.protocol !== 'https:' && !(target.protocol === 'http:' && isLocal(values.url))) {
+    // The doctor token is signed with CHAT_SECRET; it must not cross the network in the clear.
+    throw new UsageError('--url must use https (plain http only for localhost).');
+  }
   if (!/^(\/[a-zA-Z0-9._~-]+)+$/.test(values['base-path'])) {
     throw new UsageError('--base-path must look like /api/chat.');
   }

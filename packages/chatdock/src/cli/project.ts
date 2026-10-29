@@ -1,6 +1,6 @@
-import { existsSync } from 'node:fs';
+import { execFile } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { createRequire } from 'node:module';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { parseEnv } from 'node:util';
 
@@ -59,18 +59,36 @@ export async function readProject(root: string): Promise<Project> {
   };
 }
 
-/** The installed version of a package, else the range in package.json. */
+/** The version installed in `node_modules`; undefined when the package isn't installed. */
 export function installedVersion(project: Project, name: string): string | undefined {
-  try {
-    const require = createRequire(join(project.root, 'package.json'));
-    return (require(`${name}/package.json`) as { version: string }).version;
-  } catch {
-    return project.dependencies?.[name];
-  }
+  let version: string | undefined;
+  // Up to the repository root: monorepos hoist packages there.
+  findUp(project.root, (dir) => {
+    try {
+      const manifest = readFileSync(join(dir, 'node_modules', name, 'package.json'), 'utf8');
+      version = (JSON.parse(manifest) as { version?: string }).version;
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  return version;
+}
+
+/** Whether a version (or range like `^4.1.0`) is at least `major.minor`; undefined if unreadable. */
+export function atLeast(
+  version: string | undefined,
+  major: number,
+  minor = 0,
+): boolean | undefined {
+  const match = /(\d+)(?:\.(\d+))?/.exec(version ?? '');
+  if (match?.[1] === undefined) return undefined;
+  const [have, haveMinor] = [Number(match[1]), Number(match[2] ?? 0)];
+  return have > major || (have === major && haveMinor >= minor);
 }
 
 export function majorOf(version: string | undefined): number | undefined {
-  const match = /(\d+)\.(\d+)/.exec(version ?? '') ?? /(\d+)/.exec(version ?? '');
+  const match = /(\d+)/.exec(version ?? '');
   return match?.[1] === undefined ? undefined : Number(match[1]);
 }
 
@@ -105,8 +123,9 @@ export function addCommand(project: Project, packages: readonly string[]): strin
 }
 
 /**
- * Environment as Next.js sees it locally: the shell wins over `.env.local`, which wins over `.env`.
- * Read without changing `process.env`.
+ * Environment as `next dev` sees it: the shell, then `.env.development.local`, `.env.local`,
+ * `.env.development` and `.env`. An explicit `envFile` wins over the shell instead: it is what
+ * the user asked to check. Read without changing `process.env`.
  */
 export async function readEnv(
   root: string,
@@ -116,7 +135,9 @@ export async function readEnv(
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly files: string[];
 }> {
-  const files = envFile ? [envFile] : ['.env.local', '.env'];
+  const files = envFile
+    ? [envFile]
+    : ['.env.development.local', '.env.local', '.env.development', '.env'];
   const loaded: string[] = [];
   const env: Record<string, string | undefined> = {};
   for (const file of files.toReversed()) {
@@ -130,31 +151,51 @@ export async function readEnv(
     Object.assign(env, parseEnv(text));
     loaded.unshift(file);
   }
-  return { env: { ...env, ...shell }, files: loaded };
+  return { env: envFile ? { ...shell, ...env } : { ...env, ...shell }, files: loaded };
 }
 
-/** Whether a .gitignore up the tree ignores `name` (simple patterns: `*` wildcards only). */
-export async function gitIgnores(root: string, name: string): Promise<boolean> {
-  const patterns: string[] = [];
-  findUp(root, (dir) => {
-    patterns.push(join(dir, '.gitignore'));
-    return false;
+/** Whether git ignores `name`, a file in `root`: git's own answer, or 'unknown' without git. */
+function gitCheckIgnore(root: string, name: string): Promise<boolean | 'unknown'> {
+  return new Promise((done) => {
+    // Without --no-index: a tracked file counts as not ignored, since it would be committed.
+    execFile('git', ['check-ignore', '-q', '--', name], { cwd: root, timeout: 5_000 }, (error) => {
+      if (error === null) done(true);
+      else done((error as { code?: unknown }).code === 1 ? false : 'unknown');
+    });
   });
-  for (const file of patterns) {
-    let text: string;
-    try {
-      text = await readFile(file, 'utf8');
-    } catch {
+}
+
+const GLOB_ONLY = /^[^/?[\]\\]+$/;
+
+/**
+ * Whether git ignores `name`, a file in `root`. Asks git; outside a repository (or without git)
+ * reads the project's own .gitignore, and answers no whenever a line is beyond a simple glob.
+ */
+export async function gitIgnores(root: string, name: string): Promise<boolean> {
+  const verdict = await gitCheckIgnore(root, name);
+  if (verdict !== 'unknown') return verdict;
+  let text: string;
+  try {
+    text = await readFile(join(root, '.gitignore'), 'utf8');
+  } catch {
+    return false;
+  }
+  let ignored = false;
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const negated = trimmed.startsWith('!');
+    // A leading slash anchors the pattern to this folder, which is where `name` is.
+    const pattern = (negated ? trimmed.slice(1) : trimmed).replace(/^\//, '');
+    if (!GLOB_ONLY.test(pattern)) {
+      if (negated) return false;
       continue;
     }
-    for (const line of text.split(/\r?\n/)) {
-      const pattern = line.trim().replace(/^\//, '');
-      if (!pattern || pattern.startsWith('#') || pattern.startsWith('!')) continue;
-      const regex = new RegExp(
-        `^${pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replaceAll('*', '[^/]*')}$`,
-      );
-      if (regex.test(name)) return true;
-    }
+    const regex = new RegExp(
+      `^${pattern.replace(/[.+^${}()|]/g, '\\$&').replaceAll('*', '[^/]*')}$`,
+    );
+    // The last matching line wins, as in git.
+    if (regex.test(name)) ignored = !negated;
   }
-  return false;
+  return ignored;
 }

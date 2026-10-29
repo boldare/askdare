@@ -1,9 +1,11 @@
+import { execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseEnv } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { InitError, init } from './init';
+import { gitIgnores } from './project';
 
 let root: string;
 let output: string[];
@@ -131,6 +133,29 @@ describe('chatdock init', () => {
     expect(await readFile(join(root, 'chatdock.config.js'), 'utf8')).toContain("id: 'sales'");
     // No layout to edit: init says where the script goes.
     expect(output.join('\n')).toContain('<script src="/api/chat/widget.js?bot=sales" async />');
+  });
+
+  it("asks git whether .env.local is ignored, so another folder's pattern doesn't count", async () => {
+    const repo = root;
+    await rm(join(repo, '.git'), { recursive: true });
+    execFileSync('git', ['init', '-q'], { cwd: repo });
+    // The monorepo root ignores only its own .env.local.
+    await writeFile(join(repo, '.gitignore'), '/.env.local\n');
+    root = join(repo, 'apps/web');
+    await nextApp({ '.gitignore': 'node_modules\n' });
+    await run();
+    expect(await readFile(join(root, '.gitignore'), 'utf8')).toContain('.env*.local');
+    expect(() =>
+      execFileSync('git', ['check-ignore', '-q', '.env.local'], { cwd: root }),
+    ).not.toThrow();
+    root = repo;
+  });
+
+  it('reads negations and anchors without git', async () => {
+    await writeFile(join(root, '.gitignore'), '.env*\n!.env.local\n/.env.test\n');
+    expect(await gitIgnores(root, '.env')).toBe(true);
+    expect(await gitIgnores(root, '.env.local')).toBe(false);
+    expect(await gitIgnores(root, '.env.test')).toBe(true);
   });
 
   it('refuses folders that are not App Router Next.js apps, and bad bot IDs', async () => {

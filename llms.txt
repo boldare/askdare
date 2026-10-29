@@ -2,7 +2,7 @@
 
 > `@boldare/chatdock` adds an AI chatbot to any website. A Next.js 16 app (App Router, Node.js runtime) serves the chat from one catch-all route; other sites embed it with one `<script>` tag. Built on the official `openai` SDK (Responses and Conversations APIs); no database.
 
-Set it up with `npx @boldare/chatdock init` and verify it with `npx @boldare/chatdock doctor`. The public API is `defineBot` and `defineTool` from `@boldare/chatdock`, `createChatHandler` from `@boldare/chatdock/next`, the `data-*` attributes of the script tag, `chatdock(…)` on the page, the `--cd-*` CSS tokens, the `data-cd-part` names and the text keys. Everything else is internal.
+Set it up with `npx @boldare/chatdock init` and verify it with `npx @boldare/chatdock doctor`. The public API is `defineBot`, `defineTool` and `defineTheme` from `@boldare/chatdock`, `createChatHandler` from `@boldare/chatdock/next`, the `data-*` attributes of the script tag, `chatdock(…)` on the page, the `--cd-*` CSS tokens, the `data-cd-part` names and the text keys. Everything else is internal.
 
 ## Docs
 

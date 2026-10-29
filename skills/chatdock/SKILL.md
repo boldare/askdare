@@ -15,7 +15,7 @@ description: Add, configure or troubleshoot the @boldare/chatdock AI chat in a N
 
 ## Public API: use only this
 
-- `defineBot`, `defineTool` from `@boldare/chatdock`; `createChatHandler` from `@boldare/chatdock/next`.
+- `defineBot`, `defineTool`, `defineTheme` from `@boldare/chatdock`; `createChatHandler` from `@boldare/chatdock/next`.
 - On pages: `<script src="…/api/chat/widget.js?bot=<id>" async>` with `data-launcher="none"` or `data-mode="inline" data-target="…"`, and `chatdock('open' | 'close' | 'toggle' | 'configure', …)`.
 - Styling: `widget.texts`, `widget.theme`, `widget.css` with `[data-cd-part="…"]` selectors and `--cd-*` tokens (see `docs/styling.md`).
 

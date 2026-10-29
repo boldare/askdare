@@ -1,9 +1,11 @@
 import { readFile } from 'node:fs/promises';
-import { isAbsolute, join } from 'node:path';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 import { parseEnv } from 'node:util';
 import { type DoctorCheck, type DoctorReport, doctorReportSchema } from '../protocol/doctor';
 import { createTokenService } from '../security/tokens';
 import {
+  addCommand,
+  atLeast,
   findFile,
   gitIgnores,
   installedVersion,
@@ -47,18 +49,25 @@ function versions(project: Project): DoctorCheck[] {
       ? ok(`Node ${process.versions.node}`)
       : fail(`Node ${process.versions.node} is too old.`, 'Use Node 22 or later.'),
   );
-  const wanted: readonly (readonly [string, number, string])[] = [
-    ['next', 16, 'Next.js 16'],
-    ['react', 19, 'React 19'],
-    ['zod', 4, 'zod 4.1 or later'],
-    ['@boldare/chatdock', 0, '@boldare/chatdock'],
+  const wanted: readonly (readonly [string, number, number, string])[] = [
+    ['next', 16, 0, 'Next.js 16'],
+    ['react', 19, 0, 'React 19'],
+    ['zod', 4, 1, 'zod 4.1 or later'],
+    ['@boldare/chatdock', 0, 0, '@boldare/chatdock'],
   ];
   const found: string[] = [];
-  for (const [name, major, label] of wanted) {
+  for (const [name, major, minor, label] of wanted) {
     const version = installedVersion(project, name);
     if (version === undefined) {
-      checks.push(fail(`${name} is not installed.`, `chatdock needs ${label}.`));
-    } else if ((majorOf(version) ?? 0) < major) {
+      checks.push(
+        fail(
+          `${name} is not installed.`,
+          project.dependencies?.[name]
+            ? `Run ${project.packageManager} install.`
+            : `chatdock needs ${label}: ${addCommand(project, [name])}`,
+        ),
+      );
+    } else if (!atLeast(version, major, minor)) {
       checks.push(fail(`${name} ${version} is too old.`, `chatdock needs ${label}.`));
     } else {
       found.push(`${name} ${version}`);
@@ -120,20 +129,24 @@ async function files(project: Project, basePath: string): Promise<DoctorCheck[]>
   return checks;
 }
 
+/** `remote`: checking a deployed app, whose own key and model the live checks cover. */
 async function environment(
   project: Project,
   env: Record<string, string | undefined>,
   envFiles: readonly string[],
+  remote: boolean,
 ) {
   const checks: DoctorCheck[] = [];
-  checks.push(
-    env['OPENAI_API_KEY']
-      ? ok('OPENAI_API_KEY is set.')
-      : fail(
-          'OPENAI_API_KEY is not set.',
-          'Add the key of a dedicated OpenAI project to .env.local.',
-        ),
-  );
+  if (!remote) {
+    checks.push(
+      env['OPENAI_API_KEY']
+        ? ok('OPENAI_API_KEY is set.')
+        : fail(
+            'OPENAI_API_KEY is not set.',
+            'Add the key of a dedicated OpenAI project to .env.local.',
+          ),
+    );
+  }
   const secret = env['CHAT_SECRET'];
   const previous = (env['CHAT_SECRET_PREVIOUS'] ?? '')
     .split(',')
@@ -155,19 +168,22 @@ async function environment(
       checks.push(fail((error as Error).message.replace('[chatdock] ', '')));
     }
   }
-  if (env['CHATDOCK_MODEL'] === '') {
+  if (!remote && env['CHATDOCK_MODEL'] === '') {
     checks.push(
       fail('CHATDOCK_MODEL is empty.', 'Set it to a current OpenAI model your project may use.'),
     );
   }
   for (const file of envFiles) {
-    if (isAbsolute(file) || (await gitIgnores(project.root, file))) continue;
-    const values = parseEnv(await readFile(join(project.root, file), 'utf8'));
+    const name = relative(project.root, resolve(project.root, file));
+    if (name.startsWith('..') || isAbsolute(name) || (await gitIgnores(project.root, name))) {
+      continue;
+    }
+    const values = parseEnv(await readFile(join(project.root, name), 'utf8'));
     if (values['OPENAI_API_KEY'] || values['CHAT_SECRET']) {
       checks.push(
         fail(
-          `${file} holds secrets but is not in .gitignore.`,
-          `Add \`${file === '.env' ? '.env*' : '.env*.local'}\` to .gitignore before you commit.`,
+          `${name} holds secrets but is not in .gitignore.`,
+          `Add \`${name.endsWith('.local') ? '.env*.local' : '.env*'}\` to .gitignore before you commit.`,
         ),
       );
     }
@@ -298,9 +314,11 @@ async function live(
           : code === 'not_found'
             ? fail("This app's chatdock has no doctor endpoint.", 'Update @boldare/chatdock.')
             : code === 'bot_unavailable'
-              ? fail('CHAT_SECRET is not set where the app runs.')
+              ? fail(
+                  'The app is switched off (CHATDOCK_DISABLED) or has no CHAT_SECRET where it runs.',
+                )
               : code === 'rate_limited'
-                ? warn('Another doctor run is in progress. Try again in a moment.')
+                ? fail('Too many doctor runs at once or this minute.', 'Try again in a minute.')
                 : fail(`${base}/doctor answered HTTP ${response.status}.`, 'Check the app’s logs.');
     return [{ title, checks: [reason] }];
   }
@@ -335,6 +353,11 @@ async function live(
 
 const MARK = { ok: '✓', warn: '!', fail: '✗' } as const;
 
+/** localhost and loopback addresses: the app runs on this machine, with the env files here. */
+export function isLocal(url: string): boolean {
+  return /^(localhost|127\.0\.0\.1|\[::1\])$|\.localhost$/.test(new URL(url).hostname);
+}
+
 /** `chatdock doctor`: checks the project, its environment and the running app. Returns failures. */
 export async function doctor(options: DoctorOptions): Promise<number> {
   const project = await readProject(options.root);
@@ -346,7 +369,7 @@ export async function doctor(options: DoctorOptions): Promise<number> {
     },
     {
       title: `Environment (${envFiles.join(', ') || 'shell only'})`,
-      checks: await environment(project, env, envFiles),
+      checks: await environment(project, env, envFiles, !isLocal(options.url)),
     },
     ...(await live(options, project, env)),
   ];

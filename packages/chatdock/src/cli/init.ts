@@ -116,7 +116,7 @@ async function addScript(project: Project, botId: string): Promise<'added' | 'pr
   const layout = findFile(project.appDir, 'layout');
   if (layout === undefined) return 'manual';
   const text = await readFile(layout, 'utf8');
-  if (text.includes('/widget.js')) return 'present';
+  if (text.includes('/api/chat/widget.js')) return 'present';
   const matches = [...text.matchAll(/^([ \t]*)(.*?)<\/body>/gm)];
   if (matches.length !== 1 || matches[0] === undefined) return 'manual';
   const [match] = matches;
@@ -191,8 +191,11 @@ export async function init(options: InitOptions): Promise<void> {
     print(`  + ${shown(project, route)}`);
   }
 
-  // A generated secret must never land in git.
-  if (!(await gitIgnores(project.root, '.env.local'))) {
+  // A generated secret must never land in git, nor the production one doctor reads.
+  const ignored = await Promise.all(
+    ['.env.local', '.env.production.local'].map((file) => gitIgnores(project.root, file)),
+  );
+  if (!ignored.every(Boolean)) {
     await appendFile(join(project.root, '.gitignore'), '\n# local secrets\n.env*.local\n');
     print('  + .gitignore: .env*.local');
   }
