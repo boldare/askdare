@@ -84,7 +84,10 @@ describe('token service', () => {
     const tokens = await createTokenService({ secret: SECRET });
     const foreign = await createTokenService({ secret: OLD_SECRET });
     const { token } = await tokens.issueAccess('support', VISITOR);
-    const tampered = `${token.slice(0, -2)}${token.endsWith('A') ? 'B' : 'A'}${token.slice(-1)}`;
+    // Change the second-to-last character (a full 6 bits of the auth tag) to a different one.
+    const target = token.at(-2) === 'A' ? 'B' : 'A';
+    const tampered = `${token.slice(0, -2)}${target}${token.slice(-1)}`;
+    expect(tampered).not.toBe(token);
     await expect(tokens.verifyAccess(tampered, 'support')).rejects.toMatchObject({
       code: 'unauthorized',
     });

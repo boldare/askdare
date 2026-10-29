@@ -1,3 +1,4 @@
+import type { TextKey } from './i18n/texts';
 import type { ErrorCode } from './protocol/events';
 
 const HTTP_STATUS: Readonly<Record<ErrorCode, number>> = {
@@ -31,6 +32,12 @@ const DEFAULT_MESSAGES: Readonly<Record<ErrorCode, string>> = {
 export interface ChatdockErrorOptions {
   /** Shown to end users, so it must never contain internals. Defaults to a generic message. */
   readonly message?: string;
+  /**
+   * Dictionary key the widget shows instead of `message`, in the visitor's language. Defaults to
+   * `error.<code>` when there is no custom message; developer-facing messages have none.
+   */
+  readonly key?: TextKey;
+  readonly params?: Readonly<Record<string, string | number>>;
   readonly retryAfterMs?: number;
   /** Internal detail for server-side logs only. */
   readonly cause?: unknown;
@@ -42,12 +49,16 @@ export class ChatdockError extends Error {
   readonly code: ErrorCode;
   readonly status: number;
   readonly retryAfterMs: number | undefined;
+  readonly key: TextKey | undefined;
+  readonly params: Readonly<Record<string, string | number>> | undefined;
 
   constructor(code: ErrorCode, options: ChatdockErrorOptions = {}) {
     super(options.message ?? DEFAULT_MESSAGES[code], { cause: options.cause });
     this.code = code;
     this.status = HTTP_STATUS[code];
     this.retryAfterMs = options.retryAfterMs;
+    this.key = options.key ?? (options.message === undefined ? `error.${code}` : undefined);
+    this.params = options.params;
   }
 }
 

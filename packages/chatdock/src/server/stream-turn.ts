@@ -12,6 +12,8 @@ export interface StreamTurnOptions {
   readonly text: string;
   /** Files from verified attachment handles. */
   readonly attachments?: readonly TurnAttachment[];
+  /** What the host page says about itself; untrusted. */
+  readonly pageContext?: string | undefined;
   readonly context: BotContext;
   readonly visitorId: string;
   /** Conversation to continue; a new one is created when absent. */
@@ -120,6 +122,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           conversationId,
           text: options.text,
           attachments: options.attachments ?? [],
+          pageContext: options.pageContext,
           context: options.context,
           visitorId: options.visitorId,
           safetyIdentifier: await sha256Hex(options.visitorId),
@@ -143,6 +146,8 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
             code: failure.code,
             message: failure.message,
             retryAfterMs: failure.retryAfterMs,
+            key: failure.key,
+            params: failure.params,
           });
         })
         .finally(finish);

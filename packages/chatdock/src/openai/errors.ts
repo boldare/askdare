@@ -43,6 +43,7 @@ export function fromOpenAIError(error: unknown, deadlineExceeded: boolean): Erro
     if (/conversation/i.test(error.message)) {
       return new ChatdockError('not_found', {
         message: 'This conversation is no longer available.',
+        key: 'error.conversationGone',
         cause: error,
       });
     }

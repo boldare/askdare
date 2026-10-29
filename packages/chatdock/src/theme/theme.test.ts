@@ -71,6 +71,36 @@ describe('theme stylesheet', () => {
   });
 });
 
+describe('bot widget texts', () => {
+  it('accepts partial overrides, plural forms included, and rejects unknown keys', () => {
+    const bot = defineBot({
+      id: 'a',
+      model: 'm',
+      instructions: 'x',
+      widget: {
+        locale: 'pl',
+        texts: {
+          'composer.placeholder': 'Zapytaj o cennik…',
+          'message.attachments.few': '{count} pliki',
+        },
+      },
+    });
+    expect(bot.widget.placeholder).toBe('Zapytaj o cennik…');
+    expect(bot.widget.texts['message.attachments.few']).toBe('{count} pliki');
+    expect(() =>
+      defineBot({
+        id: 'a',
+        model: 'm',
+        instructions: 'x',
+        widget: { texts: { 'composer.nope': 'x' } as never },
+      }),
+    ).toThrow(/widget\.texts/);
+    expect(() =>
+      defineBot({ id: 'a', model: 'm', instructions: 'x', widget: { locale: 'en-US-US' } }),
+    ).toThrow(/widget\.locale/);
+  });
+});
+
 describe('bot widget', () => {
   it('validates starters and the avatar, and resolves the theme', () => {
     const bot = defineBot({

@@ -96,8 +96,12 @@ export interface MessageEndEvent {
 export interface ErrorEvent {
   readonly type: 'error';
   readonly code: ErrorCode;
+  /** English fallback. */
   readonly message: string;
   readonly retryAfterMs?: number | undefined;
+  /** Dictionary key for the visitor's language, with its placeholders. */
+  readonly key?: string | undefined;
+  readonly params?: Readonly<Record<string, string | number>> | undefined;
 }
 
 export type ProtocolEvent =
@@ -151,5 +155,7 @@ export const protocolEventSchema: z.ZodType<ProtocolEvent> = z.discriminatedUnio
     code: z.enum(ERROR_CODES),
     message: z.string().max(500),
     retryAfterMs: z.number().int().min(0).optional(),
+    key: z.string().max(64).optional(),
+    params: z.record(z.string().max(32), z.union([z.string().max(200), z.number()])).optional(),
   }),
 ]);

@@ -2,6 +2,7 @@ import type OpenAI from 'openai';
 import type { ConversationItem } from 'openai/resources/conversations/items';
 import type { HistoryCitation, HistoryMessage } from '../protocol/history';
 import { addSources, citationSource, type KnowledgeSources } from './citations';
+import { PAGE_CONTEXT_MARKER } from './page-context';
 
 /** Most recent items fetched per history request; older ones are not shown. */
 const ITEM_LIMIT = 100;
@@ -36,6 +37,8 @@ export function toHistoryMessage(
     switch (part.type) {
       case 'input_text':
       case 'output_text':
+        // The page's description travels in the visitor's turn but is not something they wrote.
+        if (part.type === 'input_text' && part.text.startsWith(PAGE_CONTEXT_MARKER)) break;
         text += part.text;
         if (part.type === 'output_text') annotations.push(...part.annotations);
         break;

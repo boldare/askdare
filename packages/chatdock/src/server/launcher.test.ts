@@ -31,7 +31,7 @@ describe('loaderWithLook (real built loader)', () => {
     expect(() => new Function(js)).not.toThrow();
     const looks = JSON.parse(new Function(`return ${literal}`)() as string);
     // biome-ignore lint/suspicious/noTemplateCurlyInString: hostile input on purpose
-    expect(looks['sage-bot'].label).toBe('${globalThis.pwned=1}`$` $& \'"');
+    expect(looks['sage-bot'].texts.pl.label).toBe('${globalThis.pwned=1}`$` $& \'"');
     expect((globalThis as Record<string, unknown>)['pwned']).toBeUndefined();
   });
 

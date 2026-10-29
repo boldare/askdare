@@ -139,6 +139,7 @@ describe('streamTurn', () => {
     expect(events.at(-1)).toEqual({
       type: 'error',
       code: 'upstream_error',
+      key: 'error.upstream_error',
       message: failure.message,
       retryAfterMs: 1000,
     });

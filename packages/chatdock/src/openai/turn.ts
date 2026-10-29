@@ -3,6 +3,7 @@ import type { ResponseInputContent, ResponseInputItem } from 'openai/resources/r
 import type { TokenUsage, TurnRequest, TurnResult } from '../gateway';
 import type { MessageEndReason } from '../protocol/events';
 import { fromOpenAIError } from './errors';
+import { pageContextPart } from './page-context';
 import { CitationRegistry, ResponseStreamMapper, type StepOutcome } from './stream-mapper';
 import { danglingCallId, executeCalls, responseTools, toolChoice } from './tools';
 
@@ -22,13 +23,16 @@ function endReason(outcome: StepOutcome): MessageEndReason {
   return 'completed';
 }
 
-/** The visitor's message: plain text, or text plus the attached images and PDFs. */
+/** The visitor's turn: their text, the page's description if any, and attached files. */
 function userInput(request: TurnRequest): ResponseInputItem {
   const attachments = request.attachments ?? [];
-  if (attachments.length === 0) return { role: 'user', content: request.text };
-  const content: ResponseInputContent[] = request.text
-    ? [{ type: 'input_text', text: request.text }]
-    : [];
+  if (attachments.length === 0 && !request.pageContext) {
+    return { role: 'user', content: request.text };
+  }
+  const content: ResponseInputContent[] = [
+    ...(request.pageContext ? [pageContextPart(request.pageContext)] : []),
+    ...(request.text ? [{ type: 'input_text' as const, text: request.text }] : []),
+  ];
   for (const attachment of attachments) {
     content.push(
       attachment.kind === 'image'

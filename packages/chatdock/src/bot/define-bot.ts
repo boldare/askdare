@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { canonicalLocale, TEXT_KEYS, type TextKey, textsFor } from '../i18n/texts';
 import { PRESET_NAMES, type PresetName } from '../theme/presets';
 import {
   type ColorScheme,
@@ -93,18 +94,38 @@ export interface VoiceConfig {
 
 /** Public widget settings. Everything here is sent to browsers, so never put secrets in it. */
 export interface WidgetConfig {
+  /** Shortcut for `texts['header.title']`. */
   readonly title?: string;
   /** Under the title, for example "Usually replies in a minute". */
   readonly subtitle?: string;
+  /** Shortcut for `texts['welcome.greeting']`. */
   readonly greeting?: string;
+  /** Shortcut for `texts['composer.placeholder']`. */
   readonly placeholder?: string;
-  /** BCP 47 tag for UI texts and the default answer language. Default `en`. */
+  /**
+   * BCP 47 tag for the widget's texts and the default answer language, or `auto`: the language
+   * of the page embedding the widget, else the visitor's browser. Texts ship in English and
+   * Polish; other languages show English unless you set `texts`. Default `en`.
+   */
   readonly locale?: string;
+  /** Overrides for any text the widget shows, by key (see the dictionary in the docs). */
+  readonly texts?: Readonly<Partial<Record<TextKey, string>>>;
+  /**
+   * The note that visitors are talking to an AI (EU AI Act, art. 50), shown under the message
+   * field, with an optional link to your privacy policy (an https URL or a path on your app).
+   * `false` hides it; only do that when your page already says so. Default: shown, no link.
+   */
+  readonly disclosure?: false | { readonly privacyUrl?: string };
+  /**
+   * Your own CSS for the chat, loaded after the theme. It is not in the library's layer, so it
+   * wins without !important. Target `[data-cd-part]` parts and the `--cd-*` tokens.
+   */
+  readonly css?: string;
   /** Suggested questions on the welcome screen; a click sends one. Up to 4. */
   readonly starters?: readonly string[];
   /** The assistant's picture: a path on your app such as `/avatar.png`, or a small data: image. */
   readonly avatar?: string;
-  /** Text on the pill launcher. Default `Ask us`. */
+  /** Text on the pill launcher; shortcut for `texts['launcher.label']`. */
   readonly launcherLabel?: string;
   /** Built-in look (`halo`, `aura`, `sage`, `care`) or a theme from `defineTheme`. Default `halo`. */
   readonly theme?: PresetName | ThemeDefinition;
@@ -114,14 +135,20 @@ export interface WidgetConfig {
 
 /** Widget settings with defaults applied and the theme resolved. */
 export interface BotWidget {
+  /** In the configured locale (English for `auto`); the visitor may see another language. */
   readonly title: string;
   readonly subtitle: string;
   readonly greeting: string;
   readonly placeholder: string;
+  /** The configured BCP 47 tag, or `auto`. */
   readonly locale: string;
   readonly starters: readonly string[];
   readonly avatar: string | undefined;
   readonly launcherLabel: string;
+  /** Text overrides, including the title, greeting, placeholder and launcher label shortcuts. */
+  readonly texts: Readonly<Partial<Record<TextKey, string>>>;
+  readonly disclosure: false | { readonly privacyUrl: string | undefined };
+  readonly css: string;
   readonly theme: ResolvedTheme;
 }
 
@@ -134,6 +161,12 @@ export interface BotDefinition {
   readonly limits?: BotLimits;
   /** Server-side functions the model may call; see `defineTool`. Keep it under about 20. */
   readonly tools?: readonly Tool[];
+  /**
+   * Accept a description of the page from `chatdock('configure', { context })` and pass it to the
+   * model with the visitor's message. Any script on the page, or the visitor, can set it, so it
+   * gets no more trust than what visitors type. Off by default.
+   */
+  readonly pageContext?: boolean;
   /** Documents the model searches with OpenAI file search and cites in its answers. */
   readonly knowledge?: KnowledgeConfig | undefined;
   /**
@@ -156,6 +189,7 @@ export interface Bot {
   readonly instructions: (context: BotContext) => string;
   readonly limits: Required<BotLimits>;
   readonly tools: readonly Tool[];
+  readonly pageContext: boolean;
   readonly knowledge: Required<KnowledgeConfig> | undefined;
   readonly attachments: Required<AttachmentConfig> | undefined;
   readonly voice: Required<VoiceConfig> | undefined;
@@ -183,15 +217,8 @@ const DEFAULT_LIMITS: Required<BotLimits> = {
   voiceSecondsPerIpPerDay: 600,
 };
 
-const DEFAULT_WIDGET = {
-  title: 'Assistant',
-  subtitle: '',
-  greeting: 'Hi! How can I help?',
-  placeholder: 'Type your message…',
-  locale: 'en',
-  starters: [] as readonly string[],
-  launcherLabel: 'Ask us',
-} as const;
+/** An https URL or a path on your app (no protocol-relative URLs). */
+const LINK = /^(https:\/\/[^\s"'<>\\]{1,500}|\/(?![/\\])[^\s"'<>\\]{0,500})$/;
 
 /** A same-origin path (served by your app, allowed by the iframe CSP) or a small raster data URL. */
 const AVATAR =
@@ -254,6 +281,7 @@ const definitionSchema = z.object({
       'must not use the reserved name file_search',
     )
     .optional(),
+  pageContext: z.boolean().optional(),
   knowledge: z
     .object({
       vectorStoreId: z.string().regex(/^vs_[A-Za-z0-9_-]+$/, 'must be a vector store ID like vs_…'),
@@ -284,8 +312,31 @@ const definitionSchema = z.object({
       placeholder: z.string().trim().min(1).max(120).optional(),
       locale: z
         .string()
-        .regex(/^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/, 'must be a BCP 47 tag like en or pl-PL')
+        .refine(
+          (value) => value === 'auto' || canonicalLocale(value) !== undefined,
+          'must be auto or a BCP 47 tag like en or pl-PL',
+        )
         .optional(),
+      texts: z
+        .partialRecord(
+          z.enum(TEXT_KEYS as [TextKey, ...TextKey[]]),
+          z.string().trim().min(1).max(300),
+        )
+        .optional(),
+      disclosure: z
+        .union([
+          z.literal(false),
+          z
+            .object({
+              privacyUrl: z
+                .string()
+                .regex(LINK, 'must be an https URL or a path like /privacy')
+                .optional(),
+            })
+            .strict(),
+        ])
+        .optional(),
+      css: z.string().max(50_000).optional(),
       subtitle: z.string().trim().min(1).max(120).optional(),
       starters: z.array(z.string().trim().min(1).max(80)).max(4).optional(),
       avatar: z
@@ -312,6 +363,17 @@ export function defineBot(definition: BotDefinition): Bot {
     throw new TypeError(`[chatdock] Invalid bot "${String(definition.id)}": ${issues}`);
   }
   const { instructions } = definition;
+  const widget = definition.widget ?? {};
+  const locale = widget.locale ?? 'en';
+  // The old shortcuts are text overrides, so a configured greeting wins in every language.
+  const overrides: Readonly<Partial<Record<TextKey, string>>> = Object.freeze({
+    ...widget.texts,
+    ...(widget.title ? { 'header.title': widget.title } : {}),
+    ...(widget.greeting ? { 'welcome.greeting': widget.greeting } : {}),
+    ...(widget.placeholder ? { 'composer.placeholder': widget.placeholder } : {}),
+    ...(widget.launcherLabel ? { 'launcher.label': widget.launcherLabel } : {}),
+  });
+  const texts = textsFor(locale === 'auto' ? 'en' : locale, overrides);
   const theme = resolveTheme(definition.widget?.theme, definition.widget?.colorScheme ?? 'auto');
   // Built-in presets are checked in CI; a customized theme is checked here, in development.
   if (
@@ -330,6 +392,7 @@ export function defineBot(definition: BotDefinition): Bot {
     instructions: typeof instructions === 'string' ? () => instructions : instructions,
     limits: Object.freeze({ ...DEFAULT_LIMITS, ...definition.limits }),
     tools: Object.freeze([...(definition.tools ?? [])]),
+    pageContext: definition.pageContext ?? false,
     knowledge: definition.knowledge
       ? Object.freeze({
           vectorStoreId: definition.knowledge.vectorStoreId,
@@ -355,14 +418,20 @@ export function defineBot(definition: BotDefinition): Bot {
       allowedOrigins: Object.freeze([...new Set(definition.security?.allowedOrigins ?? [])]),
     }),
     widget: Object.freeze({
-      title: definition.widget?.title ?? DEFAULT_WIDGET.title,
-      subtitle: definition.widget?.subtitle ?? DEFAULT_WIDGET.subtitle,
-      greeting: definition.widget?.greeting ?? DEFAULT_WIDGET.greeting,
-      placeholder: definition.widget?.placeholder ?? DEFAULT_WIDGET.placeholder,
-      locale: definition.widget?.locale ?? DEFAULT_WIDGET.locale,
-      starters: Object.freeze([...(definition.widget?.starters ?? DEFAULT_WIDGET.starters)]),
-      avatar: definition.widget?.avatar,
-      launcherLabel: definition.widget?.launcherLabel ?? DEFAULT_WIDGET.launcherLabel,
+      title: texts['header.title'] ?? '',
+      subtitle: widget.subtitle ?? '',
+      greeting: texts['welcome.greeting'] ?? '',
+      placeholder: texts['composer.placeholder'] ?? '',
+      locale,
+      starters: Object.freeze([...(widget.starters ?? [])]),
+      avatar: widget.avatar,
+      launcherLabel: texts['launcher.label'] ?? '',
+      texts: overrides,
+      disclosure:
+        widget.disclosure === false
+          ? false
+          : Object.freeze({ privacyUrl: widget.disclosure?.privacyUrl }),
+      css: widget.css ?? '',
       theme,
     }),
   });

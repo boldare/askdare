@@ -11,6 +11,8 @@ let nextFile = 1;
 const files = new Set();
 /** Each streamed reply and whether the caller read it to the end or hung up. */
 const replies = [];
+/** Every model request's instructions and input (tests run in parallel), to see what reached the model. */
+const requests = [];
 
 // Same shape as the live API's answer for a deleted conversation (spike S1, E11).
 const notFound = (response, id) =>
@@ -91,11 +93,16 @@ createServer(async (request, response) => {
   }
   if (request.method === 'POST' && pathname === '/v1/responses') {
     const body = await readJson(request);
+    requests.push({ instructions: body.instructions ?? '', input: JSON.stringify(body.input) });
     const items = conversations.get(body.conversation);
     if (!items) return notFound(response, body.conversation);
     const content = body.input?.[0]?.content ?? '';
     const parts = typeof content === 'string' ? [{ type: 'input_text', text: content }] : content;
-    const userText = parts.find((part) => part.type === 'input_text')?.text ?? '';
+    // The visitor's own text, not the page context part that may precede it.
+    const userText =
+      parts.find(
+        (part) => part.type === 'input_text' && !part.text.startsWith('[chatdock:page-context]'),
+      )?.text ?? '';
     const attached = parts.filter((part) => part.file_id).length;
     const reply = `You said: ${userText} (in ${body.conversation})${attached ? ` [${attached} files]` : ''}`;
     items.push(
@@ -156,6 +163,9 @@ createServer(async (request, response) => {
     return json(response, 200, [...files]);
   if (request.method === 'GET' && pathname === '/debug/replies')
     return json(response, 200, replies);
+  if (request.method === 'GET' && pathname === '/debug/requests') {
+    return json(response, 200, requests);
+  }
   if (request.method === 'DELETE' && pathname.startsWith('/v1/conversations/')) {
     const id = pathname.split('/').at(-1);
     conversations.delete(id);

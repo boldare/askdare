@@ -216,6 +216,7 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
       const invalid = (cause?: unknown): ChatdockError =>
         new ChatdockError('invalid_input', {
           message: 'An attachment expired or is invalid. Please attach it again.',
+          key: 'error.attachmentExpired',
           cause,
         });
       let payload: Awaited<ReturnType<typeof verify>>['payload'];

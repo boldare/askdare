@@ -22,6 +22,8 @@ export const bots = [
         `Reply in the language of the user's message; default to ${locale}.`,
       ].join(' '),
     tools: [currentTime, exchangeRate],
+    // Pages may describe themselves with chatdock('configure', { context }); see docs/styling.md.
+    pageContext: true,
     // Documents from knowledge/, uploaded with `pnpm kb:sync`. Without the ID the bot has none.
     knowledge: vectorStoreId ? { vectorStoreId } : undefined,
     // Images and PDFs, up to 4 MB and 3 per message; they expire after 30 days.
@@ -30,6 +32,8 @@ export const bots = [
     voice: { model: process.env.CHATDOCK_TRANSCRIBE_MODEL ?? 'gpt-transcribe' },
     security: { allowedOrigins },
     widget: {
+      // The language of the page that embeds the chat; English and Polish texts are built in.
+      locale: 'auto',
       title: 'Brightloop assistant',
       subtitle: 'Answers from our help center',
       greeting: 'Hi! Ask me about Brightloop plans, support or security.',

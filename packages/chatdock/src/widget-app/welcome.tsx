@@ -41,7 +41,7 @@ function Starters({
   if (widget.starters.length === 0) return null;
   const checklist = widget.variants.welcome === 'intro';
   return (
-    <ul data-cd-part="starters" aria-label="Suggested questions">
+    <ul data-cd-part="starters" aria-label={widget.texts['welcome.suggestions']}>
       {widget.starters.map((starter) => (
         <li key={starter}>
           <button
@@ -77,7 +77,11 @@ export function Welcome({
   const starters = <Starters widget={widget} disabled={disabled} onPick={onPick} />;
   if (layout === 'intro') {
     return (
-      <section data-cd-part="welcome" data-layout="intro" aria-label="Welcome">
+      <section
+        data-cd-part="welcome"
+        data-layout="intro"
+        aria-label={widget.texts['welcome.label']}
+      >
         <div data-cd-part="intro">
           <Avatar widget={widget} size="small" />
           <div data-cd-part="intro-card">
@@ -90,12 +94,16 @@ export function Welcome({
   }
   if (layout === 'persona') {
     return (
-      <section data-cd-part="welcome" data-layout="persona" aria-label="Welcome">
+      <section
+        data-cd-part="welcome"
+        data-layout="persona"
+        aria-label={widget.texts['welcome.label']}
+      >
         <div data-cd-part="persona">
           <Avatar widget={widget} size="large" />
           <div>
             <h2 data-cd-part="persona-name">{widget.title}</h2>
-            <span data-cd-part="presence">Online</span>
+            <span data-cd-part="presence">{widget.texts['welcome.online']}</span>
           </div>
         </div>
         <p data-cd-part="greeting">{widget.greeting}</p>
@@ -104,7 +112,7 @@ export function Welcome({
     );
   }
   return (
-    <section data-cd-part="welcome" data-layout="hero" aria-label="Welcome">
+    <section data-cd-part="welcome" data-layout="hero" aria-label={widget.texts['welcome.label']}>
       <Avatar widget={widget} size="large" />
       <h2 data-cd-part="greeting">{widget.greeting}</h2>
       {starters}
