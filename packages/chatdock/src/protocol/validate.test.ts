@@ -42,6 +42,13 @@ const ODD_VALUES: readonly unknown[] = [
   'not a url',
   'done',
   'internal_error',
+  // URLs a browser would take but the protocol doesn't, and length counted in code units.
+  'https:a.example',
+  'http:/a.example',
+  '\u00a0https://a.example',
+  'https://a.example\u2028',
+  '😀'.repeat(65),
+  JSON.parse('{"__proto__": {"polluted": true}}'),
 ];
 
 /** Every valid sample, then each field of it replaced by every odd value, plus an unknown field. */
@@ -55,15 +62,31 @@ function mutations(samples: readonly Record<string, unknown>[]): unknown[] {
   ]);
 }
 
+/** The browser may refuse more than zod, never accept more, and never change what it accepts. */
+function expectNoMoreLenient(
+  ours: unknown,
+  zod: { success: boolean; data?: unknown },
+  value: unknown,
+) {
+  if (ours !== undefined) expect(zod.success, JSON.stringify(value)).toBe(true);
+  if (ours !== undefined) expect(ours, JSON.stringify(value)).toEqual(zod.data);
+}
+
 describe('the browser validator', () => {
-  it('agrees with the zod schemas on every event', () => {
-    for (const value of [...mutations(VALID_EVENTS), null, 'text', 42, []]) {
-      const zod = protocolEventSchema.safeParse(value);
-      expect(parseEvent(value), JSON.stringify(value)).toEqual(zod.success ? zod.data : undefined);
+  it('accepts every valid event exactly as zod does', () => {
+    for (const value of VALID_EVENTS) {
+      expect(parseEvent(value)).toEqual(protocolEventSchema.parse(value));
     }
   });
 
-  it('agrees with the zod schemas on history', () => {
+  it('is never more lenient than the zod schemas', () => {
+    for (const value of [...mutations(VALID_EVENTS), null, 'text', 42, []]) {
+      expectNoMoreLenient(parseEvent(value), protocolEventSchema.safeParse(value), value);
+    }
+    expect(({} as Record<string, unknown>)['polluted']).toBeUndefined();
+  });
+
+  it('is never more lenient than zod on history, and accepts a valid one', () => {
     const message = {
       id: 'm1',
       role: 'assistant',
@@ -81,10 +104,10 @@ describe('the browser validator', () => {
       {},
     ];
     for (const value of values) {
-      const zod = historyResponseSchema.safeParse(value);
-      expect(parseHistory(value), JSON.stringify(value)).toEqual(
-        zod.success ? zod.data : undefined,
-      );
+      expectNoMoreLenient(parseHistory(value), historyResponseSchema.safeParse(value), value);
     }
+    expect(parseHistory({ messages: [message] })).toEqual(
+      historyResponseSchema.parse({ messages: [message] }),
+    );
   });
 });

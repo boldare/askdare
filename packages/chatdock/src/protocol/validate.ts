@@ -8,8 +8,8 @@ import {
 import type { HistoryCitation, HistoryMessage, HistoryResponse } from './history';
 
 /*
- * The browser's protocol check: the same rules as ./schemas.ts (zod, for the server and tests),
- * at a fraction of the size in the widget bundle. validate.test.ts keeps the two in agreement.
+ * The browser's protocol check: the rules of ./schemas.ts (zod, for the server and tests), at a
+ * fraction of the size in the widget bundle, and never more lenient. validate.test.ts checks it.
  * Each function returns a fresh object with the known fields only, or undefined.
  */
 
@@ -25,8 +25,9 @@ const oneOf = <T extends string>(value: unknown, options: readonly T[]): value i
   options.includes(value as T);
 const messageId = (value: unknown): value is string => text(value, 1, 128);
 
+/** An absolute http(s) URL as the server sends it; stricter than a browser's lenient parsing. */
 function httpUrl(value: unknown): value is string {
-  if (typeof value !== 'string') return false;
+  if (typeof value !== 'string' || !/^https?:\/\/[^\s/?#]+[^\s]*$/i.test(value)) return false;
   try {
     const { protocol } = new URL(value);
     return protocol === 'http:' || protocol === 'https:';
