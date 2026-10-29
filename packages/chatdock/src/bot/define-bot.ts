@@ -1,4 +1,13 @@
 import { z } from 'zod';
+import { PRESET_NAMES, type PresetName } from '../theme/presets';
+import {
+  type ColorScheme,
+  type ResolvedTheme,
+  resolveTheme,
+  type ThemeDefinition,
+  themeDefinitionSchema,
+  themeWarnings,
+} from '../theme/theme';
 import type { Tool } from '../tools/define-tool';
 
 /** Per-request context available when building instructions. */
@@ -85,10 +94,35 @@ export interface VoiceConfig {
 /** Public widget settings. Everything here is sent to browsers, so never put secrets in it. */
 export interface WidgetConfig {
   readonly title?: string;
+  /** Under the title, for example "Usually replies in a minute". */
+  readonly subtitle?: string;
   readonly greeting?: string;
   readonly placeholder?: string;
   /** BCP 47 tag for UI texts and the default answer language. Default `en`. */
   readonly locale?: string;
+  /** Suggested questions on the welcome screen; a click sends one. Up to 4. */
+  readonly starters?: readonly string[];
+  /** The assistant's picture: a path on your app such as `/avatar.png`, or a small data: image. */
+  readonly avatar?: string;
+  /** Text on the pill launcher. Default `Ask us`. */
+  readonly launcherLabel?: string;
+  /** Built-in look (`halo`, `aura`, `sage`, `care`) or a theme from `defineTheme`. Default `halo`. */
+  readonly theme?: PresetName | ThemeDefinition;
+  /** Default `auto`: follows the visitor's system setting. */
+  readonly colorScheme?: ColorScheme;
+}
+
+/** Widget settings with defaults applied and the theme resolved. */
+export interface BotWidget {
+  readonly title: string;
+  readonly subtitle: string;
+  readonly greeting: string;
+  readonly placeholder: string;
+  readonly locale: string;
+  readonly starters: readonly string[];
+  readonly avatar: string | undefined;
+  readonly launcherLabel: string;
+  readonly theme: ResolvedTheme;
 }
 
 export interface BotDefinition {
@@ -126,7 +160,7 @@ export interface Bot {
   readonly attachments: Required<AttachmentConfig> | undefined;
   readonly voice: Required<VoiceConfig> | undefined;
   readonly security: { readonly allowedOrigins: readonly string[] };
-  readonly widget: Required<WidgetConfig>;
+  readonly widget: BotWidget;
 }
 
 const DEFAULT_LIMITS: Required<BotLimits> = {
@@ -149,12 +183,19 @@ const DEFAULT_LIMITS: Required<BotLimits> = {
   voiceSecondsPerIpPerDay: 600,
 };
 
-const DEFAULT_WIDGET: Required<WidgetConfig> = {
+const DEFAULT_WIDGET = {
   title: 'Assistant',
+  subtitle: '',
   greeting: 'Hi! How can I help?',
   placeholder: 'Type your message…',
   locale: 'en',
-};
+  starters: [] as readonly string[],
+  launcherLabel: 'Ask us',
+} as const;
+
+/** A same-origin path (served by your app, allowed by the iframe CSP) or a small raster data URL. */
+const AVATAR =
+  /^(\/(?!\/)[\w\-./%]{1,200}|data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]{1,90000})$/;
 
 const origin = z.string().refine((value) => {
   try {
@@ -245,6 +286,15 @@ const definitionSchema = z.object({
         .string()
         .regex(/^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/, 'must be a BCP 47 tag like en or pl-PL')
         .optional(),
+      subtitle: z.string().trim().min(1).max(120).optional(),
+      starters: z.array(z.string().trim().min(1).max(80)).max(4).optional(),
+      avatar: z
+        .string()
+        .regex(AVATAR, 'must be a path like /avatar.png or a PNG, JPEG, WebP or GIF data URL')
+        .optional(),
+      launcherLabel: z.string().trim().min(1).max(40).optional(),
+      theme: z.union([z.enum(PRESET_NAMES), themeDefinitionSchema]).optional(),
+      colorScheme: z.enum(['auto', 'light', 'dark']).optional(),
     })
     .optional(),
 });
@@ -262,6 +312,18 @@ export function defineBot(definition: BotDefinition): Bot {
     throw new TypeError(`[chatdock] Invalid bot "${String(definition.id)}": ${issues}`);
   }
   const { instructions } = definition;
+  const theme = resolveTheme(definition.widget?.theme, definition.widget?.colorScheme ?? 'auto');
+  // Built-in presets are checked in CI; a customized theme is checked here, in development.
+  if (
+    typeof definition.widget?.theme === 'object' &&
+    (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.[
+      'NODE_ENV'
+    ] !== 'production'
+  ) {
+    for (const warning of themeWarnings(theme)) {
+      console.warn(`[chatdock] Bot "${definition.id}" theme: ${warning}.`);
+    }
+  }
   return Object.freeze({
     id: definition.id,
     model: definition.model.trim(),
@@ -292,6 +354,16 @@ export function defineBot(definition: BotDefinition): Bot {
     security: Object.freeze({
       allowedOrigins: Object.freeze([...new Set(definition.security?.allowedOrigins ?? [])]),
     }),
-    widget: Object.freeze({ ...DEFAULT_WIDGET, ...definition.widget }),
+    widget: Object.freeze({
+      title: definition.widget?.title ?? DEFAULT_WIDGET.title,
+      subtitle: definition.widget?.subtitle ?? DEFAULT_WIDGET.subtitle,
+      greeting: definition.widget?.greeting ?? DEFAULT_WIDGET.greeting,
+      placeholder: definition.widget?.placeholder ?? DEFAULT_WIDGET.placeholder,
+      locale: definition.widget?.locale ?? DEFAULT_WIDGET.locale,
+      starters: Object.freeze([...(definition.widget?.starters ?? DEFAULT_WIDGET.starters)]),
+      avatar: definition.widget?.avatar,
+      launcherLabel: definition.widget?.launcherLabel ?? DEFAULT_WIDGET.launcherLabel,
+      theme,
+    }),
   });
 }

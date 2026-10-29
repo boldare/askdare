@@ -19,6 +19,9 @@ const assets: EmbedAssets = {
   widgetCss: 'body{}',
   widgetJsFile: 'widget.abc123.js',
   widgetCssFile: 'widget.def456.css',
+  fontsCss: '@font-face{font-family:x;src:url(./x.111.woff2)}',
+  fontsCssFile: 'fonts.222.css',
+  fontFiles: { 'x.111.woff2': btoa('wOF2font') },
 };
 
 const bot = defineBot({
@@ -160,6 +163,34 @@ describe('static routes', () => {
     const html = await response.text();
     expect(html).toContain('/api/chat/assets/widget.abc123.js');
     expect(html).not.toContain('</script><script>alert(1)');
+  });
+
+  it('links fonts and a content-hashed theme stylesheet and sets the variant attributes', async () => {
+    const html = await (await handler(new Request(`${BASE}/embed/support`))).text();
+    expect(html).toContain('/api/chat/assets/fonts.222.css');
+    expect(html).toContain('data-cd-preset="halo"');
+    expect(html).toContain('data-cd-welcome="hero"');
+    const href = /href="(\/api\/chat\/theme\/support\.css\?v=[0-9a-f]{8})"/.exec(html)?.[1];
+    expect(href).toBeDefined();
+    const theme = await handler(new Request(`${APP}${href}`));
+    expect(theme.headers.get('cache-control')).toContain('immutable');
+    const css = await theme.text();
+    expect(css).toContain('--cd-color-accent:#1f5fe0');
+    expect(css).toContain('@media (prefers-color-scheme: dark)');
+  });
+
+  it('serves the fonts as binary woff2', async () => {
+    const font = await handler(new Request(`${BASE}/assets/x.111.woff2`));
+    expect(font.headers.get('content-type')).toBe('font/woff2');
+    expect(new TextDecoder().decode(await font.arrayBuffer())).toBe('wOF2font');
+  });
+
+  it('ignores gallery parameters unless gallery mode is on', async () => {
+    const html = await (
+      await handler(new Request(`${BASE}/embed/support?gallery=streaming&preset=aura&scheme=dark`))
+    ).text();
+    expect(html).toContain('data-cd-preset="halo"');
+    expect(html).not.toContain('"gallery"');
   });
 
   it('returns 404 for unknown bots and routes', async () => {
