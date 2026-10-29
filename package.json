@@ -13,6 +13,7 @@
     "format": "biome check --write .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "smoke": "vitest run --config vitest.smoke.config.ts",
     "check:packages": "pnpm --filter \"./packages/*\" run check:package",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check:packages",
     "changeset": "changeset",
@@ -26,6 +27,7 @@
     "@commitlint/config-conventional": "^21.2.4",
     "@types/node": "^22.20.5",
     "lefthook": "^2.2.2",
+    "msw": "^3.0.3",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5"
   }
