@@ -59,6 +59,12 @@
     font-weight: 600;
   }
 
+  [data-cd-part="actions"] {
+    display: flex;
+    gap: calc(var(--cd-space) / 2);
+  }
+
+  [data-cd-part="new-conversation"],
   [data-cd-part="close"] {
     width: 32px;
     height: 32px;
@@ -71,6 +77,11 @@
     cursor: pointer;
   }
 
+  [data-cd-part="new-conversation"] {
+    font-size: 18px;
+  }
+
+  [data-cd-part="new-conversation"]:hover,
   [data-cd-part="close"]:hover {
     background: var(--cd-color-surface);
   }
@@ -171,6 +182,12 @@
 
   [data-cd-part="message"][data-status="error"] [data-cd-part="bubble"] {
     opacity: 0.6;
+  }
+
+  [data-cd-part="attachments-note"] {
+    margin: calc(var(--cd-space) / 2) 0 0;
+    font-size: 0.85em;
+    color: var(--cd-color-muted);
   }
 
   [data-cd-part="citations"] {

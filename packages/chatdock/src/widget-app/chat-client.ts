@@ -1,4 +1,5 @@
 import type { ErrorCode, ProtocolEvent } from '../protocol/events';
+import { type HistoryMessage, historyResponseSchema } from '../protocol/history';
 import { decodeEvent, SseParser } from '../protocol/sse';
 import { PROTOCOL_HEADER, PROTOCOL_VERSION } from '../protocol/version';
 import type { SafeStorage } from './storage';
@@ -55,14 +56,65 @@ export class ChatClient {
     this.#options.storage.remove(this.#resumeKey);
   }
 
+  /** True when this browser holds a conversation to resume. */
+  hasConversation(): boolean {
+    return this.#options.storage.get(this.#resumeKey) !== undefined;
+  }
+
+  /** Loads the visible part of the stored conversation; empty when there is none or it is gone. */
+  async loadHistory(signal?: AbortSignal): Promise<readonly HistoryMessage[]> {
+    const resumeToken = this.#options.storage.get(this.#resumeKey);
+    if (!resumeToken) return [];
+    const response = await this.#authorized(
+      'POST',
+      '/history',
+      () => ({ botId: this.#options.botId, resumeToken }),
+      signal,
+    );
+    if (response.status === 404) {
+      this.reset();
+      return [];
+    }
+    if (!response.ok) throw new Error(`History request failed with ${response.status}`);
+    const parsed = historyResponseSchema.safeParse(await response.json());
+    return parsed.success ? parsed.data.messages : [];
+  }
+
+  /** Deletes the conversation on the server (best effort) and forgets it in this browser. */
+  async deleteConversation(): Promise<void> {
+    const resumeToken = this.#options.storage.get(this.#resumeKey);
+    try {
+      if (resumeToken) {
+        await this.#authorized('DELETE', '/conversation', () => ({
+          botId: this.#options.botId,
+          resumeToken,
+        }));
+      }
+    } finally {
+      this.reset();
+    }
+  }
+
   async send(
     text: string,
     onEvent: (event: ProtocolEvent) => void,
     signal?: AbortSignal,
   ): Promise<void> {
     try {
-      let response = await this.#postMessage(text, signal, false);
-      if (response.status === 401) response = await this.#postMessage(text, signal, true);
+      const response = await this.#authorized(
+        'POST',
+        '/messages',
+        () => {
+          const resumeToken = this.#options.storage.get(this.#resumeKey);
+          return {
+            botId: this.#options.botId,
+            text,
+            locale: this.#options.locale,
+            ...(resumeToken ? { resumeToken } : {}),
+          };
+        },
+        signal,
+      );
       if (!response.ok || !response.body) {
         onEvent(await this.#errorFromResponse(response));
         return;
@@ -87,27 +139,27 @@ export class ChatClient {
     }
   }
 
-  async #postMessage(
-    text: string,
-    signal: AbortSignal | undefined,
-    renew: boolean,
+  /** Sends an authenticated JSON request, renewing an expired session once. */
+  async #authorized(
+    method: 'POST' | 'DELETE',
+    path: string,
+    body: () => Record<string, unknown>,
+    signal?: AbortSignal,
   ): Promise<Response> {
-    const session = await this.#ensureSession(renew, signal);
-    const resumeToken = this.#options.storage.get(this.#resumeKey);
-    return this.#fetch(`${this.#options.basePath}/messages`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${session.accessToken}`,
-      },
-      body: JSON.stringify({
-        botId: this.#options.botId,
-        text,
-        locale: this.#options.locale,
-        ...(resumeToken ? { resumeToken } : {}),
-      }),
-      ...(signal ? { signal } : {}),
-    });
+    const attempt = async (renew: boolean): Promise<Response> => {
+      const session = await this.#ensureSession(renew, signal);
+      return this.#fetch(`${this.#options.basePath}${path}`, {
+        method,
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${session.accessToken}`,
+        },
+        body: JSON.stringify(body()),
+        ...(signal ? { signal } : {}),
+      });
+    };
+    const first = await attempt(false);
+    return first.status === 401 ? attempt(true) : first;
   }
 
   async #ensureSession(renew: boolean, signal: AbortSignal | undefined): Promise<Session> {

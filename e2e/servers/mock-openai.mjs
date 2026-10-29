@@ -4,6 +4,18 @@ import { createServer } from 'node:http';
 
 const PORT = Number(process.env.MOCK_OPENAI_PORT ?? 4010);
 let nextConversation = 1;
+/** Stored items per conversation, oldest first, as the Conversations API keeps them. */
+const conversations = new Map();
+
+// Same shape as the live API's answer for a deleted conversation (spike S1, E11).
+const notFound = (response, id) =>
+  json(response, 404, {
+    error: {
+      message: `Conversation with id '${id}' not found.`,
+      type: 'invalid_request_error',
+      code: null,
+    },
+  });
 
 const readJson = async (request) => {
   let body = '';
@@ -60,24 +72,52 @@ createServer(async (request, response) => {
   const { pathname } = new URL(request.url ?? '/', `http://localhost:${PORT}`);
   if (pathname === '/health') return json(response, 200, { ok: true });
   if (request.method === 'POST' && pathname === '/v1/conversations') {
-    return json(response, 200, {
-      id: `conv_${nextConversation++}`,
-      object: 'conversation',
-      created_at: 0,
-      metadata: {},
-    });
+    const id = `conv_${nextConversation++}`;
+    conversations.set(id, []);
+    return json(response, 200, { id, object: 'conversation', created_at: 0, metadata: {} });
   }
   if (request.method === 'POST' && pathname === '/v1/responses') {
     const body = await readJson(request);
+    const items = conversations.get(body.conversation);
+    if (!items) return notFound(response, body.conversation);
     const userText = body.input?.[0]?.content ?? '';
-    return streamResponse(response, `You said: ${userText} (in ${body.conversation})`);
+    const reply = `You said: ${userText} (in ${body.conversation})`;
+    items.push(
+      {
+        id: `msg_${items.length}`,
+        type: 'message',
+        role: 'user',
+        status: 'completed',
+        content: [{ type: 'input_text', text: userText }],
+      },
+      {
+        id: `msg_${items.length + 1}`,
+        type: 'message',
+        role: 'assistant',
+        status: 'completed',
+        content: [{ type: 'output_text', text: reply, annotations: [], logprobs: [] }],
+      },
+    );
+    return streamResponse(response, reply);
+  }
+  const itemsPath = /^\/v1\/conversations\/([^/]+)\/items$/.exec(pathname);
+  if (request.method === 'GET' && itemsPath) {
+    const items = conversations.get(itemsPath[1]);
+    if (!items) return notFound(response, itemsPath[1]);
+    const order = new URL(request.url ?? '/', 'http://mock').searchParams.get('order') ?? 'desc';
+    const data = order === 'asc' ? items : [...items].reverse();
+    return json(response, 200, {
+      object: 'list',
+      data,
+      first_id: data[0]?.id ?? null,
+      last_id: data.at(-1)?.id ?? null,
+      has_more: false,
+    });
   }
   if (request.method === 'DELETE' && pathname.startsWith('/v1/conversations/')) {
-    return json(response, 200, {
-      id: pathname.split('/').at(-1),
-      deleted: true,
-      object: 'conversation.deleted',
-    });
+    const id = pathname.split('/').at(-1);
+    conversations.delete(id);
+    return json(response, 200, { id, deleted: true, object: 'conversation.deleted' });
   }
   json(response, 404, {
     error: { message: `Mock has no route for ${request.method} ${pathname}` },

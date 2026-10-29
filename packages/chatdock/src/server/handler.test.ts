@@ -32,10 +32,16 @@ const bot = defineBot({
 let tokens: TokenService;
 let handler: RequestHandler;
 const turns: TurnRequest[] = [];
+const deleted: string[] = [];
 
 const gateway: ModelGateway = {
   createConversation: async () => 'conv_1',
-  deleteConversation: async () => {},
+  deleteConversation: async (id) => {
+    deleted.push(id);
+  },
+  listMessages: async (id) => [
+    { id: 'm1', role: 'user', text: `history of ${id}`, citations: [], attachments: 0 },
+  ],
   runTurn: async (request) => {
     turns.push(request);
     request.emit({ type: 'text.delta', messageId: request.messageId, delta: 'Hello!' });
@@ -349,5 +355,52 @@ describe('limits', () => {
     const response = await disabled(post('/session', { botId: 'support' }));
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ error: { code: 'bot_unavailable' } });
+  });
+});
+
+describe('conversation history and deletion', () => {
+  const OWNER = `v_${'1a'.repeat(16)}`;
+  const INTRUDER = `v_${'2b'.repeat(16)}`;
+
+  async function grant(visitorId: string) {
+    const resume = await tokens.issueResume('support', { visitorId, conversationId: 'conv_hist' });
+    const access = (await tokens.issueAccess('support', visitorId)).token;
+    return { resumeToken: resume.token, auth: { authorization: `Bearer ${access}` } };
+  }
+
+  it('returns the visible messages of an owned conversation', async () => {
+    const { resumeToken, auth } = await grant(OWNER);
+    const response = await handler(post('/history', { botId: 'support', resumeToken }, auth));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      messages: [
+        { id: 'm1', role: 'user', text: 'history of conv_hist', citations: [], attachments: 0 },
+      ],
+    });
+  });
+
+  it("answers 404 for another visitor's conversation", async () => {
+    const { resumeToken } = await grant(OWNER);
+    const { auth } = await grant(INTRUDER);
+    const response = await handler(post('/history', { botId: 'support', resumeToken }, auth));
+    expect(response.status).toBe(404);
+  });
+
+  it('deletes an owned conversation', async () => {
+    const { resumeToken, auth } = await grant(OWNER);
+    const response = await handler(
+      new Request(`${BASE}/conversation`, {
+        method: 'DELETE',
+        headers: {
+          'content-type': 'application/json',
+          origin: APP,
+          host: 'app.example.com',
+          ...auth,
+        },
+        body: JSON.stringify({ botId: 'support', resumeToken }),
+      }),
+    );
+    expect(response.status).toBe(204);
+    expect(deleted).toContain('conv_hist');
   });
 });

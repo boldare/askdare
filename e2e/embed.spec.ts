@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 
-const ALLOWED_HOST = 'http://127.0.0.1:4000/';
-const FOREIGN_HOST = 'http://127.0.0.1:4001/';
+const ALLOWED_HOST = 'http://127.0.0.1:4100/';
+const FOREIGN_HOST = 'http://127.0.0.1:4101/';
 
 async function openChat(page: Page) {
   await page.locator('[part="launcher"]').click();
@@ -21,7 +21,7 @@ test('chats from an allowed third-party site', async ({ page }) => {
   await expect(reply).toHaveAttribute('data-status', 'done');
 });
 
-test('continues the same conversation after a reload', async ({ page }) => {
+test('restores the conversation after a reload and continues it', async ({ page }) => {
   await page.goto(ALLOWED_HOST);
   let chat = await openChat(page);
   await chat.getByRole('textbox').fill('First');
@@ -33,11 +33,37 @@ test('continues the same conversation after a reload', async ({ page }) => {
 
   await page.reload();
   chat = await openChat(page);
+  // History comes back from the Conversations API.
+  await expect(chat.locator('[data-cd-part="message"][data-role="user"]').first()).toHaveText(
+    'First',
+  );
+  await expect(chat.getByText(`You said: First (in ${conversation})`)).toBeVisible();
+
   await chat.getByRole('textbox').fill('Second');
   await chat.getByRole('textbox').press('Enter');
   await expect(
     chat.locator('[data-cd-part="message"][data-role="assistant"]').last(),
   ).toContainText(`You said: Second (in ${conversation})`);
+});
+
+test('starts a new conversation and deletes the old one', async ({ page }) => {
+  await page.goto(ALLOWED_HOST);
+  const chat = await openChat(page);
+  await chat.getByRole('textbox').fill('Remember me');
+  await chat.getByRole('textbox').press('Enter');
+  const reply = chat.locator('[data-cd-part="message"][data-role="assistant"]').last();
+  await expect(reply).toHaveAttribute('data-status', 'done');
+  const old = /\(in (conv_\d+)\)/.exec((await reply.textContent()) ?? '')?.[1];
+
+  page.once('dialog', (dialog) => dialog.accept());
+  await chat.getByRole('button', { name: 'Start a new conversation' }).click();
+  await expect(chat.locator('[data-cd-part="message"]')).toHaveCount(0);
+
+  await chat.getByRole('textbox').fill('Fresh start');
+  await chat.getByRole('textbox').press('Enter');
+  const fresh = chat.locator('[data-cd-part="message"][data-role="assistant"]').last();
+  await expect(fresh).toHaveAttribute('data-status', 'done');
+  expect(await fresh.textContent()).not.toContain(`(in ${old})`);
 });
 
 test('closes from inside the iframe with Escape and returns focus', async ({ page }) => {
