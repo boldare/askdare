@@ -27,6 +27,8 @@ printf 'OPENAI_API_KEY=%s\nSMOKE_MODEL=%s\n' "$(pbpaste)" "gpt-6.1-terra" > .env
 
 Already set up `examples/starter/.env` (from `.env.example`)? The smoke test and the spikes reuse it when `.env.smoke.local` is absent, with `CHATDOCK_MODEL` as the model, so the key lives in one file only.
 
+The file search smoke test runs only with `SMOKE_VECTOR_STORE_ID` (or the starter's `KB_VECTOR_STORE_ID`): a store synced from `examples/starter/knowledge` with `pnpm --dir examples/starter kb:sync`. It is not deleted afterwards, so the next run reuses it.
+
 ## 3. Run
 
 ```bash
