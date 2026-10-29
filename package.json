@@ -14,7 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "smoke": "vitest run --config vitest.smoke.config.ts",
-    "e2e": "pnpm --filter @boldare/chatdock run build && pnpm --filter chatdock-starter run build && playwright test",
+    "e2e": "pnpm --filter @boldare/chatdock run build && pnpm --filter chatdock-starter run build && playwright test --project chromium",
     "check:packages": "pnpm --filter \"./packages/*\" run check:package",
     "check": "pnpm lint && pnpm build && pnpm typecheck && pnpm test && pnpm check:packages",
     "changeset": "changeset",

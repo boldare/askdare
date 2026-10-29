@@ -32,7 +32,7 @@ export default defineConfig({
       name: 'visual',
       testMatch: /visual\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], deviceScaleFactor: 1 },
-      expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.01, animations: 'disabled' } },
+      expect: { toHaveScreenshot: { maxDiffPixels: 250, animations: 'disabled' } },
     },
   ],
   webServer: [
