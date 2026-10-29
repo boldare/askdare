@@ -28,6 +28,23 @@ export interface UploadRequest {
   readonly signal?: AbortSignal;
 }
 
+export interface TranscriptionRequest {
+  readonly bytes: Uint8Array;
+  /** Name whose extension matches the detected container. */
+  readonly filename: string;
+  readonly mime: string;
+  readonly model: string;
+  /** ISO 639-1 codes the speech is likely in; dropped when the model refuses them. */
+  readonly languages: readonly string[];
+  readonly signal?: AbortSignal;
+}
+
+export interface TranscriptionResult {
+  readonly text: string;
+  /** Billed duration, when the model reports one. */
+  readonly seconds: number | undefined;
+}
+
 export interface TurnRequest {
   readonly bot: Bot;
   readonly conversationId: string;
@@ -63,6 +80,8 @@ export interface ModelGateway {
   ): Promise<void>;
   /** Stores a visitor's file as model input and returns its ID. Files expire after 30 days. */
   uploadFile(upload: UploadRequest): Promise<string>;
+  /** Turns recorded speech into text. Nothing is stored. */
+  transcribe(request: TranscriptionRequest): Promise<TranscriptionResult>;
   /** Visible messages of a conversation, oldest first. */
   listMessages(conversationId: string, signal?: AbortSignal): Promise<readonly HistoryMessage[]>;
   runTurn(request: TurnRequest): Promise<TurnResult>;

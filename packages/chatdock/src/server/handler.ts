@@ -11,6 +11,7 @@ import { ChatdockError, toChatdockError } from '../errors';
 import type { ModelGateway, TurnAttachment } from '../gateway';
 import type { Limits } from '../limits/limits';
 import { newVisitorId, type TokenService } from '../security/tokens';
+import { detectAudio, languageHints, maxAudioBytes } from '../voice/audio';
 import { type EmbedAssets, embedContentSecurityPolicy, renderEmbedPage } from './embed-page';
 import { STREAM_HEADERS, streamTurn } from './stream-turn';
 
@@ -37,6 +38,10 @@ const MAX_BODY_BYTES = 256 * 1024;
 /** Upload metadata travels in headers because the body is the raw file. */
 const BOT_HEADER = 'x-chatdock-bot';
 const FILENAME_HEADER = 'x-chatdock-filename';
+/** The visitor's likely languages (browser and page), as transcription hints. */
+const LANGUAGES_HEADER = 'x-chatdock-languages';
+/** Transcription is short; this only bounds a stuck upstream call. */
+const TRANSCRIPTION_TIMEOUT_MS = 60_000;
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 
 const sessionBody = z.object({
@@ -227,7 +232,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
         'Content-Security-Policy': embedContentSecurityPolicy(bot),
-        'Permissions-Policy': 'camera=(), geolocation=(), microphone=()',
+        'Permissions-Policy': `camera=(), geolocation=(), microphone=${bot.voice ? '(self)' : '()'}`,
         'Referrer-Policy': 'strict-origin',
         'Cross-Origin-Opener-Policy': 'same-origin',
         'X-Content-Type-Options': 'nosniff',
@@ -407,6 +412,67 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     });
   };
 
+  /**
+   * Transcribes one dictation into text for the visitor to check and send. The body is the raw
+   * recording. Speech is billed by duration, so seconds are reserved first and settled with what
+   * OpenAI reports; the call is not tied to the visitor's connection, so it always settles.
+   */
+  const transcribe = async (request: Request): Promise<Response> => {
+    assertSameOrigin(request);
+    const contentType = request.headers.get('content-type') ?? '';
+    if (!contentType.toLowerCase().startsWith('application/octet-stream')) {
+      throw new ChatdockError('invalid_input', {
+        message: 'Expected an application/octet-stream body.',
+      });
+    }
+    const bot = findBot(request.headers.get(BOT_HEADER) ?? '');
+    const { voice } = bot;
+    if (!voice) {
+      throw new ChatdockError('invalid_input', {
+        message: 'This assistant does not accept voice input.',
+      });
+    }
+    const tokens = await config.tokens();
+    const { visitorId } = await tokens.verifyAccess(bearerToken(request), bot.id);
+    const reservation = await config.limits.beginTranscription(bot, {
+      clientIp: config.clientIp(request),
+      visitorId,
+    });
+    let bytes: Uint8Array;
+    let audio: ReturnType<typeof detectAudio>;
+    try {
+      bytes = await readBytes(
+        request,
+        maxAudioBytes(voice.maxSeconds),
+        'This recording is too long.',
+      );
+      audio = detectAudio(bytes);
+      if (!audio) {
+        throw new ChatdockError('invalid_input', {
+          message: 'This recording format is not supported.',
+        });
+      }
+    } catch (error) {
+      // Refused before reaching OpenAI: nothing was billed.
+      await reservation.settle(0).catch((settleError: unknown) => {
+        report(toChatdockError(settleError));
+      });
+      throw error;
+    }
+    const result = await config.gateway().transcribe({
+      bytes,
+      filename: `speech.${audio.extension}`,
+      mime: audio.mime,
+      model: voice.model,
+      languages: languageHints(request.headers.get(LANGUAGES_HEADER)),
+      signal: AbortSignal.timeout(TRANSCRIPTION_TIMEOUT_MS),
+    });
+    await reservation
+      .settle(result.seconds ?? voice.maxSeconds)
+      .catch((error: unknown) => report(toChatdockError(error)));
+    return jsonResponse({ text: result.text.trim() });
+  };
+
   /** Authenticates the visitor and proves they own the conversation behind the resume token. */
   const ownedConversation = async (
     request: Request,
@@ -453,6 +519,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       if (path === '/messages') return sendMessage(request);
       if (path === '/history') return readHistory(request);
       if (path === '/attachments') return uploadAttachment(request);
+      if (path === '/transcriptions') return transcribe(request);
     } else if (method === 'DELETE') {
       if (path === '/conversation') return deleteConversation(request);
     }

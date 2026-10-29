@@ -39,6 +39,7 @@ function fakeGateway(runTurn: (request: TurnRequest) => Promise<TurnResult>): Mo
     },
     deleteConversation: async () => {},
     uploadFile: async () => 'file-1',
+    transcribe: async () => ({ text: '', seconds: 0 }),
     listMessages: async () => [],
     runTurn: (request) => {
       requests.push(request);

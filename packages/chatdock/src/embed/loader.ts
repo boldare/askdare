@@ -95,7 +95,8 @@ function boot(): void {
       iframe.title = 'Chat';
       iframe.src = embedUrl;
       iframe.referrerPolicy = 'strict-origin';
-      iframe.allow = 'clipboard-write';
+      // The iframe's own Permissions-Policy turns the microphone off unless the bot has voice input.
+      iframe.allow = 'clipboard-write; microphone';
       iframe.addEventListener('load', () => iframe && connect(iframe));
       panel.append(iframe);
     }

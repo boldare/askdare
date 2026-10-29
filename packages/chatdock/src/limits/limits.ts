@@ -31,6 +31,11 @@ export interface UploadLimitKeys {
   readonly visitorId: string;
 }
 
+/** Speech seconds held for a dictation in flight; `settle` replaces them with the billed duration. */
+export interface TranscriptionReservation {
+  settle(seconds: number): Promise<void>;
+}
+
 /** Budget held for a turn in flight. Without `settle`, the estimate stays charged. */
 export interface TurnReservation {
   /** Replaces the estimate with real usage once the turn completed. */
@@ -45,6 +50,8 @@ export interface Limits {
   checkConversationAccess(bot: Bot, visitorId: string): Promise<void>;
   /** File uploads: no tokens until sent (then reserved with the turn), but they use storage. */
   checkUpload(bot: Bot, keys: UploadLimitKeys): Promise<void>;
+  /** Dictations: rate per visitor, then the longest allowed duration reserved against daily speech budgets. */
+  beginTranscription(bot: Bot, keys: UploadLimitKeys): Promise<TranscriptionReservation>;
 }
 
 export interface LimitsOptions {
@@ -131,6 +138,32 @@ export function createLimits(options: LimitsOptions): Limits {
       await enforce(`cd:uv:${bot.id}:${keys.visitorId}`, HOUR, bot.limits.uploadsPerVisitorPerHour);
       await enforce(`cd:ui:${bot.id}:${keys.clientIp}`, HOUR, bot.limits.uploadsPerIpPerHour);
       await enforce(`cd:ud:${bot.id}:${day()}`, DAY, bot.limits.uploadsPerDay);
+    },
+
+    async beginTranscription(bot, keys) {
+      assertEnabled();
+      const { limits } = bot;
+      await enforce(
+        `cd:tv:${bot.id}:${keys.visitorId}`,
+        HOUR,
+        limits.transcriptionsPerVisitorPerHour,
+      );
+      const reserved = bot.voice?.maxSeconds ?? 60;
+      const list: Budget[] = [
+        { key: `cd:vs:${bot.id}:${day()}`, limit: limits.voiceSecondsPerDay },
+        {
+          key: `cd:vsi:${bot.id}:${keys.clientIp}:${day()}`,
+          limit: limits.voiceSecondsPerIpPerDay,
+        },
+      ];
+      await reserve(list, reserved);
+      return {
+        async settle(seconds) {
+          await Promise.all(
+            list.map((budget) => store.hit(budget.key, 2 * DAY, seconds - reserved)),
+          );
+        },
+      };
     },
 
     async beginTurn(bot, keys) {

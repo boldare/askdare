@@ -3,8 +3,11 @@
  *
  * Run with a key from a dedicated OpenAI project that has a hard spend limit:
  *   OPENAI_API_KEY=… SMOKE_MODEL=<cheap current model> pnpm smoke
- * Add SMOKE_VECTOR_STORE_ID (a store synced from examples/starter/knowledge) for the file search turn.
+ * Add SMOKE_VECTOR_STORE_ID (a store synced from examples/starter/knowledge) for the file search turn,
+ * and SMOKE_AUDIO_FILE (a short recording of speech) with SMOKE_TRANSCRIBE_MODEL for dictation.
  */
+import { readFile } from 'node:fs/promises';
+import { extname } from 'node:path';
 import { crc32, deflateSync } from 'node:zlib';
 import OpenAI, { NotFoundError } from 'openai';
 import { describe, expect, it } from 'vitest';
@@ -17,6 +20,8 @@ import { createOpenAIGateway } from './gateway';
 const apiKey = process.env['OPENAI_API_KEY'];
 const model = process.env['SMOKE_MODEL'];
 const vectorStoreId = process.env['SMOKE_VECTOR_STORE_ID'];
+const audioFile = process.env['SMOKE_AUDIO_FILE'];
+const transcribeModel = process.env['SMOKE_TRANSCRIBE_MODEL'];
 
 /** A solid-color PNG, built by hand so the test needs no image library. */
 function solidPng(size: number, [red, green, blue]: readonly [number, number, number]): Uint8Array {
@@ -207,4 +212,22 @@ describe.skipIf(!apiKey || !model)('OpenAI gateway (live)', () => {
       await expect(client.files.retrieve(id)).rejects.toBeInstanceOf(NotFoundError);
     }
   }, 120_000);
+
+  it.skipIf(!audioFile || !transcribeModel)(
+    'transcribes recorded speech and reports the billed seconds',
+    async () => {
+      const gateway = createOpenAIGateway({ apiKey: apiKey ?? '', maxRetries: 1 });
+      const extension = extname(audioFile ?? '').slice(1);
+      const result = await gateway.transcribe({
+        bytes: await readFile(audioFile ?? ''),
+        filename: `speech.${extension}`,
+        mime: extension === 'wav' ? 'audio/wav' : 'audio/mp4',
+        model: transcribeModel ?? '',
+        languages: ['pl', 'en'],
+      });
+      expect(result.text.length).toBeGreaterThan(0);
+      expect(result.seconds).toBeGreaterThan(0);
+    },
+    60_000,
+  );
 });

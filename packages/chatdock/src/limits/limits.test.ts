@@ -267,6 +267,43 @@ describe('attachments', () => {
   });
 });
 
+describe('voice', () => {
+  const voiceBot = defineBot({
+    id: 'support',
+    model: 'm',
+    instructions: 'x',
+    voice: { model: 't', maxSeconds: 30 },
+    limits: {
+      transcriptionsPerVisitorPerHour: 5,
+      voiceSecondsPerDay: 100,
+      voiceSecondsPerIpPerDay: 60,
+    },
+  });
+  const VOICE_KEY = 'cd:vsi:support:ip:2026-10-29';
+
+  it('reserves the longest dictation and settles the billed seconds', async () => {
+    const { limits, spent } = setup();
+    const keys = { clientIp: 'ip', visitorId: 'v1' };
+    const first = await limits.beginTranscription(voiceBot, keys);
+    expect(await spent(VOICE_KEY)).toBe(30);
+    await first.settle(4);
+    expect(await spent(VOICE_KEY)).toBe(4);
+    const second = await limits.beginTranscription(voiceBot, keys);
+    await second.settle(0);
+    expect(await spent(VOICE_KEY)).toBe(4);
+  });
+
+  it('refuses once the speech budget for the day is used up', async () => {
+    const { limits } = setup();
+    const keys = { clientIp: 'ip', visitorId: 'v1' };
+    await (await limits.beginTranscription(voiceBot, keys)).settle(25);
+    await limits.beginTranscription(voiceBot, keys);
+    await expect(limits.beginTranscription(voiceBot, keys)).rejects.toMatchObject({
+      code: 'budget_exceeded',
+    });
+  });
+});
+
 describe('client IP', () => {
   const request = (headers: Record<string, string>) => new Request('https://app.test', { headers });
 
