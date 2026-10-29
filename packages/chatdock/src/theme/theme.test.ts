@@ -46,6 +46,8 @@ describe('defineTheme', () => {
     [{ accent: 'red' }, /accent must be a hex color/],
     [{ tokens: { backdrop: 'url(https://evil.example/x.png)' } }, /must be a plain CSS value/],
     [{ tokens: { orb: 'red; } body { display: none' } }, /must be a plain CSS value/],
+    [{ tokens: { orb: 'image-set("https://tracker.example/p.gif" 1x)' } }, /plain CSS value/],
+    [{ tokens: { backdrop: 'linear-gradient(`red`, blue)' } }, /plain CSS value/],
     [{ tokens: { fontFamily: '"A"; }' } }, /font-family list/],
     [{ tokens: { radius: '200px' } }, /0px to 32px/],
     [{ extends: 'neon' }, /extends/],

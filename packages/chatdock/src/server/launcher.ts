@@ -27,16 +27,19 @@ export function launcherLook(bot: Bot): LauncherLook {
   };
 }
 
+/** The placeholder as the minifier left it, in whichever quotes it chose (it picks backticks too). */
+const QUOTED_PLACEHOLDER = new RegExp(`(['"\`])${LAUNCHER_PLACEHOLDER}\\1`);
+
 /**
- * The loader with every bot's launcher look inlined, as a JS string literal that is safe inside
- * either quote style. All values are public, validated configuration.
+ * The loader with the requested bot's launcher look inlined, and no other bot's: widget.js must
+ * not list every bot. The whole quoted placeholder is replaced by a JSON string literal, which is
+ * a valid JS string whatever it contains (quotes, backticks, `${`, `$&`), and the replacement is a
+ * function so `String.replace` patterns in the values are not interpreted.
  */
-export function loaderWithLooks(loaderJs: string, bots: readonly Bot[]): string {
-  const looks = Object.fromEntries(bots.map((bot) => [bot.id, launcherLook(bot)]));
+export function loaderWithLook(loaderJs: string, bot: Bot | undefined): string {
+  const looks = bot ? { [bot.id]: launcherLook(bot) } : {};
   const literal = JSON.stringify(JSON.stringify(looks))
-    .slice(1, -1)
-    .replaceAll("'", '\\u0027')
     .replaceAll(' ', '\\u2028')
     .replaceAll(' ', '\\u2029');
-  return loaderJs.replace(LAUNCHER_PLACEHOLDER, literal);
+  return loaderJs.replace(QUOTED_PLACEHOLDER, () => literal);
 }

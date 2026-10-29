@@ -1,7 +1,8 @@
 /**
  * chatdock loader: the only code that runs on the host page. It draws a launcher inside a shadow
  * root, creates the chat iframe on first open and talks to it over a MessagePort (ADR-0005).
- * Usage: <script src="https://app.example.com/api/chat/widget.js" data-bot="support" async></script>
+ * Usage: <script src="https://app.example.com/api/chat/widget.js?bot=support" async></script>
+ * (`data-bot="support"` on the tag works too; `?bot=` also brings the bot's launcher look.)
  */
 
 import type { LauncherLook } from '../protocol/launcher';
@@ -53,14 +54,16 @@ const STYLES = `
   box-shadow: 0 28px 70px -12px rgb(15 23 42 / .4), 0 0 0 1px rgb(15 23 42 / .06);
   transform-origin: bottom right; animation: in .22s cubic-bezier(.2, .8, .2, 1);
 }
-.dark [part=panel] { background: var(--d); }
-@media (prefers-color-scheme: dark) { .auto [part=panel] { background: var(--d); } }
+:host([data-chatdock-scheme=dark]) [part=panel] { background: var(--d); }
+@media (prefers-color-scheme: dark) {
+  :host([data-chatdock-scheme=auto]) [part=panel] { background: var(--d); }
+}
 [part=panel][hidden] { display: none; }
 iframe { display: block; width: 100%; height: 100%; border: 0; }
 @keyframes in { from { opacity: 0; transform: translateY(10px) scale(.97); } }
 @media (max-width: 480px) {
   [part=panel] { inset: 0; width: 100vw; height: 100dvh; border-radius: 0; }
-  [aria-expanded=true] { display: none; }
+  [aria-expanded=true][data-ready] { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   [part=launcher], [part=panel] { transition: none; animation: none; }
@@ -85,12 +88,12 @@ function boot(): void {
   if (window.chatdock?.loaded) return;
   const script = document.currentScript;
   if (!(script instanceof HTMLScriptElement) || !script.src) return;
-  const botId = script.dataset['bot'];
+  const scriptUrl = new URL(script.src);
+  const botId = script.dataset['bot'] ?? scriptUrl.searchParams.get('bot');
   if (!botId) {
-    console.warn('[chatdock] Add data-bot="<bot id>" to the widget script tag.');
+    console.warn('[chatdock] Load the widget as widget.js?bot=<bot id>.');
     return;
   }
-  const scriptUrl = new URL(script.src);
   const appOrigin = scriptUrl.origin;
   const basePath = scriptUrl.pathname.replace(/\/widget\.js$/, '');
   const embedUrl = `${appOrigin}${basePath}/embed/${encodeURIComponent(botId)}`;
@@ -98,7 +101,7 @@ function boot(): void {
   const look = looks()[botId];
   const host = document.createElement('div');
   host.dataset['chatdock'] = botId;
-  host.className = look?.scheme ?? 'auto';
+  host.dataset['chatdockScheme'] = look?.scheme ?? 'auto';
   // CSSOM, not a style attribute: allowed under a strict CSP on the host page.
   for (const [name, value] of [
     ['--a', look?.accent ?? '#1f5fe0'],
@@ -112,9 +115,16 @@ function boot(): void {
   }
   const shadow = host.attachShadow({ mode: 'open' });
   // A constructed stylesheet is not inline style, so a site's strict CSP doesn't block it.
-  const sheet = new CSSStyleSheet();
-  sheet.replaceSync(STYLES);
-  shadow.adoptedStyleSheets = [sheet];
+  // Safari before 16.4 lacks them: fall back to a <style> element.
+  try {
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(STYLES);
+    shadow.adoptedStyleSheets = [sheet];
+  } catch {
+    const style = document.createElement('style');
+    style.textContent = STYLES;
+    shadow.append(style);
+  }
   const launcher = document.createElement('button');
   launcher.type = 'button';
   launcher.className = look?.style ?? 'circle';
@@ -157,7 +167,10 @@ function boot(): void {
     const channel = new MessageChannel();
     port = channel.port1;
     port.onmessage = (event: MessageEvent<{ v?: number; type?: string }>) => {
-      if (event.data?.v === 1 && event.data.type === 'close') close();
+      if (event.data?.v !== 1) return;
+      if (event.data.type === 'close') close();
+      // The chat has its own close button now, so phones can hide the launcher behind it.
+      if (event.data.type === 'ready') launcher.dataset['ready'] = '';
     };
     // Explicit target origin: only our own app can receive the port.
     frame.contentWindow?.postMessage({ v: 1, type: 'chatdock:init' }, appOrigin, [channel.port2]);

@@ -32,13 +32,16 @@ export interface ResolvedTheme {
 }
 
 const color = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'must be a hex color like #1f5fe0');
-/** Plain CSS values only: they are written into a stylesheet. */
+/**
+ * Plain CSS values only: they are written into a stylesheet, and the orb into host pages. No
+ * quotes, so no image-set("https://…") or src("…") can make a browser fetch from another origin.
+ */
 const cssValue = z
   .string()
   .max(600)
   .refine(
-    (value) => !/[;{}<>\\]|url\s*\(|@import|expression\s*\(/i.test(value),
-    'must be a plain CSS value (no url(), braces or semicolons)',
+    (value) => !/[;{}<>\\"'`]|url\s*\(|@import|expression\s*\(/i.test(value),
+    'must be a plain CSS value (no url(), quotes, braces or semicolons)',
   );
 
 const tokensSchema = z

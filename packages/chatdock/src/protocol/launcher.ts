@@ -20,5 +20,5 @@ export interface LauncherLook {
   readonly radius: string;
 }
 
-/** Replaced in the served loader by a JSON object of looks keyed by bot ID. */
+/** Replaced, quotes included, in the served loader by a JSON string of the requested bot's look. */
 export const LAUNCHER_PLACEHOLDER = '__CHATDOCK_LAUNCHERS__';

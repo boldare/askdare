@@ -8,11 +8,11 @@ export default function Home() {
       </p>
       <pre style={{ background: '#f4f6fb', padding: 16, borderRadius: 8, overflowX: 'auto' }}>
         {
-          '<script src="https://your-app.example.com/api/chat/widget.js" data-bot="support" async></script>'
+          '<script src="https://your-app.example.com/api/chat/widget.js?bot=support" async></script>'
         }
       </pre>
       <p>Add the embedding site to CHATDOCK_ALLOWED_ORIGINS first.</p>
-      <script src="/api/chat/widget.js" data-bot="support" async />
+      <script src="/api/chat/widget.js?bot=support" async />
     </main>
   );
 }

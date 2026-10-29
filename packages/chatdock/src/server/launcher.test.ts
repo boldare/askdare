@@ -1,29 +1,44 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { defineBot } from '../bot/define-bot';
-import { loaderWithLooks } from './launcher';
+import { LOADER_JS } from '../generated/assets';
+import { launcherLook, loaderWithLook } from './launcher';
 
-const LOADER =
-  'const a=JSON.parse(\'__CHATDOCK_LAUNCHERS__\');const b=JSON.parse("__CHATDOCK_LAUNCHERS__");';
+const hostile = defineBot({
+  id: 'sage-bot',
+  model: 'm',
+  instructions: 'x',
+  widget: {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: hostile input on purpose
+    title: 'Ola `${globalThis.pwnedTitle=1}`',
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: hostile input on purpose
+    launcherLabel: '${globalThis.pwned=1}`$` $& \'"',
+    theme: 'sage',
+  },
+});
 
-describe('loaderWithLooks', () => {
-  it("inlines each bot's look as a string literal that survives either quote style", () => {
-    const bot = defineBot({
-      id: 'sage-bot',
-      model: 'm',
-      instructions: 'x',
-      widget: { title: 'Ola\'s "desk"', launcherLabel: 'Ask Ola', theme: 'sage' },
-    });
-    const js = loaderWithLooks(LOADER, [bot]);
-    const single = /JSON\.parse\('(.*?)'\);const b/.exec(js)?.[1] ?? '';
-    // Evaluate the single-quoted literal exactly as the browser would.
-    const looks = JSON.parse(new Function(`return '${single}'`)() as string);
-    expect(looks['sage-bot']).toMatchObject({
-      style: 'pill',
-      label: 'Ask Ola',
-      initials: 'O"',
-      accent: '#171a18',
-      scheme: 'auto',
-    });
-    expect(js).toContain('__CHATDOCK_LAUNCHERS__'); // only the first occurrence is replaced
+describe('loaderWithLook (real built loader)', () => {
+  afterEach(() => {
+    delete (globalThis as Record<string, unknown>)['pwned'];
+    delete (globalThis as Record<string, unknown>)['pwnedTitle'];
+  });
+
+  it('inlines the look as plain data, whatever quote the minifier chose', () => {
+    const js = loaderWithLook(LOADER_JS, hostile);
+    const literal = JSON.stringify(JSON.stringify({ 'sage-bot': launcherLook(hostile) }));
+    expect(js).toContain(`JSON.parse(${literal})`);
+    expect(js).not.toContain('__CHATDOCK_LAUNCHERS__');
+    // Still valid JavaScript (a broken loader would fail on every site that embeds it).
+    expect(() => new Function(js)).not.toThrow();
+    const looks = JSON.parse(new Function(`return ${literal}`)() as string);
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: hostile input on purpose
+    expect(looks['sage-bot'].label).toBe('${globalThis.pwned=1}`$` $& \'"');
+    expect((globalThis as Record<string, unknown>)['pwned']).toBeUndefined();
+  });
+
+  it("includes only the requested bot's look", () => {
+    const other = defineBot({ id: 'internal', model: 'm', instructions: 'x' });
+    expect(loaderWithLook(LOADER_JS, hostile)).not.toContain('internal');
+    expect(loaderWithLook(LOADER_JS, other)).not.toContain('sage-bot');
+    expect(loaderWithLook(LOADER_JS, undefined)).toContain('JSON.parse("{}")');
   });
 });

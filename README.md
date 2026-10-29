@@ -28,7 +28,7 @@ export const { GET, POST, DELETE } = createChatHandler({ bots });
 ```
 
 ```html
-<script src="https://your-app.example.com/api/chat/widget.js" data-bot="support" async></script>
+<script src="https://your-app.example.com/api/chat/widget.js?bot=support" async></script>
 ```
 
 ## Design decisions

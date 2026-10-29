@@ -54,7 +54,8 @@ for (const stylesheet of FONT_STYLESHEETS) {
     fontFiles[name] = bytes.toString('base64');
     const family = /font-family:\s*'([^']+)'/.exec(block)?.[1] ?? '';
     familyBytes[family] = (familyBytes[family] ?? 0) + bytes.length;
-    fontFaces.push(block.replace(/url\(\.\/files\/[^)]+\)/, `url(./${name})`));
+    // Only the woff2 file is served, so drop any woff fallback the package lists.
+    fontFaces.push(block.replace(/src:[^;]+;/, `src: url(./${name}) format('woff2');`));
   }
 }
 for (const [preset, families] of Object.entries(PRESET_FONTS)) {
@@ -67,7 +68,7 @@ for (const [preset, families] of Object.entries(PRESET_FONTS)) {
 const fontsCss = fontFaces.join('\n');
 
 // The server swaps this token for each bot's launcher look; it must survive minification once.
-if (loaderJs.split('__CHATDOCK_LAUNCHERS__').length !== 2) {
+if ((loaderJs.match(/(['"`])__CHATDOCK_LAUNCHERS__\1/g) ?? []).length !== 1) {
   console.error('The loader must contain the launcher placeholder exactly once.');
   process.exit(1);
 }

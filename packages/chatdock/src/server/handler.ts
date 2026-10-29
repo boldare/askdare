@@ -23,7 +23,7 @@ import {
   renderEmbedPage,
   themeAsset,
 } from './embed-page';
-import { loaderWithLooks } from './launcher';
+import { loaderWithLook } from './launcher';
 import { STREAM_HEADERS, streamTurn } from './stream-turn';
 
 export interface HandlerConfig {
@@ -232,9 +232,17 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     return bot;
   };
 
-  const loaderJs = loaderWithLooks(config.assets.loaderJs, config.bots);
-  const serveLoader = (): Response =>
-    new Response(loaderJs, {
+  /** One loader per bot, with only that bot's launcher look (`widget.js?bot=<id>`). */
+  const loaders = new Map<string, string>();
+  const serveLoader = (query: URLSearchParams): Response => {
+    const bot = bots.get(query.get('bot') ?? '');
+    const key = bot?.id ?? '';
+    let loaderJs = loaders.get(key);
+    if (loaderJs === undefined) {
+      loaderJs = loaderWithLook(config.assets.loaderJs, bot);
+      loaders.set(key, loaderJs);
+    }
+    return new Response(loaderJs, {
       headers: {
         'Content-Type': 'text/javascript; charset=utf-8',
         'Cache-Control': 'public, max-age=300, stale-while-revalidate=86400',
@@ -242,6 +250,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
         'X-Content-Type-Options': 'nosniff',
       },
     });
+  };
 
   /** The bot's theme, or in gallery mode the preset and scheme asked for in the query. */
   const viewFor = (bot: Bot, query: URLSearchParams): EmbedView => {
@@ -598,8 +607,8 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     const method = request.method.toUpperCase();
 
     if (method === 'GET') {
-      if (path === '/widget.js') return serveLoader();
       const query = new URL(request.url).searchParams;
+      if (path === '/widget.js') return serveLoader(query);
       const embed = /^\/embed\/([a-z0-9-]{1,48})$/.exec(path);
       if (embed?.[1]) return serveEmbed(embed[1], query);
       const theme = /^\/theme\/([a-z0-9-]{1,48})\.css$/.exec(path);

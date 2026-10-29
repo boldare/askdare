@@ -14,7 +14,8 @@ const APP = 'https://app.example.com';
 const BASE = `${APP}/api/chat`;
 
 const assets: EmbedAssets = {
-  loaderJs: 'console.log("loader")',
+  // Backticks, as the minifier writes the placeholder.
+  loaderJs: 'console.log(JSON.parse(`__CHATDOCK_LAUNCHERS__`))',
   widgetJs: 'console.log("widget")',
   widgetCss: 'body{}',
   widgetJsFile: 'widget.abc123.js',
@@ -139,12 +140,18 @@ async function session(resumeToken?: string): Promise<string> {
 }
 
 describe('static routes', () => {
+  it("serves the loader with only the requested bot's launcher look", async () => {
+    const js = await (await handler(new Request(`${BASE}/widget.js?bot=files`))).text();
+    expect(js).toContain('files');
+    expect(js).not.toContain('support');
+  });
+
   it('serves the loader for cross-origin pages', async () => {
     const response = await handler(new Request(`${BASE}/widget.js`));
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toContain('text/javascript');
     expect(response.headers.get('cross-origin-resource-policy')).toBe('cross-origin');
-    expect(await response.text()).toBe(assets.loaderJs);
+    expect(await response.text()).toBe('console.log(JSON.parse("{}"))');
   });
 
   it('serves hashed assets with immutable caching and 404s anything else', async () => {
