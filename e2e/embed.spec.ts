@@ -11,7 +11,7 @@ async function openChat(page: Page) {
 test('chats from an allowed third-party site', async ({ page }) => {
   await page.goto(ALLOWED_HOST);
   const chat = await openChat(page);
-  await expect(chat.getByText('Ask me anything about this demo.')).toBeVisible();
+  await expect(chat.getByText('Ask me about Brightloop plans, support or security.')).toBeVisible();
 
   await chat.getByRole('textbox').fill('Hello there');
   await chat.getByRole('textbox').press('Enter');

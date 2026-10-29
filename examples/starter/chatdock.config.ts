@@ -2,6 +2,7 @@ import { defineBot } from '@boldare/chatdock';
 import { currentTime, exchangeRate } from './tools';
 
 // Origins allowed to embed the widget, comma-separated (the app's own origin is always allowed).
+const vectorStoreId = process.env.KB_VECTOR_STORE_ID;
 const allowedOrigins = (process.env.CHATDOCK_ALLOWED_ORIGINS ?? '')
   .split(',')
   .map((origin) => origin.trim())
@@ -14,16 +15,19 @@ export const bots = [
     model: process.env.CHATDOCK_MODEL ?? 'gpt-6.1-terra',
     instructions: ({ locale }) =>
       [
-        'You are the website assistant of an example company.',
+        'You are the website assistant of Brightloop, a fictional project management app.',
         'Answer briefly and politely. If you do not know something, say so.',
+        'Answer questions about Brightloop only from the documents you can search, and cite them.',
         'Use the tools for the current time and for exchange rates; never guess them.',
         `Reply in the language of the user's message; default to ${locale}.`,
       ].join(' '),
     tools: [currentTime, exchangeRate],
+    // Documents from knowledge/, uploaded with `pnpm kb:sync`. Without the ID the bot has none.
+    knowledge: vectorStoreId ? { vectorStoreId } : undefined,
     security: { allowedOrigins },
     widget: {
       title: 'chatdock demo',
-      greeting: 'Hi! Ask me anything about this demo.',
+      greeting: 'Hi! Ask me about Brightloop plans, support or security.',
     },
   }),
 ];
