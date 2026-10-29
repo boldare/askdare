@@ -19,7 +19,9 @@
     "check": "pnpm lint && pnpm build && pnpm typecheck && pnpm test && pnpm check:packages",
     "changeset": "changeset",
     "release": "pnpm build && changeset publish",
-    "prepare": "lefthook install && pnpm --filter @boldare/chatdock run build:assets"
+    "prepare": "lefthook install && pnpm --filter @boldare/chatdock run build:assets",
+    "test:visual": "pnpm --filter @boldare/chatdock run build && pnpm --filter chatdock-starter run build && playwright test --project visual",
+    "test:visual:update": "pnpm --filter @boldare/chatdock run build && pnpm --filter chatdock-starter run build && playwright test --project visual --update-snapshots"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.3",

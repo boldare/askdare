@@ -30,8 +30,17 @@ export const bots = [
     voice: { model: process.env.CHATDOCK_TRANSCRIBE_MODEL ?? 'gpt-transcribe' },
     security: { allowedOrigins },
     widget: {
-      title: 'chatdock demo',
+      title: 'Brightloop assistant',
+      subtitle: 'Answers from our help center',
       greeting: 'Hi! Ask me about Brightloop plans, support or security.',
+      starters: [
+        'What does the Business plan include?',
+        'What are your support hours?',
+        'Where is our data stored?',
+      ],
+      // halo, aura, sage or care; CHATDOCK_THEME lets you try them without editing this file.
+      theme:
+        (process.env.CHATDOCK_THEME as 'halo' | 'aura' | 'sage' | 'care' | undefined) || 'halo',
     },
   }),
 ];
