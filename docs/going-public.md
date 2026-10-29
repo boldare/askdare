@@ -20,6 +20,7 @@ openssl rand -base64 32   # use the output as CHAT_SECRET
 | `OPENAI_API_KEY` | yes | The restricted key from step 1 |
 | `CHAT_SECRET` | yes | At least 32 random characters. Never commit it. |
 | `CHAT_SECRET_PREVIOUS` | during rotation | Comma-separated former secrets |
+| `IDENTITY_SECRET` | for signed-in visitors | Shared with your site's backend only; never in a page or in git |
 | `CHATDOCK_DISABLED` | no | Set `true` to switch every bot off immediately |
 
 **To rotate the secret:**

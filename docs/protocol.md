@@ -44,6 +44,10 @@ When a bot has `attachments` enabled, files travel separately from the message:
 
 When a bot has `voice` enabled, `POST /transcriptions` takes a recording as the raw body (`Content-Type: application/octet-stream`) with the `Bearer` token and two headers: `x-chatdock-bot` (bot ID) and `x-chatdock-languages` (comma-separated language tags, used as hints). It answers `{ "text": "…" }`. Clients put the text in the message field for the visitor to check; nothing is sent to the model.
 
+## Identity
+
+`POST /session` takes an optional `identityToken`: the JWT from `chatdock('identify')`, or `null` to sign out. Without it, a renewal keeps the identity the previous access token had. The answer adds `identified` (boolean), `identityKey` (an opaque hash that changes with the user) and, when a token was refused, `identityProblem`. Identities travel inside the encrypted access token; clients never see the claims ([ADR-0009](adr/0009-visitor-identity.md)).
+
 ## Diagnostics
 
 `POST /doctor` serves `npx @boldare/chatdock doctor`. It takes a 2-minute token that the CLI encrypts with `CHAT_SECRET` and answers with a report on each bot: whether the server's key, models, vector store and permissions work. The report format is internal and may change in any release.

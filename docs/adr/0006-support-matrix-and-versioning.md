@@ -29,7 +29,8 @@ A library runs inside its users' apps, so every supported combination of version
 - The SSE protocol has its own version (`x-chatdock-protocol`).
 - **The public surface is exactly:**
   - `defineBot`, `defineTool`, `createChatHandler` (and `defineTheme`);
-  - the script tag's `data-*` attributes and the `chatdock()` JS API;
+  - the script tag's `data-*` attributes and the `chatdock()` JS API, `identify` included;
+  - the identity token's claims, `IDENTITY_SECRET` and `context.identity` (ADR-0009);
   - `--cd-*` tokens, `data-cd-part` names and dictionary keys;
   - the protocol version;
   - ports implemented by official add-ons: `RateLimitStore` (and `CounterHit`);

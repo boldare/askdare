@@ -44,7 +44,7 @@ A bot makes at most `limits.maxSteps` model calls per message (default 5); the l
 
 - **Every field is required.** OpenAI's strict mode demands it: use `.nullable()` instead of `.optional()`. `defineTool` fails at startup otherwise.
 - **Describe well.** The model picks tools by `description` and fills fields by their `.describe()`.
-- **Never trust the model with identity.** The model can be talked into anything, so a tool must not take user IDs, emails or permissions from its arguments. The second argument of `execute` holds what chatdock verified: `botId`, `visitorId` (pseudonymous, created by the server), `locale` and an abort `signal`.
+- **Never trust the model with identity.** The model can be talked into anything, so a tool must not take user IDs, emails or permissions from its arguments. The second argument of `execute` holds what chatdock verified: `botId`, `visitorId` (pseudonymous, created by the server), `locale`, `identity` (the signed-in user, when your site [identifies](identity.md) them) and an abort `signal`.
 - **Read-only, for now.** Tools that change data (place an order, send an email) need the visitor's confirmation, which chatdock doesn't offer yet. Keep tools to lookups.
 - **Keep results small.** Return the fields the model needs. Large results cost input tokens on every later message.
 - **Keep it under about 20 tools per bot.** More tools make the model slower and less accurate.

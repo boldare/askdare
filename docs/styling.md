@@ -77,6 +77,7 @@ Your CSS loads after the theme. The library's styles are in `@layer chatdock`, s
 | Call | Effect |
 | --- | --- |
 | `chatdock('open')`, `chatdock('close')`, `chatdock('toggle')` | Shows or hides the chat. Closing returns focus to whatever opened it. |
+| `chatdock('identify', token)` | Signs the visitor in with a token from your backend, or out with `null`; see [Signed-in visitors](identity.md). |
 | `chatdock('configure', { greeting, starters, context })` | Per-page greeting and suggestions, and `context`: a short description of the page (up to 1000 characters) for the assistant. |
 
 `configure` accepts only those three fields: never the model, instructions or tools. The context is off unless the bot opts in with `pageContext: true` in `defineBot`. It then travels with the visitor's message, as a marked part of their own turn: anyone can set it from their browser, so it gets no more trust than what the visitor types, and it never becomes part of the bot's instructions. It is sent again only when it changes, and the visitor's history doesn't show it. Define the small queue first, then call it any time:

@@ -29,5 +29,6 @@ Never import from `@boldare/chatdock/dist/…` or other internal paths.
 - Secrets (`OPENAI_API_KEY`, `CHAT_SECRET`) belong in `.env.local` or the host's settings, never in code, instructions or commits. Never print them.
 - Bot instructions must contain no secrets: visitors can make the model repeat them.
 - Sites that embed the chat go in `security.allowedOrigins` as exact origins, without wildcards.
-- Tools: every Zod field is required (use `.nullable()`, not `.optional()`). Never take user IDs, emails or permissions from tool arguments; use the verified `context` (`visitorId`, `botId`, `locale`, `signal`). Keep tools read-only.
+- Tools: every Zod field is required (use `.nullable()`, not `.optional()`). Never take user IDs, emails or permissions from tool arguments; use the verified `context` (`visitorId`, `botId`, `locale`, `identity`, `signal`). Keep tools read-only.
+- Signed-in users: the site's backend signs an HS256 JWT with `IDENTITY_SECRET` (`sub`, `aud` = bot ID, `iat`, `exp`), and the page calls `chatdock('identify', token)` (`null` on sign-out). See `docs/identity.md`.
 - More than one server instance (Vercel, several dynos) needs shared limits: `@boldare/chatdock-upstash`.
