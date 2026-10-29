@@ -4,6 +4,9 @@ import type { Bot } from '../bot/define-bot';
 import { ChatdockError } from '../errors';
 import type { ModelGateway } from '../gateway';
 import {
+  FONT_FILES,
+  FONTS_CSS,
+  FONTS_CSS_FILE,
   LOADER_JS,
   WIDGET_CSS,
   WIDGET_CSS_FILE,
@@ -28,6 +31,12 @@ export interface ChatHandlerOptions {
   /** Former secrets still accepted during rotation. Default: comma-separated `process.env.CHAT_SECRET_PREVIOUS`. */
   readonly previousSecrets?: readonly string[];
   readonly limits?: ChatHandlerLimitsOptions;
+  /**
+   * Serves the state gallery: `/embed/<bot>?gallery=<state>&preset=<preset>&scheme=<scheme>`
+   * renders fixture states without calling the model. For development and visual tests; leave
+   * it off in production.
+   */
+  readonly gallery?: boolean;
 }
 
 export interface ChatHandlerLimitsOptions {
@@ -106,7 +115,11 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
       widgetCss: WIDGET_CSS,
       widgetJsFile: WIDGET_JS_FILE,
       widgetCssFile: WIDGET_CSS_FILE,
+      fontsCss: FONTS_CSS,
+      fontsCssFile: FONTS_CSS_FILE,
+      fontFiles: FONT_FILES,
     },
+    gallery: options.gallery,
     gateway: () =>
       (gateway ??= createOpenAIGateway({
         apiKey: required(options.openaiApiKey ?? process.env['OPENAI_API_KEY'], 'OPENAI_API_KEY'),

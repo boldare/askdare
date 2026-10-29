@@ -2,9 +2,31 @@
 // from memory and never reads files at runtime (ADR-0005). Output: src/generated/assets.ts
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { basename, dirname, join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 
 const LOADER_BUDGET_BYTES = 5 * 1024;
+/** Fonts a preset downloads (Latin and Latin Extended), at most (ADR-0008). */
+const FONT_BUDGET_BYTES = 82 * 1024;
+
+/**
+ * OFL fonts of the presets, self-hosted (no CDN). Only the Latin and Latin Extended subsets are
+ * kept; `unicode-range` makes browsers fetch Latin Extended only for text that needs it.
+ */
+const FONT_STYLESHEETS = [
+  '@fontsource-variable/geist/wght.css',
+  '@fontsource-variable/plus-jakarta-sans/wght.css',
+  '@fontsource-variable/atkinson-hyperlegible-next/wght.css',
+  '@fontsource/fraunces/300.css',
+];
+/** Families each preset renders with, to check the budget. */
+const PRESET_FONTS = {
+  halo: ['Geist Variable'],
+  aura: ['Plus Jakarta Sans Variable'],
+  sage: ['Geist Variable', 'Fraunces'],
+  care: ['Atkinson Hyperlegible Next Variable'],
+};
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 const hash = (content) => createHash('sha256').update(content).digest('hex').slice(0, 12);
@@ -14,6 +36,42 @@ const [loaderJs, widgetJs, widgetCss] = await Promise.all([
   read('.assets/widget/widget.js'),
   read('.assets/widget/widget.css'),
 ]);
+
+const require = createRequire(import.meta.url);
+const fontFaces = [];
+const fontFiles = {};
+const familyBytes = {};
+for (const stylesheet of FONT_STYLESHEETS) {
+  const path = require.resolve(stylesheet);
+  const css = await readFile(path, 'utf8');
+  for (const block of css.match(/@font-face\s*{[^}]*}/g) ?? []) {
+    const url = /url\(\.\/files\/([^)]+-latin(?:-ext)?-(?:wght|\d+)-normal\.woff2)\)/.exec(
+      block,
+    )?.[1];
+    if (!url) continue;
+    const bytes = await readFile(join(dirname(path), 'files', url));
+    const name = `${basename(url, '.woff2')}.${hash(bytes)}.woff2`;
+    fontFiles[name] = bytes.toString('base64');
+    const family = /font-family:\s*'([^']+)'/.exec(block)?.[1] ?? '';
+    familyBytes[family] = (familyBytes[family] ?? 0) + bytes.length;
+    // Only the woff2 file is served, so drop any woff fallback the package lists.
+    fontFaces.push(block.replace(/src:[^;]+;/, `src: url(./${name}) format('woff2');`));
+  }
+}
+for (const [preset, families] of Object.entries(PRESET_FONTS)) {
+  const total = families.reduce((sum, family) => sum + (familyBytes[family] ?? 0), 0);
+  if (total === 0 || total > FONT_BUDGET_BYTES) {
+    console.error(`Fonts of ${preset} are ${total} B; the budget is ${FONT_BUDGET_BYTES} B.`);
+    process.exit(1);
+  }
+}
+const fontsCss = fontFaces.join('\n');
+
+// The server swaps this token for each bot's launcher look; it must survive minification once.
+if ((loaderJs.match(/(['"`])__CHATDOCK_LAUNCHERS__\1/g) ?? []).length !== 1) {
+  console.error('The loader must contain the launcher placeholder exactly once.');
+  process.exit(1);
+}
 
 const loaderGzip = gzipSync(loaderJs).length;
 if (loaderGzip > LOADER_BUDGET_BYTES) {
@@ -27,10 +85,14 @@ export const WIDGET_JS: string = ${JSON.stringify(widgetJs)};
 export const WIDGET_CSS: string = ${JSON.stringify(widgetCss)};
 export const WIDGET_JS_FILE: string = ${JSON.stringify(`widget.${hash(widgetJs)}.js`)};
 export const WIDGET_CSS_FILE: string = ${JSON.stringify(`widget.${hash(widgetCss)}.css`)};
+export const FONTS_CSS: string = ${JSON.stringify(fontsCss)};
+export const FONTS_CSS_FILE: string = ${JSON.stringify(`fonts.${hash(fontsCss)}.css`)};
+/** Base64 woff2 files by published name. */
+export const FONT_FILES: Readonly<Record<string, string>> = ${JSON.stringify(fontFiles)};
 `;
 
 await mkdir(new URL('../src/generated/', import.meta.url), { recursive: true });
 await writeFile(new URL('../src/generated/assets.ts', import.meta.url), source);
 console.log(
-  `inline-assets: loader ${loaderGzip} B gz, widget ${gzipSync(widgetJs).length} B gz, css ${gzipSync(widgetCss).length} B gz`,
+  `inline-assets: loader ${loaderGzip} B gz, widget ${gzipSync(widgetJs).length} B gz, css ${gzipSync(widgetCss).length} B gz, fonts ${Object.keys(fontFiles).length} files`,
 );

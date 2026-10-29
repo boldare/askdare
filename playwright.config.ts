@@ -16,6 +16,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      testIgnore: /visual\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         // A fake microphone (a steady tone) for the dictation test, granted without a prompt.
@@ -24,6 +25,14 @@ export default defineConfig({
           args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
         },
       },
+    },
+    {
+      // Pixel baselines of the theme gallery (`pnpm test:visual`). They depend on the OS's font
+      // rendering, so baselines are kept per platform (the file name ends in -darwin or -linux).
+      name: 'visual',
+      testMatch: /visual\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], deviceScaleFactor: 1 },
+      expect: { toHaveScreenshot: { maxDiffPixels: 250, animations: 'disabled' } },
     },
   ],
   webServer: [
@@ -53,6 +62,9 @@ export default defineConfig({
         CHAT_SECRET: 'e2e-secret-that-is-long-enough-for-tests',
         CHATDOCK_MODEL: 'mock-model',
         CHATDOCK_TRANSCRIBE_MODEL: 'mock-transcribe',
+        CHATDOCK_THEME: '',
+        // Lets the visual tests render fixture states; it never changes a live conversation.
+        CHATDOCK_GALLERY: '1',
         KB_VECTOR_STORE_ID: '',
         CHATDOCK_ALLOWED_ORIGINS: ALLOWED_HOST,
         CHAT_SECRET_PREVIOUS: '',

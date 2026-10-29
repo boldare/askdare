@@ -46,11 +46,14 @@ There are four presets, each with a light and a dark variant. Every preset is bu
 
 Each preset is a set of tokens plus defaults for these component variants:
 - `avatar`
-- `welcome.layout`
-- `launcher.style`
+- `welcome` (layout)
+- `launcher` (style)
 - `bubbles`
 - `surface`
 - `density`
+- `composer`
+
+Implementation (step 3.6): 17 tokens (11 colors, the backdrop and orb paint, two font families, base size, radius); see [Themes](../themes.md). The server renders a bot's theme as a content-hashed stylesheet (the iframe CSP forbids inline styles) and sets the variants as `data-cd-*` attributes on the iframe document. The requested bot's launcher look is inlined into `widget.js?bot=<id>` (only that bot's, so the script never lists other bots), and the launcher is drawn right on first paint without another request.
 
 ### Quality bar
 

@@ -9,7 +9,7 @@ const page = (port) => `<!doctype html>
   <head><meta charset="utf-8"><title>Host page ${port}</title></head>
   <body>
     <h1>A third-party website on port ${port}</h1>
-    <script src="${APP_ORIGIN}/api/chat/widget.js" data-bot="support" async></script>
+    <script src="${APP_ORIGIN}/api/chat/widget.js?bot=support" async></script>
   </body>
 </html>`;
 

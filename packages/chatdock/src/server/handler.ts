@@ -11,8 +11,19 @@ import { ChatdockError, toChatdockError } from '../errors';
 import type { ModelGateway, TurnAttachment } from '../gateway';
 import type { Limits } from '../limits/limits';
 import { newVisitorId, type TokenService } from '../security/tokens';
+import { PRESET_NAMES, type PresetName } from '../theme/presets';
+import { type ColorScheme, type ResolvedTheme, resolveTheme } from '../theme/theme';
 import { detectAudio, languageHints, maxAudioBytes, worstCaseSeconds } from '../voice/audio';
-import { type EmbedAssets, embedContentSecurityPolicy, renderEmbedPage } from './embed-page';
+import {
+  type EmbedAssets,
+  type EmbedView,
+  embedContentSecurityPolicy,
+  GALLERY_STATES,
+  type GalleryState,
+  renderEmbedPage,
+  themeAsset,
+} from './embed-page';
+import { loaderWithLook } from './launcher';
 import { STREAM_HEADERS, streamTurn } from './stream-turn';
 
 export interface HandlerConfig {
@@ -28,6 +39,11 @@ export interface HandlerConfig {
   readonly clientIp: (request: Request) => string;
   readonly onError?: ((error: ChatdockError) => void) | undefined;
   readonly heartbeatIntervalMs?: number | undefined;
+  /**
+   * Development and visual tests only: lets `/embed/:bot?gallery=<state>&preset=&scheme=` render
+   * fixture states with any preset, without calling the model.
+   */
+  readonly gallery?: boolean | undefined;
   /** Keeps a turn running after its response ends, e.g. Next.js `after`; see `streamTurn`. */
   readonly waitUntil?: ((work: Promise<unknown>) => void) | undefined;
 }
@@ -216,8 +232,17 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     return bot;
   };
 
-  const serveLoader = (): Response =>
-    new Response(config.assets.loaderJs, {
+  /** One loader per bot, with only that bot's launcher look (`widget.js?bot=<id>`). */
+  const loaders = new Map<string, string>();
+  const serveLoader = (query: URLSearchParams): Response => {
+    const bot = bots.get(query.get('bot') ?? '');
+    const key = bot?.id ?? '';
+    let loaderJs = loaders.get(key);
+    if (loaderJs === undefined) {
+      loaderJs = loaderWithLook(config.assets.loaderJs, bot);
+      loaders.set(key, loaderJs);
+    }
+    return new Response(loaderJs, {
       headers: {
         'Content-Type': 'text/javascript; charset=utf-8',
         'Cache-Control': 'public, max-age=300, stale-while-revalidate=86400',
@@ -225,10 +250,55 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
         'X-Content-Type-Options': 'nosniff',
       },
     });
+  };
 
-  const serveEmbed = (botId: string): Response => {
+  /** The bot's theme, or in gallery mode the preset and scheme asked for in the query. */
+  const viewFor = (bot: Bot, query: URLSearchParams): EmbedView => {
+    let theme: ResolvedTheme = bot.widget.theme;
+    let gallery: GalleryState | undefined;
+    const overrides = new URLSearchParams();
+    if (config.gallery) {
+      const state = query.get('gallery');
+      if (GALLERY_STATES.includes(state as GalleryState)) gallery = state as GalleryState;
+      const preset = query.get('preset');
+      const scheme = query.get('scheme');
+      const colorScheme = (['auto', 'light', 'dark'] as const).includes(scheme as ColorScheme)
+        ? (scheme as ColorScheme)
+        : theme.colorScheme;
+      if (PRESET_NAMES.includes(preset as PresetName)) {
+        theme = resolveTheme(preset as PresetName, colorScheme);
+        overrides.set('preset', preset as string);
+      } else if (colorScheme !== theme.colorScheme) {
+        theme = { ...theme, colorScheme };
+      }
+      if (colorScheme !== bot.widget.theme.colorScheme) overrides.set('scheme', colorScheme);
+    }
+    overrides.set('v', themeAsset(theme).hash);
+    return {
+      theme,
+      gallery,
+      themeHref: `${config.basePath}/theme/${bot.id}.css?${overrides}`,
+    };
+  };
+
+  const serveTheme = (botId: string, query: URLSearchParams): Response => {
     const bot = findBot(botId);
-    return new Response(renderEmbedPage(bot, config.basePath, config.assets), {
+    const { css, hash } = themeAsset(viewFor(bot, query).theme);
+    return new Response(css, {
+      headers: {
+        'Content-Type': 'text/css; charset=utf-8',
+        // The URL carries the content hash; a stale or missing one gets a short cache.
+        'Cache-Control':
+          query.get('v') === hash ? 'public, max-age=31536000, immutable' : 'public, max-age=60',
+        'Cross-Origin-Resource-Policy': 'same-origin',
+        'X-Content-Type-Options': 'nosniff',
+      },
+    });
+  };
+
+  const serveEmbed = (botId: string, query: URLSearchParams): Response => {
+    const bot = findBot(botId);
+    return new Response(renderEmbedPage(bot, config.basePath, config.assets, viewFor(bot, query)), {
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
         'Content-Security-Policy': embedContentSecurityPolicy(bot),
@@ -241,14 +311,32 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     });
   };
 
+  const fonts = new Map<string, Uint8Array>();
+  const fontFile = (file: string): Uint8Array | undefined => {
+    const encoded = Object.hasOwn(config.assets.fontFiles, file)
+      ? config.assets.fontFiles[file]
+      : undefined;
+    if (encoded === undefined) return undefined;
+    let bytes = fonts.get(file);
+    if (!bytes) {
+      bytes = Uint8Array.from(atob(encoded), (char) => char.charCodeAt(0));
+      fonts.set(file, bytes);
+    }
+    return bytes;
+  };
+
   const serveAsset = (file: string): Response => {
     const { assets } = config;
-    const body =
-      file === assets.widgetJsFile
+    const font = fontFile(file);
+    const body: { content: string | Uint8Array; type: string } | undefined = font
+      ? { content: font, type: 'font/woff2' }
+      : file === assets.widgetJsFile
         ? { content: assets.widgetJs, type: 'text/javascript; charset=utf-8' }
         : file === assets.widgetCssFile
           ? { content: assets.widgetCss, type: 'text/css; charset=utf-8' }
-          : undefined;
+          : file === assets.fontsCssFile
+            ? { content: assets.fontsCss, type: 'text/css; charset=utf-8' }
+            : undefined;
     if (!body) throw new ChatdockError('not_found');
     return new Response(body.content, {
       headers: {
@@ -519,9 +607,12 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     const method = request.method.toUpperCase();
 
     if (method === 'GET') {
-      if (path === '/widget.js') return serveLoader();
+      const query = new URL(request.url).searchParams;
+      if (path === '/widget.js') return serveLoader(query);
       const embed = /^\/embed\/([a-z0-9-]{1,48})$/.exec(path);
-      if (embed?.[1]) return serveEmbed(embed[1]);
+      if (embed?.[1]) return serveEmbed(embed[1], query);
+      const theme = /^\/theme\/([a-z0-9-]{1,48})\.css$/.exec(path);
+      if (theme?.[1]) return serveTheme(theme[1], query);
       const asset = /^\/assets\/([a-zA-Z0-9.-]{1,80})$/.exec(path);
       if (asset?.[1]) return serveAsset(asset[1]);
     } else if (method === 'POST') {
