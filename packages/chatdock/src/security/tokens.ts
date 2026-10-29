@@ -56,10 +56,10 @@ interface DerivedKey {
   readonly key: Uint8Array;
 }
 
-async function deriveKey(secret: string): Promise<DerivedKey> {
+async function deriveKey(secret: string, name: string): Promise<DerivedKey> {
   if (secret.length < MIN_SECRET_LENGTH || new Set(secret).size < MIN_DISTINCT_CHARACTERS) {
     throw new TypeError(
-      `[chatdock] CHAT_SECRET must be at least ${MIN_SECRET_LENGTH} random characters (use \`openssl rand -base64 32\`).`,
+      `[chatdock] ${name} must be at least ${MIN_SECRET_LENGTH} random characters (use \`openssl rand -base64 32\`).`,
     );
   }
   const material = await crypto.subtle.importKey('raw', encoder.encode(secret), 'HKDF', false, [
@@ -80,10 +80,10 @@ async function deriveKey(secret: string): Promise<DerivedKey> {
 }
 
 export async function createTokenService(options: TokenServiceOptions): Promise<TokenService> {
-  const current = await deriveKey(options.secret);
+  const current = await deriveKey(options.secret, 'CHAT_SECRET');
   const keys = new Map<string, Uint8Array>([[current.kid, current.key]]);
   for (const secret of options.previousSecrets ?? []) {
-    const previous = await deriveKey(secret);
+    const previous = await deriveKey(secret, 'CHAT_SECRET_PREVIOUS');
     keys.set(previous.kid, previous.key);
   }
   const now = options.now ?? (() => Math.floor(Date.now() / 1000));

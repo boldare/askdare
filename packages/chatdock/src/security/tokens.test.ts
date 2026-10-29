@@ -123,6 +123,9 @@ describe('token service', () => {
   it('refuses short or low-entropy secrets at startup', async () => {
     await expect(createTokenService({ secret: 'too-short' })).rejects.toThrow(/at least 32/);
     await expect(createTokenService({ secret: 'a'.repeat(64) })).rejects.toThrow(/random/);
+    await expect(createTokenService({ secret: SECRET, previousSecrets: ['xx'] })).rejects.toThrow(
+      /CHAT_SECRET_PREVIOUS must be/,
+    );
   });
 });
 
