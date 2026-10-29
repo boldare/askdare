@@ -62,6 +62,8 @@ pnpm check          # lint, typecheck, tests, build, package checks; must pass b
 pnpm test:watch     # Vitest in watch mode
 pnpm format         # apply Biome formatting and safe fixes
 pnpm changeset      # describe a change to a published package
+pnpm e2e            # build the starter and run Playwright against a mocked OpenAI
+pnpm smoke          # live test against OpenAI (needs OPENAI_API_KEY and SMOKE_MODEL)
 ```
 
 **Git hooks:**
