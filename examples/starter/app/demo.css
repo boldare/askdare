@@ -53,7 +53,7 @@ body {
   --glow:
     radial-gradient(45% 38% at 0% 0%, #ffd9e6 0%, #ffd9e600 70%),
     radial-gradient(42% 36% at 100% 6%, #e2dbff 0%, #e2dbff00 70%),
-    radial-gradient(55% 32% at 70% 100%, #d2f3ec 0%, #d2f3ec00 70%);
+    radial-gradient(45% 22% at 70% 74%, #d2f3ec 0%, #d2f3ec00 70%);
   --ink: #242424;
   --soft: #857f8d;
   --muted: #5f5a68;
@@ -122,6 +122,23 @@ body {
   --orb: var(--orb-care);
 }
 
+.demo[data-theme="bldr"] {
+  --font: "Plus Jakarta Sans Variable", system-ui, sans-serif;
+  --bg: #f1f1f1;
+  --glow: none;
+  --ink: #242424;
+  --soft: #242424;
+  --muted: #4f4f4f;
+  --button: #f2da3a;
+  --on-button: #242424;
+  --card: #ffffff;
+  --line: #242424;
+  --soft-weight: 800;
+  --strong-weight: 800;
+  --radius: 0px;
+  --orb: radial-gradient(circle at 35% 30%, #fff7c2 0%, #f2da3a 50%, #c4ac12 100%);
+}
+
 .demo a {
   color: inherit;
 }
@@ -152,10 +169,19 @@ body {
 }
 
 .product {
+  display: grid;
   padding-left: 16px;
   border-left: 1px solid var(--line);
   font-weight: 700;
+  line-height: 1.15;
   letter-spacing: -0.01em;
+}
+
+.product small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
 .nav nav {
@@ -176,6 +202,7 @@ body {
 
 .demo .button {
   display: inline-flex;
+  white-space: nowrap;
   align-items: center;
   padding: 12px 22px;
   border-radius: 999px;
@@ -201,18 +228,6 @@ body {
   max-width: var(--width);
   margin: 0 auto;
   padding: clamp(24px, 5vw, 56px) var(--gutter) 72px;
-}
-
-.eyebrow {
-  display: inline-block;
-  margin: 0 0 20px;
-  padding: 6px 14px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--card);
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 500;
 }
 
 .demo h1,
@@ -286,6 +301,15 @@ body {
 
 .demo .segmented a:hover {
   background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+
+.demo .segmented a em {
+  margin-left: 4px;
+  opacity: 0.7;
+  font-size: 0.75em;
+  font-style: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .demo .segmented a[aria-current] {
@@ -371,6 +395,35 @@ body {
   max-width: 22em;
   margin: 0;
   color: var(--muted);
+}
+
+/* The 3D shape is a button: click or press Enter to start a chat. */
+.shape {
+  display: grid;
+  place-items: center;
+  width: min(520px, 90vw);
+  aspect-ratio: 1;
+  margin: -40px 0 -60px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+
+.shape canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.shape:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: -24px;
+}
+
+.shape[data-fallback] {
+  aspect-ratio: auto;
+  margin: 0;
 }
 
 @keyframes float {
@@ -489,6 +542,40 @@ body {
   font-weight: 600;
 }
 
+[data-preview="bldr"] .mini-orb {
+  border: 2px solid #242424;
+  border-radius: 0;
+  background: #f2da3a;
+  box-shadow: -4px 4px 0 #242424;
+}
+
+.custom-card code {
+  display: block;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  font:
+    0.78rem / 1.5 ui-monospace,
+    "SF Mono",
+    Menlo,
+    monospace;
+  overflow-wrap: anywhere;
+}
+
+.demo .card h3 em {
+  margin-left: 6px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
 /* ---------- Footer ---------- */
 
 .footer {
@@ -511,6 +598,61 @@ body {
 
 .footer p {
   margin: 0;
+}
+
+/* ---------- BLDR: boldare.com's sharp, heavy, yellow-and-ink look ---------- */
+
+.demo[data-theme="bldr"] h1 {
+  line-height: 1.14;
+}
+
+/* The highlight leaves room above, so it never covers the descenders of the line before. */
+.demo[data-theme="bldr"] :is(h1, h2) strong {
+  padding: 0 0.12em;
+  background: linear-gradient(transparent 14%, #f2da3a 14%);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.demo[data-theme="bldr"] h2::after {
+  content: "";
+  display: block;
+  width: 40px;
+  height: 5px;
+  margin-top: 20px;
+  background: #242424;
+}
+
+.demo[data-theme="bldr"] :is(.button, .segmented a[aria-current], .step) {
+  border: 2px solid #242424;
+  border-radius: 0;
+  box-shadow: -4px 4px 0 #242424;
+}
+
+.demo[data-theme="bldr"] :is(.segmented, .card, .chat-frame, .custom-card code, .steps code) {
+  border: 2px solid #242424;
+  border-radius: 0;
+}
+
+.demo[data-theme="bldr"] .card {
+  box-shadow: -6px 6px 0 #242424;
+}
+
+.demo[data-theme="bldr"] .nav {
+  border-bottom: 1px solid #24242422;
+}
+
+.demo[data-theme="bldr"] .footer {
+  border-top: 2px solid #242424;
+}
+
+/* The launcher lives in the loader's shadow root on this page: styled with ::part. */
+body:has(.demo[data-theme="bldr"]) [data-chatdock]::part(launcher) {
+  border: 2px solid #242424;
+  border-radius: 0;
+  background: #f2da3a;
+  color: #242424;
+  box-shadow: -4px 4px 0 #242424;
 }
 
 @media (max-width: 900px) {

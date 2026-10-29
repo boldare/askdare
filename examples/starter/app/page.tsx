@@ -1,15 +1,24 @@
 import Image from 'next/image';
 import { DEMO_BOTS } from '@/chatdock.config';
 import { ChatScript } from './chat-script';
+import { HeroShape } from './hero-shape';
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 
 const THEMES = [
-  { id: 'aura', name: 'Aura', note: "Glossy and voice-first, in Boldare's colors." },
+  { id: 'aura', name: 'Aura', note: 'Glossy and voice-first, around an iridescent bubble.' },
   { id: 'sage', name: 'Sage', note: 'A calm companion with a face and a name.' },
-  { id: 'halo', name: 'Halo', note: 'Clean and bright, for any company site.' },
+  { id: 'halo', name: 'Halo', note: 'Clean and bright: a frosted orb in rings of light.' },
   { id: 'care', name: 'Care', note: 'Trust first: hyperlegible type, AAA contrast.' },
+  {
+    id: 'bldr',
+    name: 'BLDR',
+    note: "A custom theme in Boldare's style: one of the presets, adjusted with defineTheme and a few lines of CSS.",
+  },
 ] as const;
+/** Built-in presets; BLDR is the custom example. */
+const PRESETS = THEMES.filter((item) => item.id !== 'bldr');
+const CUSTOM = THEMES.find((item) => item.id === 'bldr');
 type Theme = (typeof THEMES)[number]['id'];
 
 const MODES = [
@@ -82,7 +91,10 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
             unoptimized
           />
         </a>
-        <span className="product">chatdock</span>
+        <span className="product">
+          chatdock
+          <small>Open source chat for Next.js, on OpenAI</small>
+        </span>
         <nav aria-label="Sections">
           <a href="#features">Features</a>
           <a href="#how">How it works</a>
@@ -96,22 +108,20 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
       <main>
         <section className="hero" aria-labelledby="headline">
           <div className="copy">
-            <p className="eyebrow">Open source · Next.js · OpenAI</p>
             <h1 id="headline">
               <span>An</span> <strong>AI assistant</strong> <span>for any website,</span>{' '}
               <strong>in one script tag</strong>
             </h1>
             <p className="lead">
               chatdock is a Next.js library by Boldare. It answers from your documents, calls your
-              tools and fits your brand, with security built in. Try it: the assistant here knows
-              Brightloop, a fictional software company.
+              tools and fits your brand, with security built in.
             </p>
 
             <div className="switches">
               <fieldset>
                 <legend>Theme</legend>
                 <div className="segmented">
-                  {THEMES.map((item) => (
+                  {PRESETS.map((item) => (
                     <a
                       key={item.id}
                       href={href({ theme: item.id })}
@@ -120,6 +130,15 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
                       {item.name}
                     </a>
                   ))}
+                  {CUSTOM && (
+                    <a
+                      className="custom"
+                      href={href({ theme: CUSTOM.id })}
+                      aria-current={theme === CUSTOM.id ? 'true' : undefined}
+                    >
+                      {CUSTOM.name} <em>custom</em>
+                    </a>
+                  )}
                 </div>
               </fieldset>
               <fieldset>
@@ -144,9 +163,9 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
             {inline ? (
               <div id="chatdock-demo" className="chat-frame" />
             ) : (
-              <div className="orb-stage" aria-hidden="true">
-                <span className="orb" />
-                <p>The chat is in the corner. Open it and ask about Brightloop.</p>
+              <div className="orb-stage">
+                <HeroShape theme={theme} label="Open the chat" />
+                <p>Click the shape, or the button in the corner, to start a chat.</p>
               </div>
             )}
           </div>
@@ -185,10 +204,10 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
         <section id="themes" className="section" aria-labelledby="themes-title">
           <h2 id="themes-title">
             <span>Four themes,</span> <strong>light and dark</strong>
-            <span>, all yours to restyle</span>
+            <span>, or</span> <strong>your own</strong>
           </h2>
           <ul className="cards themes">
-            {THEMES.map((item) => (
+            {PRESETS.map((item) => (
               <li key={item.id} className="card" data-preview={item.id}>
                 <span className="mini-orb" aria-hidden="true" />
                 <h3>{item.name}</h3>
@@ -198,6 +217,19 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
                 </a>
               </li>
             ))}
+            {CUSTOM && (
+              <li className="card custom-card" data-preview={CUSTOM.id}>
+                <span className="mini-orb" aria-hidden="true" />
+                <h3>
+                  {CUSTOM.name} <em>custom</em>
+                </h3>
+                <p>{CUSTOM.note}</p>
+                <code>{"defineTheme({ extends: 'halo', tokens: { radius: '0px', … } })"}</code>
+                <a href={href({ theme: CUSTOM.id })}>
+                  {theme === CUSTOM.id ? 'You are looking at it' : 'See your brand in it'}
+                </a>
+              </li>
+            )}
           </ul>
         </section>
       </main>
