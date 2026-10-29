@@ -30,7 +30,7 @@ Simple changes are configuration; hard changes are code. Logic (streaming, secur
 - **Two kinds of configuration.** Server config (model, instructions, tools, limits, secrets) and public config (`widget`) have separate types. `GET /config` serializes only the public part, and a CI test checks that no secret leaks through it.
 - **About 15 semantic tokens** (`--cd-*`); the rest of the palette is derived. Each derived accent is checked for contrast.
 - **UI built as layers from day one:** a headless core, primitives and a default skin. Layers 4 and 5 then only *expose* existing code.
-- **Runtime overrides are allowlisted.** `chatdock('configure')` accepts only texts, starters and page context. Page context reaches `instructions` as untrusted data, with a length cap.
+- **Runtime overrides are allowlisted.** `chatdock('configure')` accepts only texts, starters and page context. Page context is off unless a bot opts in, and then travels in the visitor's own turn (user role) with a length cap, never in `instructions` (changed in step 4.1 after the security review: instructions outrank visitor text).
 - **Accessibility cannot be configured away.** Dev mode warns about weak contrast, and the focus ring is always visible.
 
 ### Built-in presets

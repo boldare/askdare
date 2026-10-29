@@ -78,17 +78,24 @@ Your CSS loads after the theme. The library's styles are in `@layer chatdock`, s
 | `chatdock('open')`, `chatdock('close')`, `chatdock('toggle')` | Shows or hides the chat. Closing returns focus to whatever opened it. |
 | `chatdock('configure', { greeting, starters, context })` | Per-page greeting and suggestions, and `context`: a short description of the page (up to 1000 characters) for the assistant. |
 
-`configure` accepts only those three fields: never the model, instructions or tools. The context reaches the model as clearly marked information about the page, never as instructions, and anyone can set it from their browser, so treat it like something the visitor typed. Call it after the script has loaded:
+`configure` accepts only those three fields: never the model, instructions or tools. The context is off unless the bot opts in with `pageContext: true` in `defineBot`. It then travels with the visitor's message, as a marked part of their own turn: anyone can set it from their browser, so it gets no more trust than what the visitor types, and it never becomes part of the bot's instructions. It is sent again only when it changes, and the visitor's history doesn't show it. Define the small queue first, then call it any time:
 
-```js
-document.querySelector('script[src*="widget.js"]').addEventListener('load', () => {
+```html
+<script>
+  // Safe to call before the script has loaded: calls queue up and run once it is ready.
+  window.chatdock = window.chatdock || function () {
+    (window.chatdock.q = window.chatdock.q || []).push(arguments);
+  };
   chatdock('configure', {
     greeting: 'Questions about our prices?',
     starters: ['How much is the Business plan?'],
     context: 'Pricing page listing the Free, Team and Business plans.',
   });
-});
+</script>
+<script src="https://app.example.com/api/chat/widget.js?bot=support" async></script>
 ```
+
+An inline chat loads with the page without taking focus or scrolling to itself.
 
 ## Accessibility
 
