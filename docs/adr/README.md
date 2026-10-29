@@ -6,7 +6,7 @@ Short records of decisions that are expensive to reverse. One decision per file,
 |---|---|---|
 | [0001](0001-shape-and-packaging.md) | Product shape and packaging | Accepted |
 | [0002](0002-openai-only-no-leaked-types.md) | OpenAI only, official SDK, no leaked types | Accepted |
-| [0003](0003-conversation-state.md) | Conversation state without a database | Proposed (spike S1) |
+| [0003](0003-conversation-state.md) | Conversation state without a database | Accepted (spike S1) |
 | [0004](0004-threat-model.md) | Threat model for a public, anonymous chatbot | Accepted |
 | [0005](0005-embedding-model.md) | Embedding model (loader + iframe served by the route handler) | Proposed (spikes S3, S4) |
 | [0006](0006-support-matrix-and-versioning.md) | Support matrix and versioning policy | Accepted |

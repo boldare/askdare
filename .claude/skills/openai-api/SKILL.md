@@ -39,6 +39,7 @@ The OpenAI platform changes monthly. Assistants and Prompts were shut down, and 
   - an explicit SDK `timeout` and `maxRetries`;
   - an `AbortSignal`.
 - Dynamic context (page URL, identity) goes into per-request `instructions`, never into stored conversation items.
+- Always send `store: true` with `conversation`. With `store: false` the turn is silently not added to the conversation (verified in spike S1).
 - Tool loop:
   - Tools are built with `zodResponsesFunction` (strict).
   - Arguments are re-validated with Zod.

@@ -1,0 +1,481 @@
+{
+  "model": "gpt-6.1-terra",
+  "startedAt": "2026-10-29T13:00:08.811Z",
+  "e1_text_turn": {
+    "ok": true,
+    "ms": 1622,
+    "text": "The sea shimmered beneath the morning sun.",
+    "ttftMs": 870,
+    "totalMs": 1621,
+    "status": "completed",
+    "usage": {
+      "input": 21,
+      "cached": 0,
+      "output": 13
+    },
+    "eventTypes": {
+      "response.created": 1,
+      "response.in_progress": 1,
+      "response.output_item.added": 1,
+      "response.content_part.added": 1,
+      "response.output_text.delta": 9,
+      "response.output_text.done": 1,
+      "response.content_part.done": 1,
+      "response.output_item.done": 1,
+      "response.completed": 1
+    },
+    "outputItems": [
+      {
+        "type": "message"
+      }
+    ],
+    "annotations": []
+  },
+  "e2_second_turn_with_history": {
+    "ok": true,
+    "ms": 2106,
+    "text": "The mountains rose above the clouds.",
+    "ttftMs": 1260,
+    "totalMs": 2106,
+    "status": "completed",
+    "usage": {
+      "input": 45,
+      "cached": 0,
+      "output": 11
+    },
+    "eventTypes": {
+      "response.created": 1,
+      "response.in_progress": 1,
+      "response.output_item.added": 1,
+      "response.content_part.added": 1,
+      "response.output_text.delta": 7,
+      "response.output_text.done": 1,
+      "response.content_part.done": 1,
+      "response.output_item.done": 1,
+      "response.completed": 1
+    },
+    "outputItems": [
+      {
+        "type": "message"
+      }
+    ],
+    "annotations": []
+  },
+  "e3_items_list": {
+    "ok": true,
+    "ms": 3293,
+    "listMs": 1854,
+    "count": 4,
+    "hasMore": false,
+    "itemsAsc": [
+      {
+        "type": "message",
+        "role": "user"
+      },
+      {
+        "type": "message",
+        "role": "assistant"
+      },
+      {
+        "type": "message",
+        "role": "user"
+      },
+      {
+        "type": "message",
+        "role": "assistant"
+      }
+    ],
+    "defaultOrderFirstRole": "assistant"
+  },
+  "e4_function_call_loop": {
+    "ok": true,
+    "ms": 3704,
+    "first": {
+      "text": "",
+      "totalMs": 1947,
+      "status": "completed",
+      "usage": {
+        "input": 62,
+        "cached": 0,
+        "output": 19
+      },
+      "eventTypes": {
+        "response.created": 1,
+        "response.in_progress": 1,
+        "response.output_item.added": 1,
+        "response.function_call_arguments.delta": 6,
+        "response.function_call_arguments.done": 1,
+        "response.output_item.done": 1,
+        "response.completed": 1
+      },
+      "outputItems": [
+        {
+          "type": "function_call",
+          "name": "get_weather",
+          "call_id": "call_z5nwPxaMo9ak1S5IAC8wLm2x"
+        }
+      ],
+      "annotations": []
+    },
+    "second": {
+      "text": "It’s cloudy and 12°C in Warsaw.",
+      "ttftMs": 1130,
+      "totalMs": 1757,
+      "status": "completed",
+      "usage": {
+        "input": 103,
+        "cached": 0,
+        "output": 14
+      },
+      "eventTypes": {
+        "response.created": 1,
+        "response.in_progress": 1,
+        "response.output_item.added": 1,
+        "response.content_part.added": 1,
+        "response.output_text.delta": 10,
+        "response.output_text.done": 1,
+        "response.content_part.done": 1,
+        "response.output_item.done": 1,
+        "response.completed": 1
+      },
+      "outputItems": [
+        {
+          "type": "message"
+        }
+      ],
+      "annotations": []
+    },
+    "answerMentions12": true
+  },
+  "e5_dangling_call_and_repair": {
+    "ok": true,
+    "ms": 4766,
+    "withoutRepair": {
+      "ok": false,
+      "error": {
+        "kind": "BadRequestError",
+        "status": 400,
+        "code": null,
+        "param": "input",
+        "message": "400 No tool output found for function call call_fqdHlA4GIn1AWORumOAeHOeO."
+      }
+    },
+    "withRepair": {
+      "ok": true,
+      "text": "Hi!",
+      "ttftMs": 1270,
+      "totalMs": 2040,
+      "status": "completed",
+      "usage": {
+        "input": 103,
+        "cached": 0,
+        "output": 6
+      },
+      "eventTypes": {
+        "response.created": 1,
+        "response.in_progress": 1,
+        "response.output_item.added": 1,
+        "response.content_part.added": 1,
+        "response.output_text.delta": 2,
+        "response.output_text.done": 1,
+        "response.content_part.done": 1,
+        "response.output_item.done": 1,
+        "response.completed": 1
+      },
+      "outputItems": [
+        {
+          "type": "message"
+        }
+      ],
+      "annotations": []
+    }
+  },
+  "e6_file_search_citations": {
+    "ok": true,
+    "ms": 14512,
+    "fileStatus": "completed",
+    "text": "The office dog is called **Pixel**. ",
+    "ttftMs": 2725,
+    "totalMs": 3730,
+    "status": "completed",
+    "usage": {
+      "input": 2049,
+      "cached": 0,
+      "output": 58
+    },
+    "eventTypes": {
+      "response.created": 1,
+      "response.in_progress": 1,
+      "response.output_item.added": 2,
+      "response.file_search_call.in_progress": 1,
+      "response.file_search_call.searching": 1,
+      "response.file_search_call.completed": 1,
+      "response.output_item.done": 2,
+      "response.content_part.added": 1,
+      "response.output_text.delta": 10,
+      "response.output_text.annotation.added": 1,
+      "response.output_text.done": 1,
+      "response.content_part.done": 1,
+      "response.completed": 1
+    },
+    "outputItems": [
+      {
+        "type": "file_search_call"
+      },
+      {
+        "type": "message"
+      }
+    ],
+    "annotations": [
+      {
+        "type": "file_citation",
+        "file_id": "file-F6SLJgJErqqsZc4gzWXCSQ",
+        "filename": "chatdock-handbook.md",
+        "index": 36
+      }
+    ]
+  },
+  "e7_image_purpose_vision": {
+    "ok": true,
+    "ms": 3232,
+    "saysRed": true,
+    "text": "Red.",
+    "ttftMs": 1340,
+    "totalMs": 1903,
+    "status": "completed",
+    "usage": {
+      "input": 20,
+      "cached": 0,
+      "output": 17
+    },
+    "eventTypes": {
+      "response.created": 1,
+      "response.in_progress": 1,
+      "response.output_item.added": 2,
+      "response.output_item.done": 2,
+      "response.content_part.added": 1,
+      "response.output_text.delta": 2,
+      "response.output_text.done": 1,
+      "response.content_part.done": 1,
+      "response.completed": 1
+    },
+    "outputItems": [
+      {
+        "type": "reasoning"
+      },
+      {
+        "type": "message"
+      }
+    ],
+    "annotations": []
+  },
+  "e7_image_purpose_user_data": {
+    "ok": true,
+    "ms": 3631,
+    "saysRed": true,
+    "text": "Red",
+    "ttftMs": 1226,
+    "totalMs": 1713,
+    "status": "completed",
+    "usage": {
+      "input": 20,
+      "cached": 0,
+      "output": 20
+    },
+    "eventTypes": {
+      "response.created": 1,
+      "response.in_progress": 1,
+      "response.output_item.added": 2,
+      "response.output_item.done": 2,
+      "response.content_part.added": 1,
+      "response.output_text.delta": 1,
+      "response.output_text.done": 1,
+      "response.content_part.done": 1,
+      "response.completed": 1
+    },
+    "outputItems": [
+      {
+        "type": "reasoning"
+      },
+      {
+        "type": "message"
+      }
+    ],
+    "annotations": []
+  },
+  "e8_pdf_user_data": {
+    "ok": true,
+    "ms": 4121,
+    "saysPapaya": true,
+    "text": "papaya",
+    "ttftMs": 1632,
+    "totalMs": 2354,
+    "status": "completed",
+    "usage": {
+      "input": 47,
+      "cached": 0,
+      "output": 6
+    },
+    "eventTypes": {
+      "response.created": 1,
+      "response.in_progress": 1,
+      "response.output_item.added": 1,
+      "response.content_part.added": 1,
+      "response.output_text.delta": 2,
+      "response.output_text.done": 1,
+      "response.content_part.done": 1,
+      "response.output_item.done": 1,
+      "response.completed": 1
+    },
+    "outputItems": [
+      {
+        "type": "message"
+      }
+    ],
+    "annotations": []
+  },
+  "e9_turn_after_file_deleted": {
+    "ok": true,
+    "ms": 2264,
+    "text": "Square.",
+    "ttftMs": 1314,
+    "totalMs": 1856,
+    "status": "completed",
+    "usage": {
+      "input": 49,
+      "cached": 0,
+      "output": 23
+    },
+    "eventTypes": {
+      "response.created": 1,
+      "response.in_progress": 1,
+      "response.output_item.added": 2,
+      "response.output_item.done": 2,
+      "response.content_part.added": 1,
+      "response.output_text.delta": 2,
+      "response.output_text.done": 1,
+      "response.content_part.done": 1,
+      "response.completed": 1
+    },
+    "outputItems": [
+      {
+        "type": "reasoning"
+      },
+      {
+        "type": "message"
+      }
+    ],
+    "annotations": []
+  },
+  "e10_store_false_with_conversation": {
+    "ok": true,
+    "ms": 7157,
+    "itemsBefore": 2,
+    "itemsAfter": 2,
+    "turn": {
+      "ok": true,
+      "text": "two",
+      "ttftMs": 813,
+      "totalMs": 969,
+      "status": "completed",
+      "usage": {
+        "input": 25,
+        "cached": 0,
+        "output": 5
+      },
+      "eventTypes": {
+        "response.created": 1,
+        "response.in_progress": 1,
+        "response.output_item.added": 1,
+        "response.content_part.added": 1,
+        "response.output_text.delta": 1,
+        "response.output_text.done": 1,
+        "response.content_part.done": 1,
+        "response.output_item.done": 1,
+        "response.completed": 1
+      },
+      "outputItems": [
+        {
+          "type": "message"
+        }
+      ],
+      "annotations": []
+    }
+  },
+  "e11_deleted_conversation": {
+    "ok": true,
+    "ms": 4090,
+    "error": {
+      "kind": "NotFoundError",
+      "status": 404,
+      "code": null,
+      "param": null,
+      "message": "404 Conversation with id 'conv_6ae3438fa48c81969f8f081812ffdd920d32aeb8ded06b59' not found."
+    }
+  },
+  "e12_reasoning_status": {
+    "ok": true,
+    "ms": 3094,
+    "text": "No.",
+    "ttftMs": 1259,
+    "totalMs": 2245,
+    "status": "completed",
+    "usage": {
+      "input": 18,
+      "cached": 0,
+      "output": 27
+    },
+    "eventTypes": {
+      "response.created": 1,
+      "response.in_progress": 1,
+      "response.output_item.added": 2,
+      "response.output_item.done": 2,
+      "response.content_part.added": 1,
+      "response.output_text.delta": 2,
+      "response.output_text.done": 1,
+      "response.content_part.done": 1,
+      "response.completed": 1
+    },
+    "outputItems": [
+      {
+        "type": "reasoning"
+      },
+      {
+        "type": "message"
+      }
+    ],
+    "annotations": []
+  },
+  "e13_invalid_model_error": {
+    "ok": true,
+    "ms": 361,
+    "error": {
+      "kind": "NotFoundError",
+      "status": 404,
+      "code": "model_not_found",
+      "param": null,
+      "message": "404 The model `chatdock-no-such-model` does not exist or you do not have access to it."
+    }
+  },
+  "cleanup": {
+    "conv_6ae34359eacc819495f262f6d27533930e40859cf9e1fd71": "deleted",
+    "conv_6ae343624cac81939a2226463a640d8b06dad8d25c776d63": "deleted",
+    "conv_6ae34366c2c08194abf5e574adc5e664092d6433d9be0d9c": "deleted",
+    "conv_6ae3437645a88197aea0150c4bf30bc30c653fd5497bd910": "deleted",
+    "conv_6ae3437b3d7c819383267f93649b9bbe0190fb00a65044d2": "deleted",
+    "conv_6ae3437f19cc81968c2f6a0d2bbee3f6013465a61d7a0150": "deleted",
+    "conv_6ae34382b6a8819491197ac008b755e10fd622a22587d5bb": "deleted",
+    "conv_6ae34388f7d081968335fe9d8fedbbcc0a18faedfc5e87d8": "deleted",
+    "conv_6ae3439383dc8195b07698923a03feef0ff6e2623ddd4db4": "deleted",
+    "vs_6ae3436c5bbc81918358d961cea13700": "deleted",
+    "file-F6SLJgJErqqsZc4gzWXCSQ": "deleted",
+    "file-5jQUWfAkUaxAr1RVvNrEHU": "deleted",
+    "file-8h2xND7UttWpDKs3bpW2ba": "deleted"
+  },
+  "tokens": {
+    "input": 2635,
+    "cached": 0,
+    "output": 244
+  },
+  "finishedAt": "2026-10-29T13:01:29.229Z"
+}
