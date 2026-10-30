@@ -1,7 +1,7 @@
-# Stages releases through npm trusted publishing (OIDC); no npm token is stored anywhere. The
-# trusted publisher only allows `npm stage publish`, so nothing goes live until a maintainer
-# approves the staged version with 2FA on npmjs.com (Staged Packages) or `npm stage approve`.
-# It runs once the repository variable NPM_TRUSTED_PUBLISHING is true.
+# Releases through npm trusted publishing (OIDC); no npm token is stored anywhere. It runs once
+# the repository variable NPM_TRUSTED_PUBLISHING is true. NPM_RELEASE_MODE picks stage (the
+# default: a maintainer approves each version with 2FA on npmjs.com) or publish (live once the
+# "Version packages" pull request merges; the trusted publisher must allow npm publish).
 name: Release
 
 on:
@@ -42,7 +42,7 @@ jobs:
           # changeset version, then the lockfile, since the starter's range moves with the version.
           # The action runs it without a shell, hence a package script.
           version-script: pnpm version-packages
-          # Stage, don't publish: approval stays with a person (scripts/stage-release.mjs).
-          publish-script: node scripts/stage-release.mjs
+          publish-script: node scripts/release-packages.mjs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_RELEASE_MODE: ${{ vars.NPM_RELEASE_MODE }}

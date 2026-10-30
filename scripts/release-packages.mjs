@@ -1,8 +1,11 @@
-// Stages the packages whose version changed in this push and that aren't on npm yet. CI can only
-// stage (the trusted publisher allows `npm stage publish`, not `npm publish`): nothing goes live
-// until a maintainer approves it with 2FA, under Staged Packages on npmjs.com or with
-// `npm stage approve <stage-id>`. The release workflow runs it after "Version packages" merges.
-//   node scripts/stage-release.mjs [--dry-run]
+// Releases the packages whose version changed in this push and that aren't on npm yet, through
+// npm trusted publishing (OIDC). The release workflow runs it after "Version packages" merges.
+// NPM_RELEASE_MODE (a repository variable) picks how:
+// - stage (default): `npm stage publish`. Nothing goes live until a maintainer approves it with
+//   2FA, under Staged Packages on npmjs.com or with `npm stage approve <stage-id>`.
+// - publish: `npm publish`, live at once; needs "Allow npm publish" on the trusted publisher.
+//   Each release also gets a git tag and a GitHub release (from the "New tag:" lines).
+//   node scripts/release-packages.mjs [--dry-run]
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -10,6 +13,7 @@ import { join } from 'node:path';
 
 const repo = join(import.meta.dirname, '..');
 const dryRun = process.argv.includes('--dry-run');
+const mode = process.env['NPM_RELEASE_MODE'] === 'publish' ? 'publish' : 'stage';
 const PACKAGES = ['packages/askdare', 'packages/askdare-upstash'];
 
 const run = (command, args, cwd) =>
@@ -31,7 +35,7 @@ const onNpm = (name, version) => {
   }
 };
 
-let staged = 0;
+let released = 0;
 for (const dir of PACKAGES) {
   const {
     name,
@@ -40,7 +44,7 @@ for (const dir of PACKAGES) {
   } = JSON.parse(readFileSync(join(repo, dir, 'package.json'), 'utf8'));
   if (isPrivate) continue;
   if (versionBefore(dir) === version) {
-    console.log(`${name}@${version}: version unchanged, nothing to stage.`);
+    console.log(`${name}@${version}: version unchanged, nothing to release.`);
     continue;
   }
   if (onNpm(name, version)) {
@@ -56,17 +60,30 @@ for (const dir of PACKAGES) {
   const tarball = readdirSync(out).find((file) => file.endsWith('.tgz'));
   if (!tarball) throw new Error(`pnpm pack wrote no tarball for ${name}`);
   run('tar', ['-xzf', join(out, tarball), '-C', out], repo);
-  const args = ['stage', 'publish', '--tag', tag, '--access', 'public'];
+  const args = [
+    ...(mode === 'stage' ? ['stage'] : []),
+    'publish',
+    '--tag',
+    tag,
+    '--access',
+    'public',
+  ];
   if (dryRun) {
     console.log(`${name}@${version}: would run npm ${args.join(' ')} in ${join(out, 'package')}`);
     continue;
   }
   console.log(run('npm', args, join(out, 'package')));
-  console.log(`${name}@${version}: staged under "${tag}". Approve it on npmjs.com to publish.`);
-  staged += 1;
+  if (mode === 'publish') {
+    // changesets/action pushes the tags and opens a GitHub release for each "New tag:" line.
+    run('git', ['tag', `${name}@${version}`], repo);
+    console.log(`New tag: ${name}@${version}`);
+  } else {
+    console.log(`${name}@${version}: staged under "${tag}". Approve it on npmjs.com to publish.`);
+  }
+  released += 1;
 }
-if (staged > 0) {
+if (released > 0 && mode === 'stage') {
   console.log(
-    `\n${staged} package(s) wait for approval: npmjs.com → the package → Staged Packages, or npm stage list and npm stage approve <stage-id>.`,
+    `\n${released} package(s) wait for approval: npmjs.com → the package → Staged Packages, or npm stage list and npm stage approve <stage-id>.`,
   );
 }
