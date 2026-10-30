@@ -157,50 +157,6 @@ body {
   outline-offset: 3px;
 }
 
-/* ---------- Design variants under review (removed once chosen) ---------- */
-
-.review {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 20px;
-  padding: 8px var(--gutter);
-  border-bottom: 1px dashed var(--line);
-  background: color-mix(in srgb, var(--ink) 5%, transparent);
-  color: var(--muted);
-  font:
-    500 0.74rem / 1.4 system-ui,
-    sans-serif;
-}
-
-.review strong {
-  color: var(--ink);
-}
-
-.review-area {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px;
-}
-
-.review-area > span {
-  margin-right: 4px;
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.demo .review a {
-  padding: 2px 8px;
-  border-radius: 999px;
-  text-decoration: none;
-}
-
-.demo .review a[aria-current] {
-  background: var(--ink);
-  color: var(--bg);
-}
-
 /* ---------- Navigation ---------- */
 
 .nav {
@@ -335,272 +291,20 @@ body {
   gap: 12px 24px;
 }
 
-.note {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.88rem;
-}
-
-.segmented {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 2px;
-  max-width: 100%;
-  padding: 4px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--card);
-  backdrop-filter: blur(12px);
-}
-
-.demo .segmented a {
-  flex: none;
-  padding: 8px 16px;
-  border-radius: 999px;
-  font-size: 0.92rem;
-  font-weight: 500;
-  white-space: nowrap;
-  text-decoration: none;
-}
-
-.demo .segmented.small a {
-  padding: 6px 13px;
-  font-size: 0.84rem;
-}
-
-.demo .segmented a:hover {
-  background: color-mix(in srgb, var(--ink) 6%, transparent);
-}
-
-.demo .segmented a em {
-  margin-left: 4px;
-  opacity: 0.7;
-  font-size: 0.75em;
-  font-style: normal;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.demo .segmented a[aria-current] {
-  background: var(--button);
-  color: var(--on-button);
-}
-
-/* One line that scrolls sideways when it doesn't fit, instead of breaking into two. */
-.scroller {
-  position: relative;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.scroller::-webkit-scrollbar {
-  display: none;
-}
-
-/* Filters 1: one card, a labelled row per switch. */
-.control-card {
-  display: grid;
-  gap: 10px;
-  width: fit-content;
-  max-width: 100%;
-  padding: 12px 14px 14px;
-  border: 1px solid var(--line);
-  border-radius: calc(var(--radius) * 0.9);
-  background: var(--card);
-  backdrop-filter: blur(14px);
-}
-
-.filter-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.filter-label {
-  flex: none;
-  width: 3.8em;
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.control-card .segmented {
-  border-color: transparent;
-  background: color-mix(in srgb, var(--ink) 4%, transparent);
-  backdrop-filter: none;
-}
-
-.control-card .note {
-  padding: 2px 4px 0;
-}
-
-/* Filters 2: each theme as its shape, a swatch to pick. */
-.swatches {
-  display: grid;
-  justify-items: start;
-  gap: 14px;
-}
-
-.swatch-row {
-  position: relative;
-  display: flex;
-  gap: 8px;
-  max-width: 100%;
-  margin: -6px;
-  padding: 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.demo .swatch {
-  position: relative;
-  display: grid;
-  justify-items: center;
-  gap: 2px;
-  flex: none;
-  width: 78px;
-  padding: 10px 6px 9px;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: var(--card);
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-decoration: none;
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
-}
-
-.swatch .shape-icon {
-  width: 42px;
-  height: 42px;
-  margin: 0;
-}
-
-.swatch em {
-  position: absolute;
-  top: -7px;
-  right: -4px;
-  padding: 1px 5px;
-  border-radius: 999px;
-  background: var(--ink);
-  color: var(--bg);
-  font-size: 0.56rem;
-  font-style: normal;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.swatch:hover {
-  transform: translateY(-2px);
-}
-
-.swatch[aria-current] {
-  border-color: var(--ink);
-  box-shadow:
-    0 0 0 1px var(--ink),
-    0 12px 24px -16px var(--ink);
-}
-
-/* Filters 3: a dock under the shape. */
-.dock {
-  display: inline-flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: center;
-  gap: 8px 10px;
-  max-width: 100%;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 32px;
-  background: var(--card);
-  backdrop-filter: blur(16px);
-  box-shadow: 0 18px 40px -26px var(--ink);
-}
-
-.dock-themes {
-  display: flex;
-  gap: 2px;
-}
-
-.demo .dock-theme {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  text-decoration: none;
-  transition:
-    background 0.15s ease,
-    transform 0.15s ease;
-}
-
-.dock-theme .shape-icon {
-  width: 36px;
-  height: 36px;
-  margin: 0;
-}
-
-.dock-theme:hover {
-  background: color-mix(in srgb, var(--ink) 6%, transparent);
-  transform: translateY(-2px);
-}
-
-.dock-theme[aria-current] {
-  background: color-mix(in srgb, var(--ink) 9%, transparent);
-}
-
-.dock-theme[aria-current]::after {
-  content: "";
-  position: absolute;
-  bottom: 3px;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--ink);
-}
-
-.tip {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  padding: 4px 8px;
-  border-radius: 8px;
-  background: var(--ink);
-  color: var(--bg);
-  font-size: 0.74rem;
-  font-weight: 600;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(4px);
-  transition:
-    opacity 0.15s ease,
-    transform 0.15s ease;
-}
-
-.dock-theme:is(:hover, :focus-visible) .tip {
-  opacity: 1;
-  transform: none;
-}
-
-.dock-divider {
-  width: 1px;
-  height: 28px;
-  background: var(--line);
-}
-
 .stage {
   display: grid;
   justify-items: center;
   align-content: center;
-  gap: 16px;
+  gap: 12px;
   min-width: 0;
   text-align: center;
+}
+
+.note {
+  max-width: 26em;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
 }
 
 .chat-frame {
@@ -693,6 +397,140 @@ body {
   outline-offset: -24px;
 }
 
+/* ---------- The dock: theme and mode, at the bottom of the window ---------- */
+
+.dock {
+  position: fixed;
+  bottom: 20px;
+  left: 24px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 32px;
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow:
+    0 20px 44px -22px color-mix(in srgb, var(--ink) 60%, transparent),
+    0 2px 6px color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+/* Centred where it can't meet the chat button in the corner. */
+@media (min-width: 1100px) {
+  .dock {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
+.dock-themes {
+  display: flex;
+  gap: 2px;
+}
+
+.demo .dock-theme {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  text-decoration: none;
+  transition:
+    background 0.15s ease,
+    transform 0.15s ease;
+}
+
+.dock-theme .shape-icon {
+  width: 34px;
+  height: 34px;
+}
+
+.dock-theme:hover {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  transform: translateY(-2px);
+}
+
+.dock-theme[aria-current] {
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+}
+
+.dock-theme[aria-current]::after {
+  content: "";
+  position: absolute;
+  bottom: 3px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+.tip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+
+.tip em {
+  opacity: 0.7;
+  font-style: normal;
+  font-weight: 500;
+}
+
+.dock-theme:is(:hover, :focus-visible) .tip {
+  opacity: 1;
+  transform: none;
+}
+
+.dock-divider {
+  flex: none;
+  width: 1px;
+  height: 28px;
+  background: var(--line);
+}
+
+.segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+}
+
+.demo .segmented a {
+  flex: none;
+  padding: 6px 13px;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  font-weight: 500;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.demo .segmented a:hover {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+
+.demo .segmented a[aria-current] {
+  background: var(--button);
+  color: var(--on-button);
+}
+
 /* ---------- Sections ---------- */
 
 .section {
@@ -708,13 +546,15 @@ body {
   line-height: 1.1;
 }
 
-.cards,
-.steps {
-  display: grid;
-  gap: 16px;
+.demo h3 {
+  font-size: 1.08rem;
+  letter-spacing: -0.01em;
+}
+
+.demo li p {
   margin: 0;
-  padding: 0;
-  list-style: none;
+  color: var(--muted);
+  line-height: 1.55;
 }
 
 .card {
@@ -725,26 +565,6 @@ body {
   backdrop-filter: blur(14px);
 }
 
-.card h3 {
-  margin: 14px 0 6px;
-  font-size: 1.08rem;
-  letter-spacing: -0.01em;
-}
-
-.card p {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.55;
-}
-
-.dot {
-  display: block;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--orb);
-}
-
 .demo code {
   font:
     0.82rem / 1.5 ui-monospace,
@@ -753,179 +573,54 @@ body {
     monospace;
 }
 
-.steps code,
-.feature-code,
-.custom-card code {
-  display: block;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--ink) 5%, transparent);
-  overflow-wrap: anywhere;
-}
-
-/* Features 1: an even grid, never a row with one card left over. */
-.features .cards {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.feature-code {
-  display: none;
-}
-
-/* Features 2: bento, the headline feature large, with the tag it is about. */
-.features[data-variant="2"] .card:first-child {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  grid-column: span 2;
-  grid-row: span 2;
-  padding: clamp(24px, 3vw, 40px);
-  background:
-    radial-gradient(
-      80% 70% at 100% 0%,
-      color-mix(in srgb, var(--soft) 12%, transparent),
-      transparent
-    ),
-    var(--card);
-}
-
-.features[data-variant="2"] .card:first-child h3 {
-  font-size: clamp(1.4rem, 2.4vw, 2rem);
-  letter-spacing: -0.03em;
-}
-
-.features[data-variant="2"] .card:first-child p {
-  max-width: 30em;
-  font-size: 1.05rem;
-}
-
-.features[data-variant="2"] .card:first-child .dot {
-  width: 22px;
-  height: 22px;
-}
-
-.features[data-variant="2"] .feature-code {
-  display: block;
-  margin-top: 22px;
-}
-
-/* Features 3: a list beside the heading, no boxes. */
-.features[data-variant="3"],
-.how[data-variant="2"] {
+/* Features: a list beside the heading, no boxes. */
+.features,
+.how {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr);
   align-items: start;
   gap: clamp(32px, 5vw, 72px);
 }
 
-.features[data-variant="3"] h2,
-.how[data-variant="2"] h2 {
+.features h2 {
   position: sticky;
   top: 32px;
   margin: 0;
 }
 
-.features[data-variant="3"] .cards {
+.features-list {
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 clamp(24px, 4vw, 48px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.features[data-variant="3"] .card {
+.features-list li {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   column-gap: 14px;
   padding: 22px 0;
-  border: 0;
   border-top: 1px solid var(--line);
-  border-radius: 0;
-  background: none;
-  backdrop-filter: none;
 }
 
-.features[data-variant="3"] .dot {
+.dot {
+  display: block;
   grid-row: span 2;
+  width: 14px;
+  height: 14px;
   margin-top: 4px;
+  border-radius: 50%;
+  background: var(--orb);
 }
 
-.features[data-variant="3"] h3 {
+.features-list h3 {
   margin: 0 0 6px;
 }
 
-/* How it works 1: three columns, each ending in its command. */
-.how .steps {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.how .steps .card {
-  display: flex;
-  flex-direction: column;
-}
-
-.how .steps code {
-  margin-top: auto;
-}
-
-.how .steps p {
-  margin-bottom: 16px;
-  font-size: 0.95rem;
-}
-
-.steps .step {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--button);
-  color: var(--on-button);
-  font-weight: 700;
-}
-
-/* How it works 2: a timeline beside the heading. */
-.how[data-variant="2"] .steps {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0;
-}
-
-.how[data-variant="2"] .steps .card {
-  position: relative;
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
-  column-gap: 20px;
-  padding: 0 0 36px;
-  border: 0;
-  background: none;
-  backdrop-filter: none;
-}
-
-.how[data-variant="2"] .steps .card > :not(.step) {
-  grid-column: 2;
-}
-
-.how[data-variant="2"] .step {
-  grid-row: 1 / span 3;
-  width: 40px;
-  height: 40px;
-}
-
-.how[data-variant="2"] .steps .card:not(:last-child)::before {
-  content: "";
-  position: absolute;
-  top: 46px;
-  bottom: 6px;
-  left: 19.5px;
-  width: 1px;
-  background: var(--line);
-}
-
-.how[data-variant="2"] h3 {
-  margin: 8px 0 6px;
-}
-
-/* How it works 3: the steps beside a terminal with all three commands. */
-.how[data-variant="3"] {
-  display: grid;
+/* How it works: the steps beside a terminal with all three commands. */
+.how {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
   grid-template-areas:
     "title terminal"
@@ -934,47 +629,46 @@ body {
   gap: 24px clamp(32px, 5vw, 72px);
 }
 
-.how[data-variant="3"] h2 {
+.how h2 {
   grid-area: title;
   align-self: end;
   margin: 0;
 }
 
-.how[data-variant="3"] .steps {
+.steps {
+  display: grid;
   grid-area: steps;
   align-self: start;
-  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.how[data-variant="3"] .steps .card {
+.steps li {
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr);
   column-gap: 14px;
-  padding: 0;
-  border: 0;
-  background: none;
-  backdrop-filter: none;
 }
 
-.how[data-variant="3"] .steps .card > :not(.step) {
+.steps li > :not(.step) {
   grid-column: 2;
 }
 
-.how[data-variant="3"] .step {
+.step {
+  display: grid;
   grid-row: 1 / span 2;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--button);
+  color: var(--on-button);
+  font-weight: 700;
 }
 
-.how[data-variant="3"] h3 {
-  margin: 4px 0 4px;
-}
-
-.how[data-variant="3"] .steps p {
-  margin: 0;
-}
-
-.how[data-variant="3"] .steps code {
-  display: none;
+.steps h3 {
+  margin: 4px 0;
 }
 
 .terminal {
@@ -1011,7 +705,7 @@ body {
 
 .terminal pre {
   margin: 0;
-  padding: 22px 22px 4px;
+  padding: 22px;
   font:
     0.86rem / 1.65 ui-monospace,
     "SF Mono",
@@ -1029,7 +723,16 @@ body {
   color: #7dd8d0;
 }
 
-/* Themes: the shape as each theme's symbol. */
+/* Themes: the four presets in a row, your own theme as a banner below. */
+.themes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 .shape-icon {
   display: block;
   flex: none;
@@ -1054,8 +757,24 @@ body {
   font-weight: 600;
 }
 
+.custom-card {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: auto minmax(0, 1.1fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+}
+
+.demo .custom-card a {
+  margin: 0;
+}
+
 .custom-card code {
-  align-self: stretch;
+  display: block;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  overflow-wrap: anywhere;
 }
 
 .demo .card h3 em {
@@ -1071,87 +790,6 @@ body {
   vertical-align: middle;
 }
 
-/* Themes 1: the four presets in a row, your own theme as a banner below. */
-.themes-section[data-variant="1"] .themes {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.themes-section[data-variant="1"] .custom-card {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: auto minmax(0, 1.1fr) minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 24px;
-}
-
-.themes-section[data-variant="1"] .custom-card a {
-  margin: 0;
-}
-
-/* Themes 2: bento, your own theme large beside the four presets. */
-.themes-section[data-variant="2"] .themes {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.themes-section[data-variant="2"] .custom-card {
-  grid-column: 1;
-  grid-row: 1 / span 2;
-  justify-content: flex-end;
-  padding: clamp(24px, 3vw, 36px);
-}
-
-.themes-section[data-variant="2"] .custom-card .shape-icon {
-  width: 104px;
-  height: 104px;
-  margin-bottom: auto;
-}
-
-.themes-section[data-variant="2"] .custom-card h3 {
-  font-size: 1.5rem;
-}
-
-.themes-section[data-variant="2"] .custom-card a {
-  margin-top: 4px;
-}
-
-/* Themes 3: one row per theme, like a list of options. */
-.themes-section[data-variant="3"] .themes {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0;
-  border-top: 1px solid var(--line);
-}
-
-.themes-section[data-variant="3"] .theme-card {
-  display: grid;
-  grid-template-columns: 56px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 20px;
-  padding: 18px 8px;
-  border: 0;
-  border-bottom: 1px solid var(--line);
-  border-radius: 0;
-  background: none;
-  backdrop-filter: none;
-}
-
-.themes-section[data-variant="3"] .custom-card {
-  grid-template-columns: 56px minmax(0, 1fr) minmax(0, 1fr) auto;
-}
-
-.themes-section[data-variant="3"] .theme-card:has(a[href*="theme="]):hover {
-  background: color-mix(in srgb, var(--ink) 3%, transparent);
-}
-
-.demo .themes-section[data-variant="3"] .theme-card a {
-  margin: 0;
-  padding: 8px 14px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  font-size: 0.88rem;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
 /* ---------- Footer ---------- */
 
 .footer {
@@ -1161,7 +799,8 @@ body {
   gap: 16px;
   max-width: var(--width);
   margin: 0 auto;
-  padding: 40px var(--gutter) 56px;
+  /* Room for the dock, so it never covers the last line. */
+  padding: 40px var(--gutter) 120px;
   border-top: 1px solid var(--line);
   color: var(--muted);
   font-size: 0.9rem;
@@ -1199,52 +838,27 @@ body {
   background: #242424;
 }
 
-.demo[data-theme="bldr"]
-  :is(.button, .segmented a[aria-current], .step, .swatch[aria-current], .menu-button) {
+.demo[data-theme="bldr"] :is(.button, .segmented a[aria-current], .step, .menu-button) {
   border: 2px solid #242424;
   border-radius: 0;
   box-shadow: -4px 4px 0 #242424;
 }
 
-.demo[data-theme="bldr"]
-  :is(
-    .segmented,
-    .card,
-    .chat-frame,
-    .custom-card code,
-    .steps code,
-    .feature-code,
-    .control-card,
-    .swatch,
-    .dock
-  ) {
+.demo[data-theme="bldr"] :is(.segmented, .card, .chat-frame, .custom-card code, .dock) {
   border: 2px solid #242424;
   border-radius: 0;
 }
 
-.demo[data-theme="bldr"] :is(.card, .control-card, .dock) {
+.demo[data-theme="bldr"] :is(.card, .dock) {
   box-shadow: -6px 6px 0 #242424;
 }
 
-.demo[data-theme="bldr"] :is(.dock-theme, .terminal, .demo .themes-section a) {
+.demo[data-theme="bldr"] :is(.dock-theme, .terminal, .tip) {
   border-radius: 0;
 }
 
-/* In the box-less layouts, BLDR keeps only its heavy rules between items. */
-.demo[data-theme="bldr"]
-  :is(.features[data-variant="3"], .how[data-variant="2"], .how[data-variant="3"])
-  .card,
-.demo[data-theme="bldr"] .themes-section[data-variant="3"] .theme-card {
-  border: 0;
-  box-shadow: none;
-}
-
-.demo[data-theme="bldr"] .features[data-variant="3"] .card {
+.demo[data-theme="bldr"] .features-list li {
   border-top: 2px solid #242424;
-}
-
-.demo[data-theme="bldr"] .themes-section[data-variant="3"] .theme-card {
-  border-bottom: 2px solid #242424;
 }
 
 .demo[data-theme="bldr"] .nav {
@@ -1267,79 +881,35 @@ body:has(.demo[data-theme="bldr"]) [data-chatdock]::part(launcher) {
 /* ---------- Tablet ---------- */
 
 @media (max-width: 960px) {
-  .features .cards,
-  .themes-section[data-variant="1"] .themes,
-  .themes-section[data-variant="2"] .themes {
+  .themes {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  /* Bento on two columns: the large card on top, the last one wide, no gaps. */
-  .features[data-variant="2"] .card:first-child {
-    grid-row: auto;
-  }
-
-  .features[data-variant="2"] .card:last-child {
-    grid-column: span 2;
-  }
-
-  .themes-section[data-variant="2"] .custom-card {
-    grid-column: 1 / -1;
-    grid-row: auto;
-  }
-
-  .themes-section[data-variant="1"] .custom-card {
+  .custom-card {
     grid-template-columns: auto minmax(0, 1fr);
   }
 
-  .themes-section[data-variant="1"] .custom-card code {
+  .custom-card code {
     grid-column: 1 / -1;
-  }
-
-  .how .steps {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .how .steps .card {
-    display: grid;
-    grid-template-columns: 32px minmax(0, 1fr);
-    column-gap: 16px;
-  }
-
-  .how .steps .card > :not(.step) {
-    grid-column: 2;
-  }
-
-  .how .step {
-    grid-row: 1 / span 3;
-  }
-
-  .how[data-variant="1"] h3 {
-    margin-top: 4px;
   }
 }
 
 @media (max-width: 900px) {
   .hero,
-  .features[data-variant="3"],
-  .how[data-variant="2"],
-  .how[data-variant="3"] {
+  .features {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .how[data-variant="3"] {
+  .how {
+    grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
       "title"
       "steps"
       "terminal";
   }
 
-  .features[data-variant="3"] h2,
-  .how[data-variant="2"] h2 {
+  .features h2 {
     position: static;
-  }
-
-  .stage {
-    min-height: 0;
   }
 }
 
@@ -1444,15 +1014,40 @@ body:has(.demo[data-theme="bldr"]) [data-chatdock]::part(launcher) {
     justify-content: center;
     margin-top: 6px;
   }
+
+  /* The dock spans the bottom; the chat button moves up above it. */
+  .dock {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .demo .dock-theme {
+    width: 38px;
+    height: 38px;
+  }
+
+  .dock-theme .shape-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .demo .dock .segmented a {
+    padding: 5px 9px;
+    font-size: 0.78rem;
+  }
+
+  [data-chatdock]::part(launcher) {
+    bottom: 84px;
+  }
 }
 
 @media (max-width: 600px) {
-  .review {
-    font-size: 0.7rem;
-  }
-
   .hero {
-    gap: 24px;
+    gap: 20px;
     padding-top: 12px;
   }
 
@@ -1465,10 +1060,6 @@ body:has(.demo[data-theme="bldr"]) [data-chatdock]::part(launcher) {
     font-size: 1rem;
   }
 
-  .control-card {
-    width: 100%;
-  }
-
   .shape {
     width: min(340px, 86vw);
     margin: -28px 0 -32px;
@@ -1478,64 +1069,20 @@ body:has(.demo[data-theme="bldr"]) [data-chatdock]::part(launcher) {
     height: 560px;
   }
 
-  .features .cards,
-  .features[data-variant="3"] .cards {
+  .features-list {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .features[data-variant="2"] .card:is(:first-child, :last-child) {
-    grid-column: auto;
+  .features-list li {
+    padding: 18px 0;
   }
 
-  /* Features as short rows: the dot beside the title, less padding. */
-  .features:not([data-variant="2"]) .card,
-  .features[data-variant="2"] .card:not(:first-child) {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    column-gap: 12px;
-  }
-
-  .features:not([data-variant="2"]) .dot,
-  .features[data-variant="2"] .card:not(:first-child) .dot {
-    grid-row: span 2;
-    margin-top: 4px;
-  }
-
-  .features .card h3 {
-    margin: 0 0 4px;
-  }
-
-  .features[data-variant="2"] .card:first-child h3 {
-    margin-top: 14px;
-  }
-
-  .themes-section[data-variant="1"] .theme-card:not(.custom-card) .shape-icon,
-  .themes-section[data-variant="2"] .theme-card:not(.custom-card) .shape-icon {
+  .theme-card:not(.custom-card) .shape-icon {
     width: 44px;
     height: 44px;
   }
 
-  .themes-section[data-variant="1"] .theme-card p,
-  .themes-section[data-variant="2"] .theme-card:not(.custom-card) p {
+  .theme-card p {
     font-size: 0.88rem;
-  }
-
-  .themes-section[data-variant="3"] .theme-card,
-  .themes-section[data-variant="3"] .custom-card {
-    grid-template-columns: 44px minmax(0, 1fr);
-    gap: 12px 14px;
-    padding: 16px 4px;
-  }
-
-  .themes-section[data-variant="3"] .shape-icon {
-    width: 44px;
-    height: 44px;
-    grid-row: span 2;
-    align-self: start;
-  }
-
-  .themes-section[data-variant="3"] .theme-card > :is(a, code) {
-    grid-column: 2;
-    justify-self: start;
   }
 }
