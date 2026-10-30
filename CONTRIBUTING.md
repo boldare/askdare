@@ -90,8 +90,8 @@ pnpm smoke          # live test against OpenAI (needs OPENAI_API_KEY and SMOKE_M
 Releases are made by CI from `main`, never from a laptop:
 
 1. Changesets opens a "Version packages" pull request.
-2. Merging it stages the new versions on npm (`scripts/stage-release.mjs`), with trusted publishing (OIDC) and provenance. The workflow runs in the `npm` environment, which only `main` may use. No npm token exists.
-3. A maintainer approves each staged version with 2FA: npmjs.com → the package → Staged Packages, or `npm stage approve <stage-id>`. Only then is it published.
+2. Merging it releases the new versions (`scripts/release-packages.mjs`) with trusted publishing (OIDC) and provenance. The workflow runs in the `npm` environment, which only `main` may use. No npm token exists.
+3. With `NPM_RELEASE_MODE=stage` (the default), the versions are staged, and a maintainer approves each one with 2FA: npmjs.com → the package → Staged Packages, or `npm stage approve <stage-id>`. With `NPM_RELEASE_MODE=publish`, they go live at once, with a git tag and a GitHub release.
 
 - Until 0.1.0 the repository is in pre-release mode (`.changeset/pre.json`), so versions are `0.1.0-rc.N` and go out under the npm tag `rc`.
 - Before a release candidate, run `pnpm check`, `pnpm e2e`, `pnpm e2e:browsers`, `pnpm test:visual` and `pnpm verify:packs`, which installs the packed packages into a fresh Next.js app.
