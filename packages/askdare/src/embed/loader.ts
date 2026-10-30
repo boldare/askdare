@@ -104,7 +104,7 @@ const STYLES = `
   margin: 0; padding: 24px; background: var(--l); color: var(--t); text-align: center;
   font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 [part=panel].solo { bottom: 24px; }
-[part=panel].inline { position: relative; width: 100%; height: 100%; border-radius: inherit;
+[part=panel].inline { position: relative; inset: auto; width: 100%; height: 100%; border-radius: inherit;
   box-shadow: none; animation: none; }
 iframe { display: block; width: 100%; height: 100%; border: 0; }
 @keyframes in { from { opacity: 0; transform: translateY(10px) scale(.97); } }
