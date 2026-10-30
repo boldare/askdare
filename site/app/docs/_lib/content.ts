@@ -218,6 +218,8 @@ const build = async (slug: string): Promise<{ page: Page; sections: SearchSectio
 };
 
 const built = (slug: string) => {
+  // In development every request reads the file again, so edits to docs/ show on reload.
+  if (process.env.NODE_ENV !== 'production') return build(slug);
   let result = cache.get(slug);
   if (!result) {
     result = build(slug);
