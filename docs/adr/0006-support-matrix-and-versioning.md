@@ -15,7 +15,7 @@ A library runs inside its users' apps, so every supported combination of version
 |---|---|---|
 | Node.js | 22 and 24 (`engines: >=22`) | 20 or older (end of life) |
 | Next.js | 16.x, latest minor (peer `^16`), App Router, Node.js runtime | Pages Router, Edge runtime, static export |
-| React | 19 (peer `^19`) | 18 |
+| React | 19 in your app. 0.1 has no React peer: the chat is a prebuilt iframe app. The React subpath in 0.2 adds the peer `^19`. | 18 |
 | Zod | `^4.1` (peer, required) | 3 |
 | Bundlers | Turbopack (default) and `next build --webpack` | |
 | Consumer TypeScript | 5.9, 6.0 and 7.0 (published `.d.ts` tested against each) | |

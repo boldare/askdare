@@ -3,7 +3,17 @@
   "version": "0.0.0",
   "description": "Shared rate limits and budgets for @boldare/askdare, stored in Upstash Redis.",
   "license": "MIT",
-  "author": "Boldare",
+  "author": {
+    "name": "Boldare",
+    "url": "https://www.boldare.com"
+  },
+  "homepage": "https://github.com/boldare/askdare/tree/main/packages/askdare-upstash#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/boldare/askdare.git",
+    "directory": "packages/askdare-upstash"
+  },
+  "bugs": "https://github.com/boldare/askdare/issues",
   "keywords": [
     "askdare",
     "rate-limit",
@@ -22,11 +32,14 @@
     },
     "./package.json": "./package.json"
   },
+  "types": "./dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown && node -e \"require('node:fs').copyFileSync('../../LICENSE', 'LICENSE')\"",
     "typecheck": "tsc -p tsconfig.json",
     "check:package": "publint --strict && attw --pack . --profile esm-only && node ../../scripts/check-dts-no-leak.mjs dist"
   },

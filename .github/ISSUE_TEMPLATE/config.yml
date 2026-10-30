@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security issue
+    url: https://github.com/boldare/askdare/blob/main/SECURITY.md
+    about: Report vulnerabilities privately, as SECURITY.md describes.
+  - name: Troubleshooting guide
+    url: https://github.com/boldare/askdare/blob/main/docs/troubleshooting.md
+    about: Symptoms, causes and fixes for the common setup problems.

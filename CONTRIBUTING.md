@@ -82,3 +82,13 @@ pnpm smoke          # live test against OpenAI (needs OPENAI_API_KEY and SMOKE_M
 - Versions published less than a day ago are not installed (`minimumReleaseAge`).
 
 **Spikes:** throwaway experiments live in `spikes/` (see [spikes/README.md](spikes/README.md)).
+
+## Releasing
+
+Releases are made by CI from `main`, never from a laptop: Changesets opens a "Version packages" pull request, and merging it publishes to npm with trusted publishing (OIDC) and provenance. No npm token exists.
+
+- Until 0.1.0 the repository is in pre-release mode (`.changeset/pre.json`), so versions are `0.1.0-rc.N` and go out under the npm tag `rc`.
+- Before a release candidate, run `pnpm check`, `pnpm e2e`, `pnpm test:visual` and `node scripts/verify-packs.mjs`, which installs the packed packages into a fresh Next.js app.
+- For 0.1.0, run `pnpm changeset pre exit` in a pull request of its own.
+
+The details are in the `release` skill (`.claude/skills/release/SKILL.md`).

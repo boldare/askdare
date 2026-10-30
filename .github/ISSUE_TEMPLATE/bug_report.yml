@@ -1,0 +1,50 @@
+name: Bug report
+description: Something in askdare doesn't work as the docs say.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Security problems go to SECURITY.md instead, never to a public issue.
+        Never paste API keys, secrets, tokens or visitors' messages here.
+  - type: input
+    id: version
+    attributes:
+      label: askdare version
+      placeholder: "0.1.0-rc.0"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Next.js, Node.js and host
+      placeholder: "Next.js 16.4.3, Node.js 24, Vercel"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: |
+        A fork of examples/starter with the smallest change that shows the problem, or steps from a fresh
+        `npx create-next-app --example https://github.com/boldare/askdare/tree/main/examples/starter`.
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of npx @boldare/askdare doctor
+      description: It prints no secrets. Remove anything you'd rather not share.
+      render: text
+  - type: textarea
+    id: logs
+    attributes:
+      label: Server log and browser console
+      description: Lines that start with [askdare].
+      render: text

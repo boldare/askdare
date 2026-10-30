@@ -9,7 +9,8 @@ export default defineConfig([
     platform: 'neutral',
     target: 'es2023',
     dts: true,
-    sourcemap: true,
+    // No source maps: they were half the package and would publish the widget's sources twice.
+    sourcemap: false,
     clean: true,
   },
   {
