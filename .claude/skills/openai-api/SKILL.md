@@ -31,7 +31,7 @@ The OpenAI platform changes monthly. Assistants and Prompts were shut down, and 
 
 ## 4. Request defaults (server-side, never client-controlled)
 
-- `model` comes from `defineBot`. **No model IDs are hardcoded in the library.** Defaults belong in `examples/starter`.
+- `model` comes from `defineBot`. **No model IDs are hardcoded in the library.** Defaults belong in `examples/starter` and `site`.
 - Always set:
   - `max_output_tokens`;
   - `safety_identifier` (a hash of `visitorId`);

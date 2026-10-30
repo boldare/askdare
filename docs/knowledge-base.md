@@ -62,4 +62,4 @@ Tell the model in `instructions` when to use the documents, for example "Answer 
 - File search is billed per call, and the retrieved chunks count as input tokens. Vector store storage is billed per GB per day above the free tier. See OpenAI pricing.
 - The tool name `file_search` is reserved; your own tools cannot use it.
 
-Try it in `examples/starter`: `pnpm kb:sync` uploads the sample documents in `examples/starter/knowledge/`.
+Try it in the demo site: `pnpm --dir site kb:sync` uploads the sample documents in `site/knowledge/`.

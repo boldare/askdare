@@ -1,6 +1,11 @@
 packages:
   - packages/*
   - examples/*
+  - site
+
+# Workspace packages are linked when their version satisfies the range. The starter asks for a
+# real semver range (not workspace:), so it also installs from npm after create-next-app.
+linkWorkspacePackages: true
 
 # Supply-chain hardening: don't install versions published less than a day ago.
 minimumReleaseAge: 1440

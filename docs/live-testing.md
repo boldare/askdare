@@ -25,9 +25,9 @@ printf 'OPENAI_API_KEY=%s\nSMOKE_MODEL=%s\n' "$(pbpaste)" "gpt-6.1-terra" > .env
 - `SMOKE_MODEL` must be a current model allowed in the project. Spike S1 sends an image and a PDF and asks for reasoning, so pick one that supports vision.
 - **Never paste the key into an AI chat, an issue or a commit.**
 
-Already set up `examples/starter/.env` (from `.env.example`)? The smoke test and the spikes reuse it when `.env.smoke.local` is absent, with `ASKDARE_MODEL` as the model, so the key lives in one file only.
+Already set up `site/.env.local` or `examples/starter/.env.local` (from `.env.example`)? The smoke test reuses it when `.env.smoke.local` is absent, with `ASKDARE_MODEL` as the model, so the key lives in one file only.
 
-The file search smoke test runs only with `SMOKE_VECTOR_STORE_ID` (or the starter's `KB_VECTOR_STORE_ID`): a store synced from `examples/starter/knowledge` with `pnpm --dir examples/starter kb:sync`. It is not deleted afterwards, so the next run reuses it.
+The file search smoke test runs only with `SMOKE_VECTOR_STORE_ID` (or the starter's `KB_VECTOR_STORE_ID`): a store synced from `site/knowledge` with `pnpm --dir site kb:sync`. It is not deleted afterwards, so the next run reuses it.
 
 ## 3. Run
 

@@ -2,13 +2,19 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "starter",
+      "name": "site",
       "runtimeExecutable": "bash",
       "runtimeArgs": [
         "-c",
-        "cd examples/starter && ASKDARE_GALLERY=${ASKDARE_GALLERY:-1} ASKDARE_ALLOWED_ORIGINS=${ASKDARE_ALLOWED_ORIGINS:-http://127.0.0.1:4000} exec ./node_modules/.bin/next dev --port 3000"
+        "cd site && ASKDARE_GALLERY=${ASKDARE_GALLERY:-1} ASKDARE_ALLOWED_ORIGINS=${ASKDARE_ALLOWED_ORIGINS:-http://127.0.0.1:4000} exec ./node_modules/.bin/next dev --port 3000"
       ],
       "port": 3000
+    },
+    {
+      "name": "starter",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd examples/starter && exec ./node_modules/.bin/next dev --port 3001"],
+      "port": 3001
     },
     {
       "name": "host-page",

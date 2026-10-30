@@ -59,7 +59,14 @@ Nothing had been published, so no user code broke.
 - One core version means the client and server protocol can never drift apart. Changesets stays simple.
 - Add-ons with heavy dependencies (Redis, Postgres) don't burden users who don't need them.
 - The public surface must stay deliberately small. ADR-0006 lists the 0.x policy and the exact public surface.
-- `examples/starter` is three things at once: the e2e test target, the scaffold source and the docs sample.
+- `examples/starter` is the scaffold source and the docs sample: exactly what `init` produces. The e2e target is the private `site/` app (see below).
+
+### The starter and the site are separate apps (2026-10-30)
+
+Until the pre-release audit, `examples/starter` was the template, the e2e target and the Boldare demo at once. It grew three.js, five bots, the state gallery and a `workspace:` dependency, so it no longer worked as a template or for a "15 minutes from zero" test. Before the first release candidate it was split:
+
+- **`examples/starter`:** the minimal template. One bot, the route, `askdare.config.ts` and the `next/script` tag, all written by `npx @boldare/askdare init`, plus `.env.example` and a README with Vercel and Heroku steps. Its `@boldare/askdare` dependency is a semver range that pnpm links to the workspace (`linkWorkspacePackages`), so `create-next-app --example` works once the package is on npm. The tarball check before each release candidate builds a fresh app from the packed packages.
+- **`site/`:** the askdare website, private and never published. It holds the demo, the state gallery and the docs, and is the e2e and visual test target.
 
 ## Alternatives considered
 

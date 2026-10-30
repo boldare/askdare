@@ -47,7 +47,7 @@ widget: {
 
 Your CSS loads after the theme. The library's styles are in `@layer askdare`, so yours wins without `!important`. The chat's Content Security Policy still applies: images and fonts load only from your app.
 
-A full example is the starter's BLDR theme, in Boldare's style: `defineTheme` over Halo for colors, type and square corners, about 30 lines of `widget.css` for the hard shadows and highlights, and `::part(launcher)` on the page for the button ([`askdare.config.ts`](../examples/starter/askdare.config.ts), [`demo.css`](../examples/starter/app/demo.css)).
+A full example is the demo site's BLDR theme, in Boldare's style: `defineTheme` over Halo for colors, type and square corners, about 30 lines of `widget.css` for the hard shadows and highlights, and `::part(launcher)` on the page for the button ([`askdare.config.ts`](../site/askdare.config.ts), [`demo.css`](../site/app/demo.css)).
 
 **Tokens:** the `--ask-*` variables listed in [Themes](themes.md#tokens).
 
@@ -101,7 +101,7 @@ A full example is the starter's BLDR theme, in Boldare's style: `defineTheme` ov
 
 An inline chat loads with the page without taking focus or scrolling to itself.
 
-In a React app, Next.js included, add the script after hydration, for example from a `useEffect` in a small client component. The loader adds the chat inside your element, and React must not find it there while it hydrates. The starter's [`chat-script.tsx`](../examples/starter/app/chat-script.tsx) does this. The chat loads once per page load and lives as long as its element: put the element in a layout that stays, or link to the page with full page loads, because a client-side navigation away and back leaves the element empty.
+In a React app, Next.js included, add the script after hydration, for example from a `useEffect` in a small client component. The loader adds the chat inside your element, and React must not find it there while it hydrates. The demo site's [`chat-script.tsx`](../site/app/chat-script.tsx) does this. The chat loads once per page load and lives as long as its element: put the element in a layout that stays, or link to the page with full page loads, because a client-side navigation away and back leaves the element empty.
 
 ## Accessibility
 
