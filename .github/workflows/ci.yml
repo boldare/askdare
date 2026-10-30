@@ -33,7 +33,7 @@ jobs:
       - run: pnpm check
 
   e2e:
-    name: end-to-end (chromium)
+    name: end-to-end (chromium, firefox, webkit)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -45,8 +45,10 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright install --with-deps chromium firefox webkit
       - run: pnpm e2e
+      # The site is built by now: the other engines run the embedding, page API and a11y specs.
+      - run: pnpm exec playwright test --project firefox --project webkit
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

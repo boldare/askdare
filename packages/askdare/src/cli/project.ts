@@ -187,6 +187,9 @@ export async function gitIgnores(root: string, name: string): Promise<boolean> {
     const negated = trimmed.startsWith('!');
     // A leading slash anchors the pattern to this folder, which is where `name` is.
     const pattern = (negated ? trimmed.slice(1) : trimmed).replace(/^\//, '');
+    // A path such as .yarn/patches (create-next-app's .gitignore has a few) never matches a file
+    // at the top of the project, ignored or not.
+    if (pattern.includes('/') && !pattern.startsWith('**/')) continue;
     if (!GLOB_ONLY.test(pattern)) {
       if (negated) return false;
       continue;

@@ -63,6 +63,8 @@ pnpm test:watch     # Vitest in watch mode
 pnpm format         # apply Biome formatting and safe fixes
 pnpm changeset      # describe a change to a published package
 pnpm e2e            # build site/ and run Playwright against a mocked OpenAI
+pnpm e2e:browsers   # the embedding, page API and a11y specs in Firefox and WebKit
+pnpm verify:packs   # pack the packages and try them in a fresh create-next-app
 pnpm test:visual    # pixel baselines of the theme gallery
 pnpm smoke          # live test against OpenAI (needs OPENAI_API_KEY and SMOKE_MODEL)
 ```
@@ -88,7 +90,7 @@ pnpm smoke          # live test against OpenAI (needs OPENAI_API_KEY and SMOKE_M
 Releases are made by CI from `main`, never from a laptop: Changesets opens a "Version packages" pull request, and merging it publishes to npm with trusted publishing (OIDC) and provenance. No npm token exists.
 
 - Until 0.1.0 the repository is in pre-release mode (`.changeset/pre.json`), so versions are `0.1.0-rc.N` and go out under the npm tag `rc`.
-- Before a release candidate, run `pnpm check`, `pnpm e2e`, `pnpm test:visual` and `node scripts/verify-packs.mjs`, which installs the packed packages into a fresh Next.js app.
+- Before a release candidate, run `pnpm check`, `pnpm e2e`, `pnpm e2e:browsers`, `pnpm test:visual` and `pnpm verify:packs`, which installs the packed packages into a fresh Next.js app.
 - For 0.1.0, run `pnpm changeset pre exit` in a pull request of its own.
 
 The details are in the `release` skill (`.claude/skills/release/SKILL.md`).
