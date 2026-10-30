@@ -62,9 +62,16 @@ pnpm check          # lint, typecheck, tests, build, package checks; must pass b
 pnpm test:watch     # Vitest in watch mode
 pnpm format         # apply Biome formatting and safe fixes
 pnpm changeset      # describe a change to a published package
-pnpm e2e            # build the starter and run Playwright against a mocked OpenAI
+pnpm e2e            # build site/ and run Playwright against a mocked OpenAI
+pnpm test:visual    # pixel baselines of the theme gallery
 pnpm smoke          # live test against OpenAI (needs OPENAI_API_KEY and SMOKE_MODEL)
 ```
+
+`pnpm smoke` costs real money: read [live testing](docs/live-testing.md) first. It covers the dedicated OpenAI project, the spend limit and where the key goes.
+
+**Apps in the repository:**
+- `site/` is the askdare website with the demo and the state gallery. Run it with `pnpm --dir site dev`; it reads `site/.env.local`.
+- `examples/starter/` is the template users start from. Keep it exactly what `npx @boldare/askdare init` writes.
 
 **Git hooks:**
 - `pre-commit` runs Biome on staged files.

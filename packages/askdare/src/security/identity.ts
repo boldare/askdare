@@ -104,7 +104,7 @@ export function createIdentityVerifier(options: {
   const { secret } = options;
   if (secret.length < MIN_SECRET_LENGTH || new Set(secret).size < MIN_DISTINCT_CHARACTERS) {
     throw new TypeError(
-      `[askdare] IDENTITY_SECRET must be at least ${MIN_SECRET_LENGTH} random characters (use \`openssl rand -base64 32\`).`,
+      `[askdare] IDENTITY_SECRET must be at least ${MIN_SECRET_LENGTH} random characters. Generate one with: node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"`,
     );
   }
   if (secret === options.chatSecret) {

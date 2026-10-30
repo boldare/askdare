@@ -19,12 +19,13 @@ Commands:
     --url <url>        Where the app runs (default: http://localhost:3000)
     --base-path <p>    Path of the askdare route (default: /api/chat)
     --env-file <path>  Read CHAT_SECRET and the rest from this file
-                       (default: .env.local and .env)
+                       (default: .env.development.local, .env.local,
+                       .env.development and .env, as next dev reads them)
     --origin <url>     Check that this site may embed the chat (the bot's
                        security.allowedOrigins), e.g. https://www.example.com
 
   kb sync <folder>   Make an OpenAI vector store mirror a folder of documents.
-                     See: askdare kb sync --help
+                     See: npx @boldare/askdare kb sync --help
 
   -v, --version      Show the installed version
   -h, --help         Show this help

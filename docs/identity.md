@@ -72,6 +72,21 @@ Any language with a JWT library works the same way.
 ## 4. Use it
 
 ```ts
+import { defineBot, defineTool } from '@boldare/askdare';
+import { z } from 'zod';
+import { orders } from './lib/orders'; // your own data access
+
+// Declare tools before the bot that lists them.
+export const myOrders = defineTool({
+  name: 'get_my_orders',
+  description: "The signed-in visitor's recent orders.",
+  input: z.object({}),
+  execute: async (_input, { identity }) => {
+    if (!identity) return { error: 'Ask the visitor to sign in first.' };
+    return { orders: await orders.forUser(identity.id) };
+  },
+});
+
 defineBot({
   // …
   instructions: ({ locale, identity }) =>
@@ -81,17 +96,7 @@ defineBot({
       identity ? `The visitor is signed in as "${identity.name ?? identity.id}".` : 'The visitor is not signed in.',
       `Reply in ${locale}.`,
     ].join(' '),
-  tools: [orderStatus],
-});
-
-export const orderStatus = defineTool({
-  name: 'get_my_orders',
-  description: "The signed-in visitor's recent orders.",
-  input: z.object({}),
-  execute: async (_input, { identity }) => {
-    if (!identity) return { error: 'Ask the visitor to sign in first.' };
-    return { orders: await orders.forUser(identity.id) };
-  },
+  tools: [myOrders],
 });
 ```
 

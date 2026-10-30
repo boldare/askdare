@@ -7,17 +7,26 @@ Set it up with `npx @boldare/askdare init` and verify it with `npx @boldare/askd
 ## Docs
 
 - [Getting started](docs/getting-started.md): install, `init`, `.env.local`, `doctor`, embedding on other sites
+- [Configuration](docs/configuration.md): every `defineBot` and `createChatHandler` option, limits with defaults, environment variables
+- [Embedding](docs/embedding.md): the script tag and its `data-*` attributes, several bots, the host page's CSP, staging and production
+- [CLI](docs/cli.md): `init`, `doctor`, `kb sync` and `usage`, with every flag
+- [Troubleshooting](docs/troubleshooting.md): symptoms, causes and fixes, by error code
 - [Tools](docs/tools.md): `defineTool`, Zod schemas, what a tool may trust
 - [Signed-in visitors](docs/identity.md): `askdare('identify')`, IDENTITY_SECRET, `context.identity`
-- [Knowledge base](docs/knowledge-base.md): `askdare kb sync`, vector stores, citations
+- [Knowledge base](docs/knowledge-base.md): `npx @boldare/askdare kb sync`, vector stores, citations
 - [Attachments](docs/attachments.md): images and PDFs from visitors
 - [Voice input](docs/voice-input.md): dictation and its limits
 - [Styling](docs/styling.md): texts, languages, AI disclosure, custom CSS, `askdare('open' | 'configure')`, inline mode
+- [Texts](docs/texts.md): every text key with its English and Polish default, plurals, adding a language
 - [Themes](docs/themes.md): Halo, Aura, Sage and Care, tokens and variants
 - [Deployment](docs/deployment.md): Vercel, Heroku, proxies, shared limits
 - [Going public](docs/going-public.md): OpenAI project, secrets, limits, privacy checklist
+- [Costs](docs/costs.md): the worst case under the default limits, and how to keep it bounded
+- [Privacy](docs/privacy.md): what is stored where, for your privacy policy
 - [Support](docs/support.md): Node.js, Next.js, React, zod and TypeScript versions, browsers, sizes
+- [Migrating from @boldare/openai-assistant](docs/migrating-from-openai-assistant.md): what maps to what
 
 ## Optional
 
-- [Streaming protocol](docs/protocol.md): the SSE events between the server and the chat
+- [Streaming protocol](docs/protocol.md): the SSE events between the server and the chat, endpoints and status codes
+- [Custom rate-limit store](docs/custom-store.md): writing your own store for limits and budgets

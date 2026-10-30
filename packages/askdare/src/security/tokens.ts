@@ -20,7 +20,7 @@ const RENEWAL_GRACE_SECONDS = 60 * 60;
 const encoder = new TextEncoder();
 
 export interface TokenServiceOptions {
-  /** At least 32 random characters, e.g. `openssl rand -base64 32`. */
+  /** At least 32 random characters, e.g. from `crypto.randomBytes(32).toString('base64url')`. */
   readonly secret: string;
   /** Former secrets still accepted for verification during rotation. */
   readonly previousSecrets?: readonly string[];
@@ -99,7 +99,7 @@ interface DerivedKey {
 async function deriveKey(secret: string, name: string): Promise<DerivedKey> {
   if (secret.length < MIN_SECRET_LENGTH || new Set(secret).size < MIN_DISTINCT_CHARACTERS) {
     throw new TypeError(
-      `[askdare] ${name} must be at least ${MIN_SECRET_LENGTH} random characters (use \`openssl rand -base64 32\`).`,
+      `[askdare] ${name} must be at least ${MIN_SECRET_LENGTH} random characters. Generate one with: node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"`,
     );
   }
   const material = await crypto.subtle.importKey('raw', encoder.encode(secret), 'HKDF', false, [

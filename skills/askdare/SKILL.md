@@ -12,6 +12,8 @@ description: Add, configure or troubleshoot the @boldare/askdare AI chat in a Ne
 - New integration: `npx @boldare/askdare init`. It writes `askdare.config.ts`, `app/api/chat/[...path]/route.ts`, `.env.local` (with a generated `CHAT_SECRET`) and the script tag in the root layout, and never overwrites files.
 - After any change to the config, the environment or the hosting: run the app, then `npx @boldare/askdare doctor` (add `--url` and `--env-file` for a deployed app). Fix what it reports before anything else.
 - Knowledge base: `npx @boldare/askdare kb sync <folder>`, then set `KB_VECTOR_STORE_ID` to the ID it prints.
+- Something fails: `docs/troubleshooting.md` lists symptoms, causes and fixes by error code. In development the server log says what is wrong with the setup; so does the chat when a reply fails.
+- Every option, limit and default: `docs/configuration.md`; every CLI flag: `docs/cli.md`; script tag attributes and the host page's CSP: `docs/embedding.md`.
 
 ## Public API: use only this
 

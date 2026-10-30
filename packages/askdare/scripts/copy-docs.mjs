@@ -1,5 +1,6 @@
-// Copies the user guides, llms.txt and the license into the package, so they ship with it and match the
-// installed version (`node_modules/@boldare/askdare/docs/`). Links that leave docs/ point to GitHub.
+// Copies the user guides, llms.txt, the agent skill and the license into the package, so they ship with
+// it and match the installed version (`node_modules/@boldare/askdare/docs/`). Links that leave docs/
+// point to GitHub.
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -27,4 +28,11 @@ for (const file of guides) {
 for (const file of ['llms.txt', 'LICENSE']) {
   await writeFile(join(pkg, file), await readFile(join(repo, file), 'utf8'));
 }
-console.log(`copy-docs: ${guides.length} guides, llms.txt and LICENSE`);
+// The skill for users' AI coding agents: copied into their `.claude/skills/` from here.
+await rm(join(pkg, 'skills'), { recursive: true, force: true });
+await mkdir(join(pkg, 'skills/askdare'), { recursive: true });
+await writeFile(
+  join(pkg, 'skills/askdare/SKILL.md'),
+  await readFile(join(repo, 'skills/askdare/SKILL.md'), 'utf8'),
+);
+console.log(`copy-docs: ${guides.length} guides, llms.txt, the askdare skill and LICENSE`);

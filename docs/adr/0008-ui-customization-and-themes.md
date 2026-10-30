@@ -27,7 +27,7 @@ Simple changes are configuration; hard changes are code. Logic (streaming, secur
 
 ### Rules
 
-- **Two kinds of configuration.** Server config (model, instructions, tools, limits, secrets) and public config (`widget`) have separate types. `GET /config` serializes only the public part, and a CI test checks that no secret leaks through it.
+- **Two kinds of configuration.** Server config (model, instructions, tools, limits, secrets) and public config (`widget`) have separate types. Only the public part reaches the browser: the embed page (`GET <basePath>/embed/<bot>`) inlines it as JSON, and a unit test checks that the model, instructions, tools and vector store never appear in it.
 - **About 15 semantic tokens** (`--ask-*`); the rest of the palette is derived. Each derived accent is checked for contrast.
 - **UI built as layers from day one:** a headless core, primitives and a default skin. Layers 4 and 5 then only *expose* existing code.
 - **Runtime overrides are allowlisted.** `askdare('configure')` accepts only texts, starters and page context. Page context is off unless a bot opts in, and then travels in the visitor's own turn (user role) with a length cap, never in `instructions` (changed in step 4.1 after the security review: instructions outrank visitor text).
@@ -64,7 +64,7 @@ Implementation (step 3.6): 17 tokens (11 colors, the backdrop and orb paint, two
 - **The orb** is pure CSS: no WebGL, at most 3 KB.
 - **Motion** respects `prefers-reduced-motion`.
 - **State gallery** (`site/app/gallery`) feeds visual regression tests: 4 presets × light and dark × 3 widths.
-- **A product designer reviews the presets** before the release candidate.
+- **A product designer reviews the presets** before 0.1.0. Still to do as of 2026-10-30.
 
 ## Consequences
 

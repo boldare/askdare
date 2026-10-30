@@ -30,7 +30,7 @@ Without a title the file name is used. Without a URL the citation is shown as pl
 ## 2. Sync
 
 ```bash
-npx askdare kb sync knowledge
+npx @boldare/askdare kb sync knowledge
 ```
 
 - Reads `OPENAI_API_KEY` from the environment, `.env.local` or `.env` (or `--env-file <path>`).

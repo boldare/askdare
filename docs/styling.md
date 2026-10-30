@@ -30,7 +30,7 @@ defineBot({
 
 - **Language.** Texts ship in English and Polish. `locale: 'auto'` follows the `lang` of the page that embeds the chat, else the visitor's browser; any other language shows English unless you set `texts`. The locale is also the default answer language.
 - **Bold words.** In a greeting, `**words**` are shown in bold. Aura uses this for its two-weight headline.
-- **Texts.** Every text has a key; `texts` overrides any of them. `title`, `greeting`, `placeholder` and `launcherLabel` are shortcuts for `header.title`, `welcome.greeting`, `composer.placeholder` and `launcher.label`, and a configured text is used in every language. The full list is in [`src/i18n/texts.ts`](../packages/askdare/src/i18n/texts.ts); the keys are public API. Plural keys end in `.one`, `.few`, `.many` or `.other`.
+- **Texts.** Every text has a key; `texts` overrides any of them. `title`, `greeting`, `placeholder` and `launcherLabel` are shortcuts for `header.title`, `welcome.greeting`, `composer.placeholder` and `launcher.label`, and a configured text is used in every language. The full list, with plurals and how to add a language, is in [Texts](texts.md); the keys are public API.
 - **Disclosure.** By default the chat says, under the message field, that the visitor is talking to an AI (EU AI Act, art. 50). Add `privacyUrl` for a link to your privacy policy. `disclosure: false` hides it; only do that when your page already says so.
 
 ## 2. Your own CSS
@@ -45,15 +45,45 @@ widget: {
 }
 ```
 
-Your CSS loads after the theme. The library's styles are in `@layer askdare`, so yours wins without `!important`. The chat's Content Security Policy still applies: images and fonts load only from your app.
+Your CSS loads after the theme. The library's styles are in `@layer askdare`, so yours wins without `!important`. The chat's Content Security Policy still applies: images load only from your app or as `data:` and `blob:` URLs, and fonts only from your app.
 
 A full example is the demo site's BLDR theme, in Boldare's style: `defineTheme` over Halo for colors, type and square corners, about 30 lines of `widget.css` for the hard shadows and highlights, and `::part(launcher)` on the page for the button ([`askdare.config.ts`](../site/askdare.config.ts), [`demo.css`](../site/app/demo.css)).
 
-**Tokens:** the `--ask-*` variables listed in [Themes](themes.md#tokens).
+**Tokens:** the `--ask-*` variables listed in [Themes](themes.md#tokens). Only those are public API. The chat's stylesheet also defines the variables below; they are internal and can change in any release, so don't build on them.
 
-**Parts** (`[data-ask-part="…"]`, public API): `panel`, `header`, `identity`, `title`, `subtitle`, `actions`, `new-conversation`, `close`, `avatar`, `orb`, `messages`, `welcome`, `greeting`, `starters`, `starter`, `persona`, `persona-name`, `presence`, `intro`, `intro-card`, `message`, `message-body`, `bubble`, `typing`, `citations`, `citation`, `attachments-note`, `status`, `error`, `composer`, `composer-box`, `input`, `attach`, `voice`, `send`, `attachments`, `message-attachments`, `attachment`, `attachment-preview`, `attachment-badge`, `attachment-name`, `attachment-status`, `attachment-remove`, `recorder`, `recorder-level`, `recorder-label`, `recorder-time`, `recorder-cancel`, `recorder-done`, `send-label` (shown by Aura), `disclosure`, and the question before a new conversation: `confirm-backdrop`, `confirm`, `confirm-icon`, `confirm-text`, `confirm-actions`, `confirm-cancel`, `confirm-accept`.
+| Internal variable | What it holds |
+| --- | --- |
+| `--ask-space` | The spacing unit: 8px, or 6px with the `compact` density |
+| `--ask-radius-small` | A smaller radius, 0.6 × `--ask-radius` |
+| `--ask-shadow` | The shadow of raised elements, mixed from `--ask-color-text` |
+| `--ask-ring` | The ring around the focused message field, mixed from `--ask-color-accent` |
+| `--ask-glass` | The translucent surface of the `glass` variant, mixed from `--ask-color-surface` |
+| `--ask-ease` | The easing curve of transitions |
+| `--ask-level` | The microphone level while recording, set by the chat |
+| `--ask-aura-gradient-end` | Where Aura's gradient on the visitor's bubbles and the send button ends |
 
-**States:** `message[data-role="user|assistant"]`, `message[data-status="streaming|done|error"]`, `attachment[data-status="uploading|ready|error"]`, `recorder[data-state="recording|transcribing"]`, `panel[data-busy]` while the assistant works, `avatar[data-kind="orb|icon|initials|image"]`, `welcome[data-layout="hero|persona|intro"]`.
+The launcher's short variables on your page (`--a`, `--o` and the like) are internal too.
+
+**Parts** (`[data-ask-part="…"]`, public API): `panel`, `header`, `identity`, `identity-text`, `title`, `subtitle`, `actions`, `new-conversation`, `close`, `avatar`, `orb`, `messages`, `welcome`, `greeting`, `starters`, `starter`, `persona`, `persona-name`, `presence`, `intro`, `intro-card`, `message`, `message-body`, `bubble`, `image-alt`, `typing`, `citations`, `citation`, `attachments-note`, `status`, `error`, `composer`, `composer-box`, `input`, `attach`, `voice`, `send`, `attachments`, `message-attachments`, `attachment`, `attachment-preview`, `attachment-badge`, `attachment-name`, `attachment-status`, `attachment-remove`, `recorder`, `recorder-level`, `recorder-label`, `recorder-time`, `recorder-cancel`, `recorder-done`, `send-label` (shown by Aura), `disclosure`, and the question before a new conversation: `confirm-backdrop`, `confirm`, `confirm-icon`, `confirm-text`, `confirm-actions`, `confirm-cancel`, `confirm-accept`.
+
+`identity-text` holds the title and subtitle in the header. `image-alt` stands in for an image in a reply: the chat never loads images that the model writes, so it shows their alt text in brackets.
+
+**States** are attributes on the parts:
+
+| Part | Attribute | Values |
+| --- | --- | --- |
+| `panel` | `data-busy` | Present while the assistant answers or a dictation runs |
+| `panel` | `data-dragging` | Present while files are dragged over the chat (only when the bot accepts attachments) |
+| `message` | `data-role` | `user`, `assistant` |
+| `message` | `data-status` | `streaming`, `done`, `error` |
+| `attachment` | `data-status` | `uploading`, `ready`, `error`, on files not sent yet; absent in sent messages |
+| `attachment` | `data-kind` | `image`, `pdf`; absent until the chat has recognized the file |
+| `recorder` | `data-state` | `recording`, `transcribing` |
+| `avatar` | `data-kind` | `orb`, `icon`, `initials`, `image` |
+| `avatar` | `data-size` | `small` in the header, next to the assistant's messages and in the `intro` welcome; `large` in the `hero` and `persona` welcome |
+| `welcome` | `data-layout` | `hero`, `persona`, `intro` |
+
+Select a present-or-absent attribute by its name alone, such as `[data-ask-part="panel"][data-dragging]`.
 
 **Variants** of the theme are attributes on `<html>`: `data-ask-preset`, `data-ask-scheme`, `data-ask-avatar`, `data-ask-welcome`, `data-ask-launcher`, `data-ask-bubbles`, `data-ask-surface`, `data-ask-density`, `data-ask-composer`.
 
@@ -63,6 +93,34 @@ A full example is the demo site's BLDR theme, in Boldare's style: `defineTheme` 
 [data-askdare]::part(launcher) { right: 32px; bottom: 32px; }
 [data-askdare]::part(panel) { border-radius: 8px; }
 ```
+
+The shadow root has three parts: `launcher`, `panel` (the dialog that holds the chat) and `unavailable` (the notice in the panel when the chat doesn't load). The element that holds the shadow root has `data-askdare` set to the bot ID, so `[data-askdare="support"]::part(launcher)` styles one bot's launcher only.
+
+### Brand fonts
+
+The chat's Content Security Policy allows fonts and stylesheets only from your app's own origin (`font-src 'self'`, `style-src 'self'`). So:
+
+- Serve the font files from your app, for example from `public/fonts/` in Next.js.
+- Declare them with `@font-face` in `widget.css`. Use a path that starts with `/`: `widget.css` is served from under the chat's base path, so a relative URL would point there.
+- Fonts and stylesheets from other origins, such as a font CDN, are blocked, and so are fonts in `data:` URLs.
+
+```ts
+widget: {
+  css: `
+    @font-face {
+      font-family: "Brand Sans";
+      src: url("/fonts/brand-sans.woff2") format("woff2");
+      font-display: swap;
+    }
+    :root {
+      --ask-font-family: "Brand Sans", system-ui, sans-serif;
+      --ask-font-family-heading: "Brand Sans", system-ui, sans-serif;
+    }
+  `,
+}
+```
+
+Every preset sets both font tokens, so set both. You can also set them as the `fontFamily` and `headingFamily` tokens of a theme ([Themes](themes.md#adjust-a-preset)) and keep only the `@font-face` rule in `widget.css`. The launcher is on your page, not in the chat, so it can use your page's fonts through `::part(launcher)`.
 
 ## 3. Page JavaScript
 

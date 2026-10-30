@@ -156,7 +156,7 @@ export interface BotWidget {
 }
 
 export interface BotDefinition {
-  /** URL-safe identifier used in the script tag (`data-bot`) and routes. */
+  /** URL-safe identifier used in the script tag (`widget.js?bot=<id>`) and routes. */
   readonly id: string;
   /** OpenAI model ID. Required on purpose: the library never assumes a model (ADR-0002). */
   readonly model: string;

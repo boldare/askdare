@@ -2,7 +2,7 @@
 
 **Dare to ask.** An AI assistant for any website, in one script tag.
 
-> **Status: pre-alpha, under active development. Not published yet.**
+> **Status: release candidate (0.1.0-rc).** The API is complete, but may still change before 0.1.0. Install the `rc` tag, and pin the exact version.
 
 `@boldare/askdare` is a Next.js library for adding an AI chatbot, built on the official OpenAI SDK, to any website. It takes one route file and one `<script>` tag.
 
@@ -11,7 +11,7 @@ It succeeds [`@boldare/openai-assistant`](https://github.com/boldare/openai-assi
 ## What it does
 
 - **Embed anywhere:** a tiny loader script plus an isolated iframe, with a per-site allowlist.
-- **Secure by default:** short-lived session tokens, rate limits, daily spend budgets, sanitized output.
+- **Secure by default:** short-lived session tokens, rate limits, daily token budgets, sanitized output.
 - **Knowledge base:** answers from your files via OpenAI file search, with citations linking to your pages.
 - **Tools:** your own functions, defined with Zod schemas and validated end to end.
 - **Attachments and images**, plus **voice input** (speech to text).
@@ -23,14 +23,29 @@ It succeeds [`@boldare/openai-assistant`](https://github.com/boldare/openai-assi
 In a Next.js 16 app with the App Router:
 
 ```bash
-npm install @boldare/askdare zod
+npm install @boldare/askdare@rc zod
 npx @boldare/askdare init      # route, bot config, .env.local and the chat script
 # set OPENAI_API_KEY and ASKDARE_MODEL in .env.local
 npm run dev
 npx @boldare/askdare doctor    # checks the key, model, permissions and headers
 ```
 
-The whole integration is two files:
+The integration is a bot definition, one route and one script tag:
+
+```ts
+// askdare.config.ts
+import { defineBot } from '@boldare/askdare';
+
+export const bots = [
+  defineBot({
+    id: 'support',
+    model: process.env.ASKDARE_MODEL ?? '',
+    instructions: 'You answer questions about our product. If you do not know, say so.',
+    security: { allowedOrigins: ['https://www.example.com'] },
+    widget: { theme: 'aura', greeting: 'Hi! How can I help?' },
+  }),
+];
+```
 
 ```ts
 // app/api/chat/[...path]/route.ts
@@ -49,14 +64,19 @@ export const { GET, POST, DELETE } = createChatHandler({ bots });
 
 ## Documentation
 
-- [Getting started](docs/getting-started.md)
+- [Getting started](docs/getting-started.md), then the [configuration reference](docs/configuration.md), [embedding](docs/embedding.md), the [CLI](docs/cli.md) and [troubleshooting](docs/troubleshooting.md)
 - [Knowledge base](docs/knowledge-base.md), [Tools](docs/tools.md), [Attachments](docs/attachments.md), [Voice input](docs/voice-input.md)
 - [Styling](docs/styling.md) and [Themes](docs/themes.md)
 - [Deployment](docs/deployment.md) to Vercel and Heroku, and the [going-public checklist](docs/going-public.md)
-- [Support](docs/support.md): versions, browsers and download sizes
+- [Costs](docs/costs.md), [privacy](docs/privacy.md) and [support](docs/support.md): versions, browsers and download sizes
+- Coming from `@boldare/openai-assistant`? See [migrating](docs/migrating-from-openai-assistant.md).
 - [Threat model](THREAT_MODEL.md) and [streaming protocol](docs/protocol.md)
 
-For AI coding agents: [`llms.txt`](llms.txt), and the [`askdare` skill](skills/askdare/SKILL.md). The docs also ship in the package, under `node_modules/@boldare/askdare/docs/`.
+For AI coding agents: [`llms.txt`](llms.txt), and the [`askdare` skill](skills/askdare/SKILL.md). Both ship in the package with the docs, so they match the installed version. To use the skill with Claude Code, copy it into your project:
+
+```bash
+mkdir -p .claude/skills && cp -R node_modules/@boldare/askdare/skills/askdare .claude/skills/
+```
 
 ## Design decisions
 

@@ -17,10 +17,10 @@ Two lessons shape the design:
   - `openaiConversations()` is the default;
   - `memory()` is for tests.
 - **No database or queue is required.**
-- **Ownership without a database.** The resume token carries a signed conversation ID (HMAC). On top of that, the conversation object stores `metadata: { bot, visitor }` as defense in depth.
+- **Ownership without a database.** The resume token carries the conversation ID, encrypted and authenticated (JWE, `dir` + A256GCM, keyed by `CHAT_SECRET`), so the browser can neither read nor change it. On top of that, the conversation object stores `metadata: { bot, visitor }` as defense in depth.
 - **History on reload.** `conversations.items.list(conv, { order: 'asc' })` maps items to domain types and ignores unknown item types. Only user and assistant messages plus citations are shown; tool calls and reasoning stay hidden.
 - **Dynamic context.** Page URL, identity and similar go into per-request `instructions`. They are never stored in the conversation.
-- **Deletion.** `DELETE /conversations/:id` plus a "delete conversation" button removes the conversation and its uploaded files.
+- **Deletion.** `DELETE <basePath>/conversation` plus the "start a new conversation" button removes the conversation and its uploaded files. The conversation comes from the visitor's signed resume token, never from the URL.
 - **Own storage is an add-on.** Redis or Postgres (`@boldare/askdare-store-postgres`, after 0.1) covers retention, export, ZDR/EU data residency and independence from OpenAI.
 
 ## Consequences and trade-offs (documented in the README)

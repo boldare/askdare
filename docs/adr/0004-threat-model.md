@@ -45,7 +45,7 @@ Goal: **bound the damage** (dollars per day, requests per IP or visitor) and **p
 - **Abuse attribution:** `safety_identifier = hash(visitorId)`.
 - **Logs** contain no message content or PII by default. Errors map to stable codes with no internals or stack traces.
 - **Optional:**
-  - a `HumanVerifier` port with a Cloudflare Turnstile adapter, checked at session creation only;
+  - a `HumanVerifier` port with a Cloudflare Turnstile adapter, checked at session creation only. **Not built in 0.1** (deferred on 2026-10-29): it needs Cloudflare's script inside the iframe, which loosens its CSP, and limits and budgets come first. We revisit it if they prove insufficient;
   - `identify()` with a separate `IDENTITY_SECRET` JWT issued by the host's backend ([ADR-0009](0009-visitor-identity.md)).
 
 ## Required before any public deployment, including demos
