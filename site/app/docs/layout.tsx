@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import type { ReactNode } from 'react';
 import { ChatScript } from '../chat-script';
+import { GITHUB_URL, GitHubIcon, NPM_URL, NpmIcon } from '../project-links';
 import { NAV, titles } from './_lib/content';
 import { Search } from './_ui/search';
 import { Sidebar } from './_ui/sidebar';
@@ -29,7 +30,14 @@ export default async function DocsLayout({ children }: { readonly children: Reac
         <Search />
         <nav className="d-bar-links" aria-label="Site">
           <a href="/">Home</a>
-          <a href="https://github.com/boldare/askdare">GitHub</a>
+          <a href={GITHUB_URL}>
+            <GitHubIcon />
+            GitHub
+          </a>
+          <a href={NPM_URL}>
+            <NpmIcon />
+            npm
+          </a>
         </nav>
       </header>
       <div className="d-body">

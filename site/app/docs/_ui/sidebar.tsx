@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useId, useState } from 'react';
+import { ProjectLinks } from '../../project-links';
 
 interface Group {
   readonly title: string;
@@ -71,6 +72,8 @@ export function Sidebar({ groups }: { readonly groups: readonly Group[] }) {
             </ul>
           </div>
         ))}
+        {/* Phones hide the bar's links; GitHub and npm close the page list instead. */}
+        <ProjectLinks className="d-side-project" label="Project" />
       </div>
     </nav>
   );

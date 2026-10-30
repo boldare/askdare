@@ -1,6 +1,7 @@
 'use client';
 
 import { type CSSProperties, useEffect, useId, useRef, useState } from 'react';
+import { ProjectLinks } from './project-links';
 
 interface Link {
   readonly href: string;
@@ -8,8 +9,9 @@ interface Link {
 }
 
 /**
- * The page's links and its main action. Wide screens show them in the bar. Phones get a round
- * button that opens them as a full-screen sheet: large numbered links, the action at the bottom.
+ * The page's links, GitHub and npm, and its main action. Wide screens show them in the bar, GitHub
+ * and npm as icons. Phones get a round button that opens them as a full-screen sheet: large
+ * numbered links, GitHub and npm as buttons, the action at the bottom.
  * While it is open the page doesn't scroll, focus stays in the menu, and a link, Escape or the
  * button closes it.
  */
@@ -85,6 +87,7 @@ export function NavMenu({
             </li>
           ))}
         </ol>
+        <ProjectLinks className="menu-project" label="Project" />
         <a className="button small menu-action" href={action.href} onClick={() => setOpen(false)}>
           {action.label}
         </a>
