@@ -13,7 +13,7 @@ export interface RedisEval {
 export interface UpstashStoreOptions {
   /** An existing client. Otherwise one is created from `url` and `token`. */
   readonly redis?: RedisEval;
-  /** Default `process.env.UPSTASH_REDIS_REST_URL`, else `KV_REST_API_URL` (older Vercel KV databases). */
+  /** Default `process.env.UPSTASH_REDIS_REST_URL` (Upstash console), else `KV_REST_API_URL` (Vercel Marketplace). */
   readonly url?: string;
   /** Default `process.env.UPSTASH_REDIS_REST_TOKEN`, else `KV_REST_API_TOKEN`. */
   readonly token?: string;
@@ -45,7 +45,7 @@ export function upstashStore(options: UpstashStoreOptions = {}): RateLimitStore 
   let redis = options.redis;
   const client = (): RedisEval => {
     if (!redis) {
-      // The Vercel Marketplace sets the UPSTASH_ names; databases from the older Vercel KV, KV_.
+      // A database from the Upstash console has the UPSTASH_ names; one from the Vercel Marketplace, KV_.
       const env = process.env;
       const url = options.url ?? env['UPSTASH_REDIS_REST_URL'] ?? env['KV_REST_API_URL'];
       const token = options.token ?? env['UPSTASH_REDIS_REST_TOKEN'] ?? env['KV_REST_API_TOKEN'];
