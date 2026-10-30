@@ -1,6 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended", ":semanticCommits", "helpers:pinGitHubActionDigests"],
+  "ignorePaths": ["**/node_modules/**", "spikes/**"],
   "schedule": ["before 6am on monday"],
   "minimumReleaseAge": "3 days",
   "lockFileMaintenance": {
@@ -19,6 +20,11 @@
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "dev dependencies (non-major)",
       "automerge": true
+    },
+    {
+      "description": "Our own packages: Changesets keeps the starter's and the site's ranges in step.",
+      "matchPackageNames": ["@boldare/askdare", "@boldare/askdare-upstash"],
+      "enabled": false
     }
   ]
 }

@@ -63,7 +63,7 @@ Implementation (step 3.6): 17 tokens (11 colors, the backdrop and orb paint, two
 - **Fonts:** OFL-licensed only, self-hosted, loaded lazily for the chosen preset, at most 80 KB per preset.
 - **The orb** is pure CSS: no WebGL, at most 3 KB.
 - **Motion** respects `prefers-reduced-motion`.
-- **State gallery** (`examples/starter/app/gallery`) feeds visual regression tests: 4 presets × light and dark × 3 widths.
+- **State gallery** (`site/app/gallery`) feeds visual regression tests: 4 presets × light and dark × 3 widths.
 - **A product designer reviews the presets** before the release candidate.
 
 ## Consequences

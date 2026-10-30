@@ -22,7 +22,7 @@
   - Parallel calls run via `Promise.allSettled` with per-tool timeouts and output size caps.
   - The step limit is enforced, and the final step forces an answer (`tool_choice: 'none'`).
 - **Instructions live in code** (`defineBot({ instructions })`), never in dashboard objects.
-- **No hardcoded model IDs.** `model` is required in `defineBot`. Defaults live in `examples/starter`, and the nightly canary checks they still exist.
+- **No hardcoded model IDs.** `model` is required in `defineBot`. Defaults live in `examples/starter` and `site`, and the nightly canary checks they still exist.
 
 ## Consequences
 

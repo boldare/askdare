@@ -3,8 +3,14 @@ import { defineConfig } from 'vitest/config';
 
 // Live tests against real APIs. Run only on demand (`pnpm smoke`), never in `pnpm test`.
 // Secrets come from git-ignored env files (see docs/live-testing.md): .env.smoke.local wins,
-// otherwise the starter's own .env is reused so the key exists in one place only.
-for (const file of ['.env.smoke.local', 'examples/starter/.env']) {
+// otherwise the site's or the starter's own env file is reused so the key exists in one place only.
+for (const file of [
+  '.env.smoke.local',
+  'site/.env.local',
+  'site/.env',
+  'examples/starter/.env.local',
+  'examples/starter/.env',
+]) {
   if (existsSync(file)) {
     process.loadEnvFile(file);
     break;

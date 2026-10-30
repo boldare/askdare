@@ -1,13 +1,7 @@
 import { createChatHandler } from '@boldare/askdare/next';
-import { bots } from '@/askdare.config';
+import { bots } from '../../../../askdare.config';
 
-// Must be a literal in this file; keep it above the bots' turn timeout.
+// Must be a literal in this file; keep it above the bots' turn timeout (120 s by default).
 export const maxDuration = 300;
 
-export const { GET, POST, DELETE } = createChatHandler({
-  bots,
-  // The state gallery (/gallery) for design review and visual tests; keep it off in production.
-  gallery: process.env.ASKDARE_GALLERY === '1',
-  // All bots of the demo together, per UTC day.
-  limits: { globalDailyTokens: 2_000_000 },
-});
+export const { GET, POST, DELETE } = createChatHandler({ bots });

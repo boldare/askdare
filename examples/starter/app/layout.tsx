@@ -1,20 +1,20 @@
-import '@fontsource-variable/plus-jakarta-sans/wght.css';
-import '@fontsource-variable/geist/wght.css';
-import '@fontsource-variable/atkinson-hyperlegible-next/wght.css';
-import './demo.css';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import './globals.css';
+import Script from 'next/script';
 
 export const metadata: Metadata = {
-  title: 'askdare by Boldare: an AI assistant for any website',
-  description:
-    'An embeddable AI chatbot for Next.js, built on the official OpenAI SDK. One route, one script tag, four themes.',
+  title: 'askdare starter',
+  description: 'A Next.js app with an AI chat from askdare.',
 };
 
 export default function RootLayout({ children }: { readonly children: ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <Script src="/api/chat/widget.js?bot=support" strategy="afterInteractive" />
+      </body>
     </html>
   );
 }

@@ -1,6 +1,6 @@
 // Renders each theme's hero shape, settled, to public/shapes/<theme>.webp: what phones and
-// reduced motion show instead of the 3D scene. Run it with the starter's dev server up:
-//   node examples/starter/scripts/shape-stills.mjs [http://localhost:3000]
+// reduced motion show instead of the 3D scene. Run it with the site's dev server up:
+//   node site/scripts/shape-stills.mjs [http://localhost:3000]
 // The page's clock is frozen and stepped, so the pose is the same on every machine.
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';

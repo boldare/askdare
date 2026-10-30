@@ -49,4 +49,4 @@ A bot makes at most `limits.maxSteps` model calls per message (default 5); the l
 - **Keep results small.** Return the fields the model needs. Large results cost input tokens on every later message.
 - **Keep it under about 20 tools per bot.** More tools make the model slower and less accurate.
 
-The starter has two working examples in [`examples/starter/tools.ts`](../examples/starter/tools.ts).
+The demo site has two working examples in [`site/tools.ts`](../site/tools.ts).

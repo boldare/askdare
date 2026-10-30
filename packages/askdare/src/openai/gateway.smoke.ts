@@ -3,7 +3,7 @@
  *
  * Run with a key from a dedicated OpenAI project that has a hard spend limit:
  *   OPENAI_API_KEY=… SMOKE_MODEL=<cheap current model> pnpm smoke
- * Add SMOKE_VECTOR_STORE_ID (a store synced from examples/starter/knowledge) for the file search turn,
+ * Add SMOKE_VECTOR_STORE_ID (a store synced from site/knowledge) for the file search turn,
  * and SMOKE_AUDIO_FILE (a short recording of speech) with SMOKE_TRANSCRIBE_MODEL for dictation.
  */
 import { readFile } from 'node:fs/promises';
