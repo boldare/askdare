@@ -31,7 +31,7 @@ for (const preset of PRESETS) {
       await page.setViewportSize({ width: 400, height: 640 });
       for (const state of STATES) {
         await page.goto(`${APP}?${new URLSearchParams({ gallery: state, preset, scheme })}`);
-        await page.locator('[data-cd-part="panel"]').waitFor();
+        await page.locator('[data-ask-part="panel"]').waitFor();
         expect(await violations(page), `${state}`).toEqual([]);
       }
     });
@@ -42,5 +42,5 @@ test('the launcher on a host page has no axe violations', async ({ page }) => {
   await page.goto('http://127.0.0.1:4100/');
   await page.locator('[part="launcher"]').waitFor();
   // Only the widget's element: the test page's own markup is not ours to check.
-  expect(await violations(page, '[data-chatdock]')).toEqual([]);
+  expect(await violations(page, '[data-askdare]')).toEqual([]);
 });

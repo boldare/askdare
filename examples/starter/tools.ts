@@ -1,4 +1,4 @@
-import { defineTool } from '@boldare/chatdock';
+import { defineTool } from '@boldare/askdare';
 import { z } from 'zod';
 
 /** Example without network access: the current time in a time zone. */

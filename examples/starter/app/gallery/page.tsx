@@ -21,7 +21,7 @@ const link = (active: boolean): CSSProperties => ({
 
 /**
  * Every state of the widget in one preset, scheme and width: for design review, and the source
- * of the visual tests. Needs CHATDOCK_GALLERY=1, which the chat route uses to allow fixtures.
+ * of the visual tests. Needs ASKDARE_GALLERY=1, which the chat route uses to allow fixtures.
  */
 export default async function Gallery({ searchParams }: { readonly searchParams: Search }) {
   const params = await searchParams;
@@ -30,7 +30,7 @@ export default async function Gallery({ searchParams }: { readonly searchParams:
   const width = pick(params.width, ['panel', 'mobile'] as const);
   const href = (change: Record<string, string>) =>
     `/gallery?${new URLSearchParams({ preset, scheme, width, ...change })}`;
-  const enabled = process.env.CHATDOCK_GALLERY === '1';
+  const enabled = process.env.ASKDARE_GALLERY === '1';
 
   return (
     <main
@@ -59,7 +59,7 @@ export default async function Gallery({ searchParams }: { readonly searchParams:
           </a>
         ))}
       </nav>
-      {!enabled && <p>Start the app with CHATDOCK_GALLERY=1 to render the gallery.</p>}
+      {!enabled && <p>Start the app with ASKDARE_GALLERY=1 to render the gallery.</p>}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24 }}>
         {enabled &&
           STATES.map((state) => (

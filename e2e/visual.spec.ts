@@ -8,7 +8,7 @@ const STATES = ['welcome', 'conversation', 'streaming', 'attachments', 'error', 
 
 async function render(page: Page, query: Record<string, string>): Promise<void> {
   await page.goto(`${APP}?${new URLSearchParams(query)}`);
-  await page.locator('[data-cd-part="panel"]').waitFor();
+  await page.locator('[data-ask-part="panel"]').waitFor();
   await page.evaluate(() => document.fonts.ready);
 }
 

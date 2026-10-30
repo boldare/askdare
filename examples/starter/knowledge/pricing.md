@@ -5,7 +5,7 @@ url: https://example.com/pricing
 
 # Pricing and plans
 
-Brightloop is a fictional project management app used to demo chatdock. All prices are in euros and exclude VAT.
+Brightloop is a fictional project management app used to demo askdare. All prices are in euros and exclude VAT.
 
 | Plan     | Price                    | Users        | Highlights                                             |
 | -------- | ------------------------ | ------------ | ------------------------------------------------------ |

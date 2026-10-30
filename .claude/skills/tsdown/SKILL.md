@@ -3,7 +3,7 @@ name: tsdown
 description: Bundle TypeScript and JavaScript libraries with blazing-fast speed powered by Rolldown. Use when building libraries, generating type declarations, bundling for multiple formats, or migrating from tsup.
 ---
 
-> **Overrides for the chatdock repository.** These take precedence over everything below.
+> **Overrides for the askdare repository.** These take precedence over everything below.
 > - **ESM only:** `format: 'esm'`. Ignore the `cjs`, `iife` and `umd` examples, `shims` and `cjsDefault`.
 > - **No `minify`** for library builds; consumers' bundlers minify.
 > - **Declarations and externals:** keep `dts: true` (we use `isolatedDeclarations`). Keep `openai`, `next`, `react` and `zod` external.

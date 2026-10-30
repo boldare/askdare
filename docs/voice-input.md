@@ -24,7 +24,7 @@ Limits (in `limits`): `transcriptionsPerVisitorPerHour` (default 30), and speech
 - While recording, the widget shows "Listening…", a level meter and a timer. **Done** stops and transcribes; **×** or Escape cancels. Closing the chat or switching tabs cancels too, and recording stops by itself at `maxSeconds`.
 - Chrome, Firefox and Edge record WebM/Opus, Safari records MP4. The server checks the format from the file's bytes before sending it to OpenAI.
 - The visitor's browser languages and the widget locale are sent as hints, which helps with short phrases.
-- chatdock keeps no audio. The recording goes to OpenAI's transcription API and nowhere else.
+- askdare keeps no audio. The recording goes to OpenAI's transcription API and nowhere else.
 
 ## Embedding
 

@@ -1,10 +1,12 @@
-# chatdock
+# askdare
+
+**Dare to ask.** An AI assistant for any website, in one script tag.
 
 > **Status: pre-alpha, under active development. Not published yet.**
 
-`@boldare/chatdock` is a Next.js library for adding an AI chatbot, built on the official OpenAI SDK, to any website. It takes one route file and one `<script>` tag.
+`@boldare/askdare` is a Next.js library for adding an AI chatbot, built on the official OpenAI SDK, to any website. It takes one route file and one `<script>` tag.
 
-It succeeds [`@boldare/openai-assistant`](https://github.com/boldare/openai-assistant), which stopped working when OpenAI shut down the Assistants API on 2026-08-26. chatdock is a new, independent project built on the Responses API.
+It succeeds [`@boldare/openai-assistant`](https://github.com/boldare/openai-assistant), which stopped working when OpenAI shut down the Assistants API on 2026-08-26. askdare is a new, independent project built on the Responses API.
 
 ## What it does
 
@@ -21,19 +23,19 @@ It succeeds [`@boldare/openai-assistant`](https://github.com/boldare/openai-assi
 In a Next.js 16 app with the App Router:
 
 ```bash
-npm install @boldare/chatdock zod
-npx @boldare/chatdock init      # route, bot config, .env.local and the chat script
-# set OPENAI_API_KEY and CHATDOCK_MODEL in .env.local
+npm install @boldare/askdare zod
+npx @boldare/askdare init      # route, bot config, .env.local and the chat script
+# set OPENAI_API_KEY and ASKDARE_MODEL in .env.local
 npm run dev
-npx @boldare/chatdock doctor    # checks the key, model, permissions and headers
+npx @boldare/askdare doctor    # checks the key, model, permissions and headers
 ```
 
 The whole integration is two files:
 
 ```ts
 // app/api/chat/[...path]/route.ts
-import { createChatHandler } from '@boldare/chatdock/next';
-import { bots } from '../../../../chatdock.config';
+import { createChatHandler } from '@boldare/askdare/next';
+import { bots } from '../../../../askdare.config';
 
 export const maxDuration = 300;
 export const { GET, POST, DELETE } = createChatHandler({ bots });
@@ -54,7 +56,7 @@ export const { GET, POST, DELETE } = createChatHandler({ bots });
 - [Support](docs/support.md): versions, browsers and download sizes
 - [Threat model](THREAT_MODEL.md) and [streaming protocol](docs/protocol.md)
 
-For AI coding agents: [`llms.txt`](llms.txt), and the [`chatdock` skill](skills/chatdock/SKILL.md). The docs also ship in the package, under `node_modules/@boldare/chatdock/docs/`.
+For AI coding agents: [`llms.txt`](llms.txt), and the [`askdare` skill](skills/askdare/SKILL.md). The docs also ship in the package, under `node_modules/@boldare/askdare/docs/`.
 
 ## Design decisions
 

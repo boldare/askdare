@@ -19,20 +19,40 @@ We weighed three shapes:
 
 We build a **library for Next.js**, structured as a small core plus optional add-ons in one monorepo.
 
-- **Core:** a single npm package, `@boldare/chatdock`. It is ESM-only and exposes subpath exports:
-  - `@boldare/chatdock`: `defineBot`, `defineTool`, domain types.
-  - `@boldare/chatdock/next`: `createChatHandler`.
-  - `@boldare/chatdock/react`: headless UI, from 0.2.
+- **Core:** a single npm package, `@boldare/askdare`. It is ESM-only and exposes subpath exports:
+  - `@boldare/askdare`: `defineBot`, `defineTool`, domain types.
+  - `@boldare/askdare/next`: `createChatHandler`.
+  - `@boldare/askdare/react`: headless UI, from 0.2.
   - A `bin` with the CLI (`init`, `doctor`, `kb sync`).
 - **Add-ons:** separate packages that implement core ports, added only when needed:
-  - `@boldare/chatdock-upstash`: shared limits, in 0.1.
-  - `@boldare/chatdock-store-postgres` and `@boldare/chatdock-admin`: later, on demand.
+  - `@boldare/askdare-upstash`: shared limits, in 0.1.
+  - `@boldare/askdare-store-postgres` and `@boldare/askdare-admin`: later, on demand.
 - **Scaffolding:** `create-next-app --example` pointing at `examples/starter`. There is no `create-*` package.
 - **Integration surface:** one route file plus one `<script>` tag.
 - **Naming:**
-  - the package is `@boldare/chatdock`, and add-ons are `@boldare/chatdock-*`;
-  - the CLI binary is `chatdock`, run as `npx @boldare/chatdock <command>`;
+  - the package is `@boldare/askdare`, and add-ons are `@boldare/askdare-*`;
+  - the CLI binary is `askdare`, run as `npx @boldare/askdare <command>`;
   - no "OpenAI" or "GPT" in any name (OpenAI brand guidelines).
+- **A new name, not version 2 of `@boldare/openai-assistant`** (2026-10-30). Users of 1.x can't upgrade in place: it was a NestJS module with an Angular widget, and this is a Next.js library. The old name also carries "OpenAI" and points to the API that was shut down. The old package is deprecated in favour of this one when this one is published, and the migration guide maps the old concepts to the new ones.
+
+### The name: askdare (2026-10-30)
+
+The project started as **chatdock**. Before the first release it was renamed to **askdare**:
+
+- **Why not chatdock:** a Shopify app called "ChatDock: Chat Button Pro" sells a chat button for websites, the same category, and the name had no link to Boldare.
+- **The new name:** "ask" plus the "dare" of Boldare (bold + dare). Its tagline is "Dare to ask", in Polish "Śmiało, pytaj".
+- **Names ruled out:**
+  - BoldChat, a known live chat product;
+  - ChatBLDR, an existing document chatbot;
+  - chatbol, which reads as a typo of "chatbot", and in Polish as "czat-ból" ("chat pain").
+- **What the rename touched:**
+  - the package names and the CLI;
+  - the browser global `window.askdare` and the `data-askdare` attributes;
+  - the `ASKDARE_*` environment variables;
+  - the CSS prefixes `--ask-*` and `data-ask-*`;
+  - the protocol headers and storage keys.
+
+Nothing had been published, so no user code broke.
 
 ## Consequences
 

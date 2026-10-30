@@ -1,15 +1,15 @@
 {
-  "name": "chatdock-starter",
+  "name": "askdare-starter",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "kb:sync": "chatdock kb sync knowledge"
+    "kb:sync": "askdare kb sync knowledge"
   },
   "dependencies": {
-    "@boldare/chatdock": "workspace:*",
+    "@boldare/askdare": "workspace:*",
     "@fontsource-variable/atkinson-hyperlegible-next": "5.3.0",
     "@fontsource-variable/geist": "5.3.0",
     "@fontsource-variable/plus-jakarta-sans": "5.3.0",

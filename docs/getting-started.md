@@ -12,22 +12,22 @@ No Next.js app yet? Create one with the [Next.js installation guide](https://nex
 
 The [going-public checklist](going-public.md) covers restricted keys and model allowlists before you go live.
 
-## 2. Add chatdock
+## 2. Add askdare
 
 In the folder of your app:
 
 ```bash
-npm install @boldare/chatdock zod
-npx @boldare/chatdock init
+npm install @boldare/askdare zod
+npx @boldare/askdare init
 ```
 
 Use `pnpm add`, `yarn add` or `bun add` if that's what your app uses. `init` adds:
 
 | File | What it is |
 |---|---|
-| `chatdock.config.ts` | Your bot: its model, instructions, the sites that may embed it, and how the chat looks. |
+| `askdare.config.ts` | Your bot: its model, instructions, the sites that may embed it, and how the chat looks. |
 | `app/api/chat/[...path]/route.ts` | The single route that serves the chat, its API and its assets. |
-| `.env.local` | `OPENAI_API_KEY`, a generated `CHAT_SECRET` and `CHATDOCK_MODEL`. It also makes sure `.gitignore` covers the file. |
+| `.env.local` | `OPENAI_API_KEY`, a generated `CHAT_SECRET` and `ASKDARE_MODEL`. It also makes sure `.gitignore` covers the file. |
 | `app/layout.tsx` | One `<script>` tag that shows the chat button on every page. |
 
 It never overwrites a file, so it's safe to run again.
@@ -36,16 +36,16 @@ It never overwrites a file, so it's safe to run again.
 
 ```bash
 OPENAI_API_KEY=sk-...        # the key from step 1
-CHATDOCK_MODEL=...           # a current model, see https://platform.openai.com/docs/models
+ASKDARE_MODEL=...           # a current model, see https://platform.openai.com/docs/models
 ```
 
-chatdock never picks a model for you: models change every few months, and the choice decides your costs.
+askdare never picks a model for you: models change every few months, and the choice decides your costs.
 
 ## 4. Run it and check it
 
 ```bash
 npm run dev
-npx @boldare/chatdock doctor
+npx @boldare/askdare doctor
 ```
 
 Open http://localhost:3000. The chat button is in the bottom-right corner.
@@ -65,7 +65,7 @@ Bot "support"
 
 The chat can live on any site, not only on your Next.js app:
 
-1. Add the site to `security.allowedOrigins` in `chatdock.config.ts`, for example `['https://www.example.com']`.
+1. Add the site to `security.allowedOrigins` in `askdare.config.ts`, for example `['https://www.example.com']`.
 2. Paste one tag into that site's HTML:
 
    ```html

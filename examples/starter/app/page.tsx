@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import { DEMO_BOTS } from '@/chatdock.config';
+import { DEMO_BOTS } from '@/askdare.config';
 import { HeroShape } from './_shape/hero-shape';
 import { ChatScript } from './chat-script';
 import { NavMenu } from './nav-menu';
@@ -60,12 +60,12 @@ const STEPS = [
   {
     title: 'Install',
     text: 'Add the library and zod to your Next.js app.',
-    code: 'npm install @boldare/chatdock zod',
+    code: 'npm install @boldare/askdare zod',
   },
   {
     title: 'Set up',
     text: 'init writes the chat route, a bot to start from and the environment template.',
-    code: 'npx @boldare/chatdock init',
+    code: 'npx @boldare/askdare init',
   },
   {
     title: 'Embed',
@@ -103,7 +103,7 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
           />
         </a>
         <span className="product">
-          chatdock
+          askdare
           <small>Open source chat for Next.js, on OpenAI</small>
         </span>
         <NavMenu
@@ -124,7 +124,7 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
               <strong>in one script tag</strong>
             </h1>
             <p className="lead">
-              chatdock is a Next.js library by Boldare. It answers from your documents, calls your
+              askdare is a Next.js library by Boldare. It answers from your documents, calls your
               tools and fits your brand, with security built in.
             </p>
             <div className="actions">
@@ -139,7 +139,7 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
 
           <div className="stage">
             {inline ? (
-              <div id="chatdock-demo" className="chat-frame" />
+              <div id="askdare-demo" className="chat-frame" />
             ) : (
               <div className="shape-stage">
                 <HeroShape theme={theme} label="Open the chat" />
@@ -273,7 +273,7 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
       <footer className="footer">
         <Image src="/boldare-logo.svg" alt="Boldare" width={100} height={12} unoptimized />
         <p>
-          chatdock is an open-source project by <a href="https://www.boldare.com">Boldare</a>. MIT
+          askdare is an open-source project by <a href="https://www.boldare.com">Boldare</a>. MIT
           licensed.
         </p>
       </footer>
@@ -311,7 +311,7 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
         </nav>
       </div>
 
-      <ChatScript bot={DEMO_BOTS[theme]} {...(inline ? { target: '#chatdock-demo' } : {})} />
+      <ChatScript bot={DEMO_BOTS[theme]} {...(inline ? { target: '#askdare-demo' } : {})} />
     </div>
   );
 }

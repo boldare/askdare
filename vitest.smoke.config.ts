@@ -12,7 +12,7 @@ for (const file of ['.env.smoke.local', 'examples/starter/.env']) {
 }
 // process.env stores strings, so assigning undefined would set "undefined".
 for (const [name, fallback] of [
-  ['SMOKE_MODEL', 'CHATDOCK_MODEL'],
+  ['SMOKE_MODEL', 'ASKDARE_MODEL'],
   ['SMOKE_VECTOR_STORE_ID', 'KB_VECTOR_STORE_ID'],
 ] as const) {
   const value = process.env[fallback];

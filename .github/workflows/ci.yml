@@ -72,8 +72,8 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @boldare/chatdock run build
-      - run: pnpm --package=typescript@${{ matrix.typescript }} dlx tsc -p packages/chatdock/types-test
+      - run: pnpm --filter @boldare/askdare run build
+      - run: pnpm --package=typescript@${{ matrix.typescript }} dlx tsc -p packages/askdare/types-test
 
   secrets:
     name: secret scan

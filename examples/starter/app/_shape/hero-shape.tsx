@@ -9,7 +9,7 @@ import type { Stage } from './stage';
 const LIVE = '(min-width: 768px) and (pointer: fine)';
 
 const openChat = () => {
-  (window as { chatdock?: (command: 'open') => void }).chatdock?.('open');
+  (window as { askdare?: (command: 'open') => void }).askdare?.('open');
 };
 
 /**

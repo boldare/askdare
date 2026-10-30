@@ -9,11 +9,11 @@ import { useEffect } from 'react';
 export function ChatScript({ bot, target }: { readonly bot: string; readonly target?: string }) {
   useEffect(() => {
     // Development runs effects twice; one script is enough.
-    if (document.querySelector('script[data-chatdock-demo]')) return;
+    if (document.querySelector('script[data-askdare-demo]')) return;
     const script = document.createElement('script');
     script.src = `/api/chat/widget.js?bot=${encodeURIComponent(bot)}`;
     script.async = true;
-    script.dataset['chatdockDemo'] = '';
+    script.dataset['askdareDemo'] = '';
     if (target) {
       script.dataset['mode'] = 'inline';
       script.dataset['target'] = target;

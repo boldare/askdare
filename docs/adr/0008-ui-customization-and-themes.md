@@ -20,17 +20,17 @@ Simple changes are configuration; hard changes are code. Logic (streaming, secur
 | Layer | Mechanism | Version |
 |---|---|---|
 | 1. Configuration | `widget: {...}` in `defineBot`: typed, Zod-validated | 0.1 |
-| 2. Custom CSS | `widget.css` injected into the iframe. Library styles live in `@layer chatdock`, so user CSS wins without `!important`. Stable parts via `[data-cd-part]` plus state attributes. The launcher is stylable from host CSS via `::part`. | 0.1 |
-| 3. Host page JavaScript | `chatdock('open' \| 'close' \| 'configure')`, `data-launcher="none"` for a custom trigger, `data-mode="inline"` | 0.1 |
-| 4. Headless React | `@boldare/chatdock/react`: `useChat()`, primitives `<Chat.*>`, slots, `toolRenderers` | 0.2 |
-| 5. Eject | `npx @boldare/chatdock add ui` copies the default UI source into the user's repo, shadcn-style | 0.2 |
+| 2. Custom CSS | `widget.css` injected into the iframe. Library styles live in `@layer askdare`, so user CSS wins without `!important`. Stable parts via `[data-ask-part]` plus state attributes. The launcher is stylable from host CSS via `::part`. | 0.1 |
+| 3. Host page JavaScript | `askdare('open' \| 'close' \| 'configure')`, `data-launcher="none"` for a custom trigger, `data-mode="inline"` | 0.1 |
+| 4. Headless React | `@boldare/askdare/react`: `useChat()`, primitives `<Chat.*>`, slots, `toolRenderers` | 0.2 |
+| 5. Eject | `npx @boldare/askdare add ui` copies the default UI source into the user's repo, shadcn-style | 0.2 |
 
 ### Rules
 
 - **Two kinds of configuration.** Server config (model, instructions, tools, limits, secrets) and public config (`widget`) have separate types. `GET /config` serializes only the public part, and a CI test checks that no secret leaks through it.
-- **About 15 semantic tokens** (`--cd-*`); the rest of the palette is derived. Each derived accent is checked for contrast.
+- **About 15 semantic tokens** (`--ask-*`); the rest of the palette is derived. Each derived accent is checked for contrast.
 - **UI built as layers from day one:** a headless core, primitives and a default skin. Layers 4 and 5 then only *expose* existing code.
-- **Runtime overrides are allowlisted.** `chatdock('configure')` accepts only texts, starters and page context. Page context is off unless a bot opts in, and then travels in the visitor's own turn (user role) with a length cap, never in `instructions` (changed in step 4.1 after the security review: instructions outrank visitor text).
+- **Runtime overrides are allowlisted.** `askdare('configure')` accepts only texts, starters and page context. Page context is off unless a bot opts in, and then travels in the visitor's own turn (user role) with a length cap, never in `instructions` (changed in step 4.1 after the security review: instructions outrank visitor text).
 - **Accessibility cannot be configured away.** Dev mode warns about weak contrast, and the focus ring is always visible.
 
 ### Built-in presets
@@ -53,9 +53,9 @@ Each preset is a set of tokens plus defaults for these component variants:
 - `density`
 - `composer`
 
-Update (2026-10-29): Aura replaced Halo as the default, and Aura, Halo and Sage moved closer to their inspirations. Each preset now also has a few rules of its own in the widget stylesheet, written only with parts, tokens and variant attributes (`:root[data-cd-preset="…"]`), the same means a site has in `widget.css`.
+Update (2026-10-29): Aura replaced Halo as the default, and Aura, Halo and Sage moved closer to their inspirations. Each preset now also has a few rules of its own in the widget stylesheet, written only with parts, tokens and variant attributes (`:root[data-ask-preset="…"]`), the same means a site has in `widget.css`.
 
-Implementation (step 3.6): 17 tokens (11 colors, the backdrop and orb paint, two font families, base size, radius); see [Themes](../themes.md). The server renders a bot's theme as a content-hashed stylesheet (the iframe CSP forbids inline styles) and sets the variants as `data-cd-*` attributes on the iframe document. The requested bot's launcher look is inlined into `widget.js?bot=<id>` (only that bot's, so the script never lists other bots), and the launcher is drawn right on first paint without another request.
+Implementation (step 3.6): 17 tokens (11 colors, the backdrop and orb paint, two font families, base size, radius); see [Themes](../themes.md). The server renders a bot's theme as a content-hashed stylesheet (the iframe CSP forbids inline styles) and sets the variants as `data-ask-*` attributes on the iframe document. The requested bot's launcher look is inlined into `widget.js?bot=<id>` (only that bot's, so the script never lists other bots), and the launcher is drawn right on first paint without another request.
 
 ### Quality bar
 

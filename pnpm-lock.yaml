@@ -202,9 +202,9 @@ importers:
 
   examples/starter:
     dependencies:
-      '@boldare/chatdock':
+      '@boldare/askdare':
         specifier: workspace:*
-        version: link:../../packages/chatdock
+        version: link:../../packages/askdare
       '@fontsource-variable/atkinson-hyperlegible-next':
         specifier: 5.3.0
         version: 5.3.0
@@ -246,7 +246,7 @@ importers:
         specifier: ^7.0.2
         version: 7.0.2
 
-  packages/chatdock:
+  packages/askdare:
     dependencies:
       jose:
         specifier: ^6.2.13
@@ -301,14 +301,14 @@ importers:
         specifier: ^4.6.7
         version: 4.6.7
 
-  packages/chatdock-upstash:
+  packages/askdare-upstash:
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: ^0.18.5
         version: 0.18.5
-      '@boldare/chatdock':
+      '@boldare/askdare':
         specifier: workspace:^
-        version: link:../chatdock
+        version: link:../askdare
       '@upstash/redis':
         specifier: ^1.40.0
         version: 1.40.0

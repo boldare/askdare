@@ -1,9 +1,9 @@
 ---
 name: openai-api
-description: Rules for any code or docs in chatdock that touch the OpenAI API (Responses, Conversations, Files, vector stores, file_search, transcription). Use before adding or changing an OpenAI call, parameter, model reference, stream mapping or fixture.
+description: Rules for any code or docs in askdare that touch the OpenAI API (Responses, Conversations, Files, vector stores, file_search, transcription). Use before adding or changing an OpenAI call, parameter, model reference, stream mapping or fixture.
 ---
 
-# Working with the OpenAI API in chatdock
+# Working with the OpenAI API in askdare
 
 ## 1. Check the docs first: your memory is stale
 
@@ -24,7 +24,7 @@ The OpenAI platform changes monthly. Assistants and Prompts were shut down, and 
 
 ## 3. Boundaries
 
-- Only `packages/chatdock/src/openai/` imports `openai`. Everything else uses our domain types.
+- Only `packages/askdare/src/openai/` imports `openai`. Everything else uses our domain types.
 - Map OpenAI stream events to our versioned SSE protocol (`src/protocol/`). **Never forward raw events**; tool arguments, tool outputs and reasoning stay on the server.
 - When mapping items or events, **ignore unknown types**. New variants appear in SDK minor releases.
 - No OpenAI types in exported signatures. The no-leak test enforces this.
@@ -47,7 +47,7 @@ The OpenAI platform changes monthly. Assistants and Prompts were shut down, and 
   - On the last allowed step function calls are switched off: `tool_choice: 'none'`, or `allowed_tools` with only `file_search` when the bot has a knowledge base (keeps the tool list and prompt cache intact).
 - Knowledge base (`file_search`):
   - Send `include: ['file_search_call.results']` on `responses.create` and on `conversations.items.list`. Citations take their title and URL from the results' file attributes.
-  - `chatdock kb sync` owns the attributes `path`, `sha256`, `title` and `url` (max 16 keys, values up to 512 characters). Change them in one place: `src/openai/knowledge-sync.ts` and `src/openai/citations.ts`.
+  - `askdare kb sync` owns the attributes `path`, `sha256`, `title` and `url` (max 16 keys, values up to 512 characters). Change them in one place: `src/openai/knowledge-sync.ts` and `src/openai/citations.ts`.
   - Only http(s) URLs from attributes reach the client.
 - Transcription: the model comes from bot config (`gpt-transcribe` today; `whisper-1` and `gpt-4o-*-transcribe` shut down on 2027-02-26). Send hints as `languages` (not `language`); the API refuses unsupported codes, so retry without them. `gpt-transcribe` reports usage as `{ type: 'duration', seconds }`, so budgets for speech are in seconds. Accepted containers: webm, mp4/m4a, wav, mp3 (not ogg).
 - Attachments: upload with purpose `user_data` and `expires_after` (30 days, the maximum). Images go in as `input_image` with `file_id`, PDFs as `input_file`. File IDs reach the model only from verified attachment handles, never from the client (spike S1, E7–E9).

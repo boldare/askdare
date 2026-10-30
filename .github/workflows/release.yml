@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   release:
-    if: github.repository == 'boldare/chatdock'
+    if: github.repository == 'boldare/askdare'
     runs-on: ubuntu-latest
     permissions:
       contents: write # version commits and tags

@@ -1,6 +1,6 @@
 # Knowledge base
 
-A bot can answer from your own documents. chatdock uploads them to an OpenAI vector store, the model searches it with OpenAI file search, and each answer cites its sources as links to your pages.
+A bot can answer from your own documents. askdare uploads them to an OpenAI vector store, the model searches it with OpenAI file search, and each answer cites its sources as links to your pages.
 
 ## 1. Prepare a folder
 
@@ -17,7 +17,7 @@ Give each document a title and the public URL that citations should link to:
   ---
   ```
 
-- Any file, for example a PDF: `chatdock.kb.json` in the folder root, keyed by path inside the folder.
+- Any file, for example a PDF: `askdare.kb.json` in the folder root, keyed by path inside the folder.
 
   ```json
   {
@@ -30,7 +30,7 @@ Without a title the file name is used. Without a URL the citation is shown as pl
 ## 2. Sync
 
 ```bash
-npx chatdock kb sync knowledge
+npx askdare kb sync knowledge
 ```
 
 - Reads `OPENAI_API_KEY` from the environment, `.env.local` or `.env` (or `--env-file <path>`).
@@ -38,7 +38,7 @@ npx chatdock kb sync knowledge
 - Later runs pass the store through `KB_VECTOR_STORE_ID` or `--store vs_…` and change only what changed: new and edited files are uploaded, removed files are deleted, a new title or URL only updates the file's attributes. A second run without changes does nothing.
 - `--dry-run` shows the plan without changing anything.
 
-The store is the source of truth: every file carries its path, content hash, title and URL as attributes, so no state is kept locally and the command can run from CI. Files in the store that chatdock did not upload are left alone.
+The store is the source of truth: every file carries its path, content hash, title and URL as attributes, so no state is kept locally and the command can run from CI. Files in the store that askdare did not upload are left alone.
 
 Vector stores belong to an OpenAI project. Use one store per environment (development, staging, production), each with its own `KB_VECTOR_STORE_ID`.
 

@@ -7,7 +7,7 @@ metadata:
   version: "1.0.0"
 ---
 
-> **Overrides for the chatdock repository.** These take precedence over everything below.
+> **Overrides for the askdare repository.** These take precedence over everything below.
 > - **This is a library, not an app.** Rules about `next/script`, `next/dynamic`, root layouts and app-level `next.config` don't apply to library code.
 > - **No new runtime dependencies** (swr, better-all, lru-cache, @vercel/analytics, …) without the user's approval.
 > - **No inline `<script>` and no `dangerouslySetInnerHTML`.**

@@ -1,16 +1,16 @@
 # Signed-in visitors
 
-When your site knows who is signed in, the assistant can too: a tool can look up *this* user's orders, and the instructions can greet them by name. The model never decides who the visitor is. Your backend signs a short token, and chatdock checks it. The design is in [ADR-0009](adr/0009-visitor-identity.md).
+When your site knows who is signed in, the assistant can too: a tool can look up *this* user's orders, and the instructions can greet them by name. The model never decides who the visitor is. Your backend signs a short token, and askdare checks it. The design is in [ADR-0009](adr/0009-visitor-identity.md).
 
 ## 1. Share a secret
 
-Generate a secret and give it to both your site's backend and the chatdock app:
+Generate a secret and give it to both your site's backend and the askdare app:
 
 ```bash
 openssl rand -base64 32   # IDENTITY_SECRET; it must differ from CHAT_SECRET
 ```
 
-Without `IDENTITY_SECRET` in the chatdock app, identity is off and every visitor is anonymous.
+Without `IDENTITY_SECRET` in the askdare app, identity is off and every visitor is anonymous.
 
 ## 2. Sign the user in on your backend
 
@@ -57,15 +57,15 @@ Any language with a JWT library works the same way.
 
 ```html
 <script>
-  window.chatdock = window.chatdock || function () {
-    (window.chatdock.q = window.chatdock.q || []).push(arguments);
+  window.askdare = window.askdare || function () {
+    (window.askdare.q = window.askdare.q || []).push(arguments);
   };
-  chatdock('identify', '<the token your backend rendered into the page>');
+  askdare('identify', '<the token your backend rendered into the page>');
 </script>
 <script src="https://app.example.com/api/chat/widget.js?bot=support" async></script>
 ```
 
-- On sign-out, call `chatdock('identify', null)`. Anything that isn't a token, `undefined` included, signs out too. Single-page apps call `identify` whenever the user changes; repeating the same token costs nothing.
+- On sign-out, call `askdare('identify', null)`. Anything that isn't a token, `undefined` included, signs out too. Single-page apps call `identify` whenever the user changes; repeating the same token costs nothing.
 - The chat sends the token with every session request, about every 15 minutes, and the server checks it each time. The identity ends with the token's `exp`; after that the chat continues anonymously until the page calls `identify` with a fresh token. Long-lived pages should do that before `exp`.
 - A token that fails the check leaves the chat anonymous. The browser console says why: `signature`, `expired`, `audience`, `lifetime`, `claims`, `too_large`, `malformed`, or `disabled` when the app has no `IDENTITY_SECRET`.
 
@@ -77,7 +77,7 @@ defineBot({
   instructions: ({ locale, identity }) =>
     [
       'You are the assistant of our store.',
-      // The name is the user's own text: quoted, and one line (chatdock removes line breaks).
+      // The name is the user's own text: quoted, and one line (askdare removes line breaks).
       identity ? `The visitor is signed in as "${identity.name ?? identity.id}".` : 'The visitor is not signed in.',
       `Reply in ${locale}.`,
     ].join(' '),
