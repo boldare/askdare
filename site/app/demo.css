@@ -217,6 +217,16 @@ body {
   letter-spacing: -0.01em;
 }
 
+/* BLDR's yellow is too light for text: ink on a yellow label with a hard shadow, like boldare.com. */
+.demo[data-theme="bldr"] .product small {
+  margin-top: 4px;
+  padding: 1px 6px;
+  background-clip: border-box;
+  -webkit-background-clip: border-box;
+  color: var(--ink);
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
 .menu {
   margin-left: auto;
 }
