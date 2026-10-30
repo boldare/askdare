@@ -35,6 +35,10 @@ const onNpm = (name, version) => {
   }
 };
 
+/** Whether the tag is on GitHub already (the checkout fetches no tags). */
+const tagged = (tag) =>
+  run('git', ['ls-remote', '--tags', 'origin', `refs/tags/${tag}`], repo) !== '';
+
 let released = 0;
 for (const dir of PACKAGES) {
   const {
@@ -49,6 +53,11 @@ for (const dir of PACKAGES) {
   }
   if (onNpm(name, version)) {
     console.log(`${name}@${version}: already on npm.`);
+    // A run that failed on a later package published this one but pushed no tag: a rerun adds it.
+    if (mode === 'publish' && !dryRun && !tagged(`${name}@${version}`)) {
+      run('git', ['tag', `${name}@${version}`], repo);
+      console.log(`New tag: ${name}@${version}`);
+    }
     continue;
   }
   // A pre-release goes under its own tag (0.1.0-rc.1 → rc), a release under latest.
