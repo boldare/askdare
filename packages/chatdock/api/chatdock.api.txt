@@ -87,6 +87,8 @@ declare const EN: {
   readonly "header.newConversation": "Start a new conversation";
   readonly "header.close": "Close chat";
   readonly "confirm.newConversation": "Start a new conversation? The current one will be deleted.";
+  readonly "confirm.cancel": "Cancel";
+  readonly "confirm.accept": "Start new";
   readonly "welcome.label": "Welcome";
   readonly "welcome.greeting": "Hi! How can I help?";
   readonly "welcome.online": "Online";
