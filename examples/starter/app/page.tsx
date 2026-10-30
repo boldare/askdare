@@ -228,8 +228,17 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
                   <h3>{item.name}</h3>
                   <p>{item.note}</p>
                 </div>
-                <a href={href({ theme: item.id })}>
-                  {item.id === theme ? 'You are looking at it' : `Try ${item.name}`}
+                <a
+                  href={href({ theme: item.id })}
+                  aria-current={item.id === theme ? 'true' : undefined}
+                >
+                  {item.id === theme ? (
+                    'You are looking at it'
+                  ) : (
+                    <>
+                      Try {item.name} <span className="arrow">→</span>
+                    </>
+                  )}
                 </a>
               </li>
             ))}
@@ -243,8 +252,17 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
                   <p>{CUSTOM.note}</p>
                 </div>
                 <code>{"defineTheme({ extends: 'halo', tokens: { radius: '0px', … } })"}</code>
-                <a href={href({ theme: CUSTOM.id })}>
-                  {theme === CUSTOM.id ? 'You are looking at it' : 'See your brand in it'}
+                <a
+                  href={href({ theme: CUSTOM.id })}
+                  aria-current={theme === CUSTOM.id ? 'true' : undefined}
+                >
+                  {theme === CUSTOM.id ? (
+                    'You are looking at it'
+                  ) : (
+                    <>
+                      See your brand in it <span className="arrow">→</span>
+                    </>
+                  )}
                 </a>
               </li>
             )}

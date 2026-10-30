@@ -811,8 +811,9 @@
     color: var(--cd-color-on-accent);
   }
 
+  /* Towards the background, so it shows whatever the accent: dark, light or close to the text. */
   [data-cd-part="confirm-accept"]:hover {
-    background: color-mix(in srgb, var(--cd-color-accent) 88%, var(--cd-color-text));
+    background: color-mix(in srgb, var(--cd-color-accent) 80%, var(--cd-color-background));
   }
 
   @keyframes cd-fade {
