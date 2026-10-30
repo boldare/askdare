@@ -7,7 +7,7 @@
     "name": "Boldare",
     "url": "https://www.boldare.com"
   },
-  "homepage": "https://github.com/boldare/askdare#readme",
+  "homepage": "https://askdare.vercel.app",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/boldare/askdare.git",

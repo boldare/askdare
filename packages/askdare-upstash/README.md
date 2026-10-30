@@ -2,6 +2,8 @@
 
 Shared rate limits and token budgets for [`@boldare/askdare`](https://www.npmjs.com/package/@boldare/askdare), stored in [Upstash Redis](https://upstash.com/).
 
+**[askdare website and docs](https://askdare.vercel.app)** · [GitHub](https://github.com/boldare/askdare/tree/main/packages/askdare-upstash)
+
 askdare counts limits in each instance's memory by default. That is enough for one server or one Heroku dyno. On Vercel, or with several dynos, every instance would count on its own, so a visitor could get several times the limit. This add-on keeps the counters in one Redis database that all instances share.
 
 ## Install
