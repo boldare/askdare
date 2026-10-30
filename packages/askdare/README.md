@@ -1,5 +1,9 @@
 # @boldare/askdare
 
+[![askdare: an AI assistant for any website, in one script tag. A chat panel answers a question about a pricing plan with a list, a table and two cited sources.](https://raw.githubusercontent.com/boldare/askdare/main/.github/assets/askdare-hero.png)](https://askdare.vercel.app)
+
+**[Website and live demo](https://askdare.vercel.app)** · **[Documentation](https://askdare.vercel.app/docs)** · [GitHub](https://github.com/boldare/askdare) · [Changelog](https://github.com/boldare/askdare/blob/main/packages/askdare/CHANGELOG.md)
+
 **Dare to ask.** An AI chatbot for any website, served by your Next.js app and built on the official OpenAI SDK. One route file, one `<script>` tag, no database.
 
 - Embeds anywhere through a small loader and an isolated iframe, limited to the sites you list.
@@ -55,7 +59,7 @@ Other sites embed the same chat with one tag:
 
 ## Documentation
 
-The guides ship with the package in `node_modules/@boldare/askdare/docs/`, starting with `getting-started.md`; `configuration.md`, `cli.md` and `troubleshooting.md` are the references. They are also on [GitHub](https://github.com/boldare/askdare/tree/main/docs). AI coding agents can start from `node_modules/@boldare/askdare/llms.txt`, or use the skill in `node_modules/@boldare/askdare/skills/askdare/` (copy the folder into `.claude/skills/`).
+The guides ship with the package in `node_modules/@boldare/askdare/docs/`, starting with `getting-started.md`; `configuration.md`, `cli.md` and `troubleshooting.md` are the references. They are also on the [website](https://askdare.vercel.app/docs), with search, and on [GitHub](https://github.com/boldare/askdare/tree/main/docs). AI coding agents can start from `node_modules/@boldare/askdare/llms.txt`, or use the skill in `node_modules/@boldare/askdare/skills/askdare/` (copy the folder into `.claude/skills/`).
 
 ## Requirements
 
