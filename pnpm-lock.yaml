@@ -203,7 +203,7 @@ importers:
   examples/starter:
     dependencies:
       '@boldare/askdare':
-        specifier: ^0.1.0-rc.0
+        specifier: ^0.1.0-rc.1
         version: link:../../packages/askdare
       next:
         specifier: ^16.4.3
