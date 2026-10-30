@@ -556,10 +556,13 @@ body {
 .shape {
   position: relative;
   display: grid;
-  /* The picture has room around the shape: the margins below take it back. */
-  width: min(520px, 100%, calc(var(--stage-height) + 88px));
+  /* Large on wide screens: it grows with the window, up to what the stage's height allows. It is
+     wider than its 400px box and centered on it: the side margins split the difference. The
+     picture has room around the shape: the top and bottom margins take it back. */
+  --size: min(640px, 48vw, calc(var(--stage-height) + 120px));
+  width: var(--size);
   aspect-ratio: 1;
-  margin: -40px 0 -48px;
+  margin: -52px calc(50% - var(--size) / 2) -60px;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -1246,6 +1249,7 @@ body:has(.demo[data-theme="bldr"]) [data-askdare]::part(launcher) {
 
   .shape {
     width: min(520px, 100%);
+    margin: -40px 0 -48px;
   }
 }
 
