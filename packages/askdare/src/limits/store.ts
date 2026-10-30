@@ -30,6 +30,13 @@ export interface MemoryStoreOptions {
 
 /** Windows up to this length are short-lived rate counters and may be evicted under pressure. */
 const EVICTABLE_WINDOW_MS = 60 * 60_000;
+/** Expired windows are dropped at least this often: their keys hold IP addresses. */
+const SWEEP_INTERVAL_MS = 60_000;
+
+/** The in-process store, with the number of windows it holds (for tests and diagnostics). */
+export interface MemoryStore extends RateLimitStore {
+  readonly size: number;
+}
 
 interface Window {
   count: number;
@@ -38,19 +45,26 @@ interface Window {
 }
 
 /**
- * Per-process counters, kept in least-recently-used order. When full, it drops expired windows,
- * then the least recently used short-lived rate counters. It never evicts long windows (budgets,
- * conversation lengths): when only those remain, it fails closed instead of forgetting spend.
+ * Per-process counters, kept in least-recently-used order. Expired windows are dropped every
+ * minute. When full, it also drops the least recently used short-lived rate counters. It never
+ * evicts long windows (budgets, conversation lengths): when only those remain, it fails closed
+ * instead of forgetting spend.
  */
-export function memoryStore(options: MemoryStoreOptions = {}): RateLimitStore {
+export function memoryStore(options: MemoryStoreOptions = {}): MemoryStore {
   const now = options.now ?? Date.now;
   const maxKeys = options.maxKeys ?? 50_000;
   const windows = new Map<string, Window>();
+  let sweptAt = now();
 
-  const makeRoom = (time: number): void => {
+  const sweep = (time: number): void => {
     for (const [key, window] of windows) {
       if (window.resetAt <= time) windows.delete(key);
     }
+    sweptAt = time;
+  };
+
+  const makeRoom = (time: number): void => {
+    sweep(time);
     for (const [key, window] of windows) {
       if (windows.size < maxKeys) return;
       if (window.windowMs <= EVICTABLE_WINDOW_MS) windows.delete(key);
@@ -62,8 +76,12 @@ export function memoryStore(options: MemoryStoreOptions = {}): RateLimitStore {
 
   return {
     shared: false,
+    get size() {
+      return windows.size;
+    },
     async hit(key, windowMs, amount) {
       const time = now();
+      if (time - sweptAt >= SWEEP_INTERVAL_MS) sweep(time);
       let window = windows.get(key);
       if (window && window.resetAt > time) {
         windows.delete(key); // re-inserted below: most recently used goes last

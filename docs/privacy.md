@@ -55,7 +55,7 @@ askdare needs no database. Your app keeps only rate-limit counters.
 - The client IP is used for rate limits and budgets only, never to identify anyone.
 - It isn't hashed. IPv4 addresses are kept whole; IPv6 addresses are cut to their /64 network. They are part of counter names, such as `ask:ti:<bot id>:<ip>:<date>`.
 - The counters live in the server's memory by default, in your Upstash database with `@boldare/askdare-upstash`, or in your own [store](custom-store.md).
-- Each counter lasts as long as its window: from a minute up to 2 days for the daily budgets. Upstash deletes a counter when its window ends. The memory store forgets an expired counter when it needs room, when the same counter is used again, or when the process restarts.
+- Each counter lasts as long as its window: from a minute up to 2 days for the daily budgets. Upstash deletes a counter when its window ends. The memory store drops expired counters within a minute, and everything when the process restarts.
 
 ### Visitor IDs
 

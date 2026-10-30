@@ -43,6 +43,11 @@ export interface TranscriptionReservation {
 
 /** Budget held for a turn in flight. Without `settle`, the estimate stays charged. */
 export interface TurnReservation {
+  /**
+   * Holds the budget for one more model call of this turn, before a round of tool calls. False
+   * when a budget can't cover it: the turn must then answer without tools.
+   */
+  extend(): Promise<boolean>;
   /** Replaces the estimate with real usage once the turn completed. */
   settle(usage: TokenUsage, conversationId: string): Promise<void>;
 }
@@ -200,6 +205,14 @@ export function createLimits(options: LimitsOptions): Limits {
         await reserve(list, reserved);
       } catch (error) {
         await release();
+        // Only speech is used up: typing still works, so say that rather than "unavailable".
+        if (error instanceof AskdareError && error.code === 'budget_exceeded') {
+          throw new AskdareError('budget_exceeded', {
+            retryAfterMs: Math.max(untilMidnight(), 1000),
+            message: 'Dictation is unavailable for the rest of the day. You can still type.',
+            key: 'error.dictationBudget',
+          });
+        }
         throw error;
       }
       return {
@@ -235,21 +248,33 @@ export function createLimits(options: LimitsOptions): Limits {
         await enforce(`ask:cc:${bot.id}:${keys.clientIp}`, HOUR, limits.conversationsPerIpPerHour);
       }
 
-      const estimate =
+      // One model call. Every call re-reads the history, the message and its files, so a tool
+      // round reserves another call (`extend`) only when it happens.
+      const perCall =
         historyTokens +
         Math.ceil(keys.inputChars / 2) +
         limits.maxOutputTokens +
-        // Every model call of the turn re-reads the files, and function tools add calls.
-        (keys.attachmentTokens ?? 0) * (bot.tools.length > 0 ? limits.maxSteps : 1) +
+        (keys.attachmentTokens ?? 0) +
         (bot.knowledge ? bot.knowledge.maxResults * SEARCH_RESULT_TOKENS : 0);
       const list = budgets(bot, keys.clientIp);
-      await reserve(list, estimate);
+      await reserve(list, perCall);
+      let reserved = perCall;
 
       return {
+        async extend() {
+          try {
+            await reserve(list, perCall);
+          } catch (error) {
+            if (error instanceof AskdareError && error.code === 'budget_exceeded') return false;
+            throw error;
+          }
+          reserved += perCall;
+          return true;
+        },
         async settle(usage, conversationId) {
           const actual = usage.inputTokens + usage.outputTokens;
           await Promise.all(
-            list.map((budget) => store.hit(budget.key, 2 * DAY, actual - estimate)),
+            list.map((budget) => store.hit(budget.key, 2 * DAY, actual - reserved)),
           );
           // Remember the conversation's size so the next turn's estimate includes its history.
           const inputKey = `ask:ci:${conversationId}`;

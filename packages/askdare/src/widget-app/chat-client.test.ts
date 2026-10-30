@@ -290,6 +290,21 @@ describe('ChatClient', () => {
     expect(events).toMatchObject([{ type: 'error', code: 'timeout' }]);
   });
 
+  it("shows the server's reason when it refuses a session, not a connection problem", async () => {
+    const explained = 'CHAT_SECRET is not set. Add it to .env.local and restart the app.';
+    const { fetch, calls } = fakeFetch({
+      session: () =>
+        Response.json({ error: { code: 'bot_unavailable', message: explained } }, { status: 503 }),
+      messages: () => {
+        throw new Error('no message without a session');
+      },
+    });
+    const events: ProtocolEvent[] = [];
+    await client(fetch).send({ text: 'Hi' }, (event) => events.push(event));
+    expect(events).toEqual([{ type: 'error', code: 'bot_unavailable', message: explained }]);
+    expect(calls.map((call) => call.url)).toEqual(['/api/chat/session']);
+  });
+
   it('reports network failures without throwing', async () => {
     const failing = (async () => {
       throw new TypeError('fetch failed');

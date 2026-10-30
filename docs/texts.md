@@ -170,6 +170,7 @@ The table is generated from the library's dictionaries with `pnpm --filter @bold
 | `error.recordingFormat` | This recording format is not supported. | Ten format nagrania nie jest obsługiwany. |
 | `error.recordingTooLong` | This recording is too long. | To nagranie jest zbyt długie. |
 | `error.dictationBusy` | Another dictation is still being transcribed. Please try again in a moment. | Poprzednie nagranie jest jeszcze przepisywane. Spróbuj za chwilę. |
+| `error.dictationBudget` | Dictation is unavailable for the rest of the day. You can still type. | Dyktowanie jest niedostępne do końca dnia. Wiadomość możesz nadal wpisać. |
 
 A dash (—) means the language has no text of its own for that plural category, so the widget shows the `other` text.
 <!-- END:generated-texts -->

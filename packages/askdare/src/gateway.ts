@@ -63,6 +63,11 @@ export interface TurnRequest {
   readonly messageId: string;
   readonly signal: AbortSignal;
   readonly emit: (event: ProtocolEvent) => void;
+  /**
+   * Holds the budget for one more model call before a round of tool calls. False when it can't:
+   * the step then answers without tools. Absent means every call is covered.
+   */
+  readonly reserveCall?: (() => Promise<boolean>) | undefined;
 }
 
 export interface TurnResult {

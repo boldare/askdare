@@ -176,7 +176,7 @@ Limits bound what visitors can cost ([ADR-0004](adr/0004-threat-model.md)). Ever
 What happens at a limit:
 
 - **Rates** answer `rate_limited`, with a `Retry-After` header. So does `maxTurns`, which asks the visitor to start a new conversation.
-- **Token budgets** answer `budget_exceeded` until midnight UTC. Before each turn, askdare reserves an estimate against `dailyTokens`, `dailyTokensPerIp` and the handler's `globalDailyTokens`. The estimate covers the conversation so far, the new message, `maxOutputTokens`, attached files and file search results. When the turn ends, the real usage replaces the estimate. A turn that fails or is cut off keeps the estimate charged.
+- **Token budgets** answer `budget_exceeded` until midnight UTC. Before each model call, askdare reserves an estimate against `dailyTokens`, `dailyTokensPerIp` and the handler's `globalDailyTokens`. The estimate covers the conversation so far, the new message, `maxOutputTokens`, attached files and file search results. A bot with tools reserves the next call before each tool round, and answers without tools when a budget can't hold it. When the turn ends, the real usage replaces the estimate. A turn that fails or is cut off keeps the estimate charged.
 - **Speech budgets** reserve `voice.maxSeconds` per dictation, then charge the duration OpenAI reports. When one is spent, dictation answers `budget_exceeded` until midnight UTC.
 - **`maxInputChars`** rejects a longer message with `invalid_input`.
 

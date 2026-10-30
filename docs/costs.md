@@ -81,17 +81,17 @@ Check OpenAI's pricing page for how file storage is billed.
 The budgets are checked before each message. A few things let the real number end up higher:
 
 - **Several instances with the default store.** Counters live in each instance's memory, so every instance allows the full budget, and a restart or deployment resets them. With more than one instance, use `@boldare/askdare-upstash` ([Going public](going-public.md#4-rate-limits-across-instances)).
-- **A message can use more than it reserved.** Before each message, askdare reserves an estimate against every budget:
+- **A message can use somewhat more than it reserved.** Before each model call, askdare reserves an estimate of that call against every budget:
 
   ```text
-  estimate = input tokens of the previous message in this conversation
+  one call = input tokens of the previous message in this conversation
            + characters of the instructions, message and page context / 2
            + maxOutputTokens
-           + tokens of the attached files (× maxSteps when the bot has tools)
+           + tokens of the attached files
            + maxResults × 800 (with a knowledge base)
   ```
 
-  When the message ends, the estimate is replaced by the real usage. A bot with tools can make up to `maxSteps` model calls per message, each with up to `maxOutputTokens` of output (5 × 1,024 = 5,120 tokens), and each reading the whole conversation again. The counter can then end above the budget; the next message is refused.
+  The first call is reserved before the message starts. A bot with tools reserves one more call before each round of tool calls; when a budget can't hold it, the model answers without tools instead. When the message ends, the reservations are replaced by the real usage. Tool results and the model's own earlier output in the same message aren't in the estimate, so the counter can end slightly above the budget; the next message is then refused.
 - **A message that fails, or is cut off by `turnTimeoutMs`, stays charged at its estimate,** whatever it really cost.
 - **Dictations in progress** can go over the day's speech budget once, before further dictation is blocked.
 - **The budgets count tokens only.** File search call fees, vector store storage, file storage, `doctor` runs and `kb sync` are not in them.
@@ -171,7 +171,7 @@ askdare's budgets count cached tokens in full, so they overestimate the cost whe
 ## Attachments
 
 - askdare reserves about 1,500 tokens per image and 2,000 per PDF page before the message. A 50-page PDF reserves 100,000 tokens, half of the default `dailyTokensPerIp`.
-- When the bot has tools, the file tokens are reserved once per possible model call (`maxSteps`), because each call reads the files again.
+- Every model call reads the files again. A bot with tools reserves the files once per call it actually makes, so a large PDF can mean the model answers without calling tools when the visitor's budget can't hold another call.
 - Keep attachments off for bots that don't need them, and lower `maxPdfPages` if long PDFs aren't expected. See [Attachments](attachments.md).
 
 ## Voice input

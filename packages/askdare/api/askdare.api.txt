@@ -175,6 +175,7 @@ declare const EN: {
   readonly "error.recordingFormat": "This recording format is not supported.";
   readonly "error.recordingTooLong": "This recording is too long.";
   readonly "error.dictationBusy": "Another dictation is still being transcribed. Please try again in a moment.";
+  readonly "error.dictationBudget": "Dictation is unavailable for the rest of the day. You can still type.";
 };
 /** Plural texts: the base plus a CLDR category, every category overridable. */
 declare const PLURAL_BASES: readonly ["message.attachments"];

@@ -75,6 +75,13 @@ const RENEW_MARGIN_SECONDS = 30;
 
 type ErrorEvent = Extract<ProtocolEvent, { type: 'error' }>;
 
+/** The server refused a session and said why: a limit, a switched-off bot, a setup problem. */
+class SessionRefused extends Error {
+  constructor(readonly event: ErrorEvent) {
+    super(event.message);
+  }
+}
+
 /**
  * Talks to the askdare API from the iframe: keeps the access token in memory, the resume token
  * in best-effort storage, and turns each send into a stream of protocol events. Network and
@@ -232,8 +239,8 @@ export class ChatClient {
         };
       }
       return { ok: true, file: { id: uploaded.id, kind: uploaded.kind, name: uploaded.name } };
-    } catch {
-      return { ok: false, message: this.#connectionError('upstream_error').message };
+    } catch (error) {
+      return { ok: false, message: this.#failure(error, 'upstream_error').message };
     }
   }
 
@@ -263,8 +270,8 @@ export class ChatClient {
               'The recording could not be transcribed.',
             ).message,
           };
-    } catch {
-      return { ok: false, message: this.#connectionError('upstream_error').message };
+    } catch (error) {
+      return { ok: false, message: this.#failure(error, 'upstream_error').message };
     }
   }
 
@@ -317,7 +324,8 @@ export class ChatClient {
     } catch (error) {
       if (signal?.aborted) return;
       onEvent(
-        this.#connectionError(
+        this.#failure(
+          error,
           error instanceof DOMException && error.name === 'TimeoutError'
             ? 'timeout'
             : 'upstream_error',
@@ -384,7 +392,8 @@ export class ChatClient {
         ...(identityToken === undefined ? {} : { identityToken }),
       }),
     });
-    if (!response.ok) throw new Error(`Session request failed with ${response.status}`);
+    // A refused session says nothing about the stored conversation: keep it.
+    if (!response.ok) throw new SessionRefused(await this.#errorFromResponse(response, false));
     const body = (await response.json()) as {
       accessToken: string;
       expiresAt: number;
@@ -415,18 +424,23 @@ export class ChatClient {
     return this.#session;
   }
 
+  /** What to show for a request that threw: the server's reason for refusing a session, if any. */
+  #failure(error: unknown, code: ErrorCode): ErrorEvent {
+    return error instanceof SessionRefused ? error.event : this.#connectionError(code);
+  }
+
   #connectionError(code: ErrorCode): ErrorEvent {
     return this.#error(code, 'error.connection', 'Connection problem. Please try again.');
   }
 
-  async #errorFromResponse(response: Response): Promise<ErrorEvent> {
+  async #errorFromResponse(response: Response, forgetMissing = true): Promise<ErrorEvent> {
     let body: ErrorBody = {};
     try {
       body = (await response.json()) as ErrorBody;
     } catch {
       // Not JSON: fall through to a generic error.
     }
-    if (response.status === 404 && body.error?.code === 'not_found') this.reset();
+    if (forgetMissing && response.status === 404 && body.error?.code === 'not_found') this.reset();
     const result = decodeEvent({
       event: 'error',
       data: JSON.stringify({ type: 'error', ...body.error }),
