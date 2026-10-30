@@ -20,6 +20,7 @@
     "check:packages": "pnpm --filter \"./packages/*\" run check:package",
     "check": "pnpm lint && pnpm build && pnpm typecheck && pnpm test && pnpm check:packages",
     "changeset": "changeset",
+    "version-packages": "changeset version && pnpm install --lockfile-only",
     "release": "pnpm build && changeset publish",
     "prepare": "lefthook install && pnpm --filter @boldare/askdare run build:assets",
     "test:visual": "pnpm --filter @boldare/askdare run build && pnpm --filter askdare-site run build && playwright test --project visual",
