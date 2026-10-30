@@ -523,6 +523,8 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     };
     // Only for bots that opted in; others never pass it on.
     const pageContext = bot.pageContext ? body.context?.trim() || undefined : undefined;
+    // Before reserving: a missing key must not leave a reservation behind on every attempt.
+    const gateway = config.gateway();
     const reservation = await config.limits.beginTurn(bot, {
       clientIp: config.clientIp(request),
       visitorId,
@@ -531,7 +533,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       attachmentTokens,
     });
     const stream = streamTurn({
-      gateway: config.gateway(),
+      gateway,
       bot,
       text,
       attachments,
@@ -546,6 +548,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       onUsage: (usage, id) => {
         reservation.settle(usage, id).catch((error: unknown) => report(toAskdareError(error)));
       },
+      reserveCall: () => reservation.extend(),
       onError: report,
       explain: config.explain,
       heartbeatIntervalMs: config.heartbeatIntervalMs,

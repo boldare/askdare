@@ -97,11 +97,21 @@ export async function runTurn(client: OpenAI, request: TurnRequest): Promise<Tur
   let usage: TokenUsage = { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0 };
   let input: ResponseInputItem[] = [userInput(request)];
   let repairs = 0;
+  // Model calls the budget holds. A step may call tools only when the call after it is held too.
+  let covered = 1;
+  const covers = async (call: number): Promise<boolean> => {
+    if (covered >= call) return true;
+    if (request.reserveCall && !(await request.reserveCall())) return false;
+    covered = call;
+    return true;
+  };
   try {
     for (let step = 1; step <= bot.limits.maxSteps; step += 1) {
+      const last =
+        step === bot.limits.maxSteps || (bot.tools.length > 0 && !(await covers(step + 1)));
       let outcome: StepOutcome;
       try {
-        outcome = await runStep(client, request, input, citations, step === bot.limits.maxSteps);
+        outcome = await runStep(client, request, input, citations, last);
       } catch (error) {
         const callId = danglingCallId(error);
         if (!callId || repairs >= MAX_REPAIRS) throw error;

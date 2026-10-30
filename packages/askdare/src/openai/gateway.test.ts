@@ -441,6 +441,35 @@ describe('runTurn', () => {
     expect((capture.body as { tools: unknown[] }).tools).toHaveLength(2);
   });
 
+  it("answers without tools when the budget can't hold the call after a tool round", async () => {
+    const capture: CapturedRequest = { body: undefined };
+    server.use(responsesHandler(textTurnEvents(['From the PDF alone.']), {}, capture));
+    const reservations: boolean[] = [];
+    const { request } = turn({
+      bot: defineBot({
+        id: 'tools',
+        model: 'test-model',
+        instructions: 'Use tools.',
+        tools: [
+          defineTool({
+            name: 'ping',
+            description: 'Ping',
+            input: z.object({}),
+            execute: () => 'pong',
+          }),
+        ],
+      }),
+      reserveCall: async () => {
+        reservations.push(false);
+        return false;
+      },
+    });
+    const result = await gateway.runTurn(request);
+    expect(capture.body).toMatchObject({ tool_choice: 'none' });
+    expect(reservations).toEqual([false]);
+    expect(result.reason).toBe('completed');
+  });
+
   it("puts page context in the visitor's turn, never in the instructions", async () => {
     const capture: CapturedRequest = { body: undefined };
     server.use(responsesHandler(textTurnEvents(['Ok']), {}, capture));

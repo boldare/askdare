@@ -612,6 +612,30 @@ describe('limits', () => {
     expect(await second.json()).toMatchObject({ error: { code: 'rate_limited' } });
   });
 
+  it('reserves no tokens when OpenAI is not set up', async () => {
+    const store = memoryStore();
+    const unconfigured = createRequestHandler({
+      bots: [bot],
+      basePath: '/api/chat',
+      assets,
+      gateway: () => {
+        throw new AskdareError('bot_unavailable', { cause: 'OPENAI_API_KEY is not configured.' });
+      },
+      tokens: async () => tokens,
+      limits: createLimits({ store }),
+      clientIp: () => 'ip',
+      onError: () => {},
+    });
+    const access = (await tokens.issueAccess('support', `v_${'a7'.repeat(16)}`)).token;
+    const response = await unconfigured(
+      post('/messages', { botId: 'support', text: 'Hi' }, { authorization: `Bearer ${access}` }),
+    );
+    expect(response.status).toBe(503);
+    const day = new Date().toISOString().slice(0, 10);
+    const reserved = await store.hit(`ask:t:support:${day}`, 86_400_000, 0);
+    expect(reserved.count).toBe(0);
+  });
+
   it('answers 503 when the kill switch is on', async () => {
     const disabled = createRequestHandler({
       bots: [bot],

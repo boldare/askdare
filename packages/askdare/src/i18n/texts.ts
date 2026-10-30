@@ -82,6 +82,7 @@ const EN = {
   'error.recordingTooLong': 'This recording is too long.',
   'error.dictationBusy':
     'Another dictation is still being transcribed. Please try again in a moment.',
+  'error.dictationBudget': 'Dictation is unavailable for the rest of the day. You can still type.',
 } as const;
 
 /** Plural texts: the base plus a CLDR category, every category overridable. */
@@ -169,6 +170,8 @@ const PL: Partial<Record<TextKey | `${string}.${'few' | 'many'}`, string>> = {
   'error.recordingFormat': 'Ten format nagrania nie jest obsługiwany.',
   'error.recordingTooLong': 'To nagranie jest zbyt długie.',
   'error.dictationBusy': 'Poprzednie nagranie jest jeszcze przepisywane. Spróbuj za chwilę.',
+  'error.dictationBudget':
+    'Dyktowanie jest niedostępne do końca dnia. Wiadomość możesz nadal wpisać.',
 };
 
 /** The canonical form of a BCP 47 tag that Intl accepts (plural rules need it), else undefined. */

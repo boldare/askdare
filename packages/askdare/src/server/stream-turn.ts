@@ -26,6 +26,8 @@ export interface StreamTurnOptions {
   readonly issueResumeToken: (conversationId: string) => Promise<string>;
   /** Called after a completed turn with real usage and the conversation it belongs to. */
   readonly onUsage?: ((usage: TokenUsage, conversationId: string) => void) | undefined;
+  /** Holds the budget for one more model call before a tool round; see `TurnRequest`. */
+  readonly reserveCall?: (() => Promise<boolean>) | undefined;
   /** Server-side reporting hook. Receives client-safe errors with internals in `cause`. */
   readonly onError?: ((error: AskdareError) => void) | undefined;
   /** Development only: a setup error's description, shown in the chat instead of the generic one. */
@@ -134,6 +136,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           messageId,
           signal: deadline,
           emit,
+          reserveCall: options.reserveCall,
         });
         options.onUsage?.(result.usage, conversationId);
         emit({ type: 'message.end', messageId, reason: result.reason });

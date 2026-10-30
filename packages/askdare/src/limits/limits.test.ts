@@ -234,12 +234,42 @@ describe('attachments', () => {
     ],
   });
 
-  it('reserves file tokens once per model call the turn may make', async () => {
+  it('reserves one model call up front, and another only for each tool round', async () => {
     const { limits, spent } = setup();
     await limits.beginTurn(bot, { ...turn('ip-a', 'va'), attachmentTokens: 300 });
     expect(await spent()).toBe(110 + 300);
-    await limits.beginTurn(toolBot, { ...turn('ip-b', 'vb'), attachmentTokens: 300 });
-    expect(await spent()).toBe(110 + 300 + 110 + 4 * 300);
+    const reservation = await limits.beginTurn(toolBot, {
+      ...turn('ip-b', 'vb'),
+      attachmentTokens: 300,
+    });
+    expect(await spent()).toBe(2 * (110 + 300));
+    // Each call re-reads the files, so a tool round holds a whole call more.
+    expect(await reservation.extend()).toBe(true);
+    expect(await spent()).toBe(3 * (110 + 300));
+  });
+
+  it("refuses a tool round the budget can't cover, and settles against what it held", async () => {
+    const tight = defineBot({
+      id: 'support',
+      model: 'm',
+      instructions: 'x',
+      limits: { maxOutputTokens: 100, maxSteps: 4, dailyTokens: 100_000, dailyTokensPerIp: 1_000 },
+      tools: toolBot.tools,
+    });
+    const { limits, spent } = setup();
+    // A large PDF: one call fits the visitor's budget, three don't.
+    const reservation = await limits.beginTurn(tight, {
+      ...turn('ip-c', 'vc'),
+      attachmentTokens: 300,
+    });
+    expect(await reservation.extend()).toBe(true);
+    expect(await reservation.extend()).toBe(false);
+    expect(await spent()).toBe(2 * 410);
+    await reservation.settle(
+      { inputTokens: 500, cachedInputTokens: 0, outputTokens: 50 },
+      'conv_1',
+    );
+    expect(await spent()).toBe(550);
   });
 
   it('caps uploads per visitor, per IP and per bot per day', async () => {
@@ -312,8 +342,10 @@ describe('voice', () => {
     const keys = { clientIp: 'ip', visitorId: 'v1' };
     await (await limits.beginTranscription(voiceBot, keys)).settle(25);
     await limits.beginTranscription(voiceBot, keys);
+    // Typing still works, so the visitor is told only dictation is used up.
     await expect(limits.beginTranscription(voiceBot, keys)).rejects.toMatchObject({
       code: 'budget_exceeded',
+      key: 'error.dictationBudget',
     });
   });
 });

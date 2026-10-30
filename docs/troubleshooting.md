@@ -92,26 +92,26 @@ The same check reports every invalid setting as `Invalid bot "<id>": <setting> <
 - Run `npx @boldare/askdare doctor`. It tests the key, the model and each permission the key needs, and names the missing one.
 - For a model problem, check the model ID and the project's model allowlist in the OpenAI dashboard.
 
-Problems with `CHAT_SECRET` and `IDENTITY_SECRET` are also `bot_unavailable`, but the chat shows them as a connection problem. See the next entry.
+Problems with `CHAT_SECRET` and `IDENTITY_SECRET` are also `bot_unavailable`: they stop the chat from opening a session. In development the chat shows the reason; the table in the next entry lists them.
 
 ## Connection problem
 
-**You see** "Connection problem. Please try again." when sending a message, or "Could not load the previous conversation." when the chat opens. This happens in development too.
+**You see** "Connection problem. Please try again." when sending a message, or "Could not load the previous conversation." when the chat opens.
 
-**Why:** the chat couldn't open a session (`POST /api/chat/session`), or the network failed. The widget doesn't show the server's reason for a refused session. Common causes:
+**Why:** the network failed, or the server didn't answer. When the server refuses a session (`POST /api/chat/session`), the chat shows the server's own message instead: in development the reason in plain words, in production the generic text of its code (for example "The assistant is currently unavailable."). The server log always has the reason. Common causes of a refused session:
 
 | Server log or session response | Cause |
 | --- | --- |
 | `CHAT_SECRET is not set. Add it to .env.local (or your host's environment) and restart the app.` | `CHAT_SECRET` is missing where the app runs |
-| ``CHAT_SECRET must be at least 32 random characters (use `openssl rand -base64 32`).`` | The secret is shorter than 32 characters, or has fewer than 12 different characters. The same applies to each value in `CHAT_SECRET_PREVIOUS` |
+| `CHAT_SECRET must be at least 32 random characters. Generate one with: node -e "…"` | The secret is shorter than 32 characters, or has fewer than 12 different characters. The same applies to each value in `CHAT_SECRET_PREVIOUS` |
 | `IDENTITY_SECRET must be at least 32 random characters …` or `IDENTITY_SECRET must differ from CHAT_SECRET.` | `IDENTITY_SECRET` is set but weak, or equal to `CHAT_SECRET` |
 | `bot_unavailable` with no explanation | `ASKDARE_DISABLED` is `true` |
 | `rate_limited` (429) | More than `sessionsPerIpPerHour` new sessions from one IP; see [Too many messages](#too-many-messages) |
 | `unauthorized`, "Cross-origin requests are not allowed." | A proxy in front of the app changes the `Host` header, so it no longer matches the `Origin` of the chat's own requests |
 
 **Fix:**
-1. Open the network tab and look at the failed `session` request. In development its JSON body has the explanation.
-2. Generate a secret with `openssl rand -base64 32`, set it as `CHAT_SECRET`, and restart the app or redeploy.
+1. Read the chat's message in development, or the server log. The failed `session` request's JSON body has the same explanation.
+2. Generate a secret with `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"`, set it as `CHAT_SECRET`, and restart the app or redeploy.
 3. Run `npx @boldare/askdare doctor`. It checks the strength of `CHAT_SECRET`, `CHAT_SECRET_PREVIOUS` and `IDENTITY_SECRET`.
 
 ## The chat doesn't load
@@ -151,7 +151,7 @@ If the console says "Load the widget as widget.js?bot=<bot id>.", the script tag
 | `messagesPerVisitorPerMinute` | 10 | visitor |
 | `messagesPerIpPerMinute` | 30 | IP |
 | `conversationsPerIpPerHour` | 20 | IP |
-| `sessionsPerIpPerHour` | 30 | IP (new visitors; a refused session shows as a [connection problem](#connection-problem)) |
+| `sessionsPerIpPerHour` | 30 | IP (new visitors) |
 | `uploadsPerVisitorPerHour` | 20 | visitor |
 | `uploadsPerIpPerHour` | 60 | IP |
 | `uploadsPerDay` | 500 | bot |
@@ -203,9 +203,9 @@ Two limits have their own text:
 | `voiceSecondsPerDay` | 3,600 seconds per bot | `limits` in `defineBot` |
 | `voiceSecondsPerIpPerDay` | 600 seconds per IP and bot | `limits` in `defineBot` |
 
-A dictation that hits a speech budget shows the same text, although typing still works.
+A dictation that hits a speech budget says "Dictation is unavailable for the rest of the day. You can still type." Typing still works.
 
-**It happens right after attaching a PDF:** each PDF page reserves about 2,000 tokens. When the bot has tools (`tools` in `defineBot`), the reservation is multiplied by `maxSteps` (default 5), because every model call reads the files again. With the default limits, a PDF of 20 pages or more on a bot with tools needs more than the whole `dailyTokensPerIp`, so it is always refused. Lower `attachments.maxPdfPages` or raise `dailyTokensPerIp`.
+**It happens right after attaching a PDF:** each PDF page reserves about 2,000 tokens for every model call, so a 50-page PDF holds 100,000 tokens, half of the default `dailyTokensPerIp`. A visitor who sends several large PDFs uses up their day quickly. On a bot with tools, a call that the budget can't cover is skipped: the model answers from the files without calling tools. Lower `attachments.maxPdfPages` or raise `dailyTokensPerIp` if visitors need more.
 
 **Fix:** wait until 00:00 UTC, or raise the budget and restart. While testing, restarting `next dev` clears the in-memory counters. Before raising budgets in production, read [Costs](costs.md).
 
@@ -324,7 +324,7 @@ Related errors:
 
 `ASKDARE_DISABLED=true` switches off every bot of the app. The value must be exactly `true`.
 
-**What it does:** sessions, messages, history, uploads, dictations and `doctor` runs are refused with `bot_unavailable`. A visitor with an open session sees "The assistant is currently unavailable."; a new visitor sees "Connection problem. Please try again." The launcher still shows. Answers that already started finish.
+**What it does:** sessions, messages, history, uploads, dictations and `doctor` runs are refused with `bot_unavailable`. Visitors see "The assistant is currently unavailable." The launcher still shows. Answers that already started finish.
 
 **Why it seems not to work:** askdare reads the variable on every request, but most hosts only pass a changed variable to the app after a restart. On Vercel, redeploy. On Heroku, changing a config var restarts the dynos. Locally, restart `next dev`.
 
