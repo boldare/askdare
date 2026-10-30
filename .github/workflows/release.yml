@@ -1,6 +1,7 @@
-# Publishes through npm trusted publishing (OIDC); no npm token is stored anywhere. It stays off
-# until both packages exist on npm with this workflow as their trusted publisher: then set the
-# repository variable NPM_TRUSTED_PUBLISHING to true.
+# Stages releases through npm trusted publishing (OIDC); no npm token is stored anywhere. The
+# trusted publisher only allows `npm stage publish`, so nothing goes live until a maintainer
+# approves the staged version with 2FA on npmjs.com (Staged Packages) or `npm stage approve`.
+# It runs once the repository variable NPM_TRUSTED_PUBLISHING is true.
 name: Release
 
 on:
@@ -17,12 +18,16 @@ jobs:
   release:
     if: github.repository == 'boldare/askdare' && vars.NPM_TRUSTED_PUBLISHING == 'true'
     runs-on: ubuntu-latest
+    # The trusted publisher on npm names this environment, which only main may use.
+    environment: npm
     permissions:
       contents: write # version commits and tags
       pull-requests: write # "Version packages" pull request
       id-token: write # npm trusted publishing + provenance
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2 # the previous commit's versions tell what changed
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -35,6 +40,7 @@ jobs:
       - uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
         with:
           version: pnpm changeset version
-          publish: pnpm release
+          # Stage, don't publish: approval stays with a person (scripts/stage-release.mjs).
+          publish: node scripts/stage-release.mjs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

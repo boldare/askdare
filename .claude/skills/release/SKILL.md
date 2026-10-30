@@ -26,7 +26,7 @@ description: How changes to published askdare packages are versioned and release
 The repository is in Changesets pre-release mode (`.changeset/pre.json`, tag `rc`) until 0.1.0:
 
 - `pnpm changeset version` turns the pending changesets into `0.1.0-rc.N` versions and `CHANGELOG.md` entries; the starter's dependency range follows.
-- In CI, `changeset publish` publishes them under the npm dist-tag `rc`, so `npm install @boldare/askdare` doesn't pick them up by accident. Users install with `@rc`.
+- In CI, `scripts/stage-release.mjs` stages them under the npm dist-tag `rc`. The trusted publisher allows only `npm stage publish`, so the user approves each version with 2FA before it goes live (npmjs.com → Staged Packages, or `npm stage approve <stage-id>`). Never ask for that approval to be skipped. Users install with `@rc`.
 - For 0.1.0: `pnpm changeset pre exit`, then `pnpm changeset version`, and the next release goes out under `latest`.
 - Before every release candidate: `pnpm check`, `pnpm e2e`, `pnpm e2e:browsers`, `pnpm test:visual` and the tarball check (`pnpm verify:packs`).
 
