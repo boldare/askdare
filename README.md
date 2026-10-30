@@ -1,5 +1,9 @@
 # askdare
 
+[![CI](https://github.com/boldare/askdare/actions/workflows/ci.yml/badge.svg)](https://github.com/boldare/askdare/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@boldare/askdare/rc?label=npm%20%40rc)](https://www.npmjs.com/package/@boldare/askdare)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **Dare to ask.** An AI assistant for any website, in one script tag.
 
 > **Status: release candidate (0.1.0-rc).** The API is complete, but may still change before 0.1.0. Install the `rc` tag, and pin the exact version.

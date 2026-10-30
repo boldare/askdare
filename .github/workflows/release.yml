@@ -1,5 +1,6 @@
-# Activated in plan step 4.6, after the repository is published and npm trusted
-# publishing (OIDC) is configured for this workflow. No npm token is stored.
+# Publishes through npm trusted publishing (OIDC); no npm token is stored anywhere. It stays off
+# until both packages exist on npm with this workflow as their trusted publisher: then set the
+# repository variable NPM_TRUSTED_PUBLISHING to true.
 name: Release
 
 on:
@@ -14,7 +15,7 @@ concurrency:
 
 jobs:
   release:
-    if: github.repository == 'boldare/askdare'
+    if: github.repository == 'boldare/askdare' && vars.NPM_TRUSTED_PUBLISHING == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write # version commits and tags
