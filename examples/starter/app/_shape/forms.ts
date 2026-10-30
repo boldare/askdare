@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 
-export type Form = 'sphere' | 'cone' | 'cylinder' | 'cube';
-export const FORMS: readonly Form[] = ['sphere', 'cone', 'cylinder', 'cube'];
+export type Form = 'sphere' | 'cone' | 'cylinder' | 'cube' | 'octahedron';
 
 type Point = readonly [number, number];
 
@@ -90,8 +89,7 @@ function rounded(corners: readonly Point[], radius: number, closed: boolean): Po
 
 /**
  * Every form is a profile (radius against height, from the bottom pole to the top one) swept
- * around a section (a circle, or a rounded square for the cube). One description serves the
- * liquid and the network alike.
+ * around a section: a circle, a rounded square for the cube, a diamond for the octahedron.
  */
 interface Shape {
   readonly profile: Curve;
@@ -108,6 +106,20 @@ const SQUARE = new Curve(
       [-1, -1],
     ],
     0.3,
+    true,
+  ),
+);
+
+/** A square on its corner, for the octahedron. */
+const DIAMOND = new Curve(
+  rounded(
+    [
+      [1, 0],
+      [0, 1],
+      [-1, 0],
+      [0, -1],
+    ],
+    0.16,
     true,
   ),
 );
@@ -157,6 +169,20 @@ const SHAPES: Record<Form, Shape> = {
       ),
     ),
     section: SQUARE,
+  },
+  octahedron: {
+    profile: new Curve(
+      rounded(
+        [
+          [0, -1.32],
+          [1.32, 0],
+          [0, 1.32],
+        ],
+        0.14,
+        false,
+      ),
+    ),
+    section: DIAMOND,
   },
 };
 
@@ -218,45 +244,4 @@ export function solid(form: Form, around = 160, along = 128): THREE.BufferGeomet
   geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
   geometry.setIndex(indices);
   return geometry;
-}
-
-export interface Spread {
-  readonly count: number;
-  readonly positions: Float32Array;
-  readonly normals: Float32Array;
-  /** How far up the profile each point is, 0 to 1: lets the shape build from the bottom. */
-  readonly heights: Float32Array;
-}
-
-/**
- * Points spread evenly over the surface, about `spacing` apart: rings up the profile, each with
- * as many points as fit around it, every other ring offset by half a step like a halftone screen.
- */
-export function spread(form: Form, spacing: number, jitter: number): Spread {
-  const shape = SHAPES[form];
-  const rings = Math.max(2, Math.round(shape.profile.length / spacing));
-  const positions: number[] = [];
-  const normals: number[] = [];
-  const heights: number[] = [];
-  const position = new THREE.Vector3();
-  const normal = new THREE.Vector3();
-  for (let ring = 0; ring < rings; ring++) {
-    const along = (ring + 0.5) / rings;
-    const radius = shape.profile.at(along).x;
-    const count = Math.max(1, Math.round((shape.section.length * radius) / spacing));
-    for (let index = 0; index < count; index++) {
-      const shift = (ring % 2) * 0.5 + (Math.random() - 0.5) * jitter;
-      const lift = ((Math.random() - 0.5) * jitter) / rings;
-      surface(shape, along + lift, (index + shift) / count, position, normal);
-      positions.push(position.x, position.y, position.z);
-      normals.push(normal.x, normal.y, normal.z);
-      heights.push(along);
-    }
-  }
-  return {
-    count: heights.length,
-    positions: Float32Array.from(positions),
-    normals: Float32Array.from(normals),
-    heights: Float32Array.from(heights),
-  };
 }
