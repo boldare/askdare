@@ -143,12 +143,21 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
             ) : (
               <div className="shape-stage">
                 <HeroShape theme={theme} label="Open the chat" />
+                {/* A callout with a hand-drawn arrow, pointing at the shape. */}
                 <p className="hint">
-                  Click the shape, or the button in the corner, to start a chat.
+                  <span>Click the shape to chat</span>
+                  <svg className="hint-arrow" viewBox="0 0 64 44" aria-hidden="true">
+                    {/* Drawn twice: a light outline under the line keeps it legible on the shape. */}
+                    {['halo', 'line'].map((layer) => (
+                      <g key={layer} className={layer}>
+                        <path d="M3 40 C 20 38, 42 30, 57 7" />
+                        <path d="M47 8 L57 7 L57 17" />
+                      </g>
+                    ))}
+                  </svg>
                 </p>
               </div>
             )}
-            <p className="note">{THEMES.find((item) => item.id === theme)?.note}</p>
           </div>
         </section>
 

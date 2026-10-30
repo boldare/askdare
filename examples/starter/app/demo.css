@@ -41,7 +41,8 @@ body {
     #3730a3 100%
   );
   --gutter: clamp(16px, 4vw, 48px);
-  --width: 1180px;
+  --width: 1320px;
+  --nav-height: 80px;
 
   min-height: 100vh;
   /* Decorations may reach past the edge; the page never scrolls sideways. */
@@ -166,8 +167,9 @@ body {
   align-items: center;
   gap: 16px;
   max-width: var(--width);
+  height: var(--nav-height);
   margin: 0 auto;
-  padding: 20px var(--gutter);
+  padding: 0 var(--gutter);
 }
 
 .brand {
@@ -245,14 +247,18 @@ body {
 
 /* ---------- Hero ---------- */
 
+/* The hero fills the first screen, below the bar; the next section starts out of sight. The
+   bottom padding keeps its content clear of the dock. */
 .hero {
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
   align-items: center;
+  align-content: center;
   gap: clamp(32px, 5vw, 72px);
   max-width: var(--width);
+  min-height: calc(100dvh - var(--nav-height));
   margin: 0 auto;
-  padding: clamp(24px, 4vw, 48px) var(--gutter) clamp(40px, 6vw, 80px);
+  padding: clamp(24px, 4vw, 48px) var(--gutter) 104px;
 }
 
 .demo h1,
@@ -300,13 +306,6 @@ body {
   text-align: center;
 }
 
-.note {
-  max-width: 26em;
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.88rem;
-}
-
 .chat-frame {
   width: min(420px, 100%);
   height: 660px;
@@ -339,11 +338,67 @@ body {
   mask-image: radial-gradient(closest-side, #000 25%, transparent 100%);
 }
 
+/* "Click the shape to chat": a small label beside the shape, its arrow drawn by hand. */
 .hint {
-  max-width: 22em;
+  position: absolute;
+  bottom: 10%;
+  left: 0;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
   margin: 0;
-  color: var(--muted);
-  font-size: 0.92rem;
+  color: var(--ink);
+  pointer-events: none;
+  animation: bob 3.2s ease-in-out infinite;
+}
+
+.hint span {
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  backdrop-filter: blur(10px);
+  font:
+    600 0.68rem / 1 ui-monospace,
+    "SF Mono",
+    Menlo,
+    monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.hint-arrow {
+  width: 56px;
+  height: 40px;
+  margin-bottom: 14px;
+  overflow: visible;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.hint-arrow .halo {
+  stroke: var(--bg);
+  stroke-width: 5;
+}
+
+.hint-arrow .line {
+  stroke: currentColor;
+  stroke-width: 1.6;
+}
+
+@keyframes bob {
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hint {
+    animation: none;
+  }
 }
 
 /* The shape is a button: click or press Enter to start a chat. */
@@ -853,7 +908,7 @@ body {
   box-shadow: -6px 6px 0 #242424;
 }
 
-.demo[data-theme="bldr"] :is(.dock-theme, .terminal, .tip) {
+.demo[data-theme="bldr"] :is(.dock-theme, .terminal, .tip, .hint span) {
   border-radius: 0;
 }
 
@@ -916,8 +971,8 @@ body:has(.demo[data-theme="bldr"]) [data-chatdock]::part(launcher) {
 /* ---------- Phone ---------- */
 
 @media (max-width: 760px) {
-  .nav {
-    padding: 14px var(--gutter);
+  .demo {
+    --nav-height: 64px;
   }
 
   .product small {
