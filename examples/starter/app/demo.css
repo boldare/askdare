@@ -1,9 +1,16 @@
+/* biome-ignore-all lint/style/noDescendingSpecificity: the rules are grouped by section and layout, which reads better than ordering them by specificity */
 /*
  * The demo page follows the chat's theme: the same colors, type and orb as each preset, so the
  * page and the chat look like one product. Boldare's own palette drives Aura.
  */
 body {
   margin: 0;
+}
+
+.demo *,
+.demo *::before,
+.demo *::after {
+  box-sizing: border-box;
 }
 
 .demo {
@@ -37,6 +44,8 @@ body {
   --width: 1180px;
 
   min-height: 100vh;
+  /* Decorations may reach past the edge; the page never scrolls sideways. */
+  overflow-x: clip;
   background-color: var(--bg);
   background-image: var(--glow);
   background-repeat: no-repeat;
@@ -148,9 +157,55 @@ body {
   outline-offset: 3px;
 }
 
+/* ---------- Design variants under review (removed once chosen) ---------- */
+
+.review {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 20px;
+  padding: 8px var(--gutter);
+  border-bottom: 1px dashed var(--line);
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  color: var(--muted);
+  font:
+    500 0.74rem / 1.4 system-ui,
+    sans-serif;
+}
+
+.review strong {
+  color: var(--ink);
+}
+
+.review-area {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+}
+
+.review-area > span {
+  margin-right: 4px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.demo .review a {
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-decoration: none;
+}
+
+.demo .review a[aria-current] {
+  background: var(--ink);
+  color: var(--bg);
+}
+
 /* ---------- Navigation ---------- */
 
 .nav {
+  position: relative;
+  z-index: 10;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -184,19 +239,27 @@ body {
   letter-spacing: 0;
 }
 
-.nav nav {
-  display: flex;
-  gap: 24px;
+.menu {
   margin-left: auto;
+}
+
+.menu-button {
+  display: none;
+}
+
+.menu-panel {
+  display: flex;
+  align-items: center;
+  gap: 24px;
   font-size: 0.92rem;
 }
 
-.nav nav a {
+.demo .menu-panel a:not(.button) {
   color: var(--muted);
   text-decoration: none;
 }
 
-.nav nav a:hover {
+.demo .menu-panel a:not(.button):hover {
   color: var(--ink);
 }
 
@@ -218,6 +281,12 @@ body {
   font-size: 0.9rem;
 }
 
+.demo .link-button {
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1.5px solid currentColor;
+}
+
 /* ---------- Hero ---------- */
 
 .hero {
@@ -227,7 +296,7 @@ body {
   gap: clamp(32px, 5vw, 72px);
   max-width: var(--width);
   margin: 0 auto;
-  padding: clamp(24px, 5vw, 56px) var(--gutter) 72px;
+  padding: clamp(24px, 4vw, 48px) var(--gutter) clamp(40px, 6vw, 80px);
 }
 
 .demo h1,
@@ -253,37 +322,30 @@ body {
 
 .lead {
   max-width: 34em;
-  margin: 24px 0 32px;
+  margin: 24px 0 28px;
   color: var(--muted);
   font-size: 1.12rem;
   line-height: 1.6;
 }
 
-.switches {
+.actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px 28px;
+  align-items: center;
+  gap: 12px 24px;
 }
 
-.switches fieldset {
+.note {
   margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.switches legend {
-  margin-bottom: 8px;
   color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 0.88rem;
 }
 
 .segmented {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 2px;
+  max-width: 100%;
   padding: 4px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -292,11 +354,18 @@ body {
 }
 
 .demo .segmented a {
+  flex: none;
   padding: 8px 16px;
   border-radius: 999px;
   font-size: 0.92rem;
   font-weight: 500;
+  white-space: nowrap;
   text-decoration: none;
+}
+
+.demo .segmented.small a {
+  padding: 6px 13px;
+  font-size: 0.84rem;
 }
 
 .demo .segmented a:hover {
@@ -317,16 +386,221 @@ body {
   color: var(--on-button);
 }
 
-.note {
-  margin: 16px 0 0;
+/* One line that scrolls sideways when it doesn't fit, instead of breaking into two. */
+.scroller {
+  position: relative;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.scroller::-webkit-scrollbar {
+  display: none;
+}
+
+/* Filters 1: one card, a labelled row per switch. */
+.control-card {
+  display: grid;
+  gap: 10px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) * 0.9);
+  background: var(--card);
+  backdrop-filter: blur(14px);
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.filter-label {
+  flex: none;
+  width: 3.8em;
   color: var(--muted);
-  font-size: 0.92rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.control-card .segmented {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  backdrop-filter: none;
+}
+
+.control-card .note {
+  padding: 2px 4px 0;
+}
+
+/* Filters 2: each theme as its shape, a swatch to pick. */
+.swatches {
+  display: grid;
+  justify-items: start;
+  gap: 14px;
+}
+
+.swatch-row {
+  position: relative;
+  display: flex;
+  gap: 8px;
+  max-width: 100%;
+  margin: -6px;
+  padding: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.demo .swatch {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  flex: none;
+  width: 78px;
+  padding: 10px 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--card);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.swatch .shape-icon {
+  width: 42px;
+  height: 42px;
+  margin: 0;
+}
+
+.swatch em {
+  position: absolute;
+  top: -7px;
+  right: -4px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 0.56rem;
+  font-style: normal;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.swatch:hover {
+  transform: translateY(-2px);
+}
+
+.swatch[aria-current] {
+  border-color: var(--ink);
+  box-shadow:
+    0 0 0 1px var(--ink),
+    0 12px 24px -16px var(--ink);
+}
+
+/* Filters 3: a dock under the shape. */
+.dock {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px 10px;
+  max-width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 32px;
+  background: var(--card);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 18px 40px -26px var(--ink);
+}
+
+.dock-themes {
+  display: flex;
+  gap: 2px;
+}
+
+.demo .dock-theme {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  text-decoration: none;
+  transition:
+    background 0.15s ease,
+    transform 0.15s ease;
+}
+
+.dock-theme .shape-icon {
+  width: 36px;
+  height: 36px;
+  margin: 0;
+}
+
+.dock-theme:hover {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  transform: translateY(-2px);
+}
+
+.dock-theme[aria-current] {
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+}
+
+.dock-theme[aria-current]::after {
+  content: "";
+  position: absolute;
+  bottom: 3px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+.tip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+
+.dock-theme:is(:hover, :focus-visible) .tip {
+  opacity: 1;
+  transform: none;
+}
+
+.dock-divider {
+  width: 1px;
+  height: 28px;
+  background: var(--line);
 }
 
 .stage {
   display: grid;
-  place-items: center;
-  min-height: 660px;
+  justify-items: center;
+  align-content: center;
+  gap: 16px;
+  min-width: 0;
+  text-align: center;
 }
 
 .chat-frame {
@@ -341,17 +615,16 @@ body {
     0 2px 8px color-mix(in srgb, var(--ink) 8%, transparent);
 }
 
-/* The theme's orb, large: glossy with a reflection in Aura, ringed in Halo. */
-.orb-stage {
+.shape-stage {
   position: relative;
   display: grid;
   justify-items: center;
-  gap: 56px;
+  width: 100%;
   isolation: isolate;
-  text-align: center;
 }
 
-.orb-stage::before {
+/* A faint dot grid behind the shape. */
+.shape-stage::before {
   content: "";
   position: absolute;
   inset: -40px -20px 30%;
@@ -362,61 +635,36 @@ body {
   mask-image: radial-gradient(closest-side, #000 25%, transparent 100%);
 }
 
-.orb {
-  display: block;
-  width: clamp(200px, 26vw, 300px);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: var(--orb);
-  box-shadow:
-    inset 0 -18px 40px rgb(255 255 255 / 0.35),
-    inset 0 14px 30px rgb(255 255 255 / 0.6),
-    0 50px 80px -40px color-mix(in srgb, var(--ink) 45%, transparent);
-  animation: float 7s ease-in-out infinite;
-}
-
-.demo[data-theme="aura"] .orb {
-  box-shadow:
-    inset 0 -18px 40px rgb(255 255 255 / 0.35),
-    inset 0 14px 30px rgb(255 255 255 / 0.6);
-  -webkit-box-reflect: below 14px linear-gradient(transparent 55%, rgb(255 255 255 / 0.4));
-}
-
-.demo[data-theme="halo"] .orb {
-  box-shadow:
-    inset 0 0 0 3px rgb(255 255 255 / 0.55),
-    inset 0 -24px 48px rgb(31 95 224 / 0.35),
-    0 0 0 28px rgb(31 95 224 / 0.07),
-    0 0 0 60px rgb(31 95 224 / 0.04),
-    0 50px 90px -30px rgb(31 95 224 / 0.5);
-}
-
-.orb-stage p {
+.hint {
   max-width: 22em;
   margin: 0;
   color: var(--muted);
+  font-size: 0.92rem;
 }
 
-/* The 3D shape is a button: click or press Enter to start a chat. */
+/* The shape is a button: click or press Enter to start a chat. */
 .shape {
+  position: relative;
   display: grid;
-  place-items: center;
-  width: min(520px, 90vw);
+  width: min(520px, 100%);
   aspect-ratio: 1;
-  margin: -40px 0 -60px;
+  margin: -40px 0 -48px;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: none;
   cursor: pointer;
+  isolation: isolate;
+  transition: transform 0.2s ease;
+}
+
+.shape > * {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
 }
 
 /* What the ferrofluid stands on: a soft shadow. */
-.shape {
-  position: relative;
-  isolation: isolate;
-}
-
 .shape::after {
   content: "";
   position: absolute;
@@ -429,9 +677,15 @@ body {
   pointer-events: none;
 }
 
-.shape canvas {
-  width: 100%;
-  height: 100%;
+/* Where the 3D scene runs (see hero-shape.tsx), the still only shows if the scene can't. */
+@media (min-width: 768px) and (pointer: fine) {
+  .shape:not([data-still]) img {
+    visibility: hidden;
+  }
+}
+
+.shape[data-still]:active {
+  transform: scale(0.97);
 }
 
 .shape:focus-visible {
@@ -439,36 +693,24 @@ body {
   outline-offset: -24px;
 }
 
-.shape[data-fallback] {
-  aspect-ratio: auto;
-  margin: 0;
-}
-
-@keyframes float {
-  50% {
-    transform: translateY(-12px);
-  }
-}
-
 /* ---------- Sections ---------- */
 
 .section {
   max-width: var(--width);
   margin: 0 auto;
-  padding: 72px var(--gutter);
+  padding: clamp(48px, 7vw, 88px) var(--gutter);
 }
 
 .demo h2 {
   max-width: 22em;
-  margin-bottom: 36px;
-  font-size: clamp(1.8rem, 3.4vw, 2.8rem);
+  margin-bottom: clamp(24px, 3vw, 40px);
+  font-size: clamp(1.7rem, 3.4vw, 2.8rem);
   line-height: 1.1;
 }
 
 .cards,
 .steps {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 16px;
   margin: 0;
   padding: 0;
@@ -476,7 +718,7 @@ body {
 }
 
 .card {
-  padding: 24px;
+  padding: clamp(18px, 2vw, 24px);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--card);
@@ -484,7 +726,7 @@ body {
 }
 
 .card h3 {
-  margin: 16px 0 8px;
+  margin: 14px 0 6px;
   font-size: 1.08rem;
   letter-spacing: -0.01em;
 }
@@ -503,9 +745,135 @@ body {
   background: var(--orb);
 }
 
+.demo code {
+  font:
+    0.82rem / 1.5 ui-monospace,
+    "SF Mono",
+    Menlo,
+    monospace;
+}
+
+.steps code,
+.feature-code,
+.custom-card code {
+  display: block;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  overflow-wrap: anywhere;
+}
+
+/* Features 1: an even grid, never a row with one card left over. */
+.features .cards {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.feature-code {
+  display: none;
+}
+
+/* Features 2: bento, the headline feature large, with the tag it is about. */
+.features[data-variant="2"] .card:first-child {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  grid-column: span 2;
+  grid-row: span 2;
+  padding: clamp(24px, 3vw, 40px);
+  background:
+    radial-gradient(
+      80% 70% at 100% 0%,
+      color-mix(in srgb, var(--soft) 12%, transparent),
+      transparent
+    ),
+    var(--card);
+}
+
+.features[data-variant="2"] .card:first-child h3 {
+  font-size: clamp(1.4rem, 2.4vw, 2rem);
+  letter-spacing: -0.03em;
+}
+
+.features[data-variant="2"] .card:first-child p {
+  max-width: 30em;
+  font-size: 1.05rem;
+}
+
+.features[data-variant="2"] .card:first-child .dot {
+  width: 22px;
+  height: 22px;
+}
+
+.features[data-variant="2"] .feature-code {
+  display: block;
+  margin-top: 22px;
+}
+
+/* Features 3: a list beside the heading, no boxes. */
+.features[data-variant="3"],
+.how[data-variant="2"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr);
+  align-items: start;
+  gap: clamp(32px, 5vw, 72px);
+}
+
+.features[data-variant="3"] h2,
+.how[data-variant="2"] h2 {
+  position: sticky;
+  top: 32px;
+  margin: 0;
+}
+
+.features[data-variant="3"] .cards {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 clamp(24px, 4vw, 48px);
+}
+
+.features[data-variant="3"] .card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 14px;
+  padding: 22px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+  backdrop-filter: none;
+}
+
+.features[data-variant="3"] .dot {
+  grid-row: span 2;
+  margin-top: 4px;
+}
+
+.features[data-variant="3"] h3 {
+  margin: 0 0 6px;
+}
+
+/* How it works 1: three columns, each ending in its command. */
+.how .steps {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.how .steps .card {
+  display: flex;
+  flex-direction: column;
+}
+
+.how .steps code {
+  margin-top: auto;
+}
+
+.how .steps p {
+  margin-bottom: 16px;
+  font-size: 0.95rem;
+}
+
 .steps .step {
   display: grid;
   place-items: center;
+  flex: none;
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -514,47 +882,180 @@ body {
   font-weight: 700;
 }
 
-.steps code {
-  display: block;
-  margin-top: 8px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--ink) 5%, transparent);
+/* How it works 2: a timeline beside the heading. */
+.how[data-variant="2"] .steps {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.how[data-variant="2"] .steps .card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  column-gap: 20px;
+  padding: 0 0 36px;
+  border: 0;
+  background: none;
+  backdrop-filter: none;
+}
+
+.how[data-variant="2"] .steps .card > :not(.step) {
+  grid-column: 2;
+}
+
+.how[data-variant="2"] .step {
+  grid-row: 1 / span 3;
+  width: 40px;
+  height: 40px;
+}
+
+.how[data-variant="2"] .steps .card:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  top: 46px;
+  bottom: 6px;
+  left: 19.5px;
+  width: 1px;
+  background: var(--line);
+}
+
+.how[data-variant="2"] h3 {
+  margin: 8px 0 6px;
+}
+
+/* How it works 3: the steps beside a terminal with all three commands. */
+.how[data-variant="3"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  grid-template-areas:
+    "title terminal"
+    "steps terminal";
+  align-items: center;
+  gap: 24px clamp(32px, 5vw, 72px);
+}
+
+.how[data-variant="3"] h2 {
+  grid-area: title;
+  align-self: end;
+  margin: 0;
+}
+
+.how[data-variant="3"] .steps {
+  grid-area: steps;
+  align-self: start;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+
+.how[data-variant="3"] .steps .card {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  column-gap: 14px;
+  padding: 0;
+  border: 0;
+  background: none;
+  backdrop-filter: none;
+}
+
+.how[data-variant="3"] .steps .card > :not(.step) {
+  grid-column: 2;
+}
+
+.how[data-variant="3"] .step {
+  grid-row: 1 / span 2;
+}
+
+.how[data-variant="3"] h3 {
+  margin: 4px 0 4px;
+}
+
+.how[data-variant="3"] .steps p {
+  margin: 0;
+}
+
+.how[data-variant="3"] .steps code {
+  display: none;
+}
+
+.terminal {
+  grid-area: terminal;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #0f1220;
+  color: #e7e9f3;
+  box-shadow: 0 40px 80px -40px color-mix(in srgb, var(--ink) 70%, transparent);
+}
+
+.terminal-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px;
+  background: #1a1e2e;
+  color: #8a90a8;
   font:
-    0.82rem / 1.5 ui-monospace,
+    500 0.78rem / 1 system-ui,
+    sans-serif;
+}
+
+.terminal-bar i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #3a3f55;
+}
+
+.terminal-bar span {
+  margin-left: 8px;
+}
+
+.terminal pre {
+  margin: 0;
+  padding: 22px 22px 4px;
+  font:
+    0.86rem / 1.65 ui-monospace,
     "SF Mono",
     Menlo,
     monospace;
+  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-.demo .themes a {
-  display: inline-block;
-  margin-top: 16px;
-  font-weight: 600;
+.terminal-comment {
+  color: #8a90a8;
 }
 
-/* Each theme's shape, its symbol, as a flat icon. */
+.terminal-prompt {
+  color: #7dd8d0;
+}
+
+/* Themes: the shape as each theme's symbol. */
 .shape-icon {
   display: block;
-  width: 72px;
-  height: 72px;
-  margin: -6px 0 0 -6px;
+  flex: none;
+  width: 56px;
+  height: 56px;
   color: var(--ink);
 }
 
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.theme-card h3 {
+  margin: 0 0 6px;
+}
+
+.demo .theme-card a {
+  margin-top: auto;
+  font-weight: 600;
+}
+
 .custom-card code {
-  display: block;
-  margin-top: 12px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--ink) 5%, transparent);
-  font:
-    0.78rem / 1.5 ui-monospace,
-    "SF Mono",
-    Menlo,
-    monospace;
-  overflow-wrap: anywhere;
+  align-self: stretch;
 }
 
 .demo .card h3 em {
@@ -568,6 +1069,87 @@ body {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   vertical-align: middle;
+}
+
+/* Themes 1: the four presets in a row, your own theme as a banner below. */
+.themes-section[data-variant="1"] .themes {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.themes-section[data-variant="1"] .custom-card {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: auto minmax(0, 1.1fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+}
+
+.themes-section[data-variant="1"] .custom-card a {
+  margin: 0;
+}
+
+/* Themes 2: bento, your own theme large beside the four presets. */
+.themes-section[data-variant="2"] .themes {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.themes-section[data-variant="2"] .custom-card {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  justify-content: flex-end;
+  padding: clamp(24px, 3vw, 36px);
+}
+
+.themes-section[data-variant="2"] .custom-card .shape-icon {
+  width: 104px;
+  height: 104px;
+  margin-bottom: auto;
+}
+
+.themes-section[data-variant="2"] .custom-card h3 {
+  font-size: 1.5rem;
+}
+
+.themes-section[data-variant="2"] .custom-card a {
+  margin-top: 4px;
+}
+
+/* Themes 3: one row per theme, like a list of options. */
+.themes-section[data-variant="3"] .themes {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  border-top: 1px solid var(--line);
+}
+
+.themes-section[data-variant="3"] .theme-card {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 20px;
+  padding: 18px 8px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+  backdrop-filter: none;
+}
+
+.themes-section[data-variant="3"] .custom-card {
+  grid-template-columns: 56px minmax(0, 1fr) minmax(0, 1fr) auto;
+}
+
+.themes-section[data-variant="3"] .theme-card:has(a[href*="theme="]):hover {
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+}
+
+.demo .themes-section[data-variant="3"] .theme-card a {
+  margin: 0;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.88rem;
+  text-decoration: none;
+  white-space: nowrap;
 }
 
 /* ---------- Footer ---------- */
@@ -617,19 +1199,52 @@ body {
   background: #242424;
 }
 
-.demo[data-theme="bldr"] :is(.button, .segmented a[aria-current], .step) {
+.demo[data-theme="bldr"]
+  :is(.button, .segmented a[aria-current], .step, .swatch[aria-current], .menu-button) {
   border: 2px solid #242424;
   border-radius: 0;
   box-shadow: -4px 4px 0 #242424;
 }
 
-.demo[data-theme="bldr"] :is(.segmented, .card, .chat-frame, .custom-card code, .steps code) {
+.demo[data-theme="bldr"]
+  :is(
+    .segmented,
+    .card,
+    .chat-frame,
+    .custom-card code,
+    .steps code,
+    .feature-code,
+    .control-card,
+    .swatch,
+    .dock
+  ) {
   border: 2px solid #242424;
   border-radius: 0;
 }
 
-.demo[data-theme="bldr"] .card {
+.demo[data-theme="bldr"] :is(.card, .control-card, .dock) {
   box-shadow: -6px 6px 0 #242424;
+}
+
+.demo[data-theme="bldr"] :is(.dock-theme, .terminal, .demo .themes-section a) {
+  border-radius: 0;
+}
+
+/* In the box-less layouts, BLDR keeps only its heavy rules between items. */
+.demo[data-theme="bldr"]
+  :is(.features[data-variant="3"], .how[data-variant="2"], .how[data-variant="3"])
+  .card,
+.demo[data-theme="bldr"] .themes-section[data-variant="3"] .theme-card {
+  border: 0;
+  box-shadow: none;
+}
+
+.demo[data-theme="bldr"] .features[data-variant="3"] .card {
+  border-top: 2px solid #242424;
+}
+
+.demo[data-theme="bldr"] .themes-section[data-variant="3"] .theme-card {
+  border-bottom: 2px solid #242424;
 }
 
 .demo[data-theme="bldr"] .nav {
@@ -649,26 +1264,278 @@ body:has(.demo[data-theme="bldr"]) [data-chatdock]::part(launcher) {
   box-shadow: -4px 4px 0 #242424;
 }
 
-@media (max-width: 900px) {
-  .hero {
+/* ---------- Tablet ---------- */
+
+@media (max-width: 960px) {
+  .features .cards,
+  .themes-section[data-variant="1"] .themes,
+  .themes-section[data-variant="2"] .themes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Bento on two columns: the large card on top, the last one wide, no gaps. */
+  .features[data-variant="2"] .card:first-child {
+    grid-row: auto;
+  }
+
+  .features[data-variant="2"] .card:last-child {
+    grid-column: span 2;
+  }
+
+  .themes-section[data-variant="2"] .custom-card {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+
+  .themes-section[data-variant="1"] .custom-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .themes-section[data-variant="1"] .custom-card code {
+    grid-column: 1 / -1;
+  }
+
+  .how .steps {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .how .steps .card {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr);
+    column-gap: 16px;
+  }
+
+  .how .steps .card > :not(.step) {
+    grid-column: 2;
+  }
+
+  .how .step {
+    grid-row: 1 / span 3;
+  }
+
+  .how[data-variant="1"] h3 {
+    margin-top: 4px;
+  }
+}
+
+@media (max-width: 900px) {
+  .hero,
+  .features[data-variant="3"],
+  .how[data-variant="2"],
+  .how[data-variant="3"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .how[data-variant="3"] {
+    grid-template-areas:
+      "title"
+      "steps"
+      "terminal";
+  }
+
+  .features[data-variant="3"] h2,
+  .how[data-variant="2"] h2 {
+    position: static;
   }
 
   .stage {
     min-height: 0;
   }
+}
 
-  .nav nav {
+/* ---------- Phone ---------- */
+
+@media (max-width: 760px) {
+  .nav {
+    padding: 14px var(--gutter);
+  }
+
+  .product small {
     display: none;
   }
 
-  .demo .nav .button {
-    margin-left: auto;
+  .menu-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--card);
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .menu-icon {
+    position: relative;
+    width: 14px;
+    height: 10px;
+  }
+
+  .menu-icon::before,
+  .menu-icon::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    border-radius: 2px;
+    background: currentColor;
+    transition:
+      top 0.2s ease,
+      bottom 0.2s ease,
+      transform 0.2s ease;
+  }
+
+  .menu-icon::before {
+    top: 0;
+  }
+
+  .menu-icon::after {
+    bottom: 0;
+  }
+
+  .menu[data-open] .menu-icon::before {
+    top: 4px;
+    transform: rotate(45deg);
+  }
+
+  .menu[data-open] .menu-icon::after {
+    bottom: 4px;
+    transform: rotate(-45deg);
+  }
+
+  .menu-panel {
+    position: absolute;
+    top: calc(100% - 2px);
+    right: var(--gutter);
+    left: var(--gutter);
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: var(--bg);
+    box-shadow: 0 24px 48px -24px color-mix(in srgb, var(--ink) 50%, transparent);
+  }
+
+  .menu[data-open] .menu-panel {
+    display: flex;
+  }
+
+  .demo[data-theme="bldr"] .menu-panel {
+    border: 2px solid #242424;
+    border-radius: 0;
+  }
+
+  .demo .menu-panel a:not(.button) {
+    padding: 12px 14px;
+    border-radius: 12px;
+    color: var(--ink);
+    font-size: 1rem;
+  }
+
+  .demo .menu-panel .button {
+    justify-content: center;
+    margin-top: 6px;
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .orb {
-    animation: none;
+@media (max-width: 600px) {
+  .review {
+    font-size: 0.7rem;
+  }
+
+  .hero {
+    gap: 24px;
+    padding-top: 12px;
+  }
+
+  .demo h1 {
+    font-size: clamp(2.2rem, 10.5vw, 2.8rem);
+  }
+
+  .lead {
+    margin: 14px 0 22px;
+    font-size: 1rem;
+  }
+
+  .control-card {
+    width: 100%;
+  }
+
+  .shape {
+    width: min(340px, 86vw);
+    margin: -28px 0 -32px;
+  }
+
+  .chat-frame {
+    height: 560px;
+  }
+
+  .features .cards,
+  .features[data-variant="3"] .cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .features[data-variant="2"] .card:is(:first-child, :last-child) {
+    grid-column: auto;
+  }
+
+  /* Features as short rows: the dot beside the title, less padding. */
+  .features:not([data-variant="2"]) .card,
+  .features[data-variant="2"] .card:not(:first-child) {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 12px;
+  }
+
+  .features:not([data-variant="2"]) .dot,
+  .features[data-variant="2"] .card:not(:first-child) .dot {
+    grid-row: span 2;
+    margin-top: 4px;
+  }
+
+  .features .card h3 {
+    margin: 0 0 4px;
+  }
+
+  .features[data-variant="2"] .card:first-child h3 {
+    margin-top: 14px;
+  }
+
+  .themes-section[data-variant="1"] .theme-card:not(.custom-card) .shape-icon,
+  .themes-section[data-variant="2"] .theme-card:not(.custom-card) .shape-icon {
+    width: 44px;
+    height: 44px;
+  }
+
+  .themes-section[data-variant="1"] .theme-card p,
+  .themes-section[data-variant="2"] .theme-card:not(.custom-card) p {
+    font-size: 0.88rem;
+  }
+
+  .themes-section[data-variant="3"] .theme-card,
+  .themes-section[data-variant="3"] .custom-card {
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 12px 14px;
+    padding: 16px 4px;
+  }
+
+  .themes-section[data-variant="3"] .shape-icon {
+    width: 44px;
+    height: 44px;
+    grid-row: span 2;
+    align-self: start;
+  }
+
+  .themes-section[data-variant="3"] .theme-card > :is(a, code) {
+    grid-column: 2;
+    justify-self: start;
   }
 }

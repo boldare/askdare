@@ -50,10 +50,7 @@ const swell = (t: number) => {
  * the cursor like a magnet and flare on a click; the shape never leaves its place. Every form is
  * built on the same grid as a sphere, so the drop and the form line up point for point.
  */
-export function liquid(
-  form: Form,
-  { palette, reduced }: { palette: Palette; reduced: boolean },
-): Liquid {
+export function liquid(form: Form, { palette }: { palette: Palette }): Liquid {
   const round = solid('sphere', AROUND, ALONG);
   const geometry = solid(form, AROUND, ALONG);
   geometry.setAttribute('aRound', round.getAttribute('position'));
@@ -164,22 +161,22 @@ export function liquid(
       uniforms.uPoke.value.copy(local(toward.clone()));
     },
     frame({ now, pointer, hover }) {
-      uniforms.uTime.value = reduced ? 0 : now;
-      const entered = reduced || enterAt === null ? 1 : clamp((now - enterAt) / ENTER);
+      uniforms.uTime.value = now;
+      const entered = enterAt === null ? 1 : clamp((now - enterAt) / ENTER);
       // Grow from a drop, wobbling hard, then settle into the form with a gentle ripple left.
       const settle = easeInOut((entered - 0.3) / 0.7);
       const calm = easeInOut((entered - 0.35) / 0.65);
       const wobble = FOLDS + (REST + hover * 0.03 - FOLDS) * calm;
-      const grow = reduced ? 1 : swell(entered / 0.45);
+      const grow = swell(entered / 0.45);
       uniforms.uSettle.value = settle;
-      uniforms.uWobble.value = reduced ? REST : wobble;
+      uniforms.uWobble.value = wobble;
       uniforms.uGrow.value = Math.max(grow, 0);
-      uniforms.uPokeAge.value = pokeAt === null || reduced ? 99 : now - pokeAt;
+      uniforms.uPokeAge.value = pokeAt === null ? 99 : now - pokeAt;
       uniforms.uSpikes.value =
         SPIKES.rest + (SPIKES.forming - SPIKES.rest) * Math.sin(Math.PI * clamp(entered));
       // Towards the cursor: in front of the shape, turned into the mesh's own space.
       uniforms.uReach.value.copy(local(new THREE.Vector3(pointer.x, pointer.y, 0.9)));
-      uniforms.uReachOn.value = reduced ? 0 : hover * settle;
+      uniforms.uReachOn.value = hover * settle;
       mesh.visible = grow > 0.001;
     },
     dispose() {

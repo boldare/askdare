@@ -13,17 +13,16 @@ export function createStage(
   canvas: HTMLCanvasElement,
   options: {
     readonly theme: ShapeTheme;
-    readonly reduced: boolean;
     readonly onError: (error: unknown) => void;
   },
 ): Stage {
-  const { theme, reduced, onError } = options;
+  const { theme, onError } = options;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   const palette = PALETTES[theme];
   const { scene, camera, tilt, spin, environment } = set(renderer, palette);
   const clock = () => performance.now() / 1000;
-  const shape = liquid(FORM_OF[theme], { palette, reduced });
+  const shape = liquid(FORM_OF[theme], { palette });
   spin.add(shape.root);
   shape.enter(clock());
 
@@ -86,11 +85,9 @@ export function createStage(
       hover += ((hovering ? 1 : 0) - hover) * (1 - Math.exp(-dt * 3.5));
       cursor.lerp(pointer, 1 - Math.exp(-dt * 12));
       lean.lerp(hovering ? pointer : new THREE.Vector2(), 1 - Math.exp(-dt * 3));
-      if (!reduced) {
-        spin.rotation.y = now * 0.22 + lean.x * 0.45;
-        tilt.rotation.x = 0.3 - lean.y * 0.22;
-        tilt.position.y = Math.sin(now * 1.1) * 0.05;
-      }
+      spin.rotation.y = now * 0.22 + lean.x * 0.45;
+      tilt.rotation.x = 0.3 - lean.y * 0.22;
+      tilt.position.y = Math.sin(now * 1.1) * 0.05;
       tilt.scale.setScalar(1 + hover * 0.04);
       scene.updateMatrixWorld();
       shape.frame({ now, pointer: cursor, hover });
@@ -104,10 +101,6 @@ export function createStage(
 
   return {
     open(chat) {
-      if (reduced) {
-        chat();
-        return;
-      }
       shape.poke(clock(), clicked());
       // Long enough to see the shape answer, short enough to feel immediate.
       window.setTimeout(chat, 180);
