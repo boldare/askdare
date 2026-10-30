@@ -14,7 +14,12 @@ export interface DoctorReport {
   /** Whether rate limits and budgets are shared across instances (e.g. Upstash). */
   readonly sharedLimits: boolean;
   readonly gallery: boolean;
-  readonly bots: readonly { readonly id: string; readonly checks: readonly DoctorCheck[] }[];
+  readonly bots: readonly {
+    readonly id: string;
+    readonly checks: readonly DoctorCheck[];
+    /** How long one of the bot's answers may take, to compare with the route's maxDuration. */
+    readonly turnTimeoutMs?: number | undefined;
+  }[];
 }
 
 const check = z.object({
@@ -27,5 +32,13 @@ export const doctorReportSchema: z.ZodType<DoctorReport> = z.object({
   development: z.boolean(),
   sharedLimits: z.boolean(),
   gallery: z.boolean(),
-  bots: z.array(z.object({ id: z.string().max(48), checks: z.array(check).max(20) })).max(50),
+  bots: z
+    .array(
+      z.object({
+        id: z.string().max(48),
+        checks: z.array(check).max(20),
+        turnTimeoutMs: z.number().int().positive().optional(),
+      }),
+    )
+    .max(50),
 });

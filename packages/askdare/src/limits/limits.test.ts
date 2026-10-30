@@ -23,7 +23,7 @@ const bot = defineBot({
   },
 });
 
-const DAY_KEY = 'cd:t:support:2026-10-29';
+const DAY_KEY = 'ask:t:support:2026-10-29';
 const usage = (input: number, output: number) => ({
   inputTokens: input,
   cachedInputTokens: 0,
@@ -178,7 +178,7 @@ describe('budgets', () => {
       retryAfterMs: 12 * 60 * 60_000,
     });
     expect(await spent()).toBe(990);
-    expect(await spent('cd:ti:support:ip-9:2026-10-29')).toBe(0);
+    expect(await spent('ask:ti:support:ip-9:2026-10-29')).toBe(0);
   });
 
   it('caps one IP below the bot budget so it cannot take the bot offline for everyone', async () => {
@@ -279,7 +279,7 @@ describe('voice', () => {
       voiceSecondsPerIpPerDay: 60,
     },
   });
-  const VOICE_KEY = 'cd:vsi:support:ip:2026-10-29';
+  const VOICE_KEY = 'ask:vsi:support:ip:2026-10-29';
 
   it('reserves the longest dictation and settles the billed seconds', async () => {
     const { limits, spent } = setup();

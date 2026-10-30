@@ -17,8 +17,10 @@ import { getClientIp, type TrustProxy } from '../limits/client-ip';
 import { createLimits } from '../limits/limits';
 import { memoryStore, type RateLimitStore } from '../limits/store';
 import { createOpenAIGateway } from '../openai/gateway';
+import type { ErrorCode } from '../protocol/events';
 import { createIdentityVerifier, type IdentityVerifier } from '../security/identity';
 import { createTokenService, type TokenService } from '../security/tokens';
+import { explain, TROUBLESHOOTING } from '../server/explain';
 import { createRequestHandler } from '../server/handler';
 
 export interface ChatHandlerOptions {
@@ -39,11 +41,27 @@ export interface ChatHandlerOptions {
   readonly identitySecret?: string;
   readonly limits?: ChatHandlerLimitsOptions;
   /**
+   * Called for every server error (status 500 and up), for your monitoring, such as Sentry.
+   * Defaults to one `console.error` line with a pointer to the troubleshooting guide. Never
+   * receives message contents or API keys.
+   */
+  readonly onError?: (report: ChatErrorReport) => void;
+  /**
    * Serves the state gallery: `/embed/<bot>?gallery=<state>&preset=<preset>&scheme=<scheme>`
    * renders fixture states without calling the model. For development and visual tests; leave
    * it off in production.
    */
   readonly gallery?: boolean;
+}
+
+/** One server error, as `onError` receives it. */
+export interface ChatErrorReport {
+  /** The stable code the widget also receives, such as `bot_unavailable` or `upstream_error`. */
+  readonly code: ErrorCode;
+  /** What went wrong, for you: a missing key, a model the project can't use. Never shown to visitors. */
+  readonly message: string;
+  /** The underlying error, with any API key cut down to its prefix. */
+  readonly cause?: unknown;
 }
 
 export interface ChatHandlerLimitsOptions {
@@ -106,6 +124,25 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
     );
   }
   const trustProxy = options.limits?.trustProxy ?? 'auto';
+  const development = process.env['NODE_ENV'] === 'development';
+  const report = (error: AskdareError): void => {
+    const explanation = explain(error);
+    if (options.onError) {
+      options.onError({
+        code: error.code,
+        message: explanation ?? error.message,
+        cause: error.cause,
+      });
+      return;
+    }
+    console.error(
+      `[askdare] ${error.code}${explanation ? `: ${explanation}` : ''} (see ${TROUBLESHOOTING})`,
+      error.cause,
+    );
+  };
+  /** A setup mistake (a weak secret) is the operator's to fix, not an internal error. */
+  const setupError = (error: unknown): unknown =>
+    error instanceof TypeError ? new AskdareError('bot_unavailable', { cause: error }) : error;
 
   const handle = createRequestHandler({
     bots: options.bots,
@@ -129,7 +166,10 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
       fontFiles: FONT_FILES,
     },
     gallery: options.gallery,
-    development: process.env['NODE_ENV'] === 'development',
+    development,
+    onError: report,
+    // In development the chat says what is wrong with the setup; in production, never.
+    explain: development ? explain : undefined,
     sharedLimits: store.shared,
     gateway: () =>
       (gateway ??= createOpenAIGateway({
@@ -146,19 +186,23 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
             .filter(Boolean),
       }).catch((error: unknown) => {
         tokens = undefined; // retry on the next request instead of failing forever
-        throw error;
+        throw setupError(error);
       });
       return tokens;
     },
     identity: () => {
       if (identity === undefined) {
         const secret = options.identitySecret ?? process.env['IDENTITY_SECRET'];
-        identity = secret
-          ? createIdentityVerifier({
-              secret,
-              chatSecret: options.secret ?? process.env['CHAT_SECRET'],
-            })
-          : null;
+        try {
+          identity = secret
+            ? createIdentityVerifier({
+                secret,
+                chatSecret: options.secret ?? process.env['CHAT_SECRET'],
+              })
+            : null;
+        } catch (error) {
+          throw setupError(error);
+        }
       }
       return identity ?? undefined;
     },

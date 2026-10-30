@@ -1,5 +1,6 @@
 export type { TrustProxy } from '../limits/client-ip';
 export type {
+  ChatErrorReport,
   ChatHandlerLimitsOptions,
   ChatHandlerOptions,
   ChatHandlers,

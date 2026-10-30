@@ -28,6 +28,8 @@ export interface StreamTurnOptions {
   readonly onUsage?: ((usage: TokenUsage, conversationId: string) => void) | undefined;
   /** Server-side reporting hook. Receives client-safe errors with internals in `cause`. */
   readonly onError?: ((error: AskdareError) => void) | undefined;
+  /** Development only: a setup error's description, shown in the chat instead of the generic one. */
+  readonly explain?: ((error: AskdareError) => string | undefined) | undefined;
   readonly heartbeatIntervalMs?: number | undefined;
   readonly generateId?: (() => string) | undefined;
 }
@@ -144,12 +146,13 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
             ? new AskdareError('timeout', { cause: error })
             : toAskdareError(error);
           reportError(failure);
+          const explanation = options.explain?.(failure);
           emit({
             type: 'error',
             code: failure.code,
-            message: failure.message,
+            message: explanation ?? failure.message,
             retryAfterMs: failure.retryAfterMs,
-            key: failure.key,
+            key: explanation ? undefined : failure.key,
             params: failure.params,
           });
         })

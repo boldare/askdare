@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createRequire } from 'node:module';
 import { parseArgs } from 'node:util';
 import { doctor, isLocal } from './doctor';
 import { InitError, init } from './init';
@@ -19,12 +20,20 @@ Commands:
     --base-path <p>    Path of the askdare route (default: /api/chat)
     --env-file <path>  Read CHAT_SECRET and the rest from this file
                        (default: .env.local and .env)
+    --origin <url>     Check that this site may embed the chat (the bot's
+                       security.allowedOrigins), e.g. https://www.example.com
 
   kb sync <folder>   Make an OpenAI vector store mirror a folder of documents.
                      See: askdare kb sync --help
 
+  -v, --version      Show the installed version
   -h, --help         Show this help
 `;
+
+/** The package's own version: the CLI ships next to its package.json (dist/cli.js). */
+function version(): string {
+  return (createRequire(import.meta.url)('../package.json') as { version: string }).version;
+}
 
 async function runInit(args: readonly string[]): Promise<number> {
   const { values } = parseArgs({
@@ -63,6 +72,7 @@ async function runDoctor(args: readonly string[]): Promise<number> {
       url: { type: 'string', default: 'http://localhost:3000' },
       'base-path': { type: 'string', default: '/api/chat' },
       'env-file': { type: 'string' },
+      origin: { type: 'string' },
       help: { type: 'boolean', short: 'h', default: false },
     },
   });
@@ -83,11 +93,20 @@ async function runDoctor(args: readonly string[]): Promise<number> {
   if (!/^(\/[a-zA-Z0-9._~-]+)+$/.test(values['base-path'])) {
     throw new UsageError('--base-path must look like /api/chat.');
   }
+  let origin: string | undefined;
+  if (values.origin !== undefined) {
+    try {
+      origin = new URL(values.origin).origin;
+    } catch {
+      throw new UsageError('--origin must be a URL such as https://www.example.com.');
+    }
+  }
   const failures = await doctor({
     root: process.cwd(),
     url: values.url,
     basePath: values['base-path'],
     envFile: values['env-file'],
+    origin,
     print: (line) => console.log(line),
   });
   return failures > 0 ? 1 : 0;
@@ -98,6 +117,10 @@ async function main(argv: readonly string[]): Promise<number> {
   if (command === 'init') return runInit(rest);
   if (command === 'doctor') return runDoctor(rest);
   if (command === 'kb' && rest[0] === 'sync') return kbSync(rest.slice(1));
+  if (command === '-v' || command === '--version') {
+    console.log(version());
+    return 0;
+  }
   if (command === undefined || command === '-h' || command === '--help') {
     console.log(USAGE);
     return 0;

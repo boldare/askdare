@@ -25,6 +25,8 @@ export interface DoctorOptions {
   readonly url: string;
   readonly basePath: string;
   readonly envFile?: string | undefined;
+  /** A site that should embed the chat: checked against each bot's allowlist (frame-ancestors). */
+  readonly origin?: string | undefined;
   readonly fetch?: typeof fetch;
   readonly shell?: NodeJS.ProcessEnv;
   readonly print: (line: string) => void;
@@ -154,7 +156,12 @@ async function environment(
     .map((value) => value.trim())
     .filter(Boolean);
   if (!secret) {
-    checks.push(fail('CHAT_SECRET is not set.', 'Generate one: openssl rand -base64 32'));
+    checks.push(
+      fail(
+        'CHAT_SECRET is not set.',
+        `Generate one: node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"`,
+      ),
+    );
   } else {
     try {
       await createTokenService({ secret, previousSecrets: previous });
@@ -179,9 +186,19 @@ async function environment(
       checks.push(fail((error as Error).message.replace('[askdare] ', '')));
     }
   }
-  if (!remote && env['ASKDARE_MODEL'] === '') {
+  // The bot config `init` writes reads its model from ASKDARE_MODEL; without it the app won't start.
+  const config = findFile(project.root, 'askdare.config');
+  const usesModelVariable =
+    env['ASKDARE_MODEL'] !== undefined ||
+    (config !== undefined && (await readFile(config, 'utf8')).includes('ASKDARE_MODEL'));
+  if (!remote && usesModelVariable && !env['ASKDARE_MODEL']) {
     checks.push(
-      fail('ASKDARE_MODEL is empty.', 'Set it to a current OpenAI model your project may use.'),
+      fail(
+        env['ASKDARE_MODEL'] === undefined
+          ? 'ASKDARE_MODEL is not set.'
+          : 'ASKDARE_MODEL is empty.',
+        'Set it to a current OpenAI model your project may use, here and in every environment of your host (on Vercel: Production and Preview). Without a model the app fails to start.',
+      ),
     );
   }
   for (const file of envFiles) {
@@ -229,7 +246,12 @@ function redirectOrMissing(response: Response, url: string): DoctorCheck | undef
 }
 
 /** What the browser needs from widget.js and the chat page; things in front of askdare can break it. */
-async function headers(fetcher: typeof fetch, base: string, botId: string): Promise<DoctorCheck[]> {
+async function headers(
+  fetcher: typeof fetch,
+  base: string,
+  botId: string,
+  origin: string | undefined,
+): Promise<DoctorCheck[]> {
   const checks: DoctorCheck[] = [];
   const loaderUrl = `${base}/widget.js?bot=${botId}`;
   const loader = await request(fetcher, loaderUrl);
@@ -259,6 +281,19 @@ async function headers(fetcher: typeof fetch, base: string, botId: string): Prom
       match[1]?.trim(),
     );
     const fix = 'Leave /api/chat out of the headers() in next.config and of proxy.ts.';
+    // A site that should embed the chat: the app itself ('self') or one of the bot's allowed origins.
+    if (origin !== undefined && ancestors.length === 1) {
+      const allowed = (ancestors[0] ?? '').split(/\s+/);
+      const self = new URL(base).origin === origin;
+      checks.push(
+        self || allowed.includes(origin)
+          ? ok(`${origin} may embed the chat.`)
+          : fail(
+              `${origin} may not embed the chat: it isn't in the bot's security.allowedOrigins.`,
+              `Add '${origin}' to security.allowedOrigins of bot "${botId}" and deploy.`,
+            ),
+      );
+    }
     if (embed.headers.has('x-frame-options')) {
       checks.push(fail('X-Frame-Options on the chat page stops sites from embedding it.', fix));
     } else if (ancestors.length !== 1) {
@@ -284,6 +319,36 @@ async function headers(fetcher: typeof fetch, base: string, botId: string): Prom
   }
   await Promise.all([loader.body?.cancel(), embed.body?.cancel()]);
   return checks;
+}
+
+/** The literal `maxDuration` of the askdare route, in seconds, if the file has one. */
+async function maxDurationOf(project: Project, basePath: string): Promise<number | undefined> {
+  const route = findFile(routeDir(project, basePath), 'route');
+  if (!route) return undefined;
+  const value = /export\s+const\s+maxDuration\s*=\s*(\d[\d_]*)/.exec(
+    await readFile(route, 'utf8'),
+  )?.[1];
+  return value === undefined ? undefined : Number(value.replaceAll('_', ''));
+}
+
+/**
+ * A bot whose answers may run longer than the route may: the platform ends the function first and
+ * the answer is cut off. 15 s of headroom for the history read and the stream's end.
+ */
+function timeout(
+  bot: DoctorReport['bots'][number],
+  routeSeconds: number | undefined,
+): DoctorCheck[] {
+  if (bot.turnTimeoutMs === undefined || routeSeconds === undefined) return [];
+  const needed = Math.ceil(bot.turnTimeoutMs / 1000) + 15;
+  return needed > routeSeconds
+    ? [
+        warn(
+          `An answer may take up to ${Math.ceil(bot.turnTimeoutMs / 1000)} s, but the route's maxDuration is ${routeSeconds} s.`,
+          `Raise maxDuration to at least ${needed}, or lower limits.turnTimeoutMs.`,
+        ),
+      ]
+    : [];
 }
 
 async function live(
@@ -353,10 +418,15 @@ async function live(
     );
   }
   const sections: Section[] = [{ title, checks: app }];
+  const routeSeconds = await maxDurationOf(project, options.basePath);
   for (const bot of report.bots) {
     sections.push({
       title: `Bot "${bot.id}"`,
-      checks: [...bot.checks, ...(await headers(fetcher, base, bot.id))],
+      checks: [
+        ...bot.checks,
+        ...(await headers(fetcher, base, bot.id, options.origin)),
+        ...timeout(bot, routeSeconds),
+      ],
     });
   }
   return sections;

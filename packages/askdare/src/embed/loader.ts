@@ -100,8 +100,11 @@ const STYLES = `
   :host([data-askdare-scheme=auto]) [part=panel] { background: var(--d); }
 }
 [part=panel][hidden] { display: none; }
+[part=unavailable] { position: absolute; inset: 0; display: grid; place-items: center;
+  margin: 0; padding: 24px; background: var(--l); color: var(--t); text-align: center;
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 [part=panel].solo { bottom: 24px; }
-[part=panel].inline { position: static; width: 100%; height: 100%; border-radius: inherit;
+[part=panel].inline { position: relative; width: 100%; height: 100%; border-radius: inherit;
   box-shadow: none; animation: none; }
 iframe { display: block; width: 100%; height: 100%; border: 0; }
 @keyframes in { from { opacity: 0; transform: translateY(10px) scale(.97); } }
@@ -188,6 +191,7 @@ function boot(): void {
         label: 'Ask us',
         open: 'Open chat',
         close: 'Close chat',
+        unavailable: 'The chat couldn’t load.',
         title: 'Chat',
       };
     const host = document.createElement('div');
@@ -265,6 +269,25 @@ function boot(): void {
 
     let iframe: HTMLIFrameElement | undefined;
     let port: MessagePort | undefined;
+    /** The chat said it is up. Until then, a timer watches for a chat that never loads. */
+    let ready = false;
+    let notice: HTMLElement | undefined;
+    /**
+     * The chat didn't load: most often the page's site isn't in the bot's allowlist, so the app
+     * refuses to be framed here (CSP frame-ancestors), or the bot ID is wrong. Say so in the
+     * panel, and tell the developer where to look.
+     */
+    const unavailable = (): void => {
+      if (ready || notice) return;
+      notice = document.createElement('p');
+      notice.setAttribute('part', 'unavailable');
+      notice.setAttribute('role', 'status');
+      notice.textContent = texts.unavailable;
+      panel.append(notice);
+      console.warn(
+        `[askdare] The chat "${botId}" didn't load on ${location.origin}. Is this origin in the bot's security.allowedOrigins? Check with: npx @boldare/askdare doctor --origin ${location.origin}`,
+      );
+    };
     /** The latest configure() call, delivered once the chat is connected (and again after reloads). */
     let configured: Record<string, unknown> | undefined;
     /** The latest identify() call: sent with the handshake, so the chat's first request has it. */
@@ -280,7 +303,12 @@ function boot(): void {
         if (event.data?.v !== 1) return;
         if (event.data.type === 'close') close();
         // The chat has its own close button now, so phones can hide the launcher behind it.
-        if (event.data.type === 'ready') launcher.dataset['ready'] = '';
+        if (event.data.type === 'ready') {
+          ready = true;
+          notice?.remove();
+          notice = undefined;
+          launcher.dataset['ready'] = '';
+        }
       };
       // Explicit target origin: only our own app can receive the port.
       frame.contentWindow?.postMessage(
@@ -306,6 +334,7 @@ function boot(): void {
         iframe.allow = 'clipboard-write; microphone';
         iframe.addEventListener('load', () => iframe && connect(iframe));
         panel.append(iframe);
+        setTimeout(unavailable, 8000);
       }
       panel.hidden = false;
       showIcon(true);

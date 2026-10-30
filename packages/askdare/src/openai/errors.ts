@@ -5,7 +5,21 @@ import {
   APIUserAbortError,
   NotFoundError,
 } from 'openai';
-import { AskdareError, TurnAbortedError } from '../errors';
+import { AskdareError, scrub, TurnAbortedError } from '../errors';
+
+/**
+ * What OpenAI said, for logs and the developer: status, code and request ID, with any API key in
+ * the message cut down to its prefix (a 401 quotes part of the key).
+ */
+function redacted(error: APIError): Error {
+  const copy = new Error(scrub(error.message));
+  copy.name = error.name;
+  return Object.assign(copy, {
+    status: error.status,
+    code: error.code,
+    requestId: error.requestID,
+  });
+}
 
 function retryAfterMs(headers: Headers | undefined): number | undefined {
   const ms = Number(headers?.get('retry-after-ms'));
@@ -39,23 +53,23 @@ export function fromOpenAIError(error: unknown, deadlineExceeded: boolean): Erro
     // Verified live (spike S1): a misconfigured model answers 404 `model_not_found`, a deleted
     // conversation answers 404 "Conversation with id '…' not found". Only the latter resets the chat.
     if (error.code === 'model_not_found')
-      return new AskdareError('bot_unavailable', { cause: error });
+      return new AskdareError('bot_unavailable', { cause: redacted(error) });
     if (/conversation/i.test(error.message)) {
       return new AskdareError('not_found', {
         message: 'This conversation is no longer available.',
         key: 'error.conversationGone',
-        cause: error,
+        cause: redacted(error),
       });
     }
-    return new AskdareError('upstream_error', { cause: error });
+    return new AskdareError('upstream_error', { cause: redacted(error) });
   }
   if (error instanceof APIError) {
     if (error.status === 401 || error.status === 403) {
-      return new AskdareError('bot_unavailable', { cause: error });
+      return new AskdareError('bot_unavailable', { cause: redacted(error) });
     }
     const retry = error.status === 429 ? retryAfterMs(error.headers) : undefined;
     return new AskdareError('upstream_error', {
-      cause: error,
+      cause: redacted(error),
       ...(retry === undefined ? {} : { retryAfterMs: retry }),
     });
   }

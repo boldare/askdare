@@ -41,6 +41,11 @@ export interface HandlerConfig {
   /** Best-effort client IP for rate-limit keys. */
   readonly clientIp: (request: Request) => string;
   readonly onError?: ((error: AskdareError) => void) | undefined;
+  /**
+   * Development only: a description of a setup error to show in the chat instead of the generic
+   * message, such as a missing OPENAI_API_KEY. Never given in production.
+   */
+  readonly explain?: ((error: AskdareError) => string | undefined) | undefined;
   readonly heartbeatIntervalMs?: number | undefined;
   /**
    * Development and visual tests only: lets `/embed/:bot?gallery=<state>&preset=&scheme=` render
@@ -111,15 +116,16 @@ function jsonResponse(body: unknown, status = 200, headers: Record<string, strin
   });
 }
 
-function errorResponse(error: AskdareError): Response {
+function errorResponse(error: AskdareError, explanation?: string): Response {
   const retry = error.retryAfterMs;
   return jsonResponse(
     {
       error: {
         code: error.code,
-        message: error.message,
+        // A development explanation replaces the visitor's message and its translation.
+        message: explanation ?? error.message,
         ...(retry ? { retryAfterMs: retry } : {}),
-        ...(error.key ? { key: error.key } : {}),
+        ...(error.key && !explanation ? { key: error.key } : {}),
         ...(error.params ? { params: error.params } : {}),
       },
     },
@@ -541,6 +547,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
         reservation.settle(usage, id).catch((error: unknown) => report(toAskdareError(error)));
       },
       onError: report,
+      explain: config.explain,
       heartbeatIntervalMs: config.heartbeatIntervalMs,
       waitUntil: config.waitUntil,
     });
@@ -767,7 +774,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
                 fix: "Add the key of the bot's OpenAI project to the app's environment.",
               },
             ];
-        bots.push({ id: bot.id, checks });
+        bots.push({ id: bot.id, checks, turnTimeoutMs: bot.limits.turnTimeoutMs });
       }
       const report: DoctorReport = {
         development: config.development === true,
@@ -815,7 +822,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     } catch (error) {
       const failure = toAskdareError(error);
       if (failure.status >= 500) report(failure);
-      return errorResponse(failure);
+      return errorResponse(failure, config.explain?.(failure));
     }
   };
 }

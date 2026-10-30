@@ -72,8 +72,9 @@ describe('askdare init', () => {
 
     const layout = await readFile(join(root, 'app/layout.tsx'), 'utf8');
     expect(layout).toContain(
-      '        {children}\n        <script src="/api/chat/widget.js?bot=support" async />\n      </body>',
+      '        {children}\n        <Script src="/api/chat/widget.js?bot=support" strategy="afterInteractive" />\n      </body>',
     );
+    expect(layout).toContain("import Script from 'next/script';");
     expect(output.join('\n')).toContain('Install: pnpm add @boldare/askdare zod');
     expect(output.join('\n')).toContain('In .env.local, set OPENAI_API_KEY.');
   });
@@ -109,7 +110,7 @@ describe('askdare init', () => {
     });
     await run();
     expect(await readFile(join(root, 'app/layout.tsx'), 'utf8')).toContain(
-      '<body className={font.variable}>{children}<script src="/api/chat/widget.js?bot=support" async /></body>',
+      '<body className={font.variable}>{children}<Script src="/api/chat/widget.js?bot=support" strategy="afterInteractive" /></body>',
     );
     const agents = await readFile(join(root, 'AGENTS.md'), 'utf8');
     expect(agents).toMatch(
@@ -132,7 +133,9 @@ describe('askdare init', () => {
     expect(route).toContain("from '../../../../../askdare.config'");
     expect(await readFile(join(root, 'askdare.config.js'), 'utf8')).toContain("id: 'sales'");
     // No layout to edit: init says where the script goes.
-    expect(output.join('\n')).toContain('<script src="/api/chat/widget.js?bot=sales" async />');
+    expect(output.join('\n')).toContain(
+      '<Script src="/api/chat/widget.js?bot=sales" strategy="afterInteractive" />',
+    );
   });
 
   it("asks git whether .env.local is ignored, so another folder's pattern doesn't count", async () => {

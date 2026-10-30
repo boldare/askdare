@@ -109,11 +109,11 @@ export function createLimits(options: LimitsOptions): Limits {
   const untilMidnight = (): number => Date.parse(`${day()}T00:00:00Z`) + DAY - now();
 
   const budgets = (bot: Bot, clientIp: string): Budget[] => [
-    { key: `cd:t:${bot.id}:${day()}`, limit: bot.limits.dailyTokens },
-    { key: `cd:ti:${bot.id}:${clientIp}:${day()}`, limit: bot.limits.dailyTokensPerIp },
+    { key: `ask:t:${bot.id}:${day()}`, limit: bot.limits.dailyTokens },
+    { key: `ask:ti:${bot.id}:${clientIp}:${day()}`, limit: bot.limits.dailyTokensPerIp },
     ...(options.globalDailyTokens === undefined
       ? []
-      : [{ key: `cd:tg:${day()}`, limit: options.globalDailyTokens }]),
+      : [{ key: `ask:tg:${day()}`, limit: options.globalDailyTokens }]),
   ];
 
   const reserve = async (list: readonly Budget[], amount: number): Promise<void> => {
@@ -134,40 +134,44 @@ export function createLimits(options: LimitsOptions): Limits {
     async checkSession(bot, keys) {
       assertEnabled();
       if (keys.returningVisitorId) {
-        await enforce(`cd:sv:${bot.id}:${keys.returningVisitorId}`, HOUR, 12);
+        await enforce(`ask:sv:${bot.id}:${keys.returningVisitorId}`, HOUR, 12);
       } else {
-        await enforce(`cd:s:${bot.id}:${keys.clientIp}`, HOUR, bot.limits.sessionsPerIpPerHour);
+        await enforce(`ask:s:${bot.id}:${keys.clientIp}`, HOUR, bot.limits.sessionsPerIpPerHour);
       }
     },
 
     async checkDoctor() {
       assertEnabled();
-      await enforce('cd:doctor', MINUTE, 3);
+      await enforce('ask:doctor', MINUTE, 3);
     },
 
     async checkConversationAccess(bot, visitorId) {
       assertEnabled();
-      await enforce(`cd:r:${bot.id}:${visitorId}`, MINUTE, 20);
+      await enforce(`ask:r:${bot.id}:${visitorId}`, MINUTE, 20);
     },
 
     async checkUpload(bot, keys) {
       assertEnabled();
-      await enforce(`cd:uv:${bot.id}:${keys.visitorId}`, HOUR, bot.limits.uploadsPerVisitorPerHour);
-      await enforce(`cd:ui:${bot.id}:${keys.clientIp}`, HOUR, bot.limits.uploadsPerIpPerHour);
-      await enforce(`cd:ud:${bot.id}:${day()}`, DAY, bot.limits.uploadsPerDay);
+      await enforce(
+        `ask:uv:${bot.id}:${keys.visitorId}`,
+        HOUR,
+        bot.limits.uploadsPerVisitorPerHour,
+      );
+      await enforce(`ask:ui:${bot.id}:${keys.clientIp}`, HOUR, bot.limits.uploadsPerIpPerHour);
+      await enforce(`ask:ud:${bot.id}:${day()}`, DAY, bot.limits.uploadsPerDay);
     },
 
     async beginTranscription(bot, keys) {
       assertEnabled();
       const { limits } = bot;
       await enforce(
-        `cd:tv:${bot.id}:${keys.visitorId}`,
+        `ask:tv:${bot.id}:${keys.visitorId}`,
         HOUR,
         limits.transcriptionsPerVisitorPerHour,
       );
       const slots = [
-        { key: `cd:tfi:${bot.id}:${keys.clientIp}`, limit: TRANSCRIPTIONS_IN_FLIGHT_PER_IP },
-        { key: `cd:tfb:${bot.id}`, limit: TRANSCRIPTIONS_IN_FLIGHT_PER_BOT },
+        { key: `ask:tfi:${bot.id}:${keys.clientIp}`, limit: TRANSCRIPTIONS_IN_FLIGHT_PER_IP },
+        { key: `ask:tfb:${bot.id}`, limit: TRANSCRIPTIONS_IN_FLIGHT_PER_BOT },
       ];
       const taken: { readonly key: string }[] = [];
       const release = () =>
@@ -186,9 +190,9 @@ export function createLimits(options: LimitsOptions): Limits {
       }
       const reserved = bot.voice?.maxSeconds ?? 60;
       const list: Budget[] = [
-        { key: `cd:vs:${bot.id}:${day()}`, limit: limits.voiceSecondsPerDay },
+        { key: `ask:vs:${bot.id}:${day()}`, limit: limits.voiceSecondsPerDay },
         {
-          key: `cd:vsi:${bot.id}:${keys.clientIp}:${day()}`,
+          key: `ask:vsi:${bot.id}:${keys.clientIp}:${day()}`,
           limit: limits.voiceSecondsPerIpPerDay,
         },
       ];
@@ -214,21 +218,21 @@ export function createLimits(options: LimitsOptions): Limits {
       assertEnabled();
       const { limits } = bot;
       await enforce(
-        `cd:mv:${bot.id}:${keys.visitorId}`,
+        `ask:mv:${bot.id}:${keys.visitorId}`,
         MINUTE,
         limits.messagesPerVisitorPerMinute,
       );
-      await enforce(`cd:mi:${bot.id}:${keys.clientIp}`, MINUTE, limits.messagesPerIpPerMinute);
+      await enforce(`ask:mi:${bot.id}:${keys.clientIp}`, MINUTE, limits.messagesPerIpPerMinute);
       let historyTokens = 0;
       if (keys.conversationId) {
-        await enforce(`cd:c:${keys.conversationId}`, CONVERSATION_TTL, limits.maxTurns, {
+        await enforce(`ask:c:${keys.conversationId}`, CONVERSATION_TTL, limits.maxTurns, {
           message: 'This conversation is too long. Please start a new one.',
           key: 'error.conversationTooLong',
         });
-        historyTokens = (await store.hit(`cd:ci:${keys.conversationId}`, CONVERSATION_TTL, 0))
+        historyTokens = (await store.hit(`ask:ci:${keys.conversationId}`, CONVERSATION_TTL, 0))
           .count;
       } else {
-        await enforce(`cd:cc:${bot.id}:${keys.clientIp}`, HOUR, limits.conversationsPerIpPerHour);
+        await enforce(`ask:cc:${bot.id}:${keys.clientIp}`, HOUR, limits.conversationsPerIpPerHour);
       }
 
       const estimate =
@@ -248,10 +252,10 @@ export function createLimits(options: LimitsOptions): Limits {
             list.map((budget) => store.hit(budget.key, 2 * DAY, actual - estimate)),
           );
           // Remember the conversation's size so the next turn's estimate includes its history.
-          const inputKey = `cd:ci:${conversationId}`;
+          const inputKey = `ask:ci:${conversationId}`;
           const previous = (await store.hit(inputKey, CONVERSATION_TTL, 0)).count;
           await store.hit(inputKey, CONVERSATION_TTL, usage.inputTokens - previous);
-          if (!keys.conversationId) await store.hit(`cd:c:${conversationId}`, CONVERSATION_TTL, 1);
+          if (!keys.conversationId) await store.hit(`ask:c:${conversationId}`, CONVERSATION_TTL, 1);
         },
       };
     },

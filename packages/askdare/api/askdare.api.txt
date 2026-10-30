@@ -1,11 +1,11 @@
 // ==== index.d.ts ====
-import { S as VisitorIdentity, _ as ThemeDefinition, a as BotContext, b as ThemeTokens, c as BotSecurity, d as defineBot, f as Tool, g as ColorScheme, h as defineTool, i as Bot, l as KnowledgeConfig, m as ToolDefinition, n as RateLimitStore, o as BotDefinition, p as ToolContext, r as AttachmentConfig, s as BotLimits, t as CounterHit, u as WidgetConfig, v as defineTheme, x as ThemeVariants, y as PresetName } from "./store.js";
+import { C as VisitorIdentity, S as ThemeVariants, _ as ColorScheme, a as BotContext, b as PresetName, c as BotSecurity, d as WidgetConfig, f as defineBot, g as defineTool, h as ToolDefinition, i as Bot, l as KnowledgeConfig, m as ToolContext, n as RateLimitStore, o as BotDefinition, p as Tool, r as AttachmentConfig, s as BotLimits, t as CounterHit, u as VoiceConfig, v as ThemeDefinition, x as ThemeTokens, y as defineTheme } from "./store.js";
 /**
  * Version of the SSE wire protocol between the askdare server and its clients.
  * Bumped on any breaking change to event names or payloads (ADR-0006).
  */
 export declare const PROTOCOL_VERSION: 1;
-export { type AttachmentConfig, type Bot, type BotContext, type BotDefinition, type BotLimits, type BotSecurity, type ColorScheme, type CounterHit, type KnowledgeConfig, type PresetName, type RateLimitStore, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type VisitorIdentity, type WidgetConfig, defineBot, defineTheme, defineTool };
+export { type AttachmentConfig, type Bot, type BotContext, type BotDefinition, type BotLimits, type BotSecurity, type ColorScheme, type CounterHit, type KnowledgeConfig, type PresetName, type RateLimitStore, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
 
 // ==== next.d.ts ====
 import { i as Bot, n as RateLimitStore } from "./store.js";
@@ -20,6 +20,9 @@ import { i as Bot, n as RateLimitStore } from "./store.js";
  * Never expose `next start` without a proxy in front: the client then controls these headers.
  */
 type TrustProxy = "auto" | "vercel" | "heroku" | number;
+/** Stable error codes sent to clients. The accompanying message never contains internals. */
+declare const ERROR_CODES: readonly ["invalid_input", "unauthorized", "session_expired", "not_found", "rate_limited", "budget_exceeded", "bot_unavailable", "content_blocked", "timeout", "upstream_error", "internal_error"];
+type ErrorCode = (typeof ERROR_CODES)[number];
 interface ChatHandlerOptions {
   readonly bots: readonly Bot[];
   /** Path of the catch-all route. Default `/api/chat` (route file `app/api/chat/[...path]/route.ts`). */
@@ -38,11 +41,26 @@ interface ChatHandlerOptions {
   readonly identitySecret?: string;
   readonly limits?: ChatHandlerLimitsOptions;
   /**
+   * Called for every server error (status 500 and up), for your monitoring, such as Sentry.
+   * Defaults to one `console.error` line with a pointer to the troubleshooting guide. Never
+   * receives message contents or API keys.
+   */
+  readonly onError?: (report: ChatErrorReport) => void;
+  /**
    * Serves the state gallery: `/embed/<bot>?gallery=<state>&preset=<preset>&scheme=<scheme>`
    * renders fixture states without calling the model. For development and visual tests; leave
    * it off in production.
    */
   readonly gallery?: boolean;
+}
+/** One server error, as `onError` receives it. */
+interface ChatErrorReport {
+  /** The stable code the widget also receives, such as `bot_unavailable` or `upstream_error`. */
+  readonly code: ErrorCode;
+  /** What went wrong, for you: a missing key, a model the project can't use. Never shown to visitors. */
+  readonly message: string;
+  /** The underlying error, with any API key cut down to its prefix. */
+  readonly cause?: unknown;
 }
 interface ChatHandlerLimitsOptions {
   /**
@@ -74,7 +92,7 @@ interface ChatHandlers {
  * `next build`) never requires them.
  */
 export declare function createChatHandler(options: ChatHandlerOptions): ChatHandlers;
-export type { ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlers, RouteHandler, TrustProxy };
+export type { ChatErrorReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlers, RouteHandler, TrustProxy };
 
 // ==== store.d.ts ====
 import { z } from "zod";
@@ -124,6 +142,7 @@ declare const EN: {
   readonly "launcher.label": "Ask us";
   readonly "launcher.open": "Open chat";
   readonly "launcher.close": "Close chat";
+  readonly "launcher.unavailable": "The chat couldn’t load. Please try again later.";
   readonly "error.connection": "Connection problem. Please try again.";
   readonly "error.history": "Could not load the previous conversation.";
   readonly "error.updated": "The assistant was updated. Please reload the page.";
@@ -487,4 +506,4 @@ interface RateLimitStore {
   /** True for stores that are shared across server instances. */
   readonly shared: boolean;
 }
-export { VisitorIdentity as S, ThemeDefinition as _, BotContext as a, ThemeTokens as b, BotSecurity as c, defineBot as d, Tool as f, ColorScheme as g, defineTool as h, Bot as i, KnowledgeConfig as l, ToolDefinition as m, RateLimitStore as n, BotDefinition as o, ToolContext as p, AttachmentConfig as r, BotLimits as s, CounterHit as t, WidgetConfig as u, defineTheme as v, ThemeVariants as x, PresetName as y };
+export { VisitorIdentity as C, ThemeVariants as S, ColorScheme as _, BotContext as a, PresetName as b, BotSecurity as c, WidgetConfig as d, defineBot as f, defineTool as g, ToolDefinition as h, Bot as i, KnowledgeConfig as l, ToolContext as m, RateLimitStore as n, BotDefinition as o, Tool as p, AttachmentConfig as r, BotLimits as s, CounterHit as t, VoiceConfig as u, ThemeDefinition as v, ThemeTokens as x, defineTheme as y };
