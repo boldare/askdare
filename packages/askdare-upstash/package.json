@@ -1,6 +1,6 @@
 {
   "name": "@boldare/askdare-upstash",
-  "version": "0.1.0-rc.0",
+  "version": "0.1.0-rc.1",
   "description": "Shared rate limits and budgets for @boldare/askdare, stored in Upstash Redis.",
   "license": "MIT",
   "author": {
