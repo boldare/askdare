@@ -1,5 +1,5 @@
-// Renders the README's pictures to .github/assets/, and the site's social card to
-// app/opengraph-image.png, from the real chat: the state gallery's fixtures, captured in English,
+// Renders the README's pictures to .github/assets/, and the site's link preview to
+// public/askdare-og.png, from the real chat: the state gallery's fixtures, captured in English,
 // laid out in the site's Aura look. Run it with the site's dev server up and the gallery on
 // (ASKDARE_GALLERY=1, as in .claude/launch.json):
 //   node site/scripts/readme-images.mjs [http://localhost:3000]
@@ -447,7 +447,7 @@ await render(themes(), { width: 1280, height: 640, path: join(assets, 'askdare-t
 await render(hero(true), {
   width: 1280,
   height: 640,
-  path: join(site, 'app', 'opengraph-image.png'),
+  path: join(site, 'public', 'askdare-og.png'),
   scale: 1,
 });
 await browser.close();
