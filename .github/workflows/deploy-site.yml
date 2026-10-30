@@ -1,9 +1,8 @@
 # Deploys the website (site/) to Vercel from CI: GitHub Actions builds it and uploads the build
 # (`vercel build` + `vercel deploy --prebuilt`), so Vercel needs no access to the repository. It
 # runs once the repository variable VERCEL_DEPLOY is true; the job's environment "vercel", which
-# only main may use, holds the secret VERCEL_TOKEN and the variables VERCEL_ORG_ID and
-# VERCEL_PROJECT_ID. The site's own variables (OpenAI key, CHAT_SECRET, …) live in the Vercel
-# project. See site/README.md.
+# only main may use, holds the secret VERCEL_TOKEN. The site's own variables (OpenAI key,
+# CHAT_SECRET, …) live in the Vercel project. See site/README.md.
 name: Deploy site
 
 on:
@@ -38,8 +37,9 @@ jobs:
       name: vercel
       url: ${{ steps.deploy.outputs.url }}
     env:
-      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      # The Vercel team and project. Not secrets: Vercel keeps them in .vercel/project.json.
+      VERCEL_ORG_ID: team_aLBb5BIjuYNAmQ1C8YpACUDZ
+      VERCEL_PROJECT_ID: prj_7z0rz9ci2oamQk0p3FWI0PAfIXCl
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
