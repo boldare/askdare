@@ -143,15 +143,18 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
             ) : (
               <div className="shape-stage">
                 <HeroShape theme={theme} label="Open the chat" />
-                {/* A callout with a hand-drawn arrow, pointing at the shape. */}
+                {/* A note above the shape, its hand-drawn arrow curving down onto it. */}
                 <p className="hint">
-                  <span>Click the shape to chat</span>
-                  <svg className="hint-arrow" viewBox="0 0 64 44" aria-hidden="true">
+                  <span className="hint-label">
+                    <i aria-hidden="true" />
+                    Click to chat
+                  </span>
+                  <svg className="hint-arrow" viewBox="0 0 64 48" aria-hidden="true">
                     {/* Drawn twice: a light outline under the line keeps it legible on the shape. */}
                     {['halo', 'line'].map((layer) => (
                       <g key={layer} className={layer}>
-                        <path d="M3 40 C 20 38, 42 30, 57 7" />
-                        <path d="M47 8 L57 7 L57 17" />
+                        <path d="M4 6 C 22 6, 44 14, 56 38" />
+                        <path d="M47.7 32.5 L56 38 L56.6 28" />
                       </g>
                     ))}
                   </svg>
