@@ -397,7 +397,8 @@ body {
 
 .stage {
   display: grid;
-  place-items: center;
+  /* Flush with the content's right edge, like the button in the bar above it. */
+  place-items: center end;
   height: var(--stage-height);
   min-width: 0;
   text-align: center;
@@ -419,7 +420,9 @@ body {
   position: relative;
   display: grid;
   justify-items: center;
-  width: 100%;
+  /* The same box as the chat in the page, so switching modes keeps the object in place. The
+     picture is wider than the shape and spills past both sides of the box evenly. */
+  width: min(400px, 100%);
   isolation: isolate;
 }
 
@@ -1220,6 +1223,11 @@ body:has(.demo[data-theme="bldr"]) [data-askdare]::part(launcher) {
 
   .stage {
     height: auto;
+    justify-items: center;
+  }
+
+  .shape-stage {
+    width: 100%;
   }
 
   .chat-frame {

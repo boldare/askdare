@@ -20,6 +20,12 @@ test('the chat can sit inside an element of the page', async ({ page }) => {
   const chat = page.frameLocator('#chat iframe');
   await expect(chat.getByRole('textbox')).toBeVisible();
   await expect(chat.getByRole('button', { name: 'Close chat' })).toHaveCount(0);
+  // It fills its element exactly: none of the bubble's offsets carry over.
+  const target = await page.locator('#chat').boundingBox();
+  const frame = await page.locator('#chat iframe').boundingBox();
+  expect(Math.abs((frame?.x ?? 0) - (target?.x ?? 0))).toBeLessThanOrEqual(2);
+  expect(Math.abs((frame?.y ?? 0) - (target?.y ?? 0))).toBeLessThanOrEqual(2);
+  expect(Math.abs((frame?.width ?? 0) - (target?.width ?? 0))).toBeLessThanOrEqual(2);
   await chat.getByRole('textbox').fill('Inline hello');
   await chat.getByRole('textbox').press('Enter');
   await expect(
