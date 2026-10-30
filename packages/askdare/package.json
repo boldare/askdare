@@ -3,7 +3,10 @@
   "version": "0.0.0",
   "description": "Embeddable AI chatbot for Next.js, built on the official OpenAI SDK.",
   "license": "MIT",
-  "author": "Boldare",
+  "author": {
+    "name": "Boldare",
+    "url": "https://www.boldare.com"
+  },
   "homepage": "https://github.com/boldare/askdare#readme",
   "repository": {
     "type": "git",
@@ -13,13 +16,18 @@
   "bugs": "https://github.com/boldare/askdare/issues",
   "keywords": [
     "chatbot",
+    "chat-widget",
     "ai",
     "assistant",
     "nextjs",
+    "next.js",
     "widget",
     "embed",
     "openai",
-    "responses-api"
+    "responses-api",
+    "rag",
+    "openai-assistant",
+    "assistants-api"
   ],
   "type": "module",
   "sideEffects": false,
@@ -37,6 +45,7 @@
     },
     "./package.json": "./package.json"
   },
+  "types": "./dist/index.d.ts",
   "bin": {
     "askdare": "./dist/cli.js"
   },
@@ -44,7 +53,8 @@
     "dist",
     "docs",
     "llms.txt",
-    "skills"
+    "skills",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build:assets": "vite build -c vite.widget.config.ts && vite build -c vite.loader.config.ts && node scripts/inline-assets.mjs",
