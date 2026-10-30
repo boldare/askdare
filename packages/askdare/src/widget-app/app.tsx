@@ -14,7 +14,7 @@ import type { TextKey } from '../i18n/texts';
 import type { ProtocolEvent } from '../protocol/events';
 import type { HistoryMessage } from '../protocol/history';
 import type { EmbedConfig } from '../server/embed-page';
-import type { ChatClient } from './chat-client';
+import { type ChatClient, SessionRefused } from './chat-client';
 import type { HostBridge, PageOptions } from './host-bridge';
 import { AttachIcon, CloseIcon, MicIcon, RestartIcon, SendIcon } from './icons';
 import { Markdown } from './markdown';
@@ -363,8 +363,11 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
     client
       .loadHistory(controller.signal)
       .then((history) => setMessages(history.map(fromHistory)))
-      .catch(() => {
-        if (!controller.signal.aborted) setError(t('error.history'));
+      .catch((error: unknown) => {
+        // A refused session says why (explained in development); anything else is generic.
+        if (!controller.signal.aborted) {
+          setError(error instanceof SessionRefused ? error.message : t('error.history'));
+        }
       })
       .finally(() => setLoading(false));
     return () => controller.abort();
