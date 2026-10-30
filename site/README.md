@@ -33,7 +33,7 @@ GitHub Actions builds the site and uploads the build (`.github/workflows/deploy-
    | `DOCS_VECTOR_STORE_ID` | The docs chat's store, synced with `node site/scripts/docs-kb.mjs` |
    | `ASKDARE_GALLERY` | Optional: `1` to serve `/gallery` |
 
-   Add each with `npx -y vercel@65.4.0 env add <NAME> production`, which asks for the value, or in the project's settings.
+   Add each with `npx -y vercel@65.4.0 env add <NAME> production`, which asks for the value, or in the project's settings. Store `OPENAI_API_KEY` and `CHAT_SECRET` as **Secret** and the rest as **Config** (`--type config`). The build runs in GitHub Actions, where `vercel pull` gets only a placeholder for a Secret. That is fine for the key and the secret, which the chat reads when it runs, but the pages read the model and the store IDs while they build.
 3. **GitHub:** in the `vercel` environment (only `main` may use it), add the secret `VERCEL_TOKEN` (a token from vercel.com → Account Settings → Tokens). The team and project IDs are in `deploy-site.yml` (from `.vercel/project.json` after step 1). Then set the repository variable `VERCEL_DEPLOY` to `true`. Every push to `main` that touches the site, the packages or the docs deploys; Actions → Deploy site → Run workflow deploys by hand.
 4. **Shared limits (optional).** Vercel runs several instances at once, and each counts the limits on its own. Storage → Upstash for Redis (Marketplace, free plan) → connect it to the project. It adds `KV_REST_API_URL` and `KV_REST_API_TOKEN`, and the chat route then uses `@boldare/askdare-upstash`.
 5. **Check the live site** and point the docs chat at it, so citations link there:
