@@ -36,3 +36,6 @@ packages/askdare-upstash/LICENSE
 
 # local release tarballs (pnpm pack), never committed
 release/
+
+# Vercel CLI project link
+.vercel/
