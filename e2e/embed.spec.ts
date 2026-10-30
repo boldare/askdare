@@ -64,8 +64,24 @@ test('starts a new conversation and deletes the old one', async ({ page }) => {
   await expect(reply).toHaveAttribute('data-status', 'done');
   const old = /\(in (conv_\d+)\)/.exec((await reply.textContent()) ?? '')?.[1];
 
-  page.once('dialog', (dialog) => dialog.accept());
-  await chat.getByRole('button', { name: 'Start a new conversation' }).click();
+  // The chat asks in its own panel, not with a browser dialog. Cancel keeps the conversation.
+  const restart = chat.getByRole('button', { name: 'Start a new conversation' });
+  await restart.click();
+  const question = chat.getByRole('alertdialog');
+  await expect(question).toContainText('The current one will be deleted.');
+  await expect(question.getByRole('button', { name: 'Cancel' })).toBeFocused();
+  await question.getByRole('button', { name: 'Cancel' }).click();
+  await expect(question).toHaveCount(0);
+  await expect(restart).toBeFocused();
+  await expect(chat.locator('[data-cd-part="message"]')).toHaveCount(2);
+  // Escape answers no too, and leaves the chat open.
+  await restart.click();
+  await page.keyboard.press('Escape');
+  await expect(chat.getByRole('alertdialog')).toHaveCount(0);
+  await expect(chat.getByRole('textbox')).toBeVisible();
+
+  await restart.click();
+  await chat.getByRole('alertdialog').getByRole('button', { name: 'Start new' }).click();
   await expect(chat.locator('[data-cd-part="message"]')).toHaveCount(0);
 
   await chat.getByRole('textbox').fill('Fresh start');
@@ -108,8 +124,8 @@ test('sends an image and a PDF, and deletes them with the conversation', async (
   const uploaded = (await (await request.get(`${MOCK_OPENAI}/debug/files`)).json()) as string[];
   expect(uploaded.length - filesBefore.length).toBe(2);
 
-  page.once('dialog', (dialog) => dialog.accept());
   await chat.getByRole('button', { name: 'Start a new conversation' }).click();
+  await chat.getByRole('alertdialog').getByRole('button', { name: 'Start new' }).click();
   await expect(chat.locator('[data-cd-part="message"]')).toHaveCount(0);
   await expect
     .poll(async () => (await (await request.get(`${MOCK_OPENAI}/debug/files`)).json()) as string[])

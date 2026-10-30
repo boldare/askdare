@@ -733,6 +733,101 @@
     transform: none;
   }
 
+  /* ---------- Asking before a new conversation ---------- */
+
+  /* Over the conversation, below the header: the chat stays in view, dimmed. */
+  [data-cd-part="confirm-backdrop"] {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: grid;
+    place-items: center;
+    padding: calc(var(--cd-space) * 2);
+    background: color-mix(in srgb, var(--cd-color-background) 60%, transparent);
+    backdrop-filter: blur(6px);
+    animation: cd-fade 0.16s var(--cd-ease);
+  }
+
+  [data-cd-part="confirm"] {
+    display: grid;
+    justify-items: center;
+    gap: calc(var(--cd-space) * 1.5);
+    width: min(300px, 100%);
+    padding: calc(var(--cd-space) * 2.5) calc(var(--cd-space) * 2) calc(var(--cd-space) * 2);
+    border: 1px solid var(--cd-color-border);
+    border-radius: var(--cd-radius);
+    background: var(--cd-color-surface);
+    box-shadow: var(--cd-shadow);
+    text-align: center;
+    animation: cd-pop 0.2s var(--cd-ease);
+  }
+
+  [data-cd-part="confirm-icon"] {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--cd-color-accent) 12%, transparent);
+    color: var(--cd-color-accent);
+  }
+
+  [data-cd-part="confirm-text"] {
+    margin: 0;
+    color: var(--cd-color-text);
+    font-size: 0.95rem;
+    line-height: 1.45;
+    text-wrap: balance;
+  }
+
+  [data-cd-part="confirm-actions"] {
+    display: flex;
+    gap: var(--cd-space);
+    width: 100%;
+    margin-top: calc(var(--cd-space) / 2);
+  }
+
+  :is([data-cd-part="confirm-cancel"], [data-cd-part="confirm-accept"]) {
+    flex: 1;
+    padding: calc(var(--cd-space) * 1.1) var(--cd-space);
+    border: 1px solid var(--cd-color-border);
+    border-radius: var(--cd-radius-small);
+    background: transparent;
+    color: var(--cd-color-text);
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s var(--cd-ease);
+  }
+
+  [data-cd-part="confirm-cancel"]:hover {
+    background: color-mix(in srgb, var(--cd-color-text) 6%, transparent);
+  }
+
+  [data-cd-part="confirm-accept"] {
+    border-color: var(--cd-color-accent);
+    background: var(--cd-color-accent);
+    color: var(--cd-color-on-accent);
+  }
+
+  [data-cd-part="confirm-accept"]:hover {
+    background: color-mix(in srgb, var(--cd-color-accent) 88%, var(--cd-color-text));
+  }
+
+  @keyframes cd-fade {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes cd-pop {
+    from {
+      opacity: 0;
+      transform: translateY(6px) scale(0.97);
+    }
+  }
+
   /* ---------- Errors ---------- */
 
   [data-cd-part="error"] {

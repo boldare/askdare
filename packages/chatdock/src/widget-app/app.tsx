@@ -4,6 +4,7 @@ import {
   type KeyboardEvent,
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
@@ -240,6 +241,13 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
   const [dragging, setDragging] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  /** Asking before a new conversation deletes the current one: in the chat, not a browser dialog. */
+  const [confirming, setConfirming] = useState(false);
+  const confirmingRef = useRef(false);
+  confirmingRef.current = confirming;
+  const restartRef = useRef<HTMLButtonElement>(null);
+  const confirmRef = useRef<HTMLDivElement>(null);
+  const confirmTextId = useId();
   const fileRef = useRef<HTMLInputElement>(null);
   const voice = config.voice;
   const [voiceAvailable] = useState(() => voice !== undefined && (!!fixture || canRecord()));
@@ -275,6 +283,12 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent): void => {
       if (event.key !== 'Escape') return;
+      // While asking about a new conversation, Escape answers no instead of closing the chat.
+      if (confirmingRef.current) {
+        setConfirming(false);
+        requestAnimationFrame(() => restartRef.current?.focus());
+        return;
+      }
       // While dictating, Escape cancels the recording instead of closing the chat.
       if (recordingRef.current) {
         discardRecording();
@@ -541,8 +555,34 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
     requestAnimationFrame(() => inputRef.current?.focus());
   };
 
+  const askStartOver = (): void => {
+    setConfirming(true);
+    // Focus starts on Cancel: the safe answer.
+    requestAnimationFrame(() => confirmRef.current?.querySelector('button')?.focus());
+  };
+
+  const cancelStartOver = (): void => {
+    setConfirming(false);
+    requestAnimationFrame(() => restartRef.current?.focus());
+  };
+
+  /** Keeps Tab inside the question while it is open. */
+  const onConfirmKey = (event: KeyboardEvent<HTMLDivElement>): void => {
+    if (event.key !== 'Tab') return;
+    const buttons = Array.from(event.currentTarget.querySelectorAll('button'));
+    const first = buttons[0];
+    const last = buttons[buttons.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first?.focus();
+    }
+  };
+
   const startOver = async (): Promise<void> => {
-    if (!window.confirm(t('confirm.newConversation'))) return;
+    setConfirming(false);
     setBusy(true);
     await client.deleteConversation().catch(() => undefined);
     revokePreviews(messages.flatMap((message) => message.files ?? []));
@@ -625,12 +665,14 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
         <div data-cd-part="actions">
           {messages.length > 0 && (
             <button
+              ref={restartRef}
               type="button"
               data-cd-part="new-conversation"
               aria-label={t('header.newConversation')}
+              aria-haspopup="dialog"
               title={t('header.newConversation')}
               disabled={busy}
-              onClick={() => void startOver()}
+              onClick={askStartOver}
             >
               <RestartIcon />
             </button>
@@ -651,6 +693,34 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
           )}
         </div>
       </header>
+      {confirming && (
+        <div data-cd-part="confirm-backdrop">
+          <div
+            ref={confirmRef}
+            data-cd-part="confirm"
+            role="alertdialog"
+            aria-modal="true"
+            aria-describedby={confirmTextId}
+            aria-label={t('header.newConversation')}
+            onKeyDown={onConfirmKey}
+          >
+            <span data-cd-part="confirm-icon" aria-hidden="true">
+              <RestartIcon />
+            </span>
+            <p id={confirmTextId} data-cd-part="confirm-text">
+              {t('confirm.newConversation')}
+            </p>
+            <div data-cd-part="confirm-actions">
+              <button type="button" data-cd-part="confirm-cancel" onClick={cancelStartOver}>
+                {t('confirm.cancel')}
+              </button>
+              <button type="button" data-cd-part="confirm-accept" onClick={() => void startOver()}>
+                {t('confirm.accept')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div
         data-cd-part="messages"
         ref={logRef}
