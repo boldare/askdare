@@ -7,7 +7,7 @@
     "start": "next start"
   },
   "dependencies": {
-    "@boldare/askdare": "^0.1.0-rc.1",
+    "@boldare/askdare": "^0.1.0-rc.2",
     "next": "^16.4.3",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

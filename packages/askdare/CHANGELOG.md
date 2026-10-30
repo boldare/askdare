@@ -1,5 +1,12 @@
 # @boldare/askdare
 
+## 0.1.0-rc.2
+
+### Patch Changes
+
+- f25bb19: Docs: a database from the Vercel Marketplace (Upstash for Redis) sets `KV_REST_API_URL` and `KV_REST_API_TOKEN`, and one from the Upstash console has the `UPSTASH_REDIS_REST_*` names. The store reads both, as before.
+- 68d94e6: The npm pages link to the website, https://askdare.vercel.app, with the docs and a live demo of every theme.
+
 ## 0.1.0-rc.1
 
 ### Patch Changes
