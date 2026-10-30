@@ -33,26 +33,38 @@ const FEATURES = [
   {
     title: 'One script tag',
     text: 'Your Next.js app serves the chat. Any website, Next.js or not, embeds it with one line.',
+    href: '/docs/embedding',
+    more: 'Embedding the chat',
   },
   {
     title: 'Answers from your documents',
     text: 'Upload a folder once with kb sync. Every answer cites its sources as links to your pages.',
+    href: '/docs/knowledge-base',
+    more: 'Knowledge base',
   },
   {
     title: 'Your own tools',
     text: 'Let the assistant check an order or a price. Arguments are validated with Zod, end to end.',
+    href: '/docs/tools',
+    more: 'Tools',
   },
   {
     title: 'Images, PDFs and voice',
     text: 'Visitors attach files or dictate. The transcript lands in the field for them to check.',
+    href: '/docs/attachments',
+    more: 'Attachments and voice',
   },
   {
     title: 'Secure by default',
     text: 'Short-lived tokens, rate limits and daily budgets. Visitors never pick the model or tools.',
+    href: '/docs/going-public',
+    more: 'Going public',
   },
   {
     title: 'No database',
     text: 'Conversations live in OpenAI. Deploy to Vercel or Heroku with two environment variables.',
+    href: '/docs/deployment',
+    more: 'Deployment',
   },
 ] as const;
 
@@ -61,16 +73,22 @@ const STEPS = [
     title: 'Install',
     text: 'Add the library and zod to your Next.js app.',
     code: 'npm install @boldare/askdare zod',
+    href: '/docs/getting-started',
+    more: 'Requirements and setup',
   },
   {
     title: 'Set up',
     text: 'init writes the chat route, a bot to start from and the environment template.',
     code: 'npx @boldare/askdare init',
+    href: '/docs/cli',
+    more: 'What init and doctor do',
   },
   {
     title: 'Embed',
     text: 'Paste one tag on any website. The chat is served from your app.',
     code: '<script src="https://your-app.com/api/chat/widget.js?bot=support" async></script>',
+    href: '/docs/embedding',
+    more: 'Embedding on other sites',
   },
 ] as const;
 
@@ -104,7 +122,7 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
         </a>
         <span className="product">
           askdare
-          <small>Open source chat for Next.js, on OpenAI</small>
+          <small>Dare to ask.</small>
         </span>
         <NavMenu
           links={[
@@ -125,15 +143,15 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
               <strong>in one script tag</strong>
             </h1>
             <p className="lead">
-              askdare is a Next.js library by Boldare. It answers from your documents, calls your
-              tools and fits your brand, with security built in.
+              askdare is an open source Next.js library by Boldare, on the OpenAI API. It answers
+              from your documents, calls your tools and fits your brand, with security built in.
             </p>
             <div className="actions">
-              <a className="button" href="#how">
+              <a className="button" href="/docs/getting-started">
                 Get started
               </a>
-              <a className="link-button" href="#themes">
-                See the themes
+              <a className="link-button" href="/docs">
+                Read the docs
               </a>
             </div>
           </div>
@@ -175,6 +193,9 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
                 <span className="dot" aria-hidden="true" />
                 <h3>{feature.title}</h3>
                 <p>{feature.text}</p>
+                <a className="more" href={feature.href}>
+                  {feature.more} <span className="arrow">→</span>
+                </a>
               </li>
             ))}
           </ul>
@@ -190,9 +211,20 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
                 <span className="step">{index + 1}</span>
                 <h3>{step.title}</h3>
                 <p>{step.text}</p>
+                <a className="more" href={step.href}>
+                  {step.more} <span className="arrow">→</span>
+                </a>
               </li>
             ))}
           </ol>
+          <div className="how-docs">
+            <a className="button" href="/docs/getting-started">
+              Follow the 15-minute guide
+            </a>
+            <a className="link-button" href="/docs">
+              All docs
+            </a>
+          </div>
           <div className="terminal">
             <div className="terminal-bar" aria-hidden="true">
               <i />
@@ -221,6 +253,10 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
             <span>Four themes,</span> <strong>light and dark</strong>
             <span>, or</span> <strong>your own</strong>
           </h2>
+          <p className="section-docs">
+            Pick one in a line of config, adjust its tokens, or style every part with your own CSS.{' '}
+            <a href="/docs/themes">Themes</a> and <a href="/docs/styling">styling</a> in the docs.
+          </p>
           <ul className="themes">
             {PRESETS.map((item) => (
               <li key={item.id} className="card theme-card">
@@ -277,6 +313,13 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
           askdare is an open-source project by <a href="https://www.boldare.com">Boldare</a>. MIT
           licensed.
         </p>
+        <nav className="footer-links" aria-label="Docs">
+          <a href="/docs">Docs</a>
+          <a href="/docs/getting-started">Getting started</a>
+          <a href="/docs/configuration">Configuration</a>
+          <a href="/docs/troubleshooting">Troubleshooting</a>
+          <a href="https://github.com/boldare/askdare">GitHub</a>
+        </nav>
       </footer>
 
       {/* The theme and mode switches, docked at the bottom of the window while you scroll. */}
