@@ -291,15 +291,20 @@ body {
   backdrop-filter: blur(12px);
 }
 
-.demo .segmented a {
+.demo .segmented :is(a, button) {
   padding: 8px 16px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
   border-radius: 999px;
   font-size: 0.92rem;
   font-weight: 500;
   text-decoration: none;
 }
 
-.demo .segmented a:hover {
+.demo .segmented :is(a, button):hover {
   background: color-mix(in srgb, var(--ink) 6%, transparent);
 }
 
@@ -312,7 +317,7 @@ body {
   letter-spacing: 0.06em;
 }
 
-.demo .segmented a[aria-current] {
+.demo .segmented :is(a[aria-current], button[aria-pressed="true"]) {
   background: var(--button);
   color: var(--on-button);
 }
@@ -419,6 +424,12 @@ body {
 .shape:focus-visible {
   outline: 3px solid var(--ink);
   outline-offset: -24px;
+}
+
+/* Liquid or network: switching keeps the page, the shape rebuilds itself. */
+.looks {
+  margin: -28px 0 0;
+  font-size: 0.86rem;
 }
 
 .shape[data-fallback] {
@@ -623,7 +634,8 @@ body {
   background: #242424;
 }
 
-.demo[data-theme="bldr"] :is(.button, .segmented a[aria-current], .step) {
+.demo[data-theme="bldr"]
+  :is(.button, .segmented a[aria-current], .segmented button[aria-pressed="true"], .step) {
   border: 2px solid #242424;
   border-radius: 0;
   box-shadow: -4px 4px 0 #242424;

@@ -1,7 +1,8 @@
 import Image from 'next/image';
 import { DEMO_BOTS } from '@/chatdock.config';
+import { HeroShape } from './_shape/hero-shape';
+import { LOOKS, type LookName } from './_shape/names';
 import { ChatScript } from './chat-script';
-import { HeroShape } from './hero-shape';
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 
@@ -74,8 +75,9 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
   const params = await searchParams;
   const theme: Theme = pick(params['theme'], THEMES);
   const mode: Mode = pick(params['mode'], MODES);
+  const look: LookName = pick(params['look'], LOOKS);
   const href = (change: { theme?: Theme; mode?: Mode }) =>
-    `/?${new URLSearchParams({ theme, mode, ...change })}`;
+    `/?${new URLSearchParams({ theme, mode, look, ...change })}`;
   const inline = mode === 'inline';
 
   return (
@@ -164,7 +166,7 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
               <div id="chatdock-demo" className="chat-frame" />
             ) : (
               <div className="orb-stage">
-                <HeroShape theme={theme} label="Open the chat" />
+                <HeroShape theme={theme} look={look} label="Open the chat" />
                 <p>Click the shape, or the button in the corner, to start a chat.</p>
               </div>
             )}
