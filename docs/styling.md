@@ -57,7 +57,7 @@ A full example is the starter's BLDR theme, in Boldare's style: `defineTheme` ov
 
 **Variants** of the theme are attributes on `<html>`: `data-cd-preset`, `data-cd-scheme`, `data-cd-avatar`, `data-cd-welcome`, `data-cd-launcher`, `data-cd-bubbles`, `data-cd-surface`, `data-cd-density`, `data-cd-composer`.
 
-**The launcher** lives in a shadow root on your page. Style it from your own CSS with `::part`:
+**The launcher** follows the theme's `launcher` variant: `circle` is a chat icon, `pill` the bot's picture or initials with its label, and `orb` the theme's orb with its label (Aura and Halo). The label is `launcherLabel`. It lives in a shadow root on your page. Style it from your own CSS with `::part`:
 
 ```css
 [data-chatdock]::part(launcher) { right: 32px; bottom: 32px; }

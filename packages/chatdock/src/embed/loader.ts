@@ -55,7 +55,7 @@ declare global {
 }
 
 // Short custom property names keep the loader small: a accent, o text on accent, b orb,
-// l and d panel background (light, dark), r panel radius.
+// l and d panel background (light, dark), t and u text on them, r panel radius.
 const STYLES = `
 :host { all: initial; }
 [part=launcher] {
@@ -73,14 +73,21 @@ const STYLES = `
 .av { display: grid; place-items: center; width: 44px; height: 44px; overflow: hidden;
   border-radius: 50%; background: var(--o); color: var(--a); font-size: 14px; }
 .av img { width: 100%; height: 100%; object-fit: cover; }
-.orb { width: 60px; height: 60px; background: var(--b); overflow: hidden;
-  box-shadow: inset 0 -6px 14px rgb(0 0 0 / .2), inset 0 5px 12px rgb(255 255 255 / .6),
-    0 14px 34px -10px var(--a); }
-.orb::after { content: ""; position: absolute; top: 12%; left: 20%; width: 36%; height: 28%;
+/* The orb launcher: the orb with its label, on the panel's background, so it reads as a chat. */
+.orb { height: 60px; padding: 0 22px 0 6px; background: var(--l); color: var(--t);
+  box-shadow: 0 14px 34px -12px var(--a), 0 2px 8px rgb(15 23 42 / .12),
+    0 0 0 1px rgb(15 23 42 / .06); }
+:host([data-chatdock-scheme=dark]) .orb { background: var(--d); color: var(--u); }
+@media (prefers-color-scheme: dark) {
+  :host([data-chatdock-scheme=auto]) .orb { background: var(--d); color: var(--u); }
+}
+.ob { position: relative; width: 48px; height: 48px; border-radius: 50%; background: var(--b);
+  box-shadow: inset 0 -5px 12px rgb(0 0 0 / .18), inset 0 4px 10px rgb(255 255 255 / .6); }
+.ob::after { content: ""; position: absolute; top: 12%; left: 20%; width: 36%; height: 28%;
   border-radius: 50%; background: radial-gradient(closest-side, #fffe, #fff0); }
-[aria-expanded=true] { background: var(--a); }
-[aria-expanded=true]::after, [aria-expanded=true] .av, [aria-expanded=true] .lb { display: none; }
-.pill[aria-expanded=true] { padding: 0; width: 56px; }
+[aria-expanded=true], :host .orb[aria-expanded=true] { background: var(--a); color: var(--o); }
+[aria-expanded=true] .av, [aria-expanded=true] .ob, [aria-expanded=true] .lb { display: none; }
+.pill[aria-expanded=true], .orb[aria-expanded=true] { padding: 0; width: 56px; }
 [part=panel] {
   position: fixed; right: 24px; bottom: 96px; z-index: 2147483000;
   width: min(400px, calc(100vw - 48px)); height: min(680px, calc(100dvh - 120px));
@@ -193,6 +200,8 @@ function boot(): void {
       ['--b', look?.orb ?? 'var(--a)'],
       ['--l', look?.light ?? '#ffffff'],
       ['--d', look?.dark ?? '#0a0f1c'],
+      ['--t', look?.text ?? '#0d1526'],
+      ['--u', look?.textDark ?? '#e8edf7'],
       ['--r', look?.radius ? `min(${look.radius}, 24px)` : '18px'],
     ] as const) {
       host.style.setProperty(name, value);
@@ -213,7 +222,12 @@ function boot(): void {
     launcher.type = 'button';
     launcher.className = look?.style ?? 'circle';
     launcher.setAttribute('part', 'launcher');
-    launcher.setAttribute('aria-label', texts.open);
+    // A visible label starts the button's name, as WCAG's "label in name" asks; the action follows.
+    const closedName =
+      look?.style === 'pill' || look?.style === 'orb'
+        ? `${texts.label}, ${texts.open}`
+        : texts.open;
+    launcher.setAttribute('aria-label', closedName);
     launcher.setAttribute('aria-expanded', 'false');
     const icon = document.createElement('span');
     icon.style.display = 'contents';
@@ -221,11 +235,12 @@ function boot(): void {
       icon.innerHTML = open ? CLOSE_ICON : look?.style === 'circle' || !look ? CHAT_ICON : '';
     };
     showIcon(false);
-    if (look?.style === 'pill') {
+    if (look?.style === 'pill' || look?.style === 'orb') {
+      // The pill shows the bot's picture or initials; the orb launcher, the orb.
       const avatar = document.createElement('span');
-      avatar.className = 'av';
-      avatar.textContent = look.initials;
-      if (look.avatar) {
+      avatar.className = look.style === 'orb' ? 'ob' : 'av';
+      if (look.style === 'pill') avatar.textContent = look.initials;
+      if (look.style === 'pill' && look.avatar) {
         const image = document.createElement('img');
         image.alt = '';
         image.src = look.avatar.startsWith('/') ? `${appOrigin}${look.avatar}` : look.avatar;
@@ -306,7 +321,7 @@ function boot(): void {
       panel.hidden = true;
       showIcon(false);
       launcher.setAttribute('aria-expanded', 'false');
-      launcher.setAttribute('aria-label', texts.open);
+      launcher.setAttribute('aria-label', closedName);
       // Back to whatever opened the chat: the page's own button, else the launcher.
       (returnFocus?.isConnected ? returnFocus : withLauncher ? launcher : undefined)?.focus();
     }

@@ -38,6 +38,8 @@ export function launcherLook(bot: Bot): LauncherLook {
     initials: initials(bot.widget.title),
     light: theme.light.background,
     dark: theme.dark.background,
+    text: theme.light.text,
+    textDark: theme.dark.text,
     scheme: theme.colorScheme,
     radius: tokens.radius,
   };
