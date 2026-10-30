@@ -111,8 +111,9 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
             { href: '#features', label: 'Features' },
             { href: '#how', label: 'How it works' },
             { href: '#themes', label: 'Themes' },
+            { href: '/docs', label: 'Docs' },
           ]}
-          action={{ href: '#how', label: 'Get started' }}
+          action={{ href: '/docs/getting-started', label: 'Get started' }}
         />
       </header>
 
