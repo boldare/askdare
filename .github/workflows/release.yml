@@ -39,8 +39,9 @@ jobs:
       - run: pnpm check
       - uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
         with:
-          # The starter's range moves with the version, so the lockfile has to follow.
-          version-script: pnpm changeset version && pnpm install --lockfile-only
+          # changeset version, then the lockfile, since the starter's range moves with the version.
+          # The action runs it without a shell, hence a package script.
+          version-script: pnpm version-packages
           # Stage, don't publish: approval stays with a person (scripts/stage-release.mjs).
           publish-script: node scripts/stage-release.mjs
         env:
