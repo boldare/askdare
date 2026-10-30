@@ -6,14 +6,17 @@
       "runtimeExecutable": "bash",
       "runtimeArgs": [
         "-c",
-        "cd site && ASKDARE_GALLERY=${ASKDARE_GALLERY:-1} ASKDARE_ALLOWED_ORIGINS=${ASKDARE_ALLOWED_ORIGINS:-http://127.0.0.1:4000} exec ./node_modules/.bin/next dev --port 3000"
+        "cd site && if [ -f ../examples/starter/.env ]; then set -a; . ../examples/starter/.env; set +a; fi && export ASKDARE_GALLERY=${ASKDARE_GALLERY:-1} ASKDARE_ALLOWED_ORIGINS=${ASKDARE_ALLOWED_ORIGINS:-http://127.0.0.1:4000} && exec ./node_modules/.bin/next dev --port 3000"
       ],
       "port": 3000
     },
     {
       "name": "starter",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd examples/starter && exec ./node_modules/.bin/next dev --port 3001"],
+      "runtimeArgs": [
+        "-c",
+        "cd examples/starter && { grep -q '^ASKDARE_MODEL=.' .env .env.local 2>/dev/null || export ASKDARE_MODEL=gpt-6.1-terra; } && exec ./node_modules/.bin/next dev --port 3001"
+      ],
       "port": 3001
     },
     {
