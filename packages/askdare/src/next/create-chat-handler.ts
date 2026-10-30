@@ -41,7 +41,8 @@ export interface ChatHandlerOptions {
   readonly identitySecret?: string;
   readonly limits?: ChatHandlerLimitsOptions;
   /**
-   * Called for every server error (status 500 and up), for your monitoring, such as Sentry.
+   * Called for every server error (status 500 and up), for an error that ends a streamed answer,
+   * and once a day when a bot-wide or the global budget runs out, for your monitoring, such as Sentry.
    * Defaults to one `console.error` line with a pointer to the troubleshooting guide. Never
    * receives message contents or API keys.
    */
@@ -135,10 +136,9 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
       });
       return;
     }
-    console.error(
-      `[askdare] ${error.code}${explanation ? `: ${explanation}` : ''} (see ${TROUBLESHOOTING})`,
-      error.cause,
-    );
+    const line = `[askdare] ${error.code}: ${explanation ?? error.message} (see ${TROUBLESHOOTING})`;
+    if (error.cause === undefined) console.error(line);
+    else console.error(line, error.cause);
   };
   /** A setup mistake (a weak secret) is the operator's to fix, not an internal error. */
   const setupError = (error: unknown): unknown =>
@@ -210,6 +210,8 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
       store,
       globalDailyTokens: options.limits?.globalDailyTokens,
       disabled: () => process.env['ASKDARE_DISABLED'] === 'true',
+      // The chat stops answering until midnight UTC: the operator should hear about it.
+      onExhausted: (message) => report(new AskdareError('budget_exceeded', { message })),
     }),
     clientIp: (request) => getClientIp(request, trustProxy),
   });

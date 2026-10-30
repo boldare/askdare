@@ -78,6 +78,7 @@ function options(overrides: Partial<StreamTurnOptions> = {}): StreamTurnOptions 
     visitorId: 'visitor-1',
     signal: new AbortController().signal,
     issueResumeToken: async (conversationId) => `resume:${conversationId}`,
+    pseudonym: async (value) => `hmac(${value})`,
     onError: () => {},
     generateId: () => `id_${++id}`,
     ...overrides,
@@ -111,14 +112,14 @@ describe('streamTurn', () => {
     expect(gateway.created).toEqual([]);
     expect(gateway.requests[0]?.conversationId).toBe('conv_old');
     expect(events.map((event) => event.type)).toEqual(['user.ack', 'message.start', 'message.end']);
+    // A fresh handle, so an active conversation stays reachable 30 days after its last message.
+    expect(events.at(-1)).toMatchObject({ type: 'message.end', resumeToken: 'resume:conv_old' });
   });
 
-  it('passes a hashed visitor ID as the safety identifier', async () => {
+  it("passes a pseudonym of the visitor's ID as the safety identifier", async () => {
     const gateway = fakeGateway(async () => COMPLETED);
     await collect(streamTurn(options({ gateway })));
-    const safetyIdentifier = gateway.requests[0]?.safetyIdentifier;
-    expect(safetyIdentifier).toMatch(/^[0-9a-f]{64}$/);
-    expect(safetyIdentifier).not.toContain('visitor-1');
+    expect(gateway.requests[0]?.safetyIdentifier).toBe('hmac(visitor-1)');
   });
 
   it('sends heartbeats while the model is slow', async () => {

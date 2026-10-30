@@ -258,7 +258,7 @@ See [Deployment](deployment.md#behind-another-proxy-or-cdn) for setups with a CD
 
 ### `onError`
 
-`onError` receives server errors (status 500 and up) and any error that ends an answer while it streams. Use it for your monitoring. It never receives message contents or API keys. Don't throw from it.
+`onError` receives server errors (status 500 and up), any error that ends an answer while it streams, and once a day a `budget_exceeded` report when a bot's or the global budget runs out (never a single visitor's). Use it for your monitoring. It never receives message contents or API keys. Don't throw from it.
 
 ```ts
 import * as Sentry from '@sentry/nextjs';
@@ -281,7 +281,7 @@ Without `onError`, askdare logs one `console.error` line with the code, what wen
 | `message` | `string` | What went wrong, for you: a missing key, a model the project can't use. Never shown to visitors. |
 | `cause` | `unknown` | The underlying error, with any API key cut down to its prefix. Optional. |
 
-`code` is one of `invalid_input`, `unauthorized`, `session_expired`, `not_found`, `rate_limited`, `budget_exceeded`, `bot_unavailable`, `content_blocked`, `timeout`, `upstream_error` or `internal_error`. The codes at status 500 and up are `internal_error` (500), `upstream_error` (502), `bot_unavailable` (503) and `timeout` (504). [Protocol](protocol.md#error-codes) explains each one.
+`code` is one of `invalid_input`, `unauthorized`, `session_expired`, `not_found`, `rate_limited`, `budget_exceeded`, `bot_unavailable`, `content_blocked` (reserved, not sent yet), `timeout`, `upstream_error` or `internal_error`. The codes at status 500 and up are `internal_error` (500), `upstream_error` (502), `bot_unavailable` (503) and `timeout` (504). [Protocol](protocol.md#error-codes) explains each one.
 
 ### `gallery`
 

@@ -20,6 +20,17 @@ async function forge(typ: string, kid: string | undefined, claims: Record<string
 }
 
 describe('token service', () => {
+  it('gives a stable pseudonym that depends on the secret, not just the ID', async () => {
+    const tokens = await createTokenService({ secret: SECRET });
+    const other = await createTokenService({ secret: `${SECRET}-other` });
+    const pseudonym = await tokens.pseudonym('user:42');
+    expect(pseudonym).toMatch(/^[0-9a-f]{64}$/);
+    expect(await tokens.pseudonym('user:42')).toBe(pseudonym);
+    expect(await tokens.pseudonym('user:43')).not.toBe(pseudonym);
+    // A plain hash of a guessable ID could be reversed by trying IDs; this can't without the secret.
+    expect(await other.pseudonym('user:42')).not.toBe(pseudonym);
+  });
+
   it('round-trips an access token for the same bot', async () => {
     const tokens = await createTokenService({ secret: SECRET });
     const { token, expiresAt } = await tokens.issueAccess('support', VISITOR);

@@ -222,6 +222,23 @@ describe('ChatClient', () => {
     expect(storage.get('askdare:support:resume')).toBe('resume-1');
   });
 
+  it('replaces the stored resume token with the fresh one a turn ends with', async () => {
+    const storage = memoryStorage();
+    storage.set('askdare:support:resume', 'old');
+    const { fetch } = fakeFetch({
+      messages: () =>
+        new Response(
+          sse([
+            { type: 'message.start', messageId: 'm1' },
+            { type: 'message.end', messageId: 'm1', reason: 'completed', resumeToken: 'fresh' },
+          ]),
+          { headers: streamHeaders },
+        ),
+    });
+    await client(fetch, storage).send({ text: 'Hi' }, () => {});
+    expect(storage.get('askdare:support:resume')).toBe('fresh');
+  });
+
   it('sends the stored resume token with later messages', async () => {
     const storage = memoryStorage();
     storage.set('askdare:support:resume', 'resume-1');

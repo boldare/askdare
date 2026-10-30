@@ -99,10 +99,19 @@ export function parseEvent(value: unknown): ProtocolEvent | undefined {
             state: value['state'],
           }
         : undefined;
-    case 'message.end':
-      return messageId(id) && oneOf<MessageEndReason>(value['reason'], MESSAGE_END_REASONS)
-        ? { type: 'message.end', messageId: id, reason: value['reason'] }
-        : undefined;
+    case 'message.end': {
+      const { resumeToken } = value;
+      if (!messageId(id) || !oneOf<MessageEndReason>(value['reason'], MESSAGE_END_REASONS)) {
+        return undefined;
+      }
+      if (resumeToken !== undefined && !text(resumeToken, 1)) return undefined;
+      return {
+        type: 'message.end',
+        messageId: id,
+        reason: value['reason'],
+        ...(typeof resumeToken === 'string' ? { resumeToken } : {}),
+      };
+    }
     case 'error': {
       const { code, message, retryAfterMs, key, params } = value;
       if (!oneOf<ErrorCode>(code, ERROR_CODES) || !text(message, 0, 500)) return undefined;

@@ -41,7 +41,8 @@ interface ChatHandlerOptions {
   readonly identitySecret?: string;
   readonly limits?: ChatHandlerLimitsOptions;
   /**
-   * Called for every server error (status 500 and up), for your monitoring, such as Sentry.
+   * Called for every server error (status 500 and up), for an error that ends a streamed answer,
+   * and once a day when a bot-wide or the global budget runs out, for your monitoring, such as Sentry.
    * Defaults to one `console.error` line with a pointer to the troubleshooting guide. Never
    * receives message contents or API keys.
    */

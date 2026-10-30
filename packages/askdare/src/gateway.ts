@@ -57,7 +57,7 @@ export interface TurnRequest {
   readonly pageContext?: string | undefined;
   /** Server-generated visitor ID, handed to tools as verified context. */
   readonly visitorId: string;
-  /** Stable, non-reversible end-user identifier for abuse attribution (hash of the visitor ID). */
+  /** Stable end-user pseudonym for abuse attribution: an HMAC of the visitor's or user's ID. */
   readonly safetyIdentifier: string;
   /** ID of the assistant message that protocol events refer to. */
   readonly messageId: string;

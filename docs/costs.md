@@ -149,7 +149,7 @@ A conversation is stored by OpenAI, and every message sends the whole conversati
 
 - `maxTurns` (default 50) ends a conversation: the visitor is asked to start a new one.
 - askdare sends `truncation: 'auto'`. When a conversation outgrows the model's context window, OpenAI drops the oldest items instead of failing.
-- askdare doesn't compact or summarize conversations.
+- askdare doesn't compact or summarize conversations yet. OpenAI's server-side compaction is planned for 0.2.
 - Attached files and your tools' results stay in the conversation, so every later message reads them again. Keep tool results small ([Tools](tools.md)).
 
 ## Prompt caching
