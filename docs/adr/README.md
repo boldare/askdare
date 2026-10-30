@@ -8,11 +8,12 @@ Short records of decisions that are expensive to reverse. One decision per file,
 | [0002](0002-openai-only-no-leaked-types.md) | OpenAI only, official SDK, no leaked types | Accepted |
 | [0003](0003-conversation-state.md) | Conversation state without a database | Accepted (spike S1) |
 | [0004](0004-threat-model.md) | Threat model for a public, anonymous chatbot | Accepted |
-| [0005](0005-embedding-model.md) | Embedding model (loader + iframe served by the route handler) | Proposed (spikes S3, S4) |
+| [0005](0005-embedding-model.md) | Embedding model (loader + iframe served by the route handler) | Accepted for 0.1 |
 | [0006](0006-support-matrix-and-versioning.md) | Support matrix and versioning policy | Accepted |
-| [0007](0007-tooling.md) | Tooling | Accepted (spike S2 confirms packaging) |
+| [0007](0007-tooling.md) | Tooling | Accepted |
 | [0008](0008-ui-customization-and-themes.md) | UI customization layers and built-in themes | Accepted |
 | [0009](0009-visitor-identity.md) | Visitor identity with identify() | Accepted |
+| [0010](0010-docs-website.md) | Docs website rendered from docs/*.md | Accepted |
 
 ## Template
 

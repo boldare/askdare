@@ -195,6 +195,38 @@ export const bots = [
       css: BLDR_CSS,
     },
   }),
+  // The docs answer questions about askdare from docs/ itself, once synced with
+  // `node site/scripts/docs-kb.mjs` (DOCS_VECTOR_STORE_ID). The docs pages show it only then.
+  defineBot({
+    id: 'docs',
+    model: process.env.ASKDARE_MODEL ?? 'gpt-6.1-terra',
+    instructions: ({ locale }: BotContext) =>
+      [
+        'You answer questions about askdare, an open source Next.js library for embeddable AI chatbots on the OpenAI API.',
+        'Answer only from the askdare documentation you can search, and cite the pages you used.',
+        'If the documentation does not cover something, say so and suggest where to look; never invent options, commands or defaults.',
+        'Keep answers short, with code only when it helps.',
+        `Reply in the language of the user's message; default to ${locale}.`,
+      ].join(' '),
+    knowledge: process.env.DOCS_VECTOR_STORE_ID
+      ? { vectorStoreId: process.env.DOCS_VECTOR_STORE_ID }
+      : undefined,
+    security: { allowedOrigins },
+    limits: { dailyTokens: 400_000, dailyTokensPerIp: 40_000 },
+    widget: {
+      locale: 'en',
+      colorScheme: 'auto',
+      title: 'askdare docs',
+      launcherLabel: 'Ask the docs',
+      greeting: 'Ask me anything about **askdare**',
+      starters: [
+        'How do I embed the chat on another site?',
+        'How do I add a knowledge base?',
+        'What does a busy day cost?',
+      ],
+      theme: 'aura',
+    },
+  }),
 ];
 
 /** Bot behind each theme of the demo page. */

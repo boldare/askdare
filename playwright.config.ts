@@ -69,6 +69,8 @@ export default defineConfig({
         // Lets the visual tests render fixture states; it never changes a live conversation.
         ASKDARE_GALLERY: '1',
         KB_VECTOR_STORE_ID: '',
+        // No docs chat: it needs a synced vector store.
+        DOCS_VECTOR_STORE_ID: '',
         ASKDARE_ALLOWED_ORIGINS: ALLOWED_HOST,
         CHAT_SECRET_PREVIOUS: '',
         ASKDARE_DISABLED: '',
