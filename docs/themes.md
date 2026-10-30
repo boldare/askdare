@@ -82,6 +82,86 @@ CSS values (`backdrop`, `orb`) may not contain `url()`, braces, semicolons or ba
 
 Variants are set as attributes on the iframe document (`data-ask-welcome="persona"` and so on), so your own CSS can target them too.
 
+## Example: a theme in your brand
+
+The demo site's BLDR theme puts the chat in Boldare's style: ink and light grey, heavy type, square corners, and yellow buttons with a hard ink shadow. It takes three steps, all on the public API. Try it on the home page: pick the yellow diamond in the dock at the bottom.
+
+**1. Tokens and variants** set the colors, type and shapes. Start from the preset closest to your brand and override what differs:
+
+```ts
+import { defineTheme } from '@boldare/askdare';
+
+export const bldr = defineTheme({
+  extends: 'halo',
+  tokens: {
+    accent: '#242424',
+    onAccent: '#ffffff',
+    background: '#f1f1f1',
+    surface: '#ffffff',
+    text: '#242424',
+    muted: '#4f4f4f',
+    border: '#24242433',
+    userBubble: '#242424',
+    onUserBubble: '#ffffff',
+    backdrop: 'none',
+    orb: 'radial-gradient(circle at 35% 30%, #fff7c2 0%, #f2da3a 50%, #c4ac12 100%)',
+    // Aura's font: it ships with the library, so the chat can use it in any theme.
+    fontFamily: '"Plus Jakarta Sans Variable", system-ui, sans-serif',
+    headingFamily: '"Plus Jakarta Sans Variable", system-ui, sans-serif',
+    radius: '0px',
+  },
+  variants: { avatar: 'initials', launcher: 'pill', surface: 'solid', composer: 'outline' },
+});
+```
+
+**2. Your own CSS** in `widget.css` adds what tokens can't: the dark header, the yellow highlight in the greeting, and hard shadows that buttons press into. Select parts by `data-ask-part` ([Styling](styling.md#2-your-own-css)):
+
+```ts
+const BLDR_CSS = `
+  [data-ask-part="header"] { background: #242424; color: #fff; border-bottom: 0; }
+  [data-ask-part="subtitle"] { color: #c9c9c9; }
+  [data-ask-part="header"] button { color: #fff; }
+  [data-ask-part="avatar"] { border-radius: 0; background: #f2da3a; color: #242424; font-weight: 800; }
+  [data-ask-part="greeting"] strong { padding: 0 0.15em; background: #f2da3a; box-decoration-break: clone; }
+  [data-ask-part="starter"] {
+    border: 2px solid #242424; border-radius: 0; background: #fff; box-shadow: -4px 4px 0 #242424;
+  }
+  [data-ask-part="starter"]:hover:not(:disabled) {
+    transform: translate(2px, -2px); box-shadow: -6px 6px 0 #242424;
+  }
+  [data-ask-part="message"][data-role="assistant"] [data-ask-part="bubble"] { border: 2px solid #242424; }
+  [data-ask-part="composer-box"] { border: 2px solid #242424; border-radius: 0; box-shadow: none; }
+  [data-ask-part="send"] {
+    border: 2px solid #242424; border-radius: 0; background: #f2da3a; color: #242424;
+    box-shadow: -3px 3px 0 #242424;
+  }
+`;
+
+defineBot({
+  // …
+  widget: {
+    theme: bldr,
+    css: BLDR_CSS,
+    greeting: 'Your **AI partner** for Brightloop questions', // **bold** gets the yellow highlight
+    launcherLabel: 'Ask Boldare',
+  },
+});
+```
+
+**3. The chat button** is on your page, not in the chat, so style it with your page's CSS through `::part(launcher)`. See "The launcher" in [Styling](styling.md#2-your-own-css):
+
+```css
+[data-askdare="bldr"]::part(launcher) {
+  border: 2px solid #242424;
+  border-radius: 0;
+  background: #f2da3a;
+  color: #242424;
+  box-shadow: -4px 4px 0 #242424;
+}
+```
+
+Check the result in both color schemes, or set `colorScheme: 'light'` as BLDR does when you style only one. In development, `defineTheme` warns about color pairs that are hard to read; it can't check colors in your own CSS, so check those yourself.
+
 ## Fonts
 
 Fonts are OFL-licensed and served by your app, never from a CDN. A browser downloads only the fonts the chosen preset renders, and only the Latin Extended file when the text needs it (Polish, for example): at most about 80 KB per preset.

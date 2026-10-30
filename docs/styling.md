@@ -47,7 +47,7 @@ widget: {
 
 Your CSS loads after the theme. The library's styles are in `@layer askdare`, so yours wins without `!important`. The chat's Content Security Policy still applies: images load only from your app or as `data:` and `blob:` URLs, and fonts only from your app.
 
-A full example is the demo site's BLDR theme, in Boldare's style: `defineTheme` over Halo for colors, type and square corners, about 30 lines of `widget.css` for the hard shadows and highlights, and `::part(launcher)` on the page for the button ([`askdare.config.ts`](../site/askdare.config.ts), [`demo.css`](../site/app/demo.css)).
+A full example is the demo site's BLDR theme, in Boldare's style: `defineTheme` over Halo for colors, type and square corners, a few lines of `widget.css` for the hard shadows and highlights, and `::part(launcher)` on the page for the button. The code is in [Themes: a theme in your brand](themes.md#example-a-theme-in-your-brand).
 
 **Tokens:** the `--ask-*` variables listed in [Themes](themes.md#tokens). Only those are public API. The chat's stylesheet also defines the variables below; they are internal and can change in any release, so don't build on them.
 
