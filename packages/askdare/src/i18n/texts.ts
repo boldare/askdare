@@ -4,7 +4,7 @@ export { formatText, pluralText };
 
 /**
  * Every text the widget shows. The keys are public API (ADR-0008): override any of them with
- * `widget.texts`. Plural keys end in a CLDR category (`one`, `few`, `many`, `other`).
+ * `widget.texts`. Plural keys end in a CLDR category (`zero`, `one`, `two`, `few`, `many`, `other`).
  */
 const EN = {
   'header.title': 'Assistant',

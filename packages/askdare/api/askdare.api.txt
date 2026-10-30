@@ -98,7 +98,7 @@ export type { ChatErrorReport, ChatHandlerLimitsOptions, ChatHandlerOptions, Cha
 import { z } from "zod";
 /**
  * Every text the widget shows. The keys are public API (ADR-0008): override any of them with
- * `widget.texts`. Plural keys end in a CLDR category (`one`, `few`, `many`, `other`).
+ * `widget.texts`. Plural keys end in a CLDR category (`zero`, `one`, `two`, `few`, `many`, `other`).
  */
 declare const EN: {
   readonly "header.title": "Assistant";
@@ -436,7 +436,7 @@ interface BotWidget {
   readonly theme: ResolvedTheme;
 }
 interface BotDefinition {
-  /** URL-safe identifier used in the script tag (`data-bot`) and routes. */
+  /** URL-safe identifier used in the script tag (`widget.js?bot=<id>`) and routes. */
   readonly id: string;
   /** OpenAI model ID. Required on purpose: the library never assumes a model (ADR-0002). */
   readonly model: string;

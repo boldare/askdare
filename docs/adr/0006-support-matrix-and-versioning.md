@@ -32,6 +32,7 @@ A library runs inside its users' apps, so every supported combination of version
   - the script tag's `data-*` attributes and the `askdare()` JS API, `identify` included;
   - the identity token's claims, `IDENTITY_SECRET` and `context.identity` (ADR-0009);
   - `--ask-*` tokens, `data-ask-part` names and dictionary keys;
+  - the shadow parts on the host page (`launcher`, `panel`, `unavailable`) and the host element's `data-askdare` attribute;
   - the protocol version;
   - ports implemented by official add-ons: `RateLimitStore` (and `CounterHit`);
   - the `askdare` commands and their options (`init`, `doctor`, `kb sync`), but not their printed output or the `/doctor` report behind `doctor`.

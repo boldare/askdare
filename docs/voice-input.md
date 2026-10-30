@@ -7,7 +7,7 @@ Visitors can dictate a message instead of typing it. The recording is transcribe
 ```ts
 defineBot({
   // …
-  voice: { model: 'gpt-transcribe' }, // dictations up to 60 seconds
+  voice: { model: process.env.ASKDARE_TRANSCRIBE_MODEL ?? '' }, // dictations up to 60 seconds
 });
 ```
 

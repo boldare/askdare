@@ -1,6 +1,6 @@
 # ADR-0005: Embedding model (loader + iframe served by the route handler)
 
-- **Status:** Proposed. To be confirmed by spikes S3 (hosting) and S4 (browsers).
+- **Status:** Accepted for 0.1 (2026-10-30). Spikes S3 (hosting) and S4 (browsers) did not run as separate spikes. The e2e suite covers the embedding on two origins, and real hosts (Vercel, Heroku) and mobile Safari are checked by hand before 0.1.0.
 - **Date:** 2026-10-29
 
 ## Context
@@ -22,9 +22,9 @@ v1 used an iframe, but it had a broken script API, `postMessage('*')` and no ori
   - The API is same-origin with the iframe, so **no CORS** is needed.
 - **Headers** on the embed response:
   - `Content-Security-Policy: frame-ancestors <per-bot allowlist>`;
-  - `Permissions-Policy` that disables camera, geolocation and, until voice input lands (step 3.5), the microphone;
+  - `Permissions-Policy` that disables camera and geolocation, and allows the microphone (`microphone=(self)`) only for a bot with voice input;
   - `Cross-Origin-Opener-Policy: same-origin`.
-- **iframe attributes:** `allow="clipboard-write"` (plus `microphone` once voice input lands), a `title`, `referrerpolicy="strict-origin"`.
+- **iframe attributes:** `allow="clipboard-write; microphone"` (the embed page's `Permissions-Policy` still decides per bot), a `title`, `referrerpolicy="strict-origin"`.
 - **Handshake:**
   1. The loader knows the app origin from `script.src`.
   2. After `load`, it posts `init` with an explicit `targetOrigin` and transfers a `MessagePort`.
@@ -36,7 +36,7 @@ v1 used an iframe, but it had a broken script API, `postMessage('*')` and no ori
 - **Streaming:**
   - SSE over POST.
   - The first byte goes out before calling OpenAI, then a heartbeat every 15 s. Heroku requires a first byte within 30 s and then one every 55 s.
-  - An app-level deadline of `maxDuration − 15 s` ends the stream with `message.end{reason:'timeout'}`; Vercel duration limits apply.
+  - An app-level deadline per turn, the bot's `limits.turnTimeoutMs` (120 s by default), ends the stream with an `error` event with code `timeout`. It must stay below the route's `maxDuration`, which `doctor` checks; Vercel duration limits apply.
   - Aborting is best effort.
 - **Inline mode:** `data-mode="inline" data-target="#chat"`.
 
@@ -45,7 +45,7 @@ v1 used an iframe, but it had a broken script API, `postMessage('*')` and no ori
 - Full CSS and JS isolation, and secrets stay on our origin.
 - Glass effects inside the iframe can only blur the panel's own background, never the host page. Only the launcher (shadow DOM on the host) can blur host content.
 - Resizing, focus and Escape handling have to cross the frame boundary through the port.
-- Users with strict host CSPs must allow our origin in `script-src` and `frame-src`. This will be documented and checked by `npx @boldare/askdare doctor`.
+- Users with strict host CSPs must allow our origin in `script-src` and `frame-src`. [Embedding](../embedding.md) documents this. `doctor` can't see the host page, so it checks only the app's side (`--origin`: the site is in `frame-ancestors`).
 
 ## Alternatives considered
 

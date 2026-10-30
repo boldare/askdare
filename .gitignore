@@ -28,6 +28,7 @@ packages/askdare/src/generated/
 packages/askdare/docs/
 packages/askdare/llms.txt
 packages/askdare/LICENSE
+packages/askdare/skills/
 
 # Next.js
 next-env.d.ts

@@ -43,14 +43,16 @@
   "files": [
     "dist",
     "docs",
-    "llms.txt"
+    "llms.txt",
+    "skills"
   ],
   "scripts": {
     "build:assets": "vite build -c vite.widget.config.ts && vite build -c vite.loader.config.ts && node scripts/inline-assets.mjs",
     "build": "pnpm run build:assets && tsdown && node scripts/copy-docs.mjs",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.browser.json",
     "check:package": "publint --strict && attw --pack . --profile esm-only && node ../../scripts/check-dts-no-leak.mjs dist && node scripts/api-snapshot.mjs && tsc -p types-test",
-    "api:update": "node scripts/api-snapshot.mjs --update"
+    "api:update": "node scripts/api-snapshot.mjs --update",
+    "docs:texts": "node scripts/docs-texts.ts"
   },
   "publishConfig": {
     "access": "public",

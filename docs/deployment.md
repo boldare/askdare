@@ -17,7 +17,7 @@ Set them in your host's settings, never in files you commit.
 ## Vercel
 
 1. Import the repository in Vercel. The defaults for Next.js are right.
-2. Add the variables above under **Settings → Environment Variables**, for Production.
+2. Add the variables above under **Settings → Environment Variables**, for Production and Preview. `next build` fails without `ASKDARE_MODEL`, so every environment that builds the app needs it. `vercel env pull .env.local` copies the development values to your machine.
 3. **Share the rate limits.** Vercel runs many instances at once, and the default limits are kept per instance. Create a Redis database at [Upstash](https://upstash.com/) (also available in the Vercel Marketplace) and use the add-on:
 
    ```bash
@@ -30,7 +30,7 @@ Set them in your host's settings, never in files you commit.
 
    export const { GET, POST, DELETE } = createChatHandler({
      bots,
-     limits: { store: upstashStore() }, // UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN
+     limits: { store: upstashStore() }, // UPSTASH_REDIS_REST_URL and _TOKEN, or KV_REST_API_URL and _TOKEN
    });
    ```
 

@@ -4,6 +4,29 @@ This is how the askdare server streams a chat turn to its clients: the embed ifr
 
 Source of truth: `packages/askdare/src/protocol/`.
 
+## Endpoints
+
+Every path sits under the route's base path: `/api/chat` by default, or `basePath` in `createChatHandler`. Any other path or method answers `404`.
+
+| Method and path | Token | Purpose |
+| --- | --- | --- |
+| `GET /widget.js` | None | The loader script for your pages. `?bot=<id>` adds that bot's launcher look |
+| `GET /embed/<bot>` | None | The chat document in the iframe. `?lang=<tag>` carries the embedding page's language for `locale: 'auto'`, and `?mode=inline` marks a chat inside the page |
+| `GET /theme/<bot>.css` | None | The bot's theme and `widget.css`, with a content hash in `?v=` |
+| `GET /assets/<file>` | None | The chat's script and stylesheet, and the preset fonts |
+| `POST /session` | None | Starts or renews a visitor's session and answers an access token ([Identity](#identity)) |
+| `POST /messages` | Access token | Sends a message and answers with the event stream ([Events](#events)) |
+| `POST /history` | Access token | The visible messages of the visitor's conversation |
+| `DELETE /conversation` | Access token | Deletes the visitor's conversation, and its files when the bot accepts attachments |
+| `POST /attachments` | Access token | Uploads one file ([Attachments](#attachments)) |
+| `POST /transcriptions` | Access token | Transcribes one dictation ([Dictation](#dictation)) |
+| `POST /doctor` | Doctor token | Checks the setup for `askdare doctor` ([Diagnostics](#diagnostics)) |
+
+- **`POST /messages`** takes `{ "botId", "text", "resumeToken"?, "attachments"?, "context"?, "locale"? }`. Without `resumeToken`, the server starts a new conversation and sends `conversation.created`. `locale` is the visitor's language tag, passed to the bot's instructions.
+- **`POST /history`** takes `{ "botId", "resumeToken" }` and answers `{ "messages": [{ "id", "role", "text", "citations", "attachments" }] }`, where `attachments` is a count.
+- **`DELETE /conversation`** takes the same body and answers `204` with no body.
+- **Same origin only.** Every `POST` and `DELETE` except `/doctor` refuses cross-site requests with `401`. The API serves the chat's own iframe, which runs on the same origin.
+
 ## Transport
 
 - **Request:** `POST` with a JSON body and a `Bearer` access token. No cookies.
@@ -29,7 +52,7 @@ Source of truth: `packages/askdare/src/protocol/`.
 | `citation` | `messageId`, `index`, `title`, `url?` | Source for marker `[index]`; `url` is http(s) only |
 | `tool.status` | `messageId`, `callId`, `name`, `state: running \| done \| error` | A tool ran; arguments and results stay on the server. `name: file_search` is the knowledge base search |
 | `message.end` | `messageId`, `reason` | The reply finished. Reasons: `completed`, `max_steps`, `max_output_tokens`, `timeout`, `content_filter`, `aborted` |
-| `error` | `code`, `message`, `retryAfterMs?` | The turn failed; `message` is safe to show |
+| `error` | `code`, `message`, `retryAfterMs?`, `key?`, `params?` | The turn failed; `message` is safe to show ([keys and parameters](#error-keys-and-parameters)) |
 
 ## Attachments
 
@@ -69,6 +92,74 @@ These codes are stable and safe to branch on in the UI:
 | `timeout` | The turn exceeded the server deadline |
 | `upstream_error` | OpenAI failed |
 | `internal_error` | Unexpected server error |
+
+## Error keys and parameters
+
+Next to `code` and `message`, an `error` event can carry:
+
+| Field | Meaning |
+| --- | --- |
+| `retryAfterMs` | How long to wait before retrying, in milliseconds |
+| `key` | The [text key](texts.md) for this error, such as `error.messageLength`, so a client can show it in the visitor's language |
+| `params` | Values for the placeholders in that text, such as `{ "max": 4000 }` |
+
+`message` is the English text. The widget looks `key` up in the bot's texts, overrides included, fills in `params`, and shows `message` when it has no text for the key.
+
+`key` is absent in two cases:
+
+- **Explained in development.** When `NODE_ENV` is `development`, as under `next dev`, a `bot_unavailable` error caused by the setup carries a description for you in `message` instead of a key: a missing or weak secret, a missing `OPENAI_API_KEY`, a key OpenAI rejects, a model the project can't use. The widget shows that description as it is. In production, the server never sends one.
+- **Messages for developers.** Some refusals carry only a plain English `message`, such as `Expected an application/json body.`, `Malformed JSON.`, `Request body is too large.` and `Cross-origin requests are not allowed.`
+
+Error responses outside the stream have the same fields, inside `error`:
+
+```json
+{
+  "error": {
+    "code": "invalid_input",
+    "message": "Messages must be between 1 and 4000 characters.",
+    "key": "error.messageLength",
+    "params": { "max": 4000 }
+  }
+}
+```
+
+## HTTP status codes
+
+| Status | Code | When |
+| --- | --- | --- |
+| `200` | | Success. For `POST /messages`, the stream has started, and later failures arrive as an `error` event |
+| `204` | | `DELETE /conversation` succeeded, also when the conversation was already gone |
+| `400` | `invalid_input` | The body is not what the endpoint expects (wrong `Content-Type`, malformed JSON, a JSON body over 256 KB), or the message, file or recording is refused, including when it is too large |
+| `401` | `unauthorized` | The `Bearer` token is missing or invalid, or the request is cross-site |
+| `401` | `session_expired` | The access token expired; renew it with `POST /session` and retry |
+| `404` | `not_found` | An unknown path, bot or asset; a resume token that is invalid or belongs to someone else; a conversation that no longer exists |
+| `429` | `rate_limited` | A rate limit was reached, the conversation reached `maxTurns`, or another dictation is still being transcribed |
+| `429` | `budget_exceeded` | A daily token or speech budget is spent |
+| `500` | `internal_error` | Unexpected server error |
+| `502` | `upstream_error` | OpenAI failed or could not be reached |
+| `503` | `bot_unavailable` | The kill switch (`ASKDARE_DISABLED=true`) is on, a secret or `OPENAI_API_KEY` is missing or invalid, or OpenAI refused the key or the model |
+| `504` | `timeout` | OpenAI did not answer in time |
+
+An error response with `retryAfterMs` also has a `Retry-After` header, in whole seconds rounded up. For `budget_exceeded`, it lasts until the next midnight UTC.
+
+| Endpoint | Statuses |
+| --- | --- |
+| `GET /widget.js` | `200` |
+| `GET /embed/<bot>`, `GET /theme/<bot>.css`, `GET /assets/<file>` | `200`, `404` |
+| `POST /session` | `200`, `400`, `401`, `404`, `429`, `503` |
+| `POST /messages` | `200`, `400`, `401`, `404`, `429`, `503` |
+| `POST /history` | `200`, `400`, `401`, `404`, `429`, `502`, `503`, `504` |
+| `DELETE /conversation` | `204`, `400`, `401`, `404`, `429`, `502`, `503`, `504` |
+| `POST /attachments`, `POST /transcriptions` | `200`, `400`, `401`, `404`, `429`, `502`, `503`, `504` |
+| `POST /doctor` | `200`, `401`, `429`, `503` |
+
+Any endpoint can also answer `500`.
+
+## Protocol version
+
+`PROTOCOL_VERSION`, exported from `@boldare/askdare`, is the version of this protocol: `1`. Every event stream (`POST /messages` answered with `200`) carries it in the `x-askdare-protocol` response header. Other responses don't have this header.
+
+The widget compares the header with the version it was built with. On a mismatch, it doesn't read the stream and shows `error.updated` ("The assistant was updated. Please reload the page.").
 
 ## Client rules
 

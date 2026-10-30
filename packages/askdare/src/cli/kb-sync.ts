@@ -4,10 +4,10 @@ import { parseArgs } from 'node:util';
 import { type SyncResult, syncKnowledgeFolder } from '../openai/knowledge-sync';
 import { UsageError } from './usage';
 
-export const KB_USAGE = `Usage: askdare kb sync <folder> [options]
+export const KB_USAGE = `Usage: npx @boldare/askdare kb sync <folder> [options]
 
 Makes an OpenAI vector store mirror a folder of documents
-(.md, .mdx, .txt, .pdf, .docx, .pptx, .html, .json). Re-running is a no-op.
+(.md, .mdx, .txt, .pdf, .docx, .pptx, .html, .htm, .json). Re-running is a no-op.
 Titles and URLs for citations come from markdown front matter or askdare.kb.json.
 
 Options:

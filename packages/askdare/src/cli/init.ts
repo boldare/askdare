@@ -24,7 +24,8 @@ export interface InitOptions {
 
 export class InitError extends Error {}
 
-const BOT_ID = /^[a-z0-9-]{1,48}$/;
+// The same rule as defineBot's, so init never writes a config that fails at startup.
+const BOT_ID = /^[a-z0-9][a-z0-9-]{0,47}$/;
 
 function configTemplate(botId: string): string {
   return `import { defineBot } from '@boldare/askdare';
@@ -168,7 +169,9 @@ async function addAgentRules(project: Project): Promise<boolean> {
 export async function init(options: InitOptions): Promise<void> {
   const { print, botId } = options;
   if (!BOT_ID.test(botId)) {
-    throw new InitError('The bot ID may only use a-z, 0-9 and hyphens (up to 48 characters).');
+    throw new InitError(
+      'The bot ID may only use a-z, 0-9 and hyphens, up to 48 characters, and must not start with a hyphen.',
+    );
   }
   const project = await readProject(options.root);
   if (project.dependencies === undefined) {

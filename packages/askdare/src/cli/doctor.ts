@@ -159,7 +159,7 @@ async function environment(
     checks.push(
       fail(
         'CHAT_SECRET is not set.',
-        `Generate one: node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"`,
+        `Generate one: node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"`,
       ),
     );
   } else {

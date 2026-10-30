@@ -1,6 +1,6 @@
 # Themes
 
-The widget comes with four looks, each in light and dark. Pick one, adjust it, or build your own on top of one. The decisions behind this are in [ADR-0008](adr/0008-ui-customization.md).
+The widget comes with four looks, each in light and dark. Pick one, adjust it, or build your own on top of one. The decisions behind this are in [ADR-0008](adr/0008-ui-customization-and-themes.md).
 
 ## Pick a preset
 
@@ -27,7 +27,7 @@ defineBot({
 
 `starters` are clickable suggestions (up to 4). `avatar` is the assistant's picture: a path on your app such as `/avatar.png`, or a small PNG, JPEG, WebP or GIF data URL. `launcherLabel` is the text of the pill launcher (default "Ask us").
 
-To compare them, run the starter with `ASKDARE_GALLERY=1` and open `/gallery`: every state of the widget (welcome, conversation, streaming, attachments, error, dictation) in any preset, scheme and width. The starter's home page shows the same assistant in each preset: switch the theme and show the chat as a bubble or inside the page.
+To compare them, run the demo site from the repository (`site/`) with `ASKDARE_GALLERY=1` and open `/gallery`: every state of the widget (welcome, conversation, streaming, attachments, error, listening) in any preset, scheme and width. The site's home page shows the same assistant in each preset: switch the theme and show the chat as a bubble or inside the page.
 
 ## Adjust a preset
 

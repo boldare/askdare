@@ -191,7 +191,7 @@ function boot(): void {
         label: 'Ask us',
         open: 'Open chat',
         close: 'Close chat',
-        unavailable: 'The chat couldn’t load.',
+        unavailable: 'The chat couldn’t load. Please try again later.',
         title: 'Chat',
       };
     const host = document.createElement('div');
