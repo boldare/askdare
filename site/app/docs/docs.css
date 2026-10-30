@@ -111,10 +111,43 @@
 }
 
 .d-bar-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   color: var(--muted);
   font-size: 0.92rem;
   font-weight: 600;
   text-decoration: none;
+}
+
+.d-bar-links .project-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* GitHub and npm at the end of the page list, for phones (the bar has them on wide screens). */
+.d-side-project {
+  display: none;
+}
+
+.d-side-project a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.d-side-project .project-icon {
+  width: 16px;
+  height: 16px;
 }
 
 .d-bar-links a:hover {
@@ -765,6 +798,17 @@
 
   .d-side[data-open] .d-side-list {
     display: block;
+  }
+
+  .d-side-project {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    /* Room below, so the row scrolls clear of the chat button. */
+    margin: 20px 0 72px;
+    padding: 20px 0 0;
+    border-top: 1px solid var(--line);
+    list-style: none;
   }
 
   .d-article {

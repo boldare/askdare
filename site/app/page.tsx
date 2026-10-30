@@ -3,6 +3,7 @@ import { DEMO_BOTS } from '@/askdare.config';
 import { HeroShape } from './_shape/hero-shape';
 import { ChatScript } from './chat-script';
 import { NavMenu } from './nav-menu';
+import { GITHUB_URL, NPM_URL, ProjectLinks } from './project-links';
 import { ShapeIcon } from './shape-icon';
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
@@ -154,6 +155,7 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
                 Read the docs
               </a>
             </div>
+            <ProjectLinks className="hero-project" label="Project" />
           </div>
 
           <div className="stage">
@@ -313,12 +315,13 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
           askdare is an open-source project by <a href="https://www.boldare.com">Boldare</a>. MIT
           licensed.
         </p>
-        <nav className="footer-links" aria-label="Docs">
+        <nav className="footer-links" aria-label="Docs and project">
           <a href="/docs">Docs</a>
           <a href="/docs/getting-started">Getting started</a>
           <a href="/docs/configuration">Configuration</a>
           <a href="/docs/troubleshooting">Troubleshooting</a>
-          <a href="https://github.com/boldare/askdare">GitHub</a>
+          <a href={GITHUB_URL}>GitHub</a>
+          <a href={NPM_URL}>npm</a>
         </nav>
       </footer>
 
