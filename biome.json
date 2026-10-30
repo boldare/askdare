@@ -44,12 +44,12 @@
           "level": "error",
           "options": {
             "paths": {
-              "openai": "Only packages/chatdock/src/openai/ may import openai (ADR-0002)."
+              "openai": "Only packages/askdare/src/openai/ may import openai (ADR-0002)."
             },
             "patterns": [
               {
                 "group": ["openai/**"],
-                "message": "Only packages/chatdock/src/openai/ may import openai (ADR-0002)."
+                "message": "Only packages/askdare/src/openai/ may import openai (ADR-0002)."
               }
             ]
           }
@@ -62,7 +62,7 @@
   },
   "overrides": [
     {
-      "includes": ["packages/chatdock/src/openai/**"],
+      "includes": ["packages/askdare/src/openai/**"],
       "linter": {
         "rules": {
           "style": {
@@ -72,7 +72,7 @@
       }
     },
     {
-      "includes": ["packages/chatdock/src/widget-app/**"],
+      "includes": ["packages/askdare/src/widget-app/**"],
       "linter": {
         "rules": {
           "performance": {

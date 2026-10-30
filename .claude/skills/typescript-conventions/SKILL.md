@@ -1,9 +1,9 @@
 ---
 name: typescript-conventions
-description: How TypeScript is written in the chatdock repository (TS 7, isolatedDeclarations, ESM-only library). Use when writing, reviewing or refactoring any .ts/.tsx file in this repo.
+description: How TypeScript is written in the askdare repository (TS 7, isolatedDeclarations, ESM-only library). Use when writing, reviewing or refactoring any .ts/.tsx file in this repo.
 ---
 
-# TypeScript conventions for chatdock
+# TypeScript conventions for askdare
 
 Distilled from community TypeScript best practices and adapted to this repo: TS 7, an ESM-only library built with tsdown, and Next.js 16. Where generic advice conflicts with these rules, these rules win.
 
@@ -34,7 +34,7 @@ Distilled from community TypeScript best practices and adapted to this repo: TS 
 
 ## Errors
 
-- Throw `ChatdockError` subclasses carrying a stable `code` (`rate_limited`, `budget_exceeded`, `session_expired`, `bot_unavailable`, `upstream_error`, `content_blocked`, `timeout`, `invalid_input`). Messages shown to clients never contain internals.
+- Throw `AskdareError` subclasses carrying a stable `code` (`rate_limited`, `budget_exceeded`, `session_expired`, `bot_unavailable`, `upstream_error`, `content_blocked`, `timeout`, `invalid_input`). Messages shown to clients never contain internals.
 - Don't introduce a general Result type. Use a discriminated outcome only where failure is an expected value (for example, a tool execution outcome sent back to the model).
 - Every `await` on the network must be bounded by an `AbortSignal`, a timeout, or both.
 

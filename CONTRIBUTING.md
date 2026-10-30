@@ -1,4 +1,4 @@
-# Contributing to chatdock
+# Contributing to askdare
 
 Thanks for helping. This guide covers how we work. Setup commands are listed under [Development](#development).
 
@@ -37,7 +37,7 @@ Every change to a published package needs a changeset (`pnpm changeset`). Pre-1.
 
 ### Module boundaries (enforced by lint)
 
-- Only `packages/chatdock/src/openai/` may import `openai`.
+- Only `packages/askdare/src/openai/` may import `openai`.
 - Published type declarations must not contain `openai` or `next` types. A CI test checks this.
 - Never hardcode OpenAI model IDs in the library.
 

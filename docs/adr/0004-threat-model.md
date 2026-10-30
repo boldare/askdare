@@ -33,7 +33,7 @@ Goal: **bound the damage** (dollars per day, requests per IP or visitor) and **p
   - daily token budgets per bot, per IP and (optionally) global. Each turn atomically **reserves** an estimate (history + message + `max_output_tokens`) before calling the model; real usage replaces it afterwards, and failed turns or turns cut short by the deadline keep the estimate charged. A turn whose model call has started runs to completion even when the visitor disconnects (kept alive with `after()` on serverless hosts), because OpenAI keeps no record of an aborted streamed response, usage included (verified live on 2026-10-29), so stopping it would hide its cost;
   - max input characters, `max_output_tokens`, max tool steps;
   - kill switch via an env var.
-  - Counters live in memory by default (budgets are never evicted; the store fails closed when full); `@boldare/chatdock-upstash` shares them across instances.
+  - Counters live in memory by default (budgets are never evicted; the store fails closed when full); `@boldare/askdare-upstash` shares them across instances.
   - Client IPs are validated and IPv6 is grouped by /64.
 - **Required deployment guidance:** a dedicated OpenAI project with a restricted key, a model allowlist and a **hard spend limit**. This is the backstop that needs no infrastructure.
 - **Client IP:** `getClientIp(req)` with Vercel and Heroku presets plus `trustProxy`. The leftmost `X-Forwarded-For` value is spoofable.

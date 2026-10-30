@@ -1,8 +1,8 @@
 # Wire protocol (version 1)
 
-This is how the chatdock server streams a chat turn to its clients: the embed iframe app now, `@boldare/chatdock/react` later. The protocol belongs to chatdock; raw OpenAI stream events are never forwarded ([ADR-0002](adr/0002-openai-only-no-leaked-types.md)).
+This is how the askdare server streams a chat turn to its clients: the embed iframe app now, `@boldare/askdare/react` later. The protocol belongs to askdare; raw OpenAI stream events are never forwarded ([ADR-0002](adr/0002-openai-only-no-leaked-types.md)).
 
-Source of truth: `packages/chatdock/src/protocol/`.
+Source of truth: `packages/askdare/src/protocol/`.
 
 ## Transport
 
@@ -12,7 +12,7 @@ Source of truth: `packages/chatdock/src/protocol/`.
   - `Content-Type: text/event-stream; charset=utf-8`
   - `Cache-Control: no-cache, no-transform`
   - `X-Accel-Buffering: no`
-  - `x-chatdock-protocol: 1`
+  - `x-askdare-protocol: 1`
 - **Framing:** one event per frame, `event: <type>` followed by `data: <json>` and a blank line. The JSON always repeats `type`.
 - **First byte:** the server sends a comment (`: ok`) before contacting OpenAI. Heroku requires a first byte within 30 s.
 - **Heartbeat:** a `: ping` comment every 15 s, on a timer that is independent of model output. Heroku closes connections after 55 s without bytes.
@@ -35,22 +35,22 @@ Source of truth: `packages/chatdock/src/protocol/`.
 
 When a bot has `attachments` enabled, files travel separately from the message:
 
-1. `POST /attachments` with the raw file as the body (`Content-Type: application/octet-stream`), the `Bearer` token, and two headers: `x-chatdock-bot` (bot ID) and `x-chatdock-filename` (URL-encoded name). The server detects the type from the bytes, uploads the file to OpenAI and answers `{ "attachment": { "id", "kind": "image" | "pdf", "name", "size" } }`.
+1. `POST /attachments` with the raw file as the body (`Content-Type: application/octet-stream`), the `Bearer` token, and two headers: `x-askdare-bot` (bot ID) and `x-askdare-filename` (URL-encoded name). The server detects the type from the bytes, uploads the file to OpenAI and answers `{ "attachment": { "id", "kind": "image" | "pdf", "name", "size" } }`.
 2. `POST /messages` with `"attachments": ["<id>", …]` next to `text`. `text` may be empty when files are attached.
 
 `id` is an encrypted handle bound to the bot and the visitor, valid for 1 hour. OpenAI file IDs never reach clients, and the server refuses raw file IDs. History (`POST /history`) reports only how many files a message had.
 
 ## Dictation
 
-When a bot has `voice` enabled, `POST /transcriptions` takes a recording as the raw body (`Content-Type: application/octet-stream`) with the `Bearer` token and two headers: `x-chatdock-bot` (bot ID) and `x-chatdock-languages` (comma-separated language tags, used as hints). It answers `{ "text": "…" }`. Clients put the text in the message field for the visitor to check; nothing is sent to the model.
+When a bot has `voice` enabled, `POST /transcriptions` takes a recording as the raw body (`Content-Type: application/octet-stream`) with the `Bearer` token and two headers: `x-askdare-bot` (bot ID) and `x-askdare-languages` (comma-separated language tags, used as hints). It answers `{ "text": "…" }`. Clients put the text in the message field for the visitor to check; nothing is sent to the model.
 
 ## Identity
 
-`POST /session` takes an optional `identityToken`: the JWT from `chatdock('identify')`, or `null` to sign out. Without it, a renewal keeps the identity the previous access token had. Widgets send the page's latest token with every session request. The answer adds `identified` (boolean), `identityKey` (an HMAC that tells users apart without revealing them; widgets keep one conversation handle per key), `resumeToken` when signing in adopted an anonymous conversation, and `identityProblem` when a token was refused. A signed-in access token expires with the identity token. Identities travel inside the encrypted access token; clients never see the claims ([ADR-0009](adr/0009-visitor-identity.md)).
+`POST /session` takes an optional `identityToken`: the JWT from `askdare('identify')`, or `null` to sign out. Without it, a renewal keeps the identity the previous access token had. Widgets send the page's latest token with every session request. The answer adds `identified` (boolean), `identityKey` (an HMAC that tells users apart without revealing them; widgets keep one conversation handle per key), `resumeToken` when signing in adopted an anonymous conversation, and `identityProblem` when a token was refused. A signed-in access token expires with the identity token. Identities travel inside the encrypted access token; clients never see the claims ([ADR-0009](adr/0009-visitor-identity.md)).
 
 ## Diagnostics
 
-`POST /doctor` serves `npx @boldare/chatdock doctor`. It takes a 2-minute token that the CLI encrypts with `CHAT_SECRET` and answers with a report on each bot: whether the server's key, models, vector store and permissions work. The report format is internal and may change in any release.
+`POST /doctor` serves `npx @boldare/askdare doctor`. It takes a 2-minute token that the CLI encrypts with `CHAT_SECRET` and answers with a report on each bot: whether the server's key, models, vector store and permissions work. The report format is internal and may change in any release.
 
 ## Error codes
 
@@ -73,11 +73,11 @@ These codes are stable and safe to branch on in the UI:
 ## Client rules
 
 - **Tolerate the unknown.** Ignore unknown event types and unknown fields. Newer servers may add them within the same protocol version.
-- **Check the version.** Compare `x-chatdock-protocol` with the version the client supports. On a mismatch, show a "please reload" state.
+- **Check the version.** Compare `x-askdare-protocol` with the version the client supports. On a mismatch, show a "please reload" state.
 - **Run a watchdog.** If no bytes (events or comments) arrive for 45 s, abort and re-fetch the conversation history.
 - **Render text safely.** Treat `text.delta` content as untrusted markdown and sanitize it before rendering.
 
 ## Versioning
 
 - **Adding** an event type or an optional field is not breaking.
-- **Removing or renaming** an event or field, or changing a field's meaning, is breaking. It bumps the protocol version and requires a minor release of `@boldare/chatdock` (ADR-0006).
+- **Removing or renaming** an event or field, or changing a field's meaning, is breaking. It bumps the protocol version and requires a minor release of `@boldare/askdare` (ADR-0006).

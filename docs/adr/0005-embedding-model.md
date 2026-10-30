@@ -45,7 +45,7 @@ v1 used an iframe, but it had a broken script API, `postMessage('*')` and no ori
 - Full CSS and JS isolation, and secrets stay on our origin.
 - Glass effects inside the iframe can only blur the panel's own background, never the host page. Only the launcher (shadow DOM on the host) can blur host content.
 - Resizing, focus and Escape handling have to cross the frame boundary through the port.
-- Users with strict host CSPs must allow our origin in `script-src` and `frame-src`. This will be documented and checked by `npx @boldare/chatdock doctor`.
+- Users with strict host CSPs must allow our origin in `script-src` and `frame-src`. This will be documented and checked by `npx @boldare/askdare doctor`.
 
 ## Alternatives considered
 

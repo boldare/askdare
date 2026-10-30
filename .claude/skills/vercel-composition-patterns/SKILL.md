@@ -12,7 +12,7 @@ metadata:
   version: '1.0.0'
 ---
 
-> **Overrides for the chatdock repository.** These take precedence over everything below.
+> **Overrides for the askdare repository.** These take precedence over everything below.
 > - **Write DOM, not React Native.** Translate React Native examples (`TextInput`, `onChangeText`, `Button onPress`) to DOM elements.
 > - **Guard nullable contexts.** Read a context created with `createContext<T | null>(null)` through a hook that throws a clear error outside its provider; never destructure it unchecked.
 > - **Use named exports for compound components** (or `export * as`), not a `const Foo = { … }` object. Dot access on an object fails across the `'use client'` boundary.

@@ -21,13 +21,13 @@ test-results/
 *.log
 .DS_Store
 
-# chatdock build artifacts
-packages/chatdock/.assets/
-packages/chatdock/src/generated/
+# askdare build artifacts
+packages/askdare/.assets/
+packages/askdare/src/generated/
 # copied from the repository root at build time
-packages/chatdock/docs/
-packages/chatdock/llms.txt
-packages/chatdock/LICENSE
+packages/askdare/docs/
+packages/askdare/llms.txt
+packages/askdare/LICENSE
 
 # Next.js
 next-env.d.ts

@@ -27,12 +27,12 @@ defineBot({
 
 `starters` are clickable suggestions (up to 4). `avatar` is the assistant's picture: a path on your app such as `/avatar.png`, or a small PNG, JPEG, WebP or GIF data URL. `launcherLabel` is the text of the pill launcher (default "Ask us").
 
-To compare them, run the starter with `CHATDOCK_GALLERY=1` and open `/gallery`: every state of the widget (welcome, conversation, streaming, attachments, error, dictation) in any preset, scheme and width. The starter's home page shows the same assistant in each preset: switch the theme and show the chat as a bubble or inside the page.
+To compare them, run the starter with `ASKDARE_GALLERY=1` and open `/gallery`: every state of the widget (welcome, conversation, streaming, attachments, error, dictation) in any preset, scheme and width. The starter's home page shows the same assistant in each preset: switch the theme and show the chat as a bubble or inside the page.
 
 ## Adjust a preset
 
 ```ts
-import { defineTheme } from '@boldare/chatdock';
+import { defineTheme } from '@boldare/askdare';
 
 export const brand = defineTheme({
   extends: 'aura',
@@ -53,18 +53,18 @@ Each token is a CSS variable, set per bot from its theme. Colors are hex.
 
 | Token | Variable | Used for |
 | --- | --- | --- |
-| `accent`, `onAccent` | `--cd-color-accent`, `--cd-color-on-accent` | Buttons, links, focus ring, and the text on them |
-| `background` | `--cd-color-background` | Panel |
-| `surface` | `--cd-color-surface` | Assistant bubbles, cards, chips |
-| `text`, `muted` | `--cd-color-text`, `--cd-color-muted` | Text, secondary text |
-| `border` | `--cd-color-border` | Hairlines (alpha allowed: `#rrggbbaa`) |
-| `danger`, `success` | `--cd-color-danger`, `--cd-color-success` | Errors, checks |
-| `userBubble`, `onUserBubble` | `--cd-color-user-bubble`, `--cd-color-on-user-bubble` | The visitor's messages |
-| `backdrop` | `--cd-backdrop` | Background behind the panel, such as a gradient, or `none` |
-| `orb` | `--cd-orb` | Paint of the orb avatar and launcher |
-| `fontFamily`, `headingFamily` | `--cd-font-family`, `--cd-font-family-heading` | Text and headings |
-| `fontSize` | `--cd-font-size` | Base size, 13px to 20px |
-| `radius` | `--cd-radius` | Corner radius, 0px to 32px |
+| `accent`, `onAccent` | `--ask-color-accent`, `--ask-color-on-accent` | Buttons, links, focus ring, and the text on them |
+| `background` | `--ask-color-background` | Panel |
+| `surface` | `--ask-color-surface` | Assistant bubbles, cards, chips |
+| `text`, `muted` | `--ask-color-text`, `--ask-color-muted` | Text, secondary text |
+| `border` | `--ask-color-border` | Hairlines (alpha allowed: `#rrggbbaa`) |
+| `danger`, `success` | `--ask-color-danger`, `--ask-color-success` | Errors, checks |
+| `userBubble`, `onUserBubble` | `--ask-color-user-bubble`, `--ask-color-on-user-bubble` | The visitor's messages |
+| `backdrop` | `--ask-backdrop` | Background behind the panel, such as a gradient, or `none` |
+| `orb` | `--ask-orb` | Paint of the orb avatar and launcher |
+| `fontFamily`, `headingFamily` | `--ask-font-family`, `--ask-font-family-heading` | Text and headings |
+| `fontSize` | `--ask-font-size` | Base size, 13px to 20px |
+| `radius` | `--ask-radius` | Corner radius, 0px to 32px |
 
 CSS values (`backdrop`, `orb`) may not contain `url()`, braces, semicolons or backslashes: they are written into a stylesheet.
 
@@ -80,7 +80,7 @@ CSS values (`backdrop`, `orb`) may not contain `url()`, braces, semicolons or ba
 | `density` | `comfortable`, `compact` |
 | `composer` | `outline`, `gradient` |
 
-Variants are set as attributes on the iframe document (`data-cd-welcome="persona"` and so on), so your own CSS can target them too.
+Variants are set as attributes on the iframe document (`data-ask-welcome="persona"` and so on), so your own CSS can target them too.
 
 ## Fonts
 

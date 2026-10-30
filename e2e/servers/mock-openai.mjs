@@ -101,7 +101,7 @@ createServer(async (request, response) => {
     // The visitor's own text, not the page context part that may precede it.
     const userText =
       parts.find(
-        (part) => part.type === 'input_text' && !part.text.startsWith('[chatdock:page-context]'),
+        (part) => part.type === 'input_text' && !part.text.startsWith('[askdare:page-context]'),
       )?.text ?? '';
     const attached = parts.filter((part) => part.file_id).length;
     const reply = `You said: ${userText} (in ${body.conversation})${attached ? ` [${attached} files]` : ''}`;

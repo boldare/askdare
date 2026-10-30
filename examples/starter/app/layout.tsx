@@ -6,7 +6,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
-  title: 'chatdock by Boldare: an AI assistant for any website',
+  title: 'askdare by Boldare: an AI assistant for any website',
   description:
     'An embeddable AI chatbot for Next.js, built on the official OpenAI SDK. One route, one script tag, four themes.',
 };

@@ -5,7 +5,7 @@ Complete every step before the chat is reachable from the internet, demos includ
 ## 1. OpenAI project
 
 1. Create a **dedicated project** for this deployment in the OpenAI dashboard. Don't reuse a project that other apps use.
-2. Create a **restricted API key** with only the permissions chatdock needs: Responses API (write), conversations (write) and List models (read); add Vector Stores (read) for a knowledge base, Files (write) for attachments and Model capabilities (request) for voice input. `npx @boldare/chatdock doctor` tells you which one is missing.
+2. Create a **restricted API key** with only the permissions askdare needs: Responses API (write), conversations (write) and List models (read); add Vector Stores (read) for a knowledge base, Files (write) for attachments and Model capabilities (request) for voice input. `npx @boldare/askdare doctor` tells you which one is missing.
 3. Set an **allowlist of models** to the one your bot uses.
 4. Set a **monthly budget with "Enforce a hard limit"** and email alerts at 50% and 80%. Send a test alert.
 
@@ -21,7 +21,7 @@ openssl rand -base64 32   # use the output as CHAT_SECRET
 | `CHAT_SECRET` | yes | At least 32 random characters. Never commit it. |
 | `CHAT_SECRET_PREVIOUS` | during rotation | Comma-separated former secrets |
 | `IDENTITY_SECRET` | for signed-in visitors | Shared with your site's backend only; never in a page or in git |
-| `CHATDOCK_DISABLED` | no | Set `true` to switch every bot off immediately |
+| `ASKDARE_DISABLED` | no | Set `true` to switch every bot off immediately |
 
 **To rotate the secret:**
 1. Move the current secret to `CHAT_SECRET_PREVIOUS` and set a new `CHAT_SECRET`.
@@ -38,7 +38,7 @@ openssl rand -base64 32   # use the output as CHAT_SECRET
 The default counters live in memory and work per instance. If more than one instance serves traffic (Vercel, several Heroku dynos, autoscaling), use a shared store:
 
 ```ts
-import { upstashStore } from '@boldare/chatdock-upstash';
+import { upstashStore } from '@boldare/askdare-upstash';
 
 export const { GET, POST, DELETE } = createChatHandler({
   bots,
@@ -57,7 +57,7 @@ export const { GET, POST, DELETE } = createChatHandler({
 - **Heroku:**
   - Use `web: next start --port $PORT --keepAliveTimeout 95000` in the `Procfile`.
   - Streaming already sends a first byte immediately and heartbeats every 15 s, which satisfies Heroku's 30 s and 55 s router rules.
-- **Behind nginx or another proxy:** don't buffer `text/event-stream` responses. chatdock sends `X-Accel-Buffering: no`.
+- **Behind nginx or another proxy:** don't buffer `text/event-stream` responses. askdare sends `X-Accel-Buffering: no`.
 
 ## 6. Privacy and transparency
 
@@ -77,5 +77,5 @@ export const { GET, POST, DELETE } = createChatHandler({
 - [ ] Shared store configured if you run more than one instance.
 - [ ] Instructions contain no secrets.
 - [ ] Privacy notice, retention decision and AI disclosure are in place.
-- [ ] You know how to flip `CHATDOCK_DISABLED=true`.
-- [ ] `npx @boldare/chatdock doctor --url <your app> --env-file <production env>` reports no problems ([Deployment](deployment.md)).
+- [ ] You know how to flip `ASKDARE_DISABLED=true`.
+- [ ] `npx @boldare/askdare doctor --url <your app> --env-file <production env>` reports no problems ([Deployment](deployment.md)).

@@ -12,7 +12,7 @@ const VARIANTS = {
   default: `<script src="${SRC}" async></script>`,
   custom: `<button id="ask" type="button">Chat with us</button>
     <script src="${SRC}" data-launcher="none" async></script>
-    <script>document.getElementById('ask').addEventListener('click', () => window.chatdock('open'));</script>`,
+    <script>document.getElementById('ask').addEventListener('click', () => window.askdare('open'));</script>`,
   inline: `<div id="chat" style="width: 380px; height: 600px; border: 1px solid #ddd"></div>
     <script src="${SRC}" data-mode="inline" data-target="#chat" async></script>`,
   // A blocking script before its target: the loader has to wait for the page.
@@ -20,18 +20,18 @@ const VARIANTS = {
     <div id="chat" style="width: 380px; height: 600px; border: 1px solid #ddd"></div>`,
   // The same, with a stub call made while the loader waits for the page.
   'early-queued': `<script>
-      window.chatdock = window.chatdock || function () {
-        (window.chatdock.q = window.chatdock.q || []).push(arguments);
+      window.askdare = window.askdare || function () {
+        (window.askdare.q = window.askdare.q || []).push(arguments);
       };
     </script>
     <script src="${SRC}" data-mode="inline" data-target="#chat"></script>
-    <script>window.chatdock('configure', { greeting: 'Configured while the page loaded.' });</script>
+    <script>window.askdare('configure', { greeting: 'Configured while the page loaded.' });</script>
     <div id="chat" style="width: 380px; height: 600px; border: 1px solid #ddd"></div>`,
   queued: `<script>
-      window.chatdock = window.chatdock || function () {
-        (window.chatdock.q = window.chatdock.q || []).push(arguments);
+      window.askdare = window.askdare || function () {
+        (window.askdare.q = window.askdare.q || []).push(arguments);
       };
-      window.chatdock('configure', { greeting: 'Queued before the script loaded.' });
+      window.askdare('configure', { greeting: 'Queued before the script loaded.' });
     </script>
     <script src="${SRC}" async></script>`,
   tall: `<div style="height: 2000px">Content above the chat</div>
@@ -40,7 +40,7 @@ const VARIANTS = {
   configure: `<script id="loader" src="${SRC}" async></script>
     <script>
       document.getElementById('loader').addEventListener('load', () => {
-        window.chatdock('configure', {
+        window.askdare('configure', {
           greeting: 'Questions about our prices?',
           starters: ['How much is the Business plan?'],
           context: 'Pricing page listing the Free, Team and Business plans.',
@@ -66,10 +66,10 @@ const identityVariant = (forged) => {
     ? identityToken(ada, 'a-secret-the-attacker-made-up-1234567890')
     : identityToken(ada);
   return `<script>
-      window.chatdock = window.chatdock || function () {
-        (window.chatdock.q = window.chatdock.q || []).push(arguments);
+      window.askdare = window.askdare || function () {
+        (window.askdare.q = window.askdare.q || []).push(arguments);
       };
-      window.chatdock('identify', '${token}');
+      window.askdare('identify', '${token}');
     </script>
     <script src="${SRC}" async></script>`;
 };

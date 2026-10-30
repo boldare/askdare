@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noEmit": true,
+    "skipLibCheck": false,
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "target": "es2022",
+    "lib": ["es2022", "dom"],
+    "types": [],
+    "paths": {
+      "@boldare/askdare": ["../dist/index.d.ts"],
+      "@boldare/askdare/next": ["../dist/next.d.ts"]
+    }
+  },
+  "files": ["consumer.ts"]
+}

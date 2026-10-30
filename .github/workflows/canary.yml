@@ -29,7 +29,7 @@ jobs:
           # Canary releases are hours old; the usual one-day minimum release age would refuse them.
           sed -i 's/^minimumReleaseAge: .*/minimumReleaseAge: 0/' pnpm-workspace.yaml
           pnpm --recursive update next@canary
-          pnpm --filter @boldare/chatdock update openai@latest
+          pnpm --filter @boldare/askdare update openai@latest
           pnpm list --recursive --depth 0 next openai
       - run: pnpm check
       - run: pnpm exec playwright install --with-deps chromium

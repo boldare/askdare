@@ -25,7 +25,7 @@ test('chats from an allowed third-party site', async ({ page }) => {
   await chat.getByRole('textbox').fill('Hello there');
   await chat.getByRole('textbox').press('Enter');
 
-  const reply = chat.locator('[data-cd-part="message"][data-role="assistant"]').last();
+  const reply = chat.locator('[data-ask-part="message"][data-role="assistant"]').last();
   await expect(reply).toContainText('You said: Hello there');
   await expect(reply).toHaveAttribute('data-status', 'done');
 });
@@ -35,7 +35,7 @@ test('restores the conversation after a reload and continues it', async ({ page 
   let chat = await openChat(page);
   await chat.getByRole('textbox').fill('First');
   await chat.getByRole('textbox').press('Enter');
-  const first = chat.locator('[data-cd-part="message"][data-role="assistant"]').last();
+  const first = chat.locator('[data-ask-part="message"][data-role="assistant"]').last();
   await expect(first).toHaveAttribute('data-status', 'done');
   const conversation = /\(in (conv_\d+)\)/.exec((await first.textContent()) ?? '')?.[1];
   expect(conversation).toBeTruthy();
@@ -43,7 +43,7 @@ test('restores the conversation after a reload and continues it', async ({ page 
   await page.reload();
   chat = await openChat(page);
   // History comes back from the Conversations API.
-  await expect(chat.locator('[data-cd-part="message"][data-role="user"]').first()).toHaveText(
+  await expect(chat.locator('[data-ask-part="message"][data-role="user"]').first()).toHaveText(
     'First',
   );
   await expect(chat.getByText(`You said: First (in ${conversation})`)).toBeVisible();
@@ -51,7 +51,7 @@ test('restores the conversation after a reload and continues it', async ({ page 
   await chat.getByRole('textbox').fill('Second');
   await chat.getByRole('textbox').press('Enter');
   await expect(
-    chat.locator('[data-cd-part="message"][data-role="assistant"]').last(),
+    chat.locator('[data-ask-part="message"][data-role="assistant"]').last(),
   ).toContainText(`You said: Second (in ${conversation})`);
 });
 
@@ -60,7 +60,7 @@ test('starts a new conversation and deletes the old one', async ({ page }) => {
   const chat = await openChat(page);
   await chat.getByRole('textbox').fill('Remember me');
   await chat.getByRole('textbox').press('Enter');
-  const reply = chat.locator('[data-cd-part="message"][data-role="assistant"]').last();
+  const reply = chat.locator('[data-ask-part="message"][data-role="assistant"]').last();
   await expect(reply).toHaveAttribute('data-status', 'done');
   const old = /\(in (conv_\d+)\)/.exec((await reply.textContent()) ?? '')?.[1];
 
@@ -73,7 +73,7 @@ test('starts a new conversation and deletes the old one', async ({ page }) => {
   await question.getByRole('button', { name: 'Cancel' }).click();
   await expect(question).toHaveCount(0);
   await expect(restart).toBeFocused();
-  await expect(chat.locator('[data-cd-part="message"]')).toHaveCount(2);
+  await expect(chat.locator('[data-ask-part="message"]')).toHaveCount(2);
   // Escape answers no too, and leaves the chat open.
   await restart.click();
   await page.keyboard.press('Escape');
@@ -82,11 +82,11 @@ test('starts a new conversation and deletes the old one', async ({ page }) => {
 
   await restart.click();
   await chat.getByRole('alertdialog').getByRole('button', { name: 'Start new' }).click();
-  await expect(chat.locator('[data-cd-part="message"]')).toHaveCount(0);
+  await expect(chat.locator('[data-ask-part="message"]')).toHaveCount(0);
 
   await chat.getByRole('textbox').fill('Fresh start');
   await chat.getByRole('textbox').press('Enter');
-  const fresh = chat.locator('[data-cd-part="message"][data-role="assistant"]').last();
+  const fresh = chat.locator('[data-ask-part="message"][data-role="assistant"]').last();
   await expect(fresh).toHaveAttribute('data-status', 'done');
   expect(await fresh.textContent()).not.toContain(`(in ${old})`);
 });
@@ -104,7 +104,7 @@ test('sends an image and a PDF, and deletes them with the conversation', async (
     { name: 'offer.pdf', mimeType: 'application/pdf', buffer: PDF },
     { name: 'logo.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg/>') },
   ]);
-  const pending = chat.locator('[data-cd-part="attachments"]');
+  const pending = chat.locator('[data-ask-part="attachments"]');
   // Images are re-encoded as JPEG in the browser; SVG never leaves it.
   await expect(pending.locator('[data-status="ready"]')).toHaveCount(2);
   await expect(pending).toContainText('IMG_0042.jpg');
@@ -115,10 +115,10 @@ test('sends an image and a PDF, and deletes them with the conversation', async (
 
   await chat.getByRole('textbox').fill('What is in these?');
   await chat.getByRole('textbox').press('Enter');
-  const reply = chat.locator('[data-cd-part="message"][data-role="assistant"]').last();
+  const reply = chat.locator('[data-ask-part="message"][data-role="assistant"]').last();
   await expect(reply).toContainText('You said: What is in these?');
   await expect(reply).toContainText('[2 files]');
-  await expect(chat.locator('[data-cd-part="message-attachments"] li')).toHaveCount(2);
+  await expect(chat.locator('[data-ask-part="message-attachments"] li')).toHaveCount(2);
   await expect(pending).toHaveCount(0);
 
   const uploaded = (await (await request.get(`${MOCK_OPENAI}/debug/files`)).json()) as string[];
@@ -126,7 +126,7 @@ test('sends an image and a PDF, and deletes them with the conversation', async (
 
   await chat.getByRole('button', { name: 'Start a new conversation' }).click();
   await chat.getByRole('alertdialog').getByRole('button', { name: 'Start new' }).click();
-  await expect(chat.locator('[data-cd-part="message"]')).toHaveCount(0);
+  await expect(chat.locator('[data-ask-part="message"]')).toHaveCount(0);
   await expect
     .poll(async () => (await (await request.get(`${MOCK_OPENAI}/debug/files`)).json()) as string[])
     .toEqual(filesBefore);
@@ -143,7 +143,7 @@ test('dictates into the message field without sending', async ({ page }) => {
   await page.waitForTimeout(1_500);
   await chat.getByRole('button', { name: 'Done' }).click();
   await expect(chat.getByRole('textbox')).toHaveValue('Mock transcript');
-  await expect(chat.locator('[data-cd-part="message"]')).toHaveCount(0);
+  await expect(chat.locator('[data-ask-part="message"]')).toHaveCount(0);
 
   // Escape cancels a dictation instead of closing the chat.
   await chat.getByRole('button', { name: 'Dictate a message' }).click();
@@ -168,7 +168,7 @@ test('finishes a reply after the visitor leaves mid-answer', async ({ page, requ
   await chat.getByRole('textbox').fill('[slow] keep going');
   await chat.getByRole('textbox').press('Enter');
   await expect(
-    chat.locator('[data-cd-part="message"][data-role="assistant"]').last(),
+    chat.locator('[data-ask-part="message"][data-role="assistant"]').last(),
   ).toContainText('You said');
   await page.goto('about:blank');
 

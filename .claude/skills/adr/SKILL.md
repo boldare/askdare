@@ -1,6 +1,6 @@
 ---
 name: adr
-description: Write or update an Architecture Decision Record in docs/adr for chatdock. Use when a decision is expensive to reverse (public API, data storage, security model, dependencies, packaging, supported platforms) or when a spike confirms or rejects a Proposed ADR.
+description: Write or update an Architecture Decision Record in docs/adr for askdare. Use when a decision is expensive to reverse (public API, data storage, security model, dependencies, packaging, supported platforms) or when a spike confirms or rejects a Proposed ADR.
 ---
 
 # Architecture Decision Records

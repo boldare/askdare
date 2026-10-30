@@ -1,9 +1,9 @@
 ---
 name: release
-description: How changes to published chatdock packages are versioned and released (Changesets, 0.x policy, public API snapshot, trusted publishing). Use when finishing a change to packages/*, when the public API changes, or when preparing a release.
+description: How changes to published askdare packages are versioned and released (Changesets, 0.x policy, public API snapshot, trusted publishing). Use when finishing a change to packages/*, when the public API changes, or when preparing a release.
 ---
 
-# Releasing chatdock
+# Releasing askdare
 
 ## For every change to a published package
 

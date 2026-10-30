@@ -1,10 +1,10 @@
 # Tools
 
-Tools are server-side functions the model may call during a conversation: look up an order, check a price, fetch the weather. You describe the arguments with a Zod schema; chatdock validates every call before your code runs.
+Tools are server-side functions the model may call during a conversation: look up an order, check a price, fetch the weather. You describe the arguments with a Zod schema; askdare validates every call before your code runs.
 
 ```ts
 // tools.ts
-import { defineTool } from '@boldare/chatdock';
+import { defineTool } from '@boldare/askdare';
 import { z } from 'zod';
 
 export const orderStatus = defineTool({
@@ -23,7 +23,7 @@ export const orderStatus = defineTool({
 ```
 
 ```ts
-// chatdock.config.ts
+// askdare.config.ts
 defineBot({
   // …
   tools: [orderStatus],
@@ -33,7 +33,7 @@ defineBot({
 ## How a call works
 
 1. The model decides to call a tool and proposes arguments.
-2. chatdock validates them with your schema. Invalid arguments go back to the model as an error, and `execute` doesn't run.
+2. askdare validates them with your schema. Invalid arguments go back to the model as an error, and `execute` doesn't run.
 3. `execute` runs on your server, with a timeout (`timeoutMs`, 10 seconds by default). Several calls in one step run in parallel.
 4. Whatever `execute` returns goes back to the model as JSON. Return `{ error: '…' }` for failures the model should explain; a thrown error reaches the model as a generic failure.
 5. The visitor sees only a short status ("Using get_order_status…"), never the arguments or the result.
@@ -44,8 +44,8 @@ A bot makes at most `limits.maxSteps` model calls per message (default 5); the l
 
 - **Every field is required.** OpenAI's strict mode demands it: use `.nullable()` instead of `.optional()`. `defineTool` fails at startup otherwise.
 - **Describe well.** The model picks tools by `description` and fills fields by their `.describe()`.
-- **Never trust the model with identity.** The model can be talked into anything, so a tool must not take user IDs, emails or permissions from its arguments. The second argument of `execute` holds what chatdock verified: `botId`, `visitorId` (pseudonymous, created by the server), `locale`, `identity` (the signed-in user, when your site [identifies](identity.md) them) and an abort `signal`.
-- **Read-only, for now.** Tools that change data (place an order, send an email) need the visitor's confirmation, which chatdock doesn't offer yet. Keep tools to lookups.
+- **Never trust the model with identity.** The model can be talked into anything, so a tool must not take user IDs, emails or permissions from its arguments. The second argument of `execute` holds what askdare verified: `botId`, `visitorId` (pseudonymous, created by the server), `locale`, `identity` (the signed-in user, when your site [identifies](identity.md) them) and an abort `signal`.
+- **Read-only, for now.** Tools that change data (place an order, send an email) need the visitor's confirmation, which askdare doesn't offer yet. Keep tools to lookups.
 - **Keep results small.** Return the fields the model needs. Large results cost input tokens on every later message.
 - **Keep it under about 20 tools per bot.** More tools make the model slower and less accurate.
 

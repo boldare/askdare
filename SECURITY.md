@@ -1,6 +1,6 @@
 # Security policy
 
-chatdock exposes a public, anonymous chat endpoint that spends money on your OpenAI account. We take vulnerabilities in it seriously.
+askdare exposes a public, anonymous chat endpoint that spends money on your OpenAI account. We take vulnerabilities in it seriously.
 
 ## Supported versions
 
@@ -10,7 +10,7 @@ During 0.x only the latest minor release receives security fixes.
 
 **Please do not open a public issue.** Report vulnerabilities privately through GitHub's private vulnerability reporting: open the **Security** tab of this repository, then **Report a vulnerability**.
 
-If you can't use GitHub, email **hello@boldare.com** with the subject "chatdock: security". Keep the details for the private channel we will set up with you.
+If you can't use GitHub, email **hello@boldare.com** with the subject "askdare: security". Keep the details for the private channel we will set up with you.
 
 Please include:
 - the affected version and configuration;

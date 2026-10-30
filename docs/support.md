@@ -1,6 +1,6 @@
 # Support
 
-What chatdock is tested with and promises to keep working. The reasoning is in [ADR-0006](adr/0006-support-matrix-and-versioning.md).
+What askdare is tested with and promises to keep working. The reasoning is in [ADR-0006](adr/0006-support-matrix-and-versioning.md).
 
 ## Your app
 
@@ -43,4 +43,4 @@ The build fails when one of these grows past its budget.
 
 ## Versions
 
-chatdock is in 0.x. Minor releases may break things; patch releases never do. A removal is announced by a deprecation warning one minor release earlier, and every release lists its changes.
+askdare is in 0.x. Minor releases may break things; patch releases never do. A removal is announced by a deprecation warning one minor release earlier, and every release lists its changes.

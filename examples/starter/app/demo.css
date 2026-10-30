@@ -1095,11 +1095,11 @@ body {
 
 /* The launcher lives in the loader's shadow root on this page: styled with ::part. */
 /* Every launcher at the dock's height (pills are 56px, orbs 60px), so the two line up. */
-[data-chatdock]::part(launcher) {
+[data-askdare]::part(launcher) {
   height: 60px;
 }
 
-body:has(.demo[data-theme="bldr"]) [data-chatdock]::part(launcher) {
+body:has(.demo[data-theme="bldr"]) [data-askdare]::part(launcher) {
   border: 2px solid #242424;
   border-radius: 0;
   background: #f2da3a;
@@ -1342,7 +1342,7 @@ body:has(.demo[data-theme="bldr"]) [data-chatdock]::part(launcher) {
   }
 
   /* While the sheet is open, the chat button waits behind it. */
-  body:has(.menu[data-open]) [data-chatdock]::part(launcher) {
+  body:has(.menu[data-open]) [data-askdare]::part(launcher) {
     display: none;
   }
 
@@ -1372,7 +1372,7 @@ body:has(.demo[data-theme="bldr"]) [data-chatdock]::part(launcher) {
     font-size: 0.78rem;
   }
 
-  [data-chatdock]::part(launcher) {
+  [data-askdare]::part(launcher) {
     bottom: 84px;
   }
 }

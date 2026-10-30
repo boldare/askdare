@@ -23,7 +23,7 @@ test('the chat can sit inside an element of the page', async ({ page }) => {
   await chat.getByRole('textbox').fill('Inline hello');
   await chat.getByRole('textbox').press('Enter');
   await expect(
-    chat.locator('[data-cd-part="message"][data-role="assistant"]').last(),
+    chat.locator('[data-ask-part="message"][data-role="assistant"]').last(),
   ).toContainText('You said: Inline hello');
 });
 
@@ -50,14 +50,14 @@ test('the page sets the greeting, suggestions and its context, and nothing else'
   await expect(chat.getByText('Questions about our prices?')).toBeVisible();
   await chat.getByRole('button', { name: 'How much is the Business plan?' }).click();
   await expect(
-    chat.locator('[data-cd-part="message"][data-role="assistant"]').last(),
+    chat.locator('[data-ask-part="message"][data-role="assistant"]').last(),
   ).toContainText('You said: How much is the Business plan?');
   // Tests run in parallel, so find this test's request among all the model saw.
   const all = (await (await request.get(`${MOCK_OPENAI}/debug/requests`)).json()) as {
     instructions: string;
     input: string;
   }[];
-  const ours = all.find((sent) => sent.input.includes('[chatdock:page-context]'));
+  const ours = all.find((sent) => sent.input.includes('[askdare:page-context]'));
   // In the visitor's turn, never in the bot's instructions.
   expect(ours?.input).toContain('Pricing page listing the Free, Team and Business plans.');
   expect(ours?.instructions).not.toContain('Pricing page');
@@ -83,7 +83,7 @@ for (const [variant, signedIn] of [
     await chat.getByRole('textbox').fill(text);
     await chat.getByRole('textbox').press('Enter');
     await expect(
-      chat.locator('[data-cd-part="message"][data-role="assistant"]').last(),
+      chat.locator('[data-ask-part="message"][data-role="assistant"]').last(),
     ).toContainText(`You said: ${text}`);
     const all = (await (await request.get(`${MOCK_OPENAI}/debug/requests`)).json()) as {
       instructions: string;
@@ -94,7 +94,7 @@ for (const [variant, signedIn] of [
       expect(ours?.instructions).toContain('signed in as "Ada Lovelace"');
     } else {
       expect(ours?.instructions).not.toContain('Ada');
-      expect(warnings.join('\n')).toContain("chatdock('identify') was refused (signature)");
+      expect(warnings.join('\n')).toContain("askdare('identify') was refused (signature)");
     }
   });
 }
