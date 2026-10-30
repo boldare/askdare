@@ -93,6 +93,18 @@ const BLDR_CSS = `
     border: 2px solid #242424; border-radius: 0; background: #f2da3a; color: #242424;
     box-shadow: -3px 3px 0 #242424;
   }
+  /* Buttons press towards their hard shadow, like on boldare.com. */
+  :is([data-cd-part="send"], [data-cd-part="confirm-cancel"], [data-cd-part="confirm-accept"]) {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  :is([data-cd-part="send"], [data-cd-part="confirm-cancel"], [data-cd-part="confirm-accept"]):hover:not(:disabled) {
+    transform: translate(2px, -2px); box-shadow: -5px 5px 0 #242424;
+  }
+  :is([data-cd-part="confirm-cancel"], [data-cd-part="confirm-accept"]) {
+    border: 2px solid #242424; box-shadow: -3px 3px 0 #242424;
+  }
+  [data-cd-part="confirm-accept"], [data-cd-part="confirm-accept"]:hover { background: #f2da3a; color: #242424; }
+  :is([data-cd-part="attach"], [data-cd-part="voice"]):hover:not(:disabled) { background: #f2da3a; }
   [data-cd-part="citation"] { border: 2px solid #242424; border-radius: 0; }
   /* Halo, the preset underneath, rings its orb and rounds its buttons: square them off. */
   [data-cd-part="welcome"] [data-cd-part="avatar"][data-size="large"] {

@@ -250,6 +250,23 @@ body {
   font-weight: 600;
   text-decoration: none;
   box-shadow: 0 10px 24px -12px var(--ink);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    filter 0.18s ease;
+}
+
+/* Buttons rise a little under the pointer and press down when clicked. */
+.demo .button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px -14px var(--ink);
+  filter: brightness(1.07);
+}
+
+.demo .button:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 6px 14px -10px var(--ink);
+  filter: none;
 }
 
 .demo .button.small {
@@ -258,9 +275,34 @@ body {
 }
 
 .demo .link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 2px;
+  border-bottom: 1.5px solid currentColor;
   font-weight: 600;
   text-decoration: none;
-  border-bottom: 1.5px solid currentColor;
+  transition: border-color 0.18s ease;
+}
+
+/* Text links point on: the arrow moves as the underline fades. */
+.demo .link-button::after {
+  content: "→";
+  transition: transform 0.18s ease;
+}
+
+.demo .link-button:hover {
+  border-bottom-color: transparent;
+}
+
+.arrow {
+  display: inline-block;
+  transition: transform 0.18s ease;
+}
+
+.demo .link-button:hover::after,
+.theme-card:hover .arrow {
+  transform: translateX(4px);
 }
 
 /* ---------- Hero ---------- */
@@ -452,6 +494,10 @@ body {
   .hint,
   .hint-label i::after {
     animation: none;
+  }
+
+  .demo :is(.button, .theme-card, .menu-button):is(:hover, :active) {
+    transform: none;
   }
 }
 
@@ -854,10 +900,43 @@ body {
 }
 
 .theme-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+/* The whole card is its link, and lifts under the pointer; the current theme's stays put. */
+.demo .theme-card a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.theme-card:has(a:not([aria-current])):hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--ink) 22%, transparent);
+  box-shadow: 0 20px 40px -26px var(--ink);
+}
+
+.theme-card:has(a:focus-visible) {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.demo .theme-card a:focus-visible {
+  outline: none;
+}
+
+.demo .theme-card a[aria-current] {
+  color: var(--muted);
+  font-weight: 500;
 }
 
 .theme-card h3 {
@@ -867,6 +946,7 @@ body {
 .demo .theme-card a {
   margin-top: auto;
   font-weight: 600;
+  text-decoration: none;
 }
 
 .custom-card {
@@ -927,6 +1007,15 @@ body {
   margin: 0;
 }
 
+.demo .footer a {
+  text-underline-offset: 3px;
+  transition: color 0.18s ease;
+}
+
+.demo .footer a:hover {
+  color: var(--ink);
+}
+
 /* ---------- BLDR: boldare.com's sharp, heavy, yellow-and-ink look ---------- */
 
 .demo[data-theme="bldr"] h1 {
@@ -954,6 +1043,23 @@ body {
   border: 2px solid #242424;
   border-radius: 0;
   box-shadow: -4px 4px 0 #242424;
+}
+
+.demo[data-theme="bldr"] :is(.button, .menu-button):hover {
+  transform: translate(2px, -2px);
+  box-shadow: -6px 6px 0 #242424;
+  filter: none;
+}
+
+.demo[data-theme="bldr"] :is(.button, .menu-button):active {
+  transform: translate(-2px, 2px);
+  box-shadow: -2px 2px 0 #242424;
+}
+
+.demo[data-theme="bldr"] .theme-card:has(a:not([aria-current])):hover {
+  transform: translate(2px, -2px);
+  border-color: #242424;
+  box-shadow: -8px 8px 0 #242424;
 }
 
 .demo[data-theme="bldr"] :is(.segmented, .card, .chat-frame, .custom-card code, .dock) {
@@ -1073,6 +1179,10 @@ body:has(.demo[data-theme="bldr"]) [data-chatdock]::part(launcher) {
     background: var(--card);
     color: var(--ink);
     cursor: pointer;
+  }
+
+  .menu-button:hover {
+    background: color-mix(in srgb, var(--ink) 6%, var(--card));
   }
 
   .menu-icon {
