@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ProtocolEvent } from '../protocol/events';
 import { encodeComment, encodeEvent } from '../protocol/sse';
-import { ChatClient } from './chat-client';
+import { ChatClient, SessionRefused } from './chat-client';
 import { memoryStorage, type SafeStorage } from './storage';
 
 const encoder = new TextEncoder();
@@ -320,6 +320,24 @@ describe('ChatClient', () => {
     await client(fetch).send({ text: 'Hi' }, (event) => events.push(event));
     expect(events).toEqual([{ type: 'error', code: 'bot_unavailable', message: explained }]);
     expect(calls.map((call) => call.url)).toEqual(['/api/chat/session']);
+  });
+
+  it('rejects a history load with the reason when the session is refused', async () => {
+    const storage = memoryStorage();
+    storage.set('askdare:support:resume', 'kept');
+    const explained = 'CHAT_SECRET must be at least 32 random characters.';
+    const { fetch } = fakeFetch({
+      session: () =>
+        Response.json({ error: { code: 'bot_unavailable', message: explained } }, { status: 503 }),
+      messages: () => {
+        throw new Error('no request without a session');
+      },
+    });
+    const loading = client(fetch, storage).loadHistory();
+    await expect(loading).rejects.toBeInstanceOf(SessionRefused);
+    await expect(loading).rejects.toThrow(explained);
+    // A refused session says nothing about the conversation: it stays for the next try.
+    expect(storage.get('askdare:support:resume')).toBe('kept');
   });
 
   it('reports network failures without throwing', async () => {

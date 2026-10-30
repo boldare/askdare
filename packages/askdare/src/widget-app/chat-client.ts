@@ -76,7 +76,7 @@ const RENEW_MARGIN_SECONDS = 30;
 type ErrorEvent = Extract<ProtocolEvent, { type: 'error' }>;
 
 /** The server refused a session and said why: a limit, a switched-off bot, a setup problem. */
-class SessionRefused extends Error {
+export class SessionRefused extends Error {
   constructor(readonly event: ErrorEvent) {
     super(event.message);
   }
