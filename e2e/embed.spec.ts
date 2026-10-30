@@ -195,8 +195,15 @@ test('refuses to load inside a site that is not on the allowlist', async ({ page
   const blocked = page.waitForEvent('console', (message) =>
     message.text().includes('frame-ancestors'),
   );
+  const hint = page.waitForEvent('console', {
+    predicate: (message) => message.text().includes('security.allowedOrigins'),
+    timeout: 15_000,
+  });
   await page.goto(FOREIGN_HOST);
   const chat = await openChat(page);
   await blocked;
   await expect(chat.getByRole('textbox')).toHaveCount(0);
+  // Not a blank panel: the visitor is told, and the developer is pointed at the allowlist.
+  await expect(page.getByRole('status')).toHaveText(/couldn’t load/, { timeout: 15_000 });
+  expect((await hint).text()).toContain('doctor --origin');
 });

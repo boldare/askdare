@@ -6,6 +6,7 @@ export type {
   BotLimits,
   BotSecurity,
   KnowledgeConfig,
+  VoiceConfig,
   WidgetConfig,
 } from './bot/define-bot';
 export { defineBot } from './bot/define-bot';

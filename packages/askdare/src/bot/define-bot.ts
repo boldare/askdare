@@ -363,7 +363,11 @@ export function defineBot(definition: BotDefinition): Bot {
     const issues = parsed.error.issues
       .map((issue) => `${issue.path.join('.') || '(root)'} ${issue.message}`)
       .join('; ');
-    throw new TypeError(`[askdare] Invalid bot "${String(definition.id)}": ${issues}`);
+    // The most common first-run failure: the model comes from an environment variable that isn't set.
+    const hint = parsed.error.issues.some((issue) => issue.path.join('.') === 'model')
+      ? ' Set the model in the bot definition, usually as model: process.env.ASKDARE_MODEL with ASKDARE_MODEL in .env.local and in every environment that builds or runs the app (on Vercel: Production and Preview).'
+      : '';
+    throw new TypeError(`[askdare] Invalid bot "${String(definition.id)}": ${issues}.${hint}`);
   }
   const { instructions } = definition;
   const widget = definition.widget ?? {};

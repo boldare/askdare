@@ -111,6 +111,21 @@ async function addEnv(
   return { added, empty };
 }
 
+/** The chat script as `next/script`: loaded after hydration, so React never sees it in the body. */
+const scriptTag = (botId: string): string =>
+  `<Script src="/api/chat/widget.js?bot=${botId}" strategy="afterInteractive" />`;
+const SCRIPT_IMPORT = "import Script from 'next/script';";
+
+/** Adds the `next/script` import after the layout's last import (or at the top). */
+function withScriptImport(text: string): string {
+  if (/from\s+['"]next\/script['"]/.test(text)) return text;
+  const imports = [...text.matchAll(/^import[^;]*;/gm)];
+  const last = imports[imports.length - 1];
+  if (last === undefined) return `${SCRIPT_IMPORT}\n\n${text}`;
+  const end = last.index + last[0].length;
+  return `${text.slice(0, end)}\n${SCRIPT_IMPORT}${text.slice(end)}`;
+}
+
 /** Puts the loader before `</body>` of the root layout, if there is exactly one. */
 async function addScript(project: Project, botId: string): Promise<'added' | 'present' | 'manual'> {
   const layout = findFile(project.appDir, 'layout');
@@ -120,11 +135,11 @@ async function addScript(project: Project, botId: string): Promise<'added' | 'pr
   const matches = [...text.matchAll(/^([ \t]*)(.*?)<\/body>/gm)];
   if (matches.length !== 1 || matches[0] === undefined) return 'manual';
   const [match] = matches;
-  const script = `<script src="/api/chat/widget.js?bot=${botId}" async />`;
+  const script = scriptTag(botId);
   const at = match.index + match[0].length - '</body>'.length;
   // On its own line before `</body>`, or inline as in `<body>{children}</body>`.
   const tag = match[2] === '' ? `  ${script}\n${match[1]}` : script;
-  await writeFile(layout, `${text.slice(0, at)}${tag}${text.slice(at)}`);
+  await writeFile(layout, withScriptImport(`${text.slice(0, at)}${tag}${text.slice(at)}`));
   return 'added';
 }
 
@@ -219,7 +234,7 @@ export async function init(options: InitOptions): Promise<void> {
   if (empty.length > 0) steps.push(`In .env.local, set ${empty.join(', ')}.`);
   if (script === 'manual') {
     steps.push(
-      `Load the chat on your pages, e.g. in the root layout's <body>:\n       <script src="/api/chat/widget.js?bot=${botId}" async />`,
+      `Load the chat on your pages, e.g. in the root layout's <body>:\n       ${SCRIPT_IMPORT}\n       ${scriptTag(botId)}`,
     );
   }
   steps.push(

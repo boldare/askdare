@@ -9,6 +9,8 @@ export interface LauncherTexts {
   /** Accessible names of the button while the chat is closed and open. */
   readonly open: string;
   readonly close: string;
+  /** Shown in the panel when the chat doesn't load (a site off the allowlist, an unknown bot). */
+  readonly unavailable: string;
   /** Accessible name of the chat dialog. */
   readonly title: string;
 }

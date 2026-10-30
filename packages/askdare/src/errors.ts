@@ -73,3 +73,8 @@ export function toAskdareError(error: unknown): AskdareError {
     ? error
     : new AskdareError('internal_error', { cause: error });
 }
+
+/** API keys never reach a log line, a report or the chat: `sk-proj-abc…` keeps only its prefix. */
+export function scrub(text: string): string {
+  return text.replace(/\b(sk|rk)-[A-Za-z0-9_-]{6,}/g, (key) => `${key.slice(0, 3)}…`);
+}

@@ -22,6 +22,7 @@ export function launcherLook(bot: Bot): LauncherLook {
           label: all['launcher.label'] ?? '',
           open: all['launcher.open'] ?? '',
           close: all['launcher.close'] ?? '',
+          unavailable: all['launcher.unavailable'] ?? '',
           title: all['header.title'] ?? '',
         },
       ];

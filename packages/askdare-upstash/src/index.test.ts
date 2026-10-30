@@ -34,8 +34,8 @@ describe('upstashStore', () => {
 
   it('prefixes keys and passes amount and window to the script', async () => {
     const redis = fakeRedis();
-    await upstashStore({ redis, prefix: 'app1:' }).hit('cd:s:bot:ip', 3_600_000, 1);
-    expect(redis.calls).toEqual([{ keys: ['app1:cd:s:bot:ip'], args: [1, 3_600_000] }]);
+    await upstashStore({ redis, prefix: 'app1:' }).hit('ask:s:bot:ip', 3_600_000, 1);
+    expect(redis.calls).toEqual([{ keys: ['app1:ask:s:bot:ip'], args: [1, 3_600_000] }]);
   });
 
   it('explains missing configuration on first use', async () => {
