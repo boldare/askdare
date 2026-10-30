@@ -344,7 +344,7 @@ The library doesn't read these. `npx @boldare/askdare init`, the starter and the
 | `KV_REST_API_URL` | Used when `UPSTASH_REDIS_REST_URL` isn't set. |
 | `KV_REST_API_TOKEN` | Used when `UPSTASH_REDIS_REST_TOKEN` isn't set. |
 
-The Vercel Marketplace sets the `UPSTASH_` names. Databases from the older Vercel KV have the `KV_` names. The store reads them on first use, not at import.
+A database from the Vercel Marketplace (Upstash for Redis) sets the `KV_` names in the project. One created in the Upstash console shows the `UPSTASH_` names to copy. The store reads them on first use, not at import.
 
 ## Where to go next
 
