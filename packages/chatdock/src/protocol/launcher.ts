@@ -29,6 +29,9 @@ export interface LauncherLook {
   /** Panel background while the chat loads, per color scheme. */
   readonly light: string;
   readonly dark: string;
+  /** Text on those backgrounds: the orb launcher's label sits on them. */
+  readonly text: string;
+  readonly textDark: string;
   readonly scheme: 'auto' | 'light' | 'dark';
   readonly radius: string;
 }

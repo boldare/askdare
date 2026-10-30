@@ -291,20 +291,15 @@ body {
   backdrop-filter: blur(12px);
 }
 
-.demo .segmented :is(a, button) {
+.demo .segmented a {
   padding: 8px 16px;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
   border-radius: 999px;
   font-size: 0.92rem;
   font-weight: 500;
   text-decoration: none;
 }
 
-.demo .segmented :is(a, button):hover {
+.demo .segmented a:hover {
   background: color-mix(in srgb, var(--ink) 6%, transparent);
 }
 
@@ -317,7 +312,7 @@ body {
   letter-spacing: 0.06em;
 }
 
-.demo .segmented :is(a[aria-current], button[aria-pressed="true"]) {
+.demo .segmented a[aria-current] {
   background: var(--button);
   color: var(--on-button);
 }
@@ -416,6 +411,24 @@ body {
   cursor: pointer;
 }
 
+/* What the ferrofluid stands on: a soft shadow. */
+.shape {
+  position: relative;
+  isolation: isolate;
+}
+
+.shape::after {
+  content: "";
+  position: absolute;
+  inset: auto 31% 16%;
+  z-index: -1;
+  height: 8%;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ink) 45%, transparent);
+  filter: blur(14px);
+  pointer-events: none;
+}
+
 .shape canvas {
   width: 100%;
   height: 100%;
@@ -424,12 +437,6 @@ body {
 .shape:focus-visible {
   outline: 3px solid var(--ink);
   outline-offset: -24px;
-}
-
-/* Liquid or network: switching keeps the page, the shape rebuilds itself. */
-.looks {
-  margin: -28px 0 0;
-  font-size: 0.86rem;
 }
 
 .shape[data-fallback] {
@@ -521,43 +528,19 @@ body {
   overflow-wrap: anywhere;
 }
 
-.mini-orb {
-  display: block;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  box-shadow:
-    inset 0 -6px 14px rgb(255 255 255 / 0.35),
-    inset 0 5px 12px rgb(255 255 255 / 0.6);
-}
-
-[data-preview="aura"] .mini-orb {
-  background: var(--orb-aura);
-}
-
-[data-preview="sage"] .mini-orb {
-  background: var(--orb-sage);
-}
-
-[data-preview="halo"] .mini-orb {
-  background: var(--orb-halo);
-}
-
-[data-preview="care"] .mini-orb {
-  background: var(--orb-care);
-}
-
 .demo .themes a {
   display: inline-block;
   margin-top: 16px;
   font-weight: 600;
 }
 
-[data-preview="bldr"] .mini-orb {
-  border: 2px solid #242424;
-  border-radius: 0;
-  background: #f2da3a;
-  box-shadow: -4px 4px 0 #242424;
+/* Each theme's shape, its symbol, as a flat icon. */
+.shape-icon {
+  display: block;
+  width: 72px;
+  height: 72px;
+  margin: -6px 0 0 -6px;
+  color: var(--ink);
 }
 
 .custom-card code {
@@ -634,8 +617,7 @@ body {
   background: #242424;
 }
 
-.demo[data-theme="bldr"]
-  :is(.button, .segmented a[aria-current], .segmented button[aria-pressed="true"], .step) {
+.demo[data-theme="bldr"] :is(.button, .segmented a[aria-current], .step) {
   border: 2px solid #242424;
   border-radius: 0;
   box-shadow: -4px 4px 0 #242424;

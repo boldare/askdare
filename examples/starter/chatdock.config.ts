@@ -114,6 +114,7 @@ export const bots = [
       // The demo page is light, so its chat is too; /gallery shows the dark schemes.
       colorScheme: 'light',
       title: 'Brightloop assistant',
+      launcherLabel: 'Ask Brightloop AI',
       // The demo says what it is inside the chat, not on the page.
       subtitle: DEMO_NOTE,
       // **Bold** words get the heavier weight of Aura's two-weight headline.
@@ -145,6 +146,7 @@ export const bots = [
       locale: 'auto',
       colorScheme: 'light',
       title: 'Brightloop AI',
+      launcherLabel: 'Ask Brightloop AI',
       subtitle: DEMO_NOTE,
       greeting: 'What can I help you with today?',
       starters,

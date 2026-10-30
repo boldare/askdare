@@ -1,8 +1,8 @@
 import Image from 'next/image';
 import { DEMO_BOTS } from '@/chatdock.config';
 import { HeroShape } from './_shape/hero-shape';
-import { LOOKS, type LookName } from './_shape/names';
 import { ChatScript } from './chat-script';
+import { ShapeIcon } from './shape-icon';
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 
@@ -75,9 +75,8 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
   const params = await searchParams;
   const theme: Theme = pick(params['theme'], THEMES);
   const mode: Mode = pick(params['mode'], MODES);
-  const look: LookName = pick(params['look'], LOOKS);
   const href = (change: { theme?: Theme; mode?: Mode }) =>
-    `/?${new URLSearchParams({ theme, mode, look, ...change })}`;
+    `/?${new URLSearchParams({ theme, mode, ...change })}`;
   const inline = mode === 'inline';
 
   return (
@@ -166,7 +165,7 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
               <div id="chatdock-demo" className="chat-frame" />
             ) : (
               <div className="orb-stage">
-                <HeroShape theme={theme} look={look} label="Open the chat" />
+                <HeroShape theme={theme} label="Open the chat" />
                 <p>Click the shape, or the button in the corner, to start a chat.</p>
               </div>
             )}
@@ -211,7 +210,7 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
           <ul className="cards themes">
             {PRESETS.map((item) => (
               <li key={item.id} className="card" data-preview={item.id}>
-                <span className="mini-orb" aria-hidden="true" />
+                <ShapeIcon theme={item.id} />
                 <h3>{item.name}</h3>
                 <p>{item.note}</p>
                 <a href={href({ theme: item.id })}>
@@ -221,7 +220,7 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
             ))}
             {CUSTOM && (
               <li className="card custom-card" data-preview={CUSTOM.id}>
-                <span className="mini-orb" aria-hidden="true" />
+                <ShapeIcon theme={CUSTOM.id} />
                 <h3>
                   {CUSTOM.name} <em>custom</em>
                 </h3>
