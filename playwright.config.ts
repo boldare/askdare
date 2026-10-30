@@ -28,6 +28,26 @@ export default defineConfig({
         },
       },
     },
+    // The embedding, the page API and accessibility in the other engines (`pnpm e2e:browsers`).
+    {
+      name: 'firefox',
+      testMatch: /(embed|host-api|a11y)\.spec\.ts/,
+      use: {
+        ...devices['Desktop Firefox'],
+        // A fake microphone without a prompt, like Chromium's flags above.
+        launchOptions: {
+          firefoxUserPrefs: {
+            'media.navigator.streams.fake': true,
+            'media.navigator.permission.disabled': true,
+          },
+        },
+      },
+    },
+    {
+      name: 'webkit',
+      testMatch: /(embed|host-api|a11y)\.spec\.ts/,
+      use: { ...devices['Desktop Safari'] },
+    },
     {
       // Pixel baselines of the theme gallery (`pnpm test:visual`). They depend on the OS's font
       // rendering, so baselines are kept per platform (the file name ends in -darwin or -linux).

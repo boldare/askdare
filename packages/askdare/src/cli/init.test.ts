@@ -161,6 +161,15 @@ describe('askdare init', () => {
     expect(await gitIgnores(root, '.env.test')).toBe(true);
   });
 
+  it("reads create-next-app's .gitignore without git: its folder negations don't count", async () => {
+    await writeFile(
+      join(root, '.gitignore'),
+      '/node_modules\n.yarn/*\n!.yarn/patches\n!.yarn/plugins\n.env*\n.vercel\n',
+    );
+    expect(await gitIgnores(root, '.env.local')).toBe(true);
+    expect(await gitIgnores(root, '.env.production.local')).toBe(true);
+  });
+
   it('refuses folders that are not App Router Next.js apps, and bad bot IDs', async () => {
     await expect(run()).rejects.toThrow(InitError);
     await writeFile(join(root, 'package.json'), '{"dependencies":{"react":"19.3.1"}}');

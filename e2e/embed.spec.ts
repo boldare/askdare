@@ -132,7 +132,8 @@ test('sends an image and a PDF, and deletes them with the conversation', async (
     .toEqual(filesBefore);
 });
 
-test('dictates into the message field without sending', async ({ page }) => {
+test('dictates into the message field without sending', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', "Playwright's WebKit has no fake microphone");
   await page.goto(ALLOWED_HOST);
   const chat = await openChat(page);
   await chat.getByRole('button', { name: 'Dictate a message' }).click();
@@ -183,7 +184,13 @@ test('finishes a reply after the visitor leaves mid-answer', async ({ page, requ
   await expect.poll(outcome, { timeout: 10_000 }).toBe('completed');
 });
 
-test('closes from inside the iframe with Escape and returns focus', async ({ page }) => {
+test('closes from inside the iframe with Escape and returns focus', async ({
+  page,
+  browserName,
+}) => {
+  // Playwright's WebKit reports the page as inactive after a cross-origin iframe had focus, though
+  // the element is the page's active element. Checked by hand in Safari instead.
+  test.fixme(browserName === 'webkit', 'focus after a cross-origin iframe, in WebKit');
   await page.goto(ALLOWED_HOST);
   const chat = await openChat(page);
   await chat.getByRole('textbox').press('Escape');
@@ -191,19 +198,35 @@ test('closes from inside the iframe with Escape and returns focus', async ({ pag
   await expect(page.locator('[part="launcher"]')).toBeFocused();
 });
 
-test('refuses to load inside a site that is not on the allowlist', async ({ page }) => {
-  const blocked = page.waitForEvent('console', (message) =>
-    message.text().includes('frame-ancestors'),
-  );
-  const hint = page.waitForEvent('console', {
-    predicate: (message) => message.text().includes('security.allowedOrigins'),
-    timeout: 15_000,
+test('refuses to load inside a site that is not on the allowlist', async ({
+  page,
+  browserName,
+}) => {
+  // Only Chromium reports the blocked frame in the page's console.
+  const blocked =
+    browserName === 'chromium'
+      ? page.waitForEvent('console', (message) => message.text().includes('frame-ancestors'))
+      : Promise.resolve();
+  // The loader's own hint, read from the page: Firefox doesn't deliver it as a console event.
+  await page.addInitScript(() => {
+    const warnings: string[] = [];
+    Object.assign(window, { askdareWarnings: warnings });
+    const warn = console.warn.bind(console);
+    console.warn = (...args: unknown[]) => {
+      warnings.push(args.map(String).join(' '));
+      warn(...args);
+    };
   });
   await page.goto(FOREIGN_HOST);
   const chat = await openChat(page);
   await blocked;
-  await expect(chat.getByRole('textbox')).toHaveCount(0);
+  // Firefox shows its own error page in the blocked frame, which Playwright can't look into.
+  if (browserName !== 'firefox') await expect(chat.getByRole('textbox')).toHaveCount(0);
   // Not a blank panel: the visitor is told, and the developer is pointed at the allowlist.
   await expect(page.getByRole('status')).toHaveText(/couldn’t load/, { timeout: 15_000 });
-  expect((await hint).text()).toContain('doctor --origin');
+  const warnings = await page.evaluate(
+    () => (window as unknown as { askdareWarnings: string[] }).askdareWarnings,
+  );
+  expect(warnings.join('\n')).toContain('security.allowedOrigins');
+  expect(warnings.join('\n')).toContain('doctor --origin');
 });

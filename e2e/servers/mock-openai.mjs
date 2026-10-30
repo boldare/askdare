@@ -91,8 +91,32 @@ createServer(async (request, response) => {
     conversations.set(id, []);
     return json(response, 200, { id, object: 'conversation', created_at: 0, metadata: {} });
   }
+  // What `askdare doctor` checks: the model exists, and a short response outside a conversation.
+  const modelPath = /^\/v1\/models\/([^/]+)$/.exec(pathname);
+  if (request.method === 'GET' && modelPath) {
+    return json(response, 200, { id: modelPath[1], object: 'model', created: 0, owned_by: 'mock' });
+  }
   if (request.method === 'POST' && pathname === '/v1/responses') {
     const body = await readJson(request);
+    if (!body.conversation && !body.stream) {
+      return json(response, 200, {
+        id: 'resp_doctor',
+        object: 'response',
+        created_at: 0,
+        status: 'completed',
+        model: body.model,
+        output: [
+          {
+            id: 'msg_doctor',
+            type: 'message',
+            role: 'assistant',
+            status: 'completed',
+            content: [{ type: 'output_text', text: 'OK', annotations: [] }],
+          },
+        ],
+        usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+      });
+    }
     requests.push({ instructions: body.instructions ?? '', input: JSON.stringify(body.input) });
     const items = conversations.get(body.conversation);
     if (!items) return notFound(response, body.conversation);

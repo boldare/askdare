@@ -351,8 +351,13 @@ function boot(): void {
       showIcon(false);
       launcher.setAttribute('aria-expanded', 'false');
       launcher.setAttribute('aria-label', closedName);
-      // Back to whatever opened the chat: the page's own button, else the launcher.
-      (returnFocus?.isConnected ? returnFocus : withLauncher ? launcher : undefined)?.focus();
+      // Back to whatever opened the chat: the page's own button, else the launcher. Firefox leaves
+      // keyboard focus in the hidden iframe unless the page's window takes it first.
+      const target = returnFocus?.isConnected ? returnFocus : withLauncher ? launcher : undefined;
+      if (target) {
+        window.focus();
+        target.focus();
+      }
     }
 
     launcher.addEventListener('click', () => (panel.hidden ? open() : close()));
