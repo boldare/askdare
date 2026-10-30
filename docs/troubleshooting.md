@@ -207,6 +207,8 @@ A dictation that hits a speech budget says "Dictation is unavailable for the res
 
 **It happens right after attaching a PDF:** each PDF page reserves about 2,000 tokens for every model call, so a 50-page PDF holds 100,000 tokens, half of the default `dailyTokensPerIp`. A visitor who sends several large PDFs uses up their day quickly. On a bot with tools, a call that the budget can't cover is skipped: the model answers from the files without calling tools. Lower `attachments.maxPdfPages` or raise `dailyTokensPerIp` if visitors need more.
 
+When a whole bot's budget or the global one runs out, the server log says so once a day, for example `[askdare] budget_exceeded: The daily token budget of bot "support" (limits.dailyTokens) is used up until 00:00 UTC.`, and `onError` receives it. A single visitor's budget is never reported.
+
 **Fix:** wait until 00:00 UTC, or raise the budget and restart. While testing, restarting `next dev` clears the in-memory counters. Before raising budgets in production, read [Costs](costs.md).
 
 ## The assistant was updated
@@ -235,7 +237,7 @@ A dictation that hits a speech budget says "Dictation is unavailable for the res
 - "This conversation is no longer available." means OpenAI no longer has the conversation, for example because it was deleted. The widget forgets it, and the next message starts a new one.
 - "Could not load the previous conversation." means the history request failed: often a refused session ([Connection problem](#connection-problem)), or OpenAI didn't answer.
 
-A conversation can also disappear without a message. The browser's handle to it expires 30 days after the conversation started. After that, or after `CHAT_SECRET` changed without `CHAT_SECRET_PREVIOUS`, the chat quietly starts a new one.
+A conversation can also disappear without a message. The browser's handle to it expires 30 days after the last answer. After that, or after `CHAT_SECRET` changed without `CHAT_SECRET_PREVIOUS`, the chat quietly starts a new one.
 
 **Fix:** for the second text, check the server log and the `session` and `history` requests in the network tab.
 

@@ -581,6 +581,29 @@ describe('doctor', () => {
   });
 });
 
+describe('locale', () => {
+  it('accepts every tag defineBot accepts, extensions included', async () => {
+    const access = (await tokens.issueAccess('support', `v_${'c3'.repeat(16)}`)).token;
+    const response = await handler(
+      post(
+        '/messages',
+        { botId: 'support', text: 'Hi', locale: 'en-u-nu-latn' },
+        { authorization: `Bearer ${access}` },
+      ),
+    );
+    expect(response.status).toBe(200);
+    await response.text();
+    const refused = await handler(
+      post(
+        '/messages',
+        { botId: 'support', text: 'Hi', locale: 'en"; ignore' },
+        { authorization: `Bearer ${access}` },
+      ),
+    );
+    expect(refused.status).toBe(400);
+  });
+});
+
 describe('limits', () => {
   it('answers 429 with Retry-After when a visitor sends too fast', async () => {
     const limited = createRequestHandler({

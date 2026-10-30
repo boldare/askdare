@@ -105,5 +105,5 @@ defineBot({
 ## What it protects
 
 - **A conversation belongs to who started it.** A conversation started while signed in can't be resumed, read or deleted by anyone else on the same browser: another user, or the same browser after sign-out. The browser keeps each user's conversation apart, so signing back in brings it back. An anonymous conversation becomes the user's when they sign in during it.
-- **Abuse is traced to the person.** OpenAI receives a hash of the user's ID as `safety_identifier`, so its abuse checks follow a person across devices.
+- **Abuse is traced to the person.** OpenAI receives an HMAC of the user's ID as `safety_identifier`, so its abuse checks follow a person across devices.
 - **What it doesn't do:** the token is valid until `exp` for whoever holds it, like any bearer token. Keep `exp` short, and keep `IDENTITY_SECRET` in your backend's secrets, never in a page or a repository.

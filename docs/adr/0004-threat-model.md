@@ -42,7 +42,8 @@ Goal: **bound the damage** (dollars per day, requests per IP or visitor) and **p
 - **Output and uploads:**
   - Markdown is sanitized with no raw HTML and with link and image allowlists.
   - Uploads are validated by magic bytes, SVG is rejected, and the default cap is 4 MB.
-- **Abuse attribution:** `safety_identifier = hash(visitorId)`.
+- **Abuse attribution:** `safety_identifier` = an HMAC of the visitor ID (or `user:<id>` when signed in), keyed from `CHAT_SECRET`, so a guessable ID can't be reversed (2026-10-30; it was a plain SHA-256 before the first release).
+- **Budgets that run out** for a whole bot or globally are logged (and passed to `onError`) once per day, without IPs, so the operator learns the chat stopped answering.
 - **Logs** contain no message content or PII by default. Errors map to stable codes with no internals or stack traces.
 - **Optional:**
   - a `HumanVerifier` port with a Cloudflare Turnstile adapter, checked at session creation only. **Not built in 0.1** (deferred on 2026-10-29): it needs Cloudflare's script inside the iframe, which loosens its CSP, and limits and budgets come first. We revisit it if they prove insufficient;

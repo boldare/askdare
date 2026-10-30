@@ -79,6 +79,11 @@ export interface TokenService {
    * their identity (and their uploaded files) before they have a conversation. Throws `unauthorized`.
    */
   verifyRenewal(token: string, botId: string): Promise<AccessGrant>;
+  /**
+   * A stable pseudonym for an ID: an HMAC with a key from CHAT_SECRET, so guessing the ID doesn't
+   * reveal it. It changes when the secret rotates.
+   */
+  pseudonym(value: string): Promise<string>;
   issueResume(botId: string, grant: ResumeGrant): Promise<IssuedToken>;
   /** Throws `not_found`, so a forged or stale handle reveals nothing. */
   verifyResume(token: string, botId: string): Promise<ResumeGrant>;
@@ -94,6 +99,8 @@ export interface TokenService {
 interface DerivedKey {
   readonly kid: string;
   readonly key: Uint8Array;
+  /** A separate key for pseudonyms, so they never share key material with token encryption. */
+  readonly pseudonymKey: Uint8Array;
 }
 
 async function deriveKey(secret: string, name: string): Promise<DerivedKey> {
@@ -116,7 +123,11 @@ async function deriveKey(secret: string, name: string): Promise<DerivedKey> {
   const kid = Array.from(await derive('askdare kid v1', 64), (byte) =>
     byte.toString(16).padStart(2, '0'),
   ).join('');
-  return { kid, key: await derive('askdare token encryption v1', 256) };
+  return {
+    kid,
+    key: await derive('askdare token encryption v1', 256),
+    pseudonymKey: await derive('askdare pseudonym v1', 256),
+  };
 }
 
 /** The identity an access token carries, while it lasts. Our own encrypted claim: no re-check needed. */
@@ -139,6 +150,13 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
   const accessTtl = options.accessTtlSeconds ?? 15 * 60;
   const resumeTtl = options.resumeTtlSeconds ?? 30 * 24 * 60 * 60;
   const attachmentTtl = options.attachmentTtlSeconds ?? 60 * 60;
+  const pseudonymKey = await crypto.subtle.importKey(
+    'raw',
+    current.pseudonymKey,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
 
   async function issue(
     typ: string,
@@ -216,6 +234,13 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
       } catch (error) {
         throw new AskdareError('unauthorized', { cause: error });
       }
+    },
+
+    async pseudonym(value) {
+      const digest = await crypto.subtle.sign('HMAC', pseudonymKey, encoder.encode(value));
+      return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join(
+        '',
+      );
     },
 
     issueResume: (botId, grant) =>

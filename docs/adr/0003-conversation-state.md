@@ -27,7 +27,7 @@ Two lessons shape the design:
 
 1. **No automatic retention or admin browsing in core.** The API has no endpoint to list conversations, so conversations live until deleted.
 2. **Data stays at OpenAI until deleted.** Conversations are not ZDR-eligible, and responses are also stored for 30 days.
-3. **Long conversations get expensive.** They replay their full history as input, so we enforce turn limits, compaction and a stable prompt prefix for caching.
+3. **Long conversations get expensive.** They replay their full history as input, so we enforce turn limits and a stable prompt prefix for caching. **Compaction is planned for 0.2** (2026-10-30): OpenAI's server-side compaction (`context_management: [{ type: 'compaction', compact_threshold }]`) replaces the deprecated `truncation`, but its guide doesn't yet say how it works with the `conversation` parameter, so it needs a spike first. Until then, 0.1 sends `truncation: 'auto'`, which the API still accepts.
 4. **Attachments after reload show only as a filename or placeholder.** Content of `user_data` files cannot be downloaded back.
 
 ## Evidence (spike S1, live API, 2026-10-29)

@@ -22,7 +22,9 @@ export interface StreamTurnOptions {
   readonly signal: AbortSignal;
   /** Keeps the turn alive after the response ends (serverless platforms), e.g. Next.js `after`. */
   readonly waitUntil?: ((work: Promise<unknown>) => void) | undefined;
-  /** Issues the client-side handle for a newly created conversation. */
+  /** Turns the visitor's or user's ID into OpenAI's `safety_identifier` (an HMAC). */
+  readonly pseudonym: (value: string) => Promise<string>;
+  /** Issues the client-side handle for a new conversation, and a fresh one after each turn. */
   readonly issueResumeToken: (conversationId: string) => Promise<string>;
   /** Called after a completed turn with real usage and the conversation it belongs to. */
   readonly onUsage?: ((usage: TokenUsage, conversationId: string) => void) | undefined;
@@ -44,11 +46,6 @@ export const STREAM_HEADERS: Readonly<Record<string, string>> = {
 };
 
 const encoder = new TextEncoder();
-
-async function sha256Hex(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', encoder.encode(value));
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
-}
 
 function defaultId(): string {
   return `msg_${crypto.randomUUID().replaceAll('-', '')}`;
@@ -130,7 +127,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           context: options.context,
           visitorId: options.visitorId,
           // The signed-in user when there is one, so abuse is traced to a person across devices.
-          safetyIdentifier: await sha256Hex(
+          safetyIdentifier: await options.pseudonym(
             options.context.identity ? `user:${options.context.identity.id}` : options.visitorId,
           ),
           messageId,
@@ -139,7 +136,17 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           reserveCall: options.reserveCall,
         });
         options.onUsage?.(result.usage, conversationId);
-        emit({ type: 'message.end', messageId, reason: result.reason });
+        // A resumed conversation gets a fresh handle: its 30 days count from the last message.
+        // Best effort: the old handle stays valid until it expires.
+        const resumeToken = options.conversationId
+          ? await options.issueResumeToken(conversationId).catch(() => undefined)
+          : undefined;
+        emit({
+          type: 'message.end',
+          messageId,
+          reason: result.reason,
+          ...(resumeToken ? { resumeToken } : {}),
+        });
       };
 
       const work = run()

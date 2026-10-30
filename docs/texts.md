@@ -81,7 +81,7 @@ defineBot({
 - Keys you leave out show English.
 - Plurals follow the rules of the tag you set, so translate each category the language uses.
 - Keep `locale` fixed. With `'auto'`, your translations would show to every visitor, whatever their language. For a site in several languages without a dictionary, define one bot per language, each with its own `locale` and `texts`.
-- The chat document's `lang` attribute stays `en` for a language without a built-in dictionary.
+- The chat document's `lang` attribute is your `locale` as soon as `widget.texts` has any key, so screen readers read your translation in the right language. Without your texts, a language without a built-in dictionary shows English, and `lang` says `en`.
 
 ## All texts
 

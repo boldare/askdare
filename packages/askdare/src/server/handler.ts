@@ -102,10 +102,11 @@ const messageBody = z.object({
   /** askdare('configure', { context }) from the host page: untrusted, like the message itself. */
   context: z.string().max(1000).optional(),
   resumeToken: z.string().max(4096).optional(),
+  // The same rule as defineBot's widget.locale: any tag Intl accepts, so letters, digits and dashes.
   locale: z
     .string()
-    .regex(/^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/)
     .max(35)
+    .refine((value) => canonicalLocale(value) !== undefined)
     .optional(),
 });
 
@@ -534,6 +535,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     });
     const stream = streamTurn({
       gateway,
+      pseudonym: (value) => tokens.pseudonym(value),
       bot,
       text,
       attachments,

@@ -89,6 +89,11 @@ export interface MessageEndEvent {
   readonly type: 'message.end';
   readonly messageId: string;
   readonly reason: MessageEndReason;
+  /**
+   * A fresh handle for a resumed conversation, so an active conversation stays reachable for 30
+   * days after its last message rather than its first.
+   */
+  readonly resumeToken?: string | undefined;
 }
 
 export interface ErrorEvent {

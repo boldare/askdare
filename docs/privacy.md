@@ -13,7 +13,7 @@ This page lists what data the chat handles, where it goes and how long it stays,
 | Uploaded images and PDFs | OpenAI, as files in your project | 30 days, or until the conversation is deleted |
 | Dictations | Sent to OpenAI for transcription | askdare keeps no audio |
 | IP addresses, visitor IDs, conversation IDs | Rate-limit counters, in your server's memory or in Upstash | IP addresses up to 2 days, conversation IDs up to 30 days |
-| A hash of the visitor or user ID (`safety_identifier`) | Sent to OpenAI with every model request | OpenAI's retention |
+| An HMAC of the visitor or user ID (`safety_identifier`) | Sent to OpenAI with every model request | OpenAI's retention |
 | Error reports | Your server log, or your `onError` function | Your hosting's log retention |
 
 ## In the visitor's browser
@@ -32,7 +32,7 @@ After the visitor's first message, the chat writes one entry to `localStorage`, 
 | Key | `askdare:<bot id>:resume` for an anonymous visitor; `askdare:<bot id>:resume:<key>` for a [signed-in visitor](identity.md), where `<key>` is 32 hexadecimal characters derived from the bot and user ID with `IDENTITY_SECRET`. It reveals nothing about the user |
 | Value | An encrypted token with the visitor ID and a reference to the conversation. The browser can't read it |
 | Purpose | To show and continue the conversation after a reload |
-| Lifetime | It works for 30 days after the conversation started, or after a visitor signed in during it. It is removed when the visitor starts a new conversation, and when the server says the conversation is gone or the token expired |
+| Lifetime | It works for 30 days after the last answer in the conversation: each answer renews it. It is removed when the visitor starts a new conversation, and when the server says the conversation is gone or the token expired |
 
 Everything else stays in memory and disappears with the page: the session token, which lasts 15 minutes, and a signed-in visitor's identity.
 
@@ -73,10 +73,10 @@ The server gives every new visitor a random ID: `v_` followed by 32 hexadecimal 
 
 Every model request carries a `safety_identifier`, so OpenAI can trace abuse to one end user instead of to your whole project.
 
-- For an anonymous visitor, it is the SHA-256 hash of the random visitor ID.
-- For a signed-in visitor, it is the SHA-256 hash of `user:` followed by your user ID, so it is the same on every device.
+- For an anonymous visitor, it is an HMAC of the random visitor ID.
+- For a signed-in visitor, it is an HMAC of `user:` followed by your user ID, so it is the same on every device.
 
-It is a pseudonym, not anonymous data: anyone who knows a user ID can compute the same hash.
+The HMAC key is derived from `CHAT_SECRET`, so knowing a user ID isn't enough to compute it. It is still a pseudonym, not anonymous data: with the secret, the link to a user can be restored. It changes when `CHAT_SECRET` rotates.
 
 ## At OpenAI
 

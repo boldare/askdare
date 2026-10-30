@@ -51,7 +51,7 @@ Every path sits under the route's base path: `/api/chat` by default, or `basePat
 | `text.delta` | `messageId`, `delta` | Append text to the reply (markdown) |
 | `citation` | `messageId`, `index`, `title`, `url?` | Source for marker `[index]`; `url` is http(s) only |
 | `tool.status` | `messageId`, `callId`, `name`, `state: running \| done \| error` | A tool ran; arguments and results stay on the server. `name: file_search` is the knowledge base search |
-| `message.end` | `messageId`, `reason` | The reply finished. Reasons: `completed`, `max_steps`, `max_output_tokens`, `timeout`, `content_filter`, `aborted` |
+| `message.end` | `messageId`, `reason`, `resumeToken?` | The reply finished. A resumed conversation gets a fresh `resumeToken`, so it stays reachable 30 days after its last message. Reasons: `completed`, `max_steps`, `max_output_tokens`, `timeout`, `content_filter`, `aborted` |
 | `error` | `code`, `message`, `retryAfterMs?`, `key?`, `params?` | The turn failed; `message` is safe to show ([keys and parameters](#error-keys-and-parameters)) |
 
 ## Attachments
@@ -88,7 +88,7 @@ These codes are stable and safe to branch on in the UI:
 | `rate_limited` | Too many requests; wait `retryAfterMs` |
 | `budget_exceeded` | The bot's daily budget is spent |
 | `bot_unavailable` | The bot is disabled (kill switch) or misconfigured |
-| `content_blocked` | Moderation rejected the input or output |
+| `content_blocked` | Reserved for moderation; this version never sends it |
 | `timeout` | The turn exceeded the server deadline |
 | `upstream_error` | OpenAI failed |
 | `internal_error` | Unexpected server error |

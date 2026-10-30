@@ -41,6 +41,7 @@ export const protocolEventSchema: z.ZodType<ProtocolEvent> = z.discriminatedUnio
     type: z.literal('message.end'),
     messageId,
     reason: z.enum(MESSAGE_END_REASONS),
+    resumeToken: z.string().min(1).optional(),
   }),
   z.object({
     type: z.literal('error'),

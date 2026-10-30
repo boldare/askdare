@@ -223,6 +223,42 @@ describe('budgets', () => {
   });
 });
 
+describe('exhausted budgets', () => {
+  it("tells the operator once a day when a bot's budget runs out, never about one visitor's", async () => {
+    let clock = Date.parse('2026-10-29T12:00:00Z');
+    const told: string[] = [];
+    const limits = createLimits({
+      store: memoryStore({ now: () => clock }),
+      now: () => clock,
+      onExhausted: (message) => told.push(message),
+    });
+    const small = defineBot({
+      id: 'support',
+      model: 'm',
+      instructions: 'x',
+      limits: { maxOutputTokens: 100, dailyTokens: 1_000, dailyTokensPerIp: 200 },
+    });
+    // One visitor's budget: refused, but not the operator's business.
+    await limits.beginTurn(small, turn('ip-a', 'va'));
+    await expect(limits.beginTurn(small, turn('ip-a', 'va2'))).rejects.toMatchObject({
+      code: 'budget_exceeded',
+    });
+    expect(told).toEqual([]);
+    // The whole bot's budget, from many IPs: reported once, however often it refuses.
+    for (let ip = 0; ip < 12; ip += 1) {
+      await limits.beginTurn(small, turn(`ip-${ip}`, `v${ip}`)).catch(() => undefined);
+    }
+    expect(told).toEqual([
+      'The daily token budget of bot "support" (limits.dailyTokens) is used up until 00:00 UTC.',
+    ]);
+    clock += 24 * 60 * 60_000;
+    for (let ip = 0; ip < 12; ip += 1) {
+      await limits.beginTurn(small, turn(`ip-${ip}`, `w${ip}`)).catch(() => undefined);
+    }
+    expect(told).toHaveLength(2);
+  });
+});
+
 describe('attachments', () => {
   const toolBot = defineBot({
     id: 'support',

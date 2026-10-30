@@ -72,6 +72,11 @@ export interface LimitsOptions {
   readonly globalDailyTokens?: number | undefined;
   /** When it returns true, every bot answers `bot_unavailable` (ASKDARE_DISABLED). */
   readonly disabled?: () => boolean;
+  /**
+   * Told once per UTC day and instance when a bot-wide or global budget runs out, so the operator
+   * learns the chat stopped answering. Per-visitor and per-IP budgets are not reported.
+   */
+  readonly onExhausted?: ((message: string) => void) | undefined;
   /** Clock in ms, for tests. */
   readonly now?: () => number;
 }
@@ -79,6 +84,8 @@ export interface LimitsOptions {
 interface Budget {
   readonly key: string;
   readonly limit: number;
+  /** For the operator when this budget runs out; absent for per-IP budgets. */
+  readonly exhausted?: string;
 }
 
 /**
@@ -114,13 +121,26 @@ export function createLimits(options: LimitsOptions): Limits {
   const untilMidnight = (): number => Date.parse(`${day()}T00:00:00Z`) + DAY - now();
 
   const budgets = (bot: Bot, clientIp: string): Budget[] => [
-    { key: `ask:t:${bot.id}:${day()}`, limit: bot.limits.dailyTokens },
+    {
+      key: `ask:t:${bot.id}:${day()}`,
+      limit: bot.limits.dailyTokens,
+      exhausted: `The daily token budget of bot "${bot.id}" (limits.dailyTokens) is used up until 00:00 UTC.`,
+    },
     { key: `ask:ti:${bot.id}:${clientIp}:${day()}`, limit: bot.limits.dailyTokensPerIp },
     ...(options.globalDailyTokens === undefined
       ? []
-      : [{ key: `ask:tg:${day()}`, limit: options.globalDailyTokens }]),
+      : [
+          {
+            key: `ask:tg:${day()}`,
+            limit: options.globalDailyTokens,
+            exhausted:
+              'The global daily token budget (globalDailyTokens) is used up until 00:00 UTC.',
+          },
+        ]),
   ];
 
+  // Budgets already reported as exhausted. Their keys carry the day, so each day reports anew.
+  const reported = new Set<string>();
   const reserve = async (list: readonly Budget[], amount: number): Promise<void> => {
     const charged: Budget[] = [];
     for (const budget of list) {
@@ -128,6 +148,11 @@ export function createLimits(options: LimitsOptions): Limits {
       charged.push(budget);
       if (count > budget.limit) {
         await Promise.all(charged.map((item) => store.hit(item.key, 2 * DAY, -amount)));
+        if (budget.exhausted && !reported.has(budget.key)) {
+          if (reported.size > 1_000) reported.clear(); // a few keys a day; never grows unbounded
+          reported.add(budget.key);
+          options.onExhausted?.(budget.exhausted);
+        }
         throw new AskdareError('budget_exceeded', {
           retryAfterMs: Math.max(untilMidnight(), 1000),
         });
@@ -195,7 +220,11 @@ export function createLimits(options: LimitsOptions): Limits {
       }
       const reserved = bot.voice?.maxSeconds ?? 60;
       const list: Budget[] = [
-        { key: `ask:vs:${bot.id}:${day()}`, limit: limits.voiceSecondsPerDay },
+        {
+          key: `ask:vs:${bot.id}:${day()}`,
+          limit: limits.voiceSecondsPerDay,
+          exhausted: `The daily speech budget of bot "${bot.id}" (limits.voiceSecondsPerDay) is used up until 00:00 UTC.`,
+        },
         {
           key: `ask:vsi:${bot.id}:${keys.clientIp}:${day()}`,
           limit: limits.voiceSecondsPerIpPerDay,
