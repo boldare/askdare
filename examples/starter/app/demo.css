@@ -43,6 +43,8 @@ body {
   --gutter: clamp(16px, 4vw, 48px);
   --width: 1320px;
   --nav-height: 80px;
+  /* The hero's right column: the same height for the shape and the chat in the page. */
+  --stage-height: clamp(420px, calc(100dvh - var(--nav-height) - 200px), 560px);
 
   min-height: 100vh;
   /* Decorations may reach past the edge; the page never scrolls sideways. */
@@ -299,16 +301,15 @@ body {
 
 .stage {
   display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: 12px;
+  place-items: center;
+  height: var(--stage-height);
   min-width: 0;
   text-align: center;
 }
 
 .chat-frame {
-  width: min(420px, 100%);
-  height: 660px;
+  width: min(400px, 100%);
+  height: var(--stage-height);
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -338,41 +339,65 @@ body {
   mask-image: radial-gradient(closest-side, #000 25%, transparent 100%);
 }
 
-/* "Click the shape to chat": a small label beside the shape, its arrow drawn by hand. */
+/* "Click to chat": a note pinned above the shape, its arrow drawn by hand. */
 .hint {
   position: absolute;
-  bottom: 10%;
-  left: 0;
+  top: 7%;
+  left: 2%;
   z-index: 1;
   display: flex;
-  align-items: flex-end;
-  gap: 2px;
+  align-items: flex-start;
   margin: 0;
   color: var(--ink);
   pointer-events: none;
   animation: bob 3.2s ease-in-out infinite;
 }
 
-.hint span {
-  padding: 7px 12px;
+.hint-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 13px 8px 11px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(10px);
+  box-shadow: 0 10px 24px -14px color-mix(in srgb, var(--ink) 55%, transparent);
   font:
-    600 0.68rem / 1 ui-monospace,
+    600 0.66rem / 1 ui-monospace,
     "SF Mono",
     Menlo,
     monospace;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   white-space: nowrap;
+  transform: rotate(-3deg);
+}
+
+/* A live dot in the theme's colour. */
+.hint-label i {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--button);
+}
+
+.hint-label i::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: var(--button);
+  opacity: 0.35;
+  animation: pulse 1.8s ease-out infinite;
 }
 
 .hint-arrow {
-  width: 56px;
-  height: 40px;
-  margin-bottom: 14px;
+  flex: none;
+  width: 58px;
+  height: 44px;
+  margin: 14px 0 0 -2px;
   overflow: visible;
   fill: none;
   stroke-linecap: round;
@@ -389,6 +414,18 @@ body {
   stroke-width: 1.6;
 }
 
+@keyframes pulse {
+  from {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+
+  to {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
 @keyframes bob {
   50% {
     transform: translateY(-4px);
@@ -396,7 +433,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hint {
+  .hint,
+  .hint-label i::after {
     animation: none;
   }
 }
@@ -405,7 +443,8 @@ body {
 .shape {
   position: relative;
   display: grid;
-  width: min(520px, 100%);
+  /* The picture has room around the shape: the margins below take it back. */
+  width: min(520px, 100%, calc(var(--stage-height) + 88px));
   aspect-ratio: 1;
   margin: -40px 0 -48px;
   padding: 0;
@@ -454,15 +493,17 @@ body {
 
 /* ---------- The dock: theme and mode, at the bottom of the window ---------- */
 
+/* 60px tall and 24px from the bottom, like the chat button: the two sit on one line. */
 .dock {
   position: fixed;
-  bottom: 20px;
+  bottom: 24px;
   left: 24px;
   z-index: 50;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 9px;
+  height: 60px;
+  padding: 0 9px;
   border: 1px solid var(--line);
   border-radius: 32px;
   background: color-mix(in srgb, var(--bg) 78%, transparent);
@@ -489,8 +530,8 @@ body {
   position: relative;
   display: grid;
   place-items: center;
-  width: 46px;
-  height: 46px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   text-decoration: none;
   transition:
@@ -908,8 +949,14 @@ body {
   box-shadow: -6px 6px 0 #242424;
 }
 
-.demo[data-theme="bldr"] :is(.dock-theme, .terminal, .tip, .hint span) {
+.demo[data-theme="bldr"] :is(.dock-theme, .terminal, .tip) {
   border-radius: 0;
+}
+
+.demo[data-theme="bldr"] .hint-label {
+  border: 2px solid #242424;
+  border-radius: 0;
+  box-shadow: -3px 3px 0 #242424;
 }
 
 .demo[data-theme="bldr"] .features-list li {
@@ -925,6 +972,11 @@ body {
 }
 
 /* The launcher lives in the loader's shadow root on this page: styled with ::part. */
+/* Every launcher at the dock's height (pills are 56px, orbs 60px), so the two line up. */
+[data-chatdock]::part(launcher) {
+  height: 60px;
+}
+
 body:has(.demo[data-theme="bldr"]) [data-chatdock]::part(launcher) {
   border: 2px solid #242424;
   border-radius: 0;
@@ -965,6 +1017,18 @@ body:has(.demo[data-theme="bldr"]) [data-chatdock]::part(launcher) {
 
   .features h2 {
     position: static;
+  }
+
+  .stage {
+    height: auto;
+  }
+
+  .chat-frame {
+    height: 600px;
+  }
+
+  .shape {
+    width: min(520px, 100%);
   }
 }
 
@@ -1077,7 +1141,8 @@ body:has(.demo[data-theme="bldr"]) [data-chatdock]::part(launcher) {
     left: 12px;
     justify-content: center;
     gap: 6px;
-    padding: 6px;
+    height: 52px;
+    padding: 0 6px;
   }
 
   .demo .dock-theme {
