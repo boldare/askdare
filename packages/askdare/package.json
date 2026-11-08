@@ -96,6 +96,6 @@
   },
   "dependencies": {
     "jose": "^6.2.13",
-    "openai": "^7.45.1"
+    "openai": "^7.51.0"
   }
 }
