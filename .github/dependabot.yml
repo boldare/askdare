@@ -23,6 +23,9 @@ updates:
     ignore:
       - dependency-name: "@boldare/askdare"
       - dependency-name: "@boldare/askdare-upstash"
+      # Node 22 is the oldest supported version (ADR-0006), so the types stay on 22.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       # openai ships type-breaking minors; review them together once a week (ADR-0002).
       openai:
