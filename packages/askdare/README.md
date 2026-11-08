@@ -2,30 +2,22 @@
 
 [![askdare: an AI assistant for any website, in one script tag. A chat panel answers a question about a pricing plan with a list, a table and two cited sources.](https://raw.githubusercontent.com/boldare/askdare/main/.github/assets/askdare-hero.png)](https://askdare.vercel.app)
 
-**[Website and live demo](https://askdare.vercel.app)** · **[Documentation](https://askdare.vercel.app/docs)** · [GitHub](https://github.com/boldare/askdare) · [Changelog](https://github.com/boldare/askdare/blob/main/packages/askdare/CHANGELOG.md)
+**Dare to ask.** An AI chatbot for any website, served by your Next.js app on the official OpenAI SDK. One route, one script tag, no database.
 
-**Dare to ask.** An AI chatbot for any website, served by your Next.js app and built on the official OpenAI SDK. One route file, one `<script>` tag, no database.
+**[Live demo](https://askdare.vercel.app)** · **[Documentation](https://askdare.vercel.app/docs)** · [GitHub](https://github.com/boldare/askdare) · [Changelog](https://github.com/boldare/askdare/blob/main/packages/askdare/CHANGELOG.md)
 
-- Embeds anywhere through a small loader and an isolated iframe, limited to the sites you list.
-- Secure by default: short-lived session tokens, rate limits, daily token budgets, sanitized output.
-- Knowledge base with citations, your own tools, image and PDF attachments, voice input.
-- Four themes in light and dark, English and Polish texts, customizable down to your own CSS.
+## Three steps
 
-> **Release candidate (0.1.0-rc).** The API may still change before 0.1.0; pin the exact version.
+[![How it works: install the package, run init, and paste one script tag on any website. The chat opens on the site from a launcher in the corner.](https://raw.githubusercontent.com/boldare/askdare/main/.github/assets/askdare-how-it-works.png)](https://askdare.vercel.app/docs/getting-started)
 
-## Quick start
-
-In a Next.js 16 app with the App Router:
+In a Next.js 16 app:
 
 ```bash
 npm install @boldare/askdare@rc zod
-npx @boldare/askdare init      # route, bot config, .env.local and the chat script
-# set OPENAI_API_KEY and ASKDARE_MODEL in .env.local
-npm run dev
-npx @boldare/askdare doctor    # checks the key, model, permissions and headers
+npx @boldare/askdare init
 ```
 
-`init` writes the bot definition and the route, and loads the chat in the root layout:
+`init` writes the chat route, a bot to start from and `.env.local`, and adds the chat to your layout. Put your OpenAI key and model in `.env.local`, run the app, and the chat is there. The bot is a few lines you own:
 
 ```ts
 // askdare.config.ts
@@ -42,29 +34,33 @@ export const bots = [
 ];
 ```
 
-```ts
-// app/api/chat/[...path]/route.ts
-import { createChatHandler } from '@boldare/askdare/next';
-import { bots } from '../../../../askdare.config';
+**[Getting started](https://askdare.vercel.app/docs/getting-started)** takes you from an empty app to a working chat in about 15 minutes. askdare is a release candidate, so pin the exact version.
 
-export const maxDuration = 300;
-export const { GET, POST, DELETE } = createChatHandler({ bots });
-```
+## What you get
 
-Other sites embed the same chat with one tag:
+[![What it does: answers from your documents with citations, your own tools, images and PDFs, voice input, secure by default, and no database.](https://raw.githubusercontent.com/boldare/askdare/main/.github/assets/askdare-features.png)](https://askdare.vercel.app/#features)
 
-```html
-<script src="https://your-app.example.com/api/chat/widget.js?bot=support" async></script>
-```
+[Knowledge base](https://askdare.vercel.app/docs/knowledge-base) · [Tools](https://askdare.vercel.app/docs/tools) · [Attachments](https://askdare.vercel.app/docs/attachments) · [Voice input](https://askdare.vercel.app/docs/voice-input) · [Security](https://github.com/boldare/askdare/blob/main/THREAT_MODEL.md)
+
+## Themes
+
+[![Four themes, light and dark, or your own: the welcome screens of Halo, Aura in dark mode, Sage, Care, and BLDR, a custom theme in Boldare's style.](https://raw.githubusercontent.com/boldare/askdare/main/.github/assets/askdare-themes.png)](https://askdare.vercel.app/#themes)
+
+Pick a theme, set your brand's colors, or restyle any part with your own CSS, the way BLDR does. Switch between them on the [website](https://askdare.vercel.app/#themes), then read [Themes](https://askdare.vercel.app/docs/themes) and [Styling](https://askdare.vercel.app/docs/styling).
 
 ## Documentation
 
-The guides ship with the package in `node_modules/@boldare/askdare/docs/`, starting with `getting-started.md`; `configuration.md`, `cli.md` and `troubleshooting.md` are the references. They are also on the [website](https://askdare.vercel.app/docs), with search, and on [GitHub](https://github.com/boldare/askdare/tree/main/docs). AI coding agents can start from `node_modules/@boldare/askdare/llms.txt`, or use the skill in `node_modules/@boldare/askdare/skills/askdare/` (copy the folder into `.claude/skills/`).
+The guides are on [askdare.vercel.app/docs](https://askdare.vercel.app/docs), with search. They also ship in this package, in `node_modules/@boldare/askdare/docs/`, so they match the version you installed.
+
+- **Start:** [Getting started](https://askdare.vercel.app/docs/getting-started) · [Embedding the chat](https://askdare.vercel.app/docs/embedding) · [Command line](https://askdare.vercel.app/docs/cli)
+- **Going live:** [Deployment](https://askdare.vercel.app/docs/deployment) · [Going-public checklist](https://askdare.vercel.app/docs/going-public) · [Costs](https://askdare.vercel.app/docs/costs) · [Privacy](https://askdare.vercel.app/docs/privacy)
+- **Reference:** [Configuration](https://askdare.vercel.app/docs/configuration) · [Troubleshooting](https://askdare.vercel.app/docs/troubleshooting) · [Support matrix](https://askdare.vercel.app/docs/support)
+- **AI coding agents:** `llms.txt` and the `askdare` skill ship in the package ([how to use them](https://askdare.vercel.app/docs/getting-started#working-with-an-ai-coding-agent))
 
 ## Requirements
 
-Node.js 22 or later, Next.js 16 with the App Router on the Node.js runtime, React 19 and zod 4.1 or later. The full matrix, browsers included, is in `docs/support.md`.
+Node.js 22 or later, Next.js 16 with the App Router on the Node.js runtime, React 19 and zod 4.1 or later.
 
 ## License
 
-MIT © Boldare
+MIT © [Boldare](https://www.boldare.com)
