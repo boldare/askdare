@@ -4,10 +4,10 @@
 // - stage (default): `npm stage publish`. Nothing goes live until a maintainer approves it with
 //   2FA, under Staged Packages on npmjs.com or with `npm stage approve <stage-id>`.
 // - publish: `npm publish`, live at once; needs "Allow npm publish" on the trusted publisher.
-//   Each release also gets a git tag and a GitHub release (from the "New tag:" lines).
+//   Each release also gets a git tag and a GitHub release, from changesets/action.
 //   node scripts/release-packages.mjs [--dry-run]
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -39,6 +39,21 @@ const onNpm = (name, version) => {
 const tagged = (tag) =>
   run('git', ['ls-remote', '--tags', 'origin', `refs/tags/${tag}`], repo) !== '';
 
+/**
+ * Hands a published version to changesets/action, which pushes its git tag and opens a GitHub
+ * release with the changelog entry: one line in the file the action names in CHANGESETS_OUTPUT
+ * (it reads no console output). Outside the action, the tag stays local.
+ */
+function announce(name, version) {
+  const tag = `${name}@${version}`;
+  run('git', ['tag', tag], repo);
+  const output = process.env['CHANGESETS_OUTPUT'];
+  if (output) {
+    appendFileSync(output, `${JSON.stringify({ type: 'git-tag', tag, packageName: name })}\n`);
+  }
+  console.log(`New tag: ${tag}`);
+}
+
 let released = 0;
 for (const dir of PACKAGES) {
   const {
@@ -54,10 +69,7 @@ for (const dir of PACKAGES) {
   if (onNpm(name, version)) {
     console.log(`${name}@${version}: already on npm.`);
     // A run that failed on a later package published this one but pushed no tag: a rerun adds it.
-    if (mode === 'publish' && !dryRun && !tagged(`${name}@${version}`)) {
-      run('git', ['tag', `${name}@${version}`], repo);
-      console.log(`New tag: ${name}@${version}`);
-    }
+    if (mode === 'publish' && !dryRun && !tagged(`${name}@${version}`)) announce(name, version);
     continue;
   }
   // A pre-release goes under its own tag (0.1.0-rc.1 → rc), a release under latest.
@@ -83,9 +95,7 @@ for (const dir of PACKAGES) {
   }
   console.log(run('npm', args, join(out, 'package')));
   if (mode === 'publish') {
-    // changesets/action pushes the tags and opens a GitHub release for each "New tag:" line.
-    run('git', ['tag', `${name}@${version}`], repo);
-    console.log(`New tag: ${name}@${version}`);
+    announce(name, version);
   } else {
     console.log(`${name}@${version}: staged under "${tag}". Approve it on npmjs.com to publish.`);
   }
