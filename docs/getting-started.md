@@ -98,6 +98,14 @@ Browsers refuse to show the chat on sites that aren't on the list. Check a site 
 
 Staging and production usually embed the chat on different sites. Read the list from an environment variable, such as `ASKDARE_ALLOWED_ORIGINS`. [Embedding](embedding.md#staging-and-production) shows how, along with the script's options and your site's Content Security Policy.
 
+## Working with an AI coding agent
+
+`init` wrote `AGENTS.md`, which sends AI coding agents to `node_modules/@boldare/askdare/llms.txt`: the docs of the version you installed, not what the agent remembers. Claude Code can also use the `askdare` skill from the package. Copy it into your project:
+
+```bash
+mkdir -p .claude/skills && cp -R node_modules/@boldare/askdare/skills/askdare .claude/skills/
+```
+
 ## Next steps
 
 | To… | Read |
