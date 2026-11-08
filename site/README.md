@@ -42,7 +42,8 @@ GitHub Actions builds the site and uploads the build (`.github/workflows/deploy-
    ```
 
    `autoUpgrade=false` keeps it on the free plan when it reaches the limits. The database adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` to the project, and after the next deploy the chat route uses `@boldare/askdare-upstash`. The command also copies Upstash's agent skills into `.agents/` and `.claude/skills/`; delete them, since skills here are reviewed first (`.claude/skills/sources.json`).
-5. **Check the live site** and point the docs chat at it, so citations link there:
+5. **The docs chat** syncs on every deploy once the `vercel` environment on GitHub has the secret `OPENAI_API_KEY` (the key of the project with a spend limit): only changed pages upload, and citations link to the site. The store's ID comes from the Vercel project's `DOCS_VECTOR_STORE_ID`; the sync stops if it's missing rather than create a new store.
+6. **Check the live site**. The second command syncs the docs by hand, for example after the address changes:
 
    ```bash
    npx @boldare/askdare doctor --url https://<project>.vercel.app --env-file <a file with the production CHAT_SECRET>
