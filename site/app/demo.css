@@ -825,6 +825,11 @@ body {
   color: var(--on-button);
 }
 
+/* The modes' short names, for narrow phones only. */
+.mode-short {
+  display: none;
+}
+
 /* ---------- Sections ---------- */
 
 .section {
@@ -1335,23 +1340,9 @@ body:has(.demo[data-theme="bldr"]) [data-askdare]::part(launcher) {
   }
 }
 
-/* ---------- Phone ---------- */
+/* ---------- Menu sheet: phones and tablets, where the bar's links don't fit (under ~880px) ---------- */
 
-@media (max-width: 760px) {
-  .demo {
-    --nav-height: 64px;
-  }
-
-  /* The slogan stays with the name on phones too, a little smaller. */
-  .demo .product {
-    padding-left: 12px;
-    font-size: 1rem;
-  }
-
-  .demo .product small {
-    font-size: 0.78rem;
-  }
-
+@media (max-width: 900px) {
   /* A round button that turns into a cross. */
   .menu-button {
     position: relative;
@@ -1573,6 +1564,24 @@ body:has(.demo[data-theme="bldr"]) [data-askdare]::part(launcher) {
   body:has(.menu[data-open]) [data-askdare]::part(launcher) {
     display: none;
   }
+}
+
+/* ---------- Phone ---------- */
+
+@media (max-width: 760px) {
+  .demo {
+    --nav-height: 64px;
+  }
+
+  /* The slogan stays with the name on phones too, a little smaller. */
+  .demo .product {
+    padding-left: 12px;
+    font-size: 1rem;
+  }
+
+  .demo .product small {
+    font-size: 0.78rem;
+  }
 
   /* The dock spans the bottom; the chat button moves up above it. */
   .dock {
@@ -1600,15 +1609,95 @@ body:has(.demo[data-theme="bldr"]) [data-askdare]::part(launcher) {
     font-size: 0.78rem;
   }
 
+  /* The chat button: just the orb or picture, above the dock. With its label it covered the
+     text as the page scrolled. Its name stays for screen readers. */
   [data-askdare]::part(launcher) {
-    bottom: 84px;
+    bottom: 80px;
+    width: 60px;
+    padding: 0;
+  }
+
+  [data-askdare]::part(launcher-label) {
+    display: none;
+  }
+
+  /* The end of the page clears the dock and the chat button above it. */
+  .footer {
+    padding-bottom: 168px;
+  }
+
+  /* The hero breathes: no note, and a smaller shape that rises from the right edge beside the
+     GitHub and npm links. It still opens the chat. */
+  .demo[data-mode="bubble"] .hero {
+    min-height: 0;
+    padding-bottom: 32px;
+  }
+
+  .demo[data-mode="bubble"] .stage {
+    justify-items: end;
+    /* Up beside the links and past the right edge. The box takes no clicks; the shape does. */
+    margin: -88px calc(-1 * var(--gutter) - 60px) 0 0;
+    pointer-events: none;
+  }
+
+  .demo[data-mode="bubble"] .shape-stage {
+    width: 240px;
+  }
+
+  .demo[data-mode="bubble"] .shape {
+    width: 240px;
+    margin: -24px 0 -36px;
+    pointer-events: auto;
+  }
+
+  .hint,
+  .shape-stage::before {
+    display: none;
+  }
+}
+
+/* Narrow phones: a smaller dock, so the themes and both modes fit on one line. */
+@media (max-width: 420px) {
+  .dock {
+    gap: 4px;
+    padding: 0 5px;
+  }
+
+  .demo .dock-theme {
+    width: 34px;
+    height: 34px;
+  }
+
+  .dock-theme .shape-icon {
+    width: 27px;
+    height: 27px;
+  }
+
+  .demo .dock .segmented a {
+    padding: 5px 8px;
+  }
+
+  .mode-name {
+    display: none;
+  }
+
+  .mode-short {
+    display: inline;
+  }
+}
+
+/* The smallest phones (320px): BLDR's thick frames need the last few pixels. */
+@media (max-width: 340px) {
+  .dock,
+  .dock-themes {
+    gap: 0;
   }
 }
 
 @media (max-width: 600px) {
   .hero {
     gap: 20px;
-    padding-top: 12px;
+    padding-top: 32px;
   }
 
   .demo h1 {
@@ -1616,7 +1705,7 @@ body:has(.demo[data-theme="bldr"]) [data-askdare]::part(launcher) {
   }
 
   .lead {
-    margin: 14px 0 22px;
+    margin: 20px 0 28px;
     font-size: 1rem;
   }
 

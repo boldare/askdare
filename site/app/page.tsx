@@ -24,9 +24,10 @@ const PRESETS = THEMES.filter((item) => item.id !== 'bldr');
 const CUSTOM = THEMES.find((item) => item.id === 'bldr');
 type Theme = (typeof THEMES)[number]['id'];
 
+/** `short` is what narrow phones show, so the dock fits on one line. */
 const MODES = [
-  { id: 'bubble', name: 'Bubble' },
-  { id: 'inline', name: 'In the page' },
+  { id: 'bubble', name: 'Bubble', short: 'Bubble' },
+  { id: 'inline', name: 'In the page', short: 'Inline' },
 ] as const;
 type Mode = (typeof MODES)[number]['id'];
 
@@ -352,7 +353,8 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
               href={href({ mode: item.id })}
               aria-current={item.id === mode ? 'true' : undefined}
             >
-              {item.name}
+              <span className="mode-name">{item.name}</span>
+              <span className="mode-short">{item.short}</span>
             </a>
           ))}
         </nav>
