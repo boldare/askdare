@@ -1,5 +1,13 @@
 # @boldare/askdare
 
+## 0.1.0-rc.4
+
+### Patch Changes
+
+- 3bf0dd0: Requires `openai` 7.52.0 and `jose` 6.2.15 or newer. Nothing changes in how askdare calls the API or signs tokens.
+- 9d4a548: The README is shorter, with three steps to a working chat and a map of the guides. Getting started explains how AI coding agents use the docs and the skill in the package.
+- 4b9cfed: The chat window is built with Preact 11. It looks and works the same.
+
 ## 0.1.0-rc.3
 
 ### Patch Changes
