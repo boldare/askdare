@@ -237,8 +237,8 @@ importers:
         specifier: ^6.2.13
         version: 6.2.13
       openai:
-        specifier: ^7.45.1
-        version: 7.45.1(zod@4.6.7)
+        specifier: ^7.51.0
+        version: 7.51.0(zod@4.6.7)
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: ^0.18.5
@@ -2164,8 +2164,8 @@ packages:
   oniguruma-to-es@4.3.6:
     resolution: {integrity: sha512-csuQ9x3Yr0cEIs/Zgx/OEt9iBw9vqIunAPQkx19R/fiMq2oGVTgcMqO/V3Ybqefr1TBvosI6jU539ksaBULJyA==}
 
-  openai@7.45.1:
-    resolution: {integrity: sha512-mutrJXwhJIMZ24Lab2COFtNp44OcpZSnV4O2O7q38wAHUa2m2fQqUO5pj1XS3PqLfOTeODBUS9YoadqDnnGk5A==}
+  openai@7.51.0:
+    resolution: {integrity: sha512-Ibu1d3ilmMbXRS8Y3WUPNTKk96p0rg1/BSlqASnvKy6i8efKjliUZGSfUTTCRcZJNGQ3xXMdita2REQOlH68JA==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
       '@aws-sdk/credential-provider-node': '>=3.972.0 <4'
@@ -4470,7 +4470,7 @@ snapshots:
       regex: 6.1.0
       regex-recursion: 6.0.2
 
-  openai@7.45.1(zod@4.6.7):
+  openai@7.51.0(zod@4.6.7):
     optionalDependencies:
       zod: 4.6.7
 
