@@ -1,5 +1,12 @@
 # @boldare/askdare
 
+## 0.1.0-rc.3
+
+### Patch Changes
+
+- 4b7512b: The launcher's label is a part, `launcher-label`, so a site can hide it on small screens and show only the orb or picture (see Styling). A chat placed in the page (`data-mode="inline"`) no longer sits above the page's own fixed elements, such as a sticky header or a bottom bar.
+- 342a931: Requires the `openai` SDK 7.51.0 or newer (was 7.45.1). Nothing changes in how askdare calls the API.
+
 ## 0.1.0-rc.2
 
 ### Patch Changes

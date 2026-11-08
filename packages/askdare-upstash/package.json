@@ -54,8 +54,8 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
     "@boldare/askdare": "workspace:^",
-    "@upstash/redis": "^1.40.0",
+    "@upstash/redis": "^1.41.0",
     "publint": "^0.3.25",
-    "tsdown": "^0.23.3"
+    "tsdown": "^0.23.5"
   }
 }
