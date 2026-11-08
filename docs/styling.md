@@ -94,7 +94,16 @@ Select a present-or-absent attribute by its name alone, such as `[data-ask-part=
 [data-askdare]::part(panel) { border-radius: 8px; }
 ```
 
-The shadow root has three parts: `launcher`, `panel` (the dialog that holds the chat) and `unavailable` (the notice in the panel when the chat doesn't load). The element that holds the shadow root has `data-askdare` set to the bot ID, so `[data-askdare="support"]::part(launcher)` styles one bot's launcher only.
+The shadow root has four parts: `launcher`, `launcher-label` (the label beside the orb or picture, in the `pill` and `orb` launchers), `panel` (the dialog that holds the chat) and `unavailable` (the notice in the panel when the chat doesn't load). The element that holds the shadow root has `data-askdare` set to the bot ID, so `[data-askdare="support"]::part(launcher)` styles one bot's launcher only.
+
+On a phone, a labelled launcher can cover the page's text. To show only the orb or picture there, hide the label and even out the padding; the button keeps its name for screen readers:
+
+```css
+@media (max-width: 600px) {
+  [data-askdare]::part(launcher-label) { display: none; }
+  [data-askdare]::part(launcher) { padding: 0 6px; }
+}
+```
 
 ### Brand fonts
 
