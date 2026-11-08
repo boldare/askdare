@@ -61,3 +61,22 @@ jobs:
         run: echo "url=$(npx -y "$VERCEL" deploy --prebuilt --prod --token="$VERCEL_TOKEN")" >> "$GITHUB_OUTPUT"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      # The docs chat's store follows docs/, its citations linking to the pages just deployed.
+      # Only changed files upload, so a push without docs changes costs one listing. It needs the
+      # secret OPENAI_API_KEY in this environment (from the project with a spend limit), and the
+      # store's ID from the Vercel project: without one, kb sync would create a new store.
+      - name: Sync the docs chat
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SITE_URL: https://askdare.vercel.app
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "No OPENAI_API_KEY secret in the vercel environment: the docs chat isn't synced."
+            exit 0
+          fi
+          DOCS_VECTOR_STORE_ID="$(grep '^DOCS_VECTOR_STORE_ID=' .vercel/.env.production.local | cut -d= -f2- | tr -d '"')"
+          case "$DOCS_VECTOR_STORE_ID" in
+            vs_*) ;;
+            *) echo "::error::DOCS_VECTOR_STORE_ID isn't set in the Vercel project."; exit 1 ;;
+          esac
+          DOCS_VECTOR_STORE_ID="$DOCS_VECTOR_STORE_ID" node site/scripts/docs-kb.mjs

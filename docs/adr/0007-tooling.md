@@ -16,7 +16,7 @@
 | End-to-end tests | Playwright 1.64 | Two origins (app and host page), axe checks, visual regression on the state gallery |
 | Package quality | publint, `@arethetypeswrong/cli`, size budgets in the asset build, `.d.ts` snapshot, no-leak test | Loader under 5 KB gzipped |
 | Release | Changesets 3, npm trusted publishing (OIDC) with provenance | No npm token stored anywhere |
-| CI and maintenance | GitHub Actions, Renovate (`openai` updates batched weekly), CodeQL, TruffleHog | Nightly canary and daily live smoke (ADR-0006) |
+| CI and maintenance | GitHub Actions, Dependabot (`openai` updates batched weekly), CodeQL, TruffleHog | Nightly canary and daily live smoke (ADR-0006). Dependabot replaced Renovate on 2026-11-08: the Renovate app needs the organization owner to install it, and it never ran. |
 
 ### AI-assisted development
 
