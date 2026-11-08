@@ -28,7 +28,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
-    "@biomejs/biome": "^2.6.3",
+    "@biomejs/biome": "^2.6.5",
     "@changesets/cli": "^3.0.3",
     "@commitlint/cli": "^21.2.4",
     "@commitlint/config-conventional": "^21.2.4",
@@ -37,6 +37,6 @@
     "lefthook": "^2.2.2",
     "msw": "^3.0.3",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   }
 }
