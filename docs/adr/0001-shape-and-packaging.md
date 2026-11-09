@@ -26,6 +26,7 @@ We build a **library for Next.js**, structured as a small core plus optional add
   - A `bin` with the CLI (`init`, `doctor`, `kb sync`).
 - **Add-ons:** separate packages that implement core ports, added only when needed:
   - `@boldare/askdare-upstash`: shared limits, in 0.1.
+  - `@boldare/askdare-otel`: OpenTelemetry spans from the `onUsage` hook, in 0.2 (ADR-0012).
   - `@boldare/askdare-store-postgres` and `@boldare/askdare-admin`: later, on demand.
 - **Scaffolding:** `create-next-app --example` pointing at `examples/starter`. There is no `create-*` package.
 - **Integration surface:** one route file plus one `<script>` tag.

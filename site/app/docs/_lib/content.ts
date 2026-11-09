@@ -36,7 +36,15 @@ export const NAV: readonly { readonly title: string; readonly pages: readonly st
   { title: 'Look and feel', pages: ['styling', 'themes', 'texts'] },
   {
     title: 'Running it',
-    pages: ['deployment', 'going-public', 'costs', 'privacy', 'custom-store', 'support'],
+    pages: [
+      'deployment',
+      'going-public',
+      'costs',
+      'observability',
+      'privacy',
+      'custom-store',
+      'support',
+    ],
   },
   { title: 'Reference', pages: ['protocol', 'migrating-from-openai-assistant', 'adr'] },
 ];

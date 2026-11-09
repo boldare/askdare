@@ -33,6 +33,7 @@ packages/askdare/skills/
 # Next.js
 next-env.d.ts
 packages/askdare-upstash/LICENSE
+packages/askdare-otel/LICENSE
 
 # local release tarballs (pnpm pack), never committed
 release/

@@ -53,7 +53,7 @@ Pick a theme, set your brand's colors, or restyle any part with your own CSS, th
 The guides are on [askdare.vercel.app/docs](https://askdare.vercel.app/docs), with search. They also ship in this package, in `node_modules/@boldare/askdare/docs/`, so they match the version you installed.
 
 - **Start:** [Getting started](https://askdare.vercel.app/docs/getting-started) · [Embedding the chat](https://askdare.vercel.app/docs/embedding) · [Command line](https://askdare.vercel.app/docs/cli)
-- **Going live:** [Deployment](https://askdare.vercel.app/docs/deployment) · [Going-public checklist](https://askdare.vercel.app/docs/going-public) · [Costs](https://askdare.vercel.app/docs/costs) · [Privacy](https://askdare.vercel.app/docs/privacy)
+- **Going live:** [Deployment](https://askdare.vercel.app/docs/deployment) · [Going-public checklist](https://askdare.vercel.app/docs/going-public) · [Costs](https://askdare.vercel.app/docs/costs) · [Observability](https://askdare.vercel.app/docs/observability) · [Privacy](https://askdare.vercel.app/docs/privacy)
 - **Reference:** [Configuration](https://askdare.vercel.app/docs/configuration) · [Troubleshooting](https://askdare.vercel.app/docs/troubleshooting) · [Support matrix](https://askdare.vercel.app/docs/support)
 - **AI coding agents:** `llms.txt` and the `askdare` skill ship in the package ([how to use them](https://askdare.vercel.app/docs/getting-started#working-with-an-ai-coding-agent))
 
