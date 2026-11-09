@@ -22,6 +22,8 @@ import { createIdentityVerifier, type IdentityVerifier } from '../security/ident
 import { createTokenService, type TokenService } from '../security/tokens';
 import { explain, TROUBLESHOOTING } from '../server/explain';
 import { createRequestHandler } from '../server/handler';
+import { hookError } from '../server/stream-turn';
+import type { ChatUsageReport } from '../server/usage-report';
 
 export interface ChatHandlerOptions {
   readonly bots: readonly Bot[];
@@ -44,9 +46,16 @@ export interface ChatHandlerOptions {
    * Called for every server error (status 500 and up), for an error that ends a streamed answer,
    * and once a day when a bot-wide or the global budget runs out, for your monitoring, such as Sentry.
    * Defaults to one `console.error` line with a pointer to the troubleshooting guide. Never
-   * receives message contents or API keys.
+   * receives message contents or API keys. May be async; nothing it throws reaches the request.
    */
-  readonly onError?: (report: ChatErrorReport) => void;
+  readonly onError?: (report: ChatErrorReport) => void | Promise<void>;
+  /**
+   * Called once per chat turn, after its answer has streamed, including turns that failed: the
+   * tokens it used, how long it took, which tools it called. For cost tracking and tracing, e.g.
+   * with `@boldare/askdare-otel`. Counters and pseudonyms only, never message text. May be async;
+   * nothing it throws reaches the chat.
+   */
+  readonly onUsage?: (report: ChatUsageReport) => void | Promise<void>;
   /**
    * Serves the state gallery: `/embed/<bot>?gallery=<state>&preset=<preset>&scheme=<scheme>`
    * renders fixture states without calling the model. For development and visual tests; leave
@@ -83,6 +92,30 @@ export interface ChatHandlers {
   readonly GET: RouteHandler;
   readonly POST: RouteHandler;
   readonly DELETE: RouteHandler;
+}
+
+/** Keeps async work alive after the response on serverless hosts, where there is a request scope. */
+function keepAlive(work: Promise<unknown>): void {
+  try {
+    after(work);
+  } catch {
+    // No request scope or no platform waitUntil: the work still runs while the process lives.
+  }
+}
+
+/** Wraps an app's hook so it can't break a request: anything it throws is logged by name only. */
+function guard<T>(
+  name: string,
+  hook: ((value: T) => void | Promise<void>) | undefined,
+): ((value: T) => Promise<void>) | undefined {
+  if (!hook) return undefined;
+  return async (value) => {
+    try {
+      await hook(value);
+    } catch (error) {
+      console.error(`[askdare] the ${name} hook failed: ${hookError(error)}`);
+    }
+  };
 }
 
 function required(value: string | undefined, name: string): string {
@@ -126,14 +159,17 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
   }
   const trustProxy = options.limits?.trustProxy ?? 'auto';
   const development = process.env['NODE_ENV'] === 'development';
+  const onError = guard('onError', options.onError);
   const report = (error: AskdareError): void => {
     const explanation = explain(error);
-    if (options.onError) {
-      options.onError({
-        code: error.code,
-        message: explanation ?? error.message,
-        cause: error.cause,
-      });
+    if (onError) {
+      keepAlive(
+        onError({
+          code: error.code,
+          message: explanation ?? error.message,
+          cause: error.cause,
+        }),
+      );
       return;
     }
     const line = `[askdare] ${error.code}: ${explanation ?? error.message} (see ${TROUBLESHOOTING})`;
@@ -148,13 +184,8 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
     bots: options.bots,
     basePath,
     // A turn outlives a visitor who disconnects; on serverless hosts this keeps the function alive.
-    waitUntil: (work) => {
-      try {
-        after(work);
-      } catch {
-        // No request scope or no platform waitUntil: the turn still runs while the process lives.
-      }
-    },
+    waitUntil: keepAlive,
+    onUsage: guard('onUsage', options.onUsage),
     assets: {
       loaderJs: LOADER_JS,
       widgetJs: WIDGET_JS,

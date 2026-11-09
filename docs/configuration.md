@@ -215,7 +215,7 @@ The text defaults come from the built-in dictionary of the configured language. 
 
 ## `createChatHandler`
 
-`createChatHandler(options: ChatHandlerOptions): ChatHandlers` returns `GET`, `POST` and `DELETE` for the catch-all route. Its types are exported from `@boldare/askdare/next`: `ChatHandlerOptions`, `ChatHandlerLimitsOptions`, `ChatErrorReport`, `TrustProxy`, `ChatHandlers` and `RouteHandler`.
+`createChatHandler(options: ChatHandlerOptions): ChatHandlers` returns `GET`, `POST` and `DELETE` for the catch-all route. Its types are exported from `@boldare/askdare/next`: `ChatHandlerOptions`, `ChatHandlerLimitsOptions`, `ChatErrorReport`, `ChatUsageReport`, `ChatTokenUsage`, `ChatToolCallReport`, `TrustProxy`, `ChatHandlers` and `RouteHandler`.
 
 | Option | Type | Default | Notes |
 | --- | --- | --- | --- |
@@ -226,7 +226,8 @@ The text defaults come from the built-in dictionary of the configured language. 
 | `previousSecrets` | `readonly string[]` | `process.env.CHAT_SECRET_PREVIOUS`, split at commas | Former secrets that still verify tokens during a rotation. Each follows the same rule as `secret`. See [Going public](going-public.md#2-secrets-and-environment). |
 | `identitySecret` | `string` | `process.env.IDENTITY_SECRET` | Checks identity tokens from your site's backend. Same rule as `secret`, and it must differ from it. Without one, identity is off. See [Signed-in visitors](identity.md). |
 | `limits` | `ChatHandlerLimitsOptions` | see [Handler limits](#handler-limits) | The counter store, the client IP and a budget across bots. |
-| `onError` | `(report: ChatErrorReport) => void` | one `console.error` line | Your error reporting. See [`onError`](#onerror). |
+| `onError` | `(report: ChatErrorReport) => void \| Promise<void>` | one `console.error` line | Your error reporting. See [`onError`](#onerror). |
+| `onUsage` | `(report: ChatUsageReport) => void \| Promise<void>` | none | Each turn's tokens, timings and tool calls, for cost tracking and tracing. See [`onUsage`](#onusage). |
 | `gallery` | `boolean` | `false` | Serves the state gallery. See [`gallery`](#gallery). |
 
 A wrong `basePath`, a duplicate bot ID or an empty `bots` list throws a `TypeError` when the route loads. A missing key or a missing or weak secret doesn't stop the route from loading. Instead, requests that need it answer `bot_unavailable`, and `onError` receives the reason. In development (`next dev`), the chat itself says what to fix.
@@ -258,7 +259,7 @@ See [Deployment](deployment.md#behind-another-proxy-or-cdn) for setups with a CD
 
 ### `onError`
 
-`onError` receives server errors (status 500 and up), any error that ends an answer while it streams, and once a day a `budget_exceeded` report when a bot's or the global budget runs out (never a single visitor's). Use it for your monitoring. It never receives message contents or API keys. Don't throw from it.
+`onError` receives server errors (status 500 and up), any error that ends an answer while it streams, and once a day a `budget_exceeded` report when a bot's or the global budget runs out (never a single visitor's). Use it for your monitoring. It never receives message contents or API keys. It may be async: askdare keeps the function alive until it finishes, and anything it throws is logged by its error's name and never reaches the request.
 
 ```ts
 import * as Sentry from '@sentry/nextjs';
@@ -282,6 +283,40 @@ Without `onError`, askdare logs one `console.error` line with the code, what wen
 | `cause` | `unknown` | The underlying error, with any API key cut down to its prefix. Optional. |
 
 `code` is one of `invalid_input`, `unauthorized`, `session_expired`, `not_found`, `rate_limited`, `budget_exceeded`, `bot_unavailable`, `content_blocked` (reserved, not sent yet), `timeout`, `upstream_error` or `internal_error`. The codes at status 500 and up are `internal_error` (500), `upstream_error` (502), `bot_unavailable` (503) and `timeout` (504). [Protocol](protocol.md#error-codes) explains each one.
+
+### `onUsage`
+
+`onUsage` is called once per chat turn, after the answer has streamed, including turns that failed. It receives the tokens the turn used, how long it took and which tools it called, for cost tracking, dashboards and tracing (ADR-0012). It holds counters and pseudonyms only: never message text, tool arguments or results, IP addresses or raw IDs.
+
+```ts
+export const { GET, POST, DELETE } = createChatHandler({
+  bots,
+  onUsage: async ({ bot, model, usage, durationMs }) => {
+    await metrics.record('chat.turn', { bot, model, ...usage, durationMs });
+  },
+});
+```
+
+It may be async. askdare calls it after the stream has closed, so it never delays an answer, keeps the function alive until it finishes, and logs anything it throws by its error's name. For OpenTelemetry spans, pass `otelUsage()` from `@boldare/askdare-otel`.
+
+`ChatUsageReport`:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `bot` | `string` | The bot's ID. |
+| `model` | `string` | The model that answered, as OpenAI reports it. The configured model if none answered. |
+| `conversation` | `string \| undefined` | A pseudonym (HMAC) of the conversation, the same for every turn of it. Undefined when none was created. |
+| `visitor` | `string` | A pseudonym (HMAC) of the signed-in user's ID, or of the visitor's when nobody is signed in: the same value OpenAI gets as `safety_identifier`. |
+| `startedAt` | `number` | When the turn started, in epoch milliseconds. |
+| `durationMs` | `number` | From the request to the end of the answer. |
+| `outcome` | `'completed' \| 'stopped' \| 'failed'` | `stopped` when the turn was aborted before it could answer. |
+| `finishReason` | `string` | Why the answer ended: `completed`, `max_steps`, `max_output_tokens` or `content_filter`. Absent when it failed. |
+| `errorCode` | `string` | The stable error code (see [`onError`](#onerror)), when it failed. |
+| `usage` | `ChatTokenUsage` | `inputTokens`, `cachedInputTokens`, `cacheWriteTokens`, `outputTokens` and `reasoningTokens`, summed over the turn's model calls. Cached and cache-write tokens are part of the input; reasoning tokens are part of the output. |
+| `steps` | `number` | Model calls in the turn: one, plus one after each round of tool calls. |
+| `tools` | `ChatToolCallReport[]` | One per function call: `name`, `startedAt`, `durationMs` and `outcome` (`ok`, `error` or `timeout`). |
+
+The pseudonyms change when `CHAT_SECRET` rotates. A turn that fails mid-stream reports the usage askdare saw, which can be less than what OpenAI bills; [Costs](costs.md) explains the difference.
 
 ### `gallery`
 

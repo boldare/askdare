@@ -6,8 +6,29 @@ import type { HistoryMessage } from './protocol/history';
 
 export interface TokenUsage {
   readonly inputTokens: number;
+  /** Input tokens read from the prompt cache; part of `inputTokens`. */
   readonly cachedInputTokens: number;
+  /** Input tokens written to the prompt cache; part of `inputTokens`. */
+  readonly cacheWriteTokens: number;
   readonly outputTokens: number;
+  /** Output tokens spent on reasoning; part of `outputTokens`. */
+  readonly reasoningTokens: number;
+}
+
+/** One model call of a turn, reported as it ends. */
+export interface StepRecord {
+  /** The model that answered, as the provider reports it. */
+  readonly model: string | undefined;
+  readonly usage: TokenUsage;
+}
+
+/** One function call of a turn, reported as it ends. */
+export interface ToolCallRecord {
+  readonly name: string;
+  /** Epoch milliseconds. */
+  readonly startedAt: number;
+  readonly durationMs: number;
+  readonly outcome: 'ok' | 'error' | 'timeout';
 }
 
 export interface ConversationMetadata {
@@ -68,6 +89,10 @@ export interface TurnRequest {
    * the step then answers without tools. Absent means every call is covered.
    */
   readonly reserveCall?: (() => Promise<boolean>) | undefined;
+  /** Called after each model call, so a turn that fails later still reports what it spent. */
+  readonly onStep?: ((step: StepRecord) => void) | undefined;
+  /** Called after each function call. */
+  readonly onToolCall?: ((call: ToolCallRecord) => void) | undefined;
 }
 
 export interface TurnResult {

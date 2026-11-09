@@ -28,6 +28,7 @@ import {
 } from './embed-page';
 import { loaderWithLook } from './launcher';
 import { STREAM_HEADERS, streamTurn } from './stream-turn';
+import type { ChatUsageReport } from './usage-report';
 
 export interface HandlerConfig {
   readonly bots: readonly Bot[];
@@ -41,6 +42,8 @@ export interface HandlerConfig {
   /** Best-effort client IP for rate-limit keys. */
   readonly clientIp: (request: Request) => string;
   readonly onError?: ((error: AskdareError) => void) | undefined;
+  /** Receives each turn's report once its stream has ended (ADR-0012). */
+  readonly onUsage?: ((report: ChatUsageReport) => void | Promise<void>) | undefined;
   /**
    * Development only: a description of a setup error to show in the chat instead of the generic
    * message, such as a missing OPENAI_API_KEY. Never given in production.
@@ -547,9 +550,10 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       issueResumeToken: async (id) =>
         (await tokens.issueResume(bot.id, { visitorId, conversationId: id, identityKey: key }))
           .token,
-      onUsage: (usage, id) => {
+      settle: (usage, id) => {
         reservation.settle(usage, id).catch((error: unknown) => report(toAskdareError(error)));
       },
+      report: config.onUsage,
       reserveCall: () => reservation.extend(),
       onError: report,
       explain: config.explain,

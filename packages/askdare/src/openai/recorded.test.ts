@@ -4,7 +4,7 @@ import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { defineBot } from '../bot/define-bot';
-import type { ModelGateway } from '../gateway';
+import type { ModelGateway, StepRecord } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
 import { defineTool } from '../tools/define-tool';
 import { createOpenAIGateway } from './gateway';
@@ -54,7 +54,9 @@ const textStream = (text: string): string =>
     )
     .join('');
 
-async function replay(name: string): Promise<{ events: ProtocolEvent[]; reason: string }> {
+async function replay(
+  name: string,
+): Promise<{ events: ProtocolEvent[]; reason: string; steps: StepRecord[] }> {
   server.use(
     http.post(
       `${OPENAI_TEST_BASE_URL}/responses`,
@@ -62,6 +64,7 @@ async function replay(name: string): Promise<{ events: ProtocolEvent[]; reason: 
     ),
   );
   const events: ProtocolEvent[] = [];
+  const steps: StepRecord[] = [];
   const result = await gateway.runTurn({
     bot,
     conversationId: 'conv_recorded',
@@ -72,8 +75,9 @@ async function replay(name: string): Promise<{ events: ProtocolEvent[]; reason: 
     messageId: 'msg_r',
     signal: new AbortController().signal,
     emit: (event) => events.push(event),
+    onStep: (step) => steps.push(step),
   });
-  return { events, reason: result.reason };
+  return { events, reason: result.reason, steps };
 }
 
 const textOf = (events: readonly ProtocolEvent[]): string =>
@@ -88,7 +92,20 @@ describe('recorded Responses API streams', () => {
   });
 
   it('maps a file_search turn to text plus one file citation', async () => {
-    const { events } = await replay('file-search');
+    const { events, steps } = await replay('file-search');
+    // Every counter OpenAI reports, for onUsage.
+    expect(steps).toEqual([
+      {
+        model: 'gpt-6.1-terra',
+        usage: {
+          inputTokens: 2049,
+          cachedInputTokens: 0,
+          cacheWriteTokens: 1480,
+          outputTokens: 58,
+          reasoningTokens: 30,
+        },
+      },
+    ]);
     expect(textOf(events)).toContain('Pixel');
     expect(events.filter((event) => event.type === 'citation')).toEqual([
       {

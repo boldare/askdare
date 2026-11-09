@@ -254,7 +254,13 @@ describe('runTurn', () => {
     ]);
     expect(result).toEqual({
       reason: 'completed',
-      usage: { inputTokens: 50, cachedInputTokens: 40, outputTokens: 9 },
+      usage: {
+        inputTokens: 50,
+        cachedInputTokens: 40,
+        cacheWriteTokens: 0,
+        outputTokens: 9,
+        reasoningTokens: 0,
+      },
     });
   });
 

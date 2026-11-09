@@ -2,6 +2,7 @@ import type OpenAI from 'openai';
 import type { ResponseInputContent, ResponseInputItem } from 'openai/resources/responses/responses';
 import type { TokenUsage, TurnRequest, TurnResult } from '../gateway';
 import type { MessageEndReason } from '../protocol/events';
+import { addUsage, ZERO_USAGE } from '../usage';
 import { fromOpenAIError } from './errors';
 import { pageContextPart } from './page-context';
 import { CitationRegistry, ResponseStreamMapper, type StepOutcome } from './stream-mapper';
@@ -42,12 +43,6 @@ function userInput(request: TurnRequest): ResponseInputItem {
   }
   return { role: 'user', content };
 }
-
-const addUsage = (a: TokenUsage, b: TokenUsage): TokenUsage => ({
-  inputTokens: a.inputTokens + b.inputTokens,
-  cachedInputTokens: a.cachedInputTokens + b.cachedInputTokens,
-  outputTokens: a.outputTokens + b.outputTokens,
-});
 
 async function runStep(
   client: OpenAI,
@@ -96,7 +91,7 @@ async function runStep(
 export async function runTurn(client: OpenAI, request: TurnRequest): Promise<TurnResult> {
   const { bot } = request;
   const citations = new CitationRegistry();
-  let usage: TokenUsage = { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0 };
+  let usage: TokenUsage = ZERO_USAGE;
   let input: ResponseInputItem[] = [userInput(request)];
   let repairs = 0;
   // Model calls the budget holds. A step may call tools only when the call after it is held too.
@@ -131,6 +126,7 @@ export async function runTurn(client: OpenAI, request: TurnRequest): Promise<Tur
         continue;
       }
       usage = addUsage(usage, outcome.usage);
+      request.onStep?.({ model: outcome.model, usage: outcome.usage });
       if (outcome.functionCalls.length === 0) return { reason: endReason(outcome), usage };
       input = await executeCalls(outcome.functionCalls, request);
     }
