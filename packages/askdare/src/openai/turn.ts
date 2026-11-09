@@ -63,8 +63,8 @@ async function runStep(
       store: true,
       stream: true,
       max_output_tokens: bot.limits.maxOutputTokens,
-      // Deprecated in favour of server-side compaction (`context_management`), planned for 0.2
-      // once it is confirmed with the `conversation` parameter (ADR-0003). Still accepted.
+      // Deprecated in favour of server-side compaction (`context_management`), which spike S5
+      // moved to 0.3: it counts against max_output_tokens (ADR-0003). Still accepted.
       truncation: 'auto',
       safety_identifier: request.safetyIdentifier,
       prompt_cache_key: `askdare:${bot.id}`,

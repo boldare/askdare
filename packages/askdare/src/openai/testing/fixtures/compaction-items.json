@@ -1,0 +1,96 @@
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "cmp_s50002",
+      "type": "compaction",
+      "encrypted_content": "redacted"
+    },
+    {
+      "id": "msg_s50003",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "noted"
+        }
+      ],
+      "role": "assistant"
+    },
+    {
+      "id": "cmp_s50001",
+      "type": "compaction",
+      "encrypted_content": "redacted"
+    },
+    {
+      "id": "msg_s50004",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Here are more shipping notes.\nNote 3.1: the Gdansk depot ships 31 steel pins every Tuesday, and the driver checks the seals twice before leaving.\nNote 3.2: the Porto depot ships 62 blue crates every Wednesday, and the driver checks the seals twice before leaving.\nNote 3.3: the Lyon depot ships 93 wool rolls every Thursday, and the driver checks the seals twice before leaving.\nNote 3.4: the Bergen depot ships 34 clay tiles every Friday, and the driver checks the seals twice before leaving.\nNote 3.5: the Krakow depot ships 65 glass jars every Monday, and the driver checks the seals twice before leaving.\nNote 3.6: the Turin depot ships 96 paper reams every Tuesday, and the driver checks the seals twice before leaving.\nNote 3.7: the Ghent depot ships 37 oak pallets every Wednesday, and the driver checks the seals twice before leaving.\nNote 3.8: the Malmo depot ships 68 steel pins every Thursday, and the driver checks the seals twice before leaving.\nNote 3.9: the Leeds depot ships 99 blue crates every Friday, and the driver checks the seals twice before leaving.\nNote 3.10: the Lisbon depot ships 40 wool rolls every Monday, and the driver checks the seals twice before leaving.\nNote 3.11: the Gdansk depot ships 71 clay tiles every Tuesday, and the driver checks the seals twice before leaving.\nNote 3.12: the Porto depot ships 12 glass jars every Wednesday, and the driver checks the seals twice before leaving.\nNote 3.13: the Lyon depot ships 43 paper reams every Thursday, and the driver checks the seals twice before leaving.\nNote 3.14: the Bergen depot ships 74 oak pallets every Friday, and the driver checks the seals twice before leaving.\nNote 3.15: the Krakow depot ships 15 steel pins every Monday, and the driver checks the seals twice before leaving.\nNote 3.16: the Turin depot ships 46 blue crates every Tuesday, and the driver checks the seals twice before leaving.\nNote 3.17: the Ghent depot ships 77 wool rolls every Wednesday, and the driver checks the seals twice before leaving.\nNote 3.18: the Malmo depot ships 18 clay tiles every Thursday, and the driver checks the seals twice before leaving.\nReply with the single word \"noted\"."
+        }
+      ],
+      "role": "user"
+    },
+    {
+      "id": "msg_s50002",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "noted"
+        }
+      ],
+      "role": "assistant"
+    },
+    {
+      "id": "msg_s50005",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Here are more shipping notes.\nNote 2.1: the Bergen depot ships 24 paper reams every Friday, and the driver checks the seals twice before leaving.\nNote 2.2: the Krakow depot ships 55 oak pallets every Monday, and the driver checks the seals twice before leaving.\nNote 2.3: the Turin depot ships 86 steel pins every Tuesday, and the driver checks the seals twice before leaving.\nNote 2.4: the Ghent depot ships 27 blue crates every Wednesday, and the driver checks the seals twice before leaving.\nNote 2.5: the Malmo depot ships 58 wool rolls every Thursday, and the driver checks the seals twice before leaving.\nNote 2.6: the Leeds depot ships 89 clay tiles every Friday, and the driver checks the seals twice before leaving.\nNote 2.7: the Lisbon depot ships 30 glass jars every Monday, and the driver checks the seals twice before leaving.\nNote 2.8: the Gdansk depot ships 61 paper reams every Tuesday, and the driver checks the seals twice before leaving.\nNote 2.9: the Porto depot ships 92 oak pallets every Wednesday, and the driver checks the seals twice before leaving.\nNote 2.10: the Lyon depot ships 33 steel pins every Thursday, and the driver checks the seals twice before leaving.\nNote 2.11: the Bergen depot ships 64 blue crates every Friday, and the driver checks the seals twice before leaving.\nNote 2.12: the Krakow depot ships 95 wool rolls every Monday, and the driver checks the seals twice before leaving.\nNote 2.13: the Turin depot ships 36 clay tiles every Tuesday, and the driver checks the seals twice before leaving.\nNote 2.14: the Ghent depot ships 67 glass jars every Wednesday, and the driver checks the seals twice before leaving.\nNote 2.15: the Malmo depot ships 98 paper reams every Thursday, and the driver checks the seals twice before leaving.\nNote 2.16: the Leeds depot ships 39 oak pallets every Friday, and the driver checks the seals twice before leaving.\nNote 2.17: the Lisbon depot ships 70 steel pins every Monday, and the driver checks the seals twice before leaving.\nNote 2.18: the Gdansk depot ships 11 blue crates every Tuesday, and the driver checks the seals twice before leaving.\nReply with the single word \"noted\"."
+        }
+      ],
+      "role": "user"
+    },
+    {
+      "id": "msg_s50001",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "noted"
+        }
+      ],
+      "role": "assistant"
+    },
+    {
+      "id": "msg_s50006",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Remember this code word: PAPAYA-42. Here are more shipping notes.\nNote 1.1: the Ghent depot ships 17 clay tiles every Wednesday, and the driver checks the seals twice before leaving.\nNote 1.2: the Malmo depot ships 48 glass jars every Thursday, and the driver checks the seals twice before leaving.\nNote 1.3: the Leeds depot ships 79 paper reams every Friday, and the driver checks the seals twice before leaving.\nNote 1.4: the Lisbon depot ships 20 oak pallets every Monday, and the driver checks the seals twice before leaving.\nNote 1.5: the Gdansk depot ships 51 steel pins every Tuesday, and the driver checks the seals twice before leaving.\nNote 1.6: the Porto depot ships 82 blue crates every Wednesday, and the driver checks the seals twice before leaving.\nNote 1.7: the Lyon depot ships 23 wool rolls every Thursday, and the driver checks the seals twice before leaving.\nNote 1.8: the Bergen depot ships 54 clay tiles every Friday, and the driver checks the seals twice before leaving.\nNote 1.9: the Krakow depot ships 85 glass jars every Monday, and the driver checks the seals twice before leaving.\nNote 1.10: the Turin depot ships 26 paper reams every Tuesday, and the driver checks the seals twice before leaving.\nNote 1.11: the Ghent depot ships 57 oak pallets every Wednesday, and the driver checks the seals twice before leaving.\nNote 1.12: the Malmo depot ships 88 steel pins every Thursday, and the driver checks the seals twice before leaving.\nNote 1.13: the Leeds depot ships 29 blue crates every Friday, and the driver checks the seals twice before leaving.\nNote 1.14: the Lisbon depot ships 60 wool rolls every Monday, and the driver checks the seals twice before leaving.\nNote 1.15: the Gdansk depot ships 91 clay tiles every Tuesday, and the driver checks the seals twice before leaving.\nNote 1.16: the Porto depot ships 32 glass jars every Wednesday, and the driver checks the seals twice before leaving.\nNote 1.17: the Lyon depot ships 63 paper reams every Thursday, and the driver checks the seals twice before leaving.\nNote 1.18: the Bergen depot ships 94 oak pallets every Friday, and the driver checks the seals twice before leaving.\nReply with the single word \"noted\"."
+        }
+      ],
+      "role": "user"
+    }
+  ],
+  "first_id": "cmp_s50002",
+  "has_more": false,
+  "last_id": "msg_s50006"
+}
