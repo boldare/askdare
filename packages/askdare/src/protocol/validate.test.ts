@@ -12,6 +12,12 @@ const VALID_EVENTS: readonly Record<string, unknown>[] = [
   { type: 'citation', messageId: 'm1', index: 2, title: 'Docs', url: 'https://example.com/a?b=1' },
   { type: 'tool.status', messageId: 'm1', callId: 'c1', name: 'get_time', state: 'running' },
   { type: 'message.end', messageId: 'm1', reason: 'max_output_tokens' },
+  {
+    type: 'message.end',
+    messageId: 'm1',
+    reason: 'completed',
+    feedback: { handle: 'h.a.n.d.le', key: '0123456789abcdef' },
+  },
   { type: 'error', code: 'rate_limited', message: 'Slow down.', retryAfterMs: 1000 },
   {
     type: 'error',
@@ -94,11 +100,16 @@ describe('the browser validator', () => {
       citations: [{ index: 1, title: 'Pricing', url: 'https://example.com' }],
       attachments: 0,
     };
+    const feedback = { handle: 'h.a.n.d.le', key: '0123456789abcdef0123456789abcdef' };
     const values = [
-      ...mutations([message]).map((item) => ({ messages: [item] })),
+      ...mutations([message, { ...message, feedback }]).map((item) => ({ messages: [item] })),
       ...mutations([message.citations[0] as Record<string, unknown>]).map((citation) => ({
         messages: [{ ...message, citations: [citation] }],
       })),
+      ...mutations([feedback]).map((handle) => ({
+        messages: [{ ...message, feedback: handle }],
+      })),
+      { messages: [{ ...message, feedback: { ...feedback, key: 'ABCDEF0123456789' } }] },
       { messages: [] },
       { messages: 'none' },
       {},

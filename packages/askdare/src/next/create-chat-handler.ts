@@ -21,6 +21,7 @@ import type { ErrorCode } from '../protocol/events';
 import { createIdentityVerifier, type IdentityVerifier } from '../security/identity';
 import { createTokenService, type TokenService } from '../security/tokens';
 import { explain, TROUBLESHOOTING } from '../server/explain';
+import type { ChatFeedbackReport } from '../server/feedback-report';
 import { createRequestHandler } from '../server/handler';
 import { hookError } from '../server/stream-turn';
 import type { ChatUsageReport } from '../server/usage-report';
@@ -56,6 +57,12 @@ export interface ChatHandlerOptions {
    * nothing it throws reaches the chat.
    */
   readonly onUsage?: (report: ChatUsageReport) => void | Promise<void>;
+  /**
+   * Called when a visitor rates an answer 👍 or 👎, with an optional comment, or takes a rating
+   * back. Without it, answers can't be rated; a bot can opt out with `widget.feedback: false`.
+   * askdare stores no ratings: keep them here. May be async; nothing it throws reaches the chat.
+   */
+  readonly onFeedback?: (report: ChatFeedbackReport) => void | Promise<void>;
   /**
    * Serves the state gallery: `/embed/<bot>?gallery=<state>&preset=<preset>&scheme=<scheme>`
    * renders fixture states without calling the model. For development and visual tests; leave
@@ -186,6 +193,7 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
     // A turn outlives a visitor who disconnects; on serverless hosts this keeps the function alive.
     waitUntil: keepAlive,
     onUsage: guard('onUsage', options.onUsage),
+    onFeedback: guard('onFeedback', options.onFeedback),
     assets: {
       loaderJs: LOADER_JS,
       widgetJs: WIDGET_JS,

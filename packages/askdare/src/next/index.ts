@@ -1,4 +1,5 @@
 export type { TrustProxy } from '../limits/client-ip';
+export type { ChatFeedbackReport } from '../server/feedback-report';
 export type {
   ChatTokenUsage,
   ChatToolCallReport,

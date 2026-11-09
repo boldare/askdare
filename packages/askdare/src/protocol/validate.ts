@@ -1,6 +1,7 @@
 import {
   ERROR_CODES,
   type ErrorCode,
+  type FeedbackHandle,
   MESSAGE_END_REASONS,
   type MessageEndReason,
   type ProtocolEvent,
@@ -24,6 +25,16 @@ const integer = (value: unknown, min: number): value is number =>
 const oneOf = <T extends string>(value: unknown, options: readonly T[]): value is T =>
   options.includes(value as T);
 const messageId = (value: unknown): value is string => text(value, 1, 128);
+
+/** A rating handle, or undefined when the value breaks the protocol. */
+function feedbackOf(value: unknown): FeedbackHandle | undefined {
+  return record(value) &&
+    text(value['handle'], 1, 4096) &&
+    typeof value['key'] === 'string' &&
+    /^[0-9a-f]{16,64}$/.test(value['key'])
+    ? { handle: value['handle'], key: value['key'] }
+    : undefined;
+}
 
 /** An absolute http(s) URL as the server sends it; stricter than a browser's lenient parsing. */
 function httpUrl(value: unknown): value is string {
@@ -105,11 +116,14 @@ export function parseEvent(value: unknown): ProtocolEvent | undefined {
         return undefined;
       }
       if (resumeToken !== undefined && !text(resumeToken, 1)) return undefined;
+      const feedback = value['feedback'] === undefined ? undefined : feedbackOf(value['feedback']);
+      if (value['feedback'] !== undefined && !feedback) return undefined;
       return {
         type: 'message.end',
         messageId: id,
         reason: value['reason'],
         ...(typeof resumeToken === 'string' ? { resumeToken } : {}),
+        ...(feedback ? { feedback } : {}),
       };
     }
     case 'error': {
@@ -146,12 +160,15 @@ function historyMessageOf(value: unknown): HistoryMessage | undefined {
   }
   const citations = value['citations'].map(citationOf);
   if (citations.some((citation) => citation === undefined)) return undefined;
+  const feedback = value['feedback'] === undefined ? undefined : feedbackOf(value['feedback']);
+  if (value['feedback'] !== undefined && !feedback) return undefined;
   return {
     id: value['id'],
     role: value['role'],
     text: value['text'],
     citations: citations as HistoryCitation[],
     attachments: value['attachments'],
+    ...(feedback ? { feedback } : {}),
   };
 }
 

@@ -98,6 +98,8 @@ export interface TurnRequest {
 export interface TurnResult {
   readonly reason: MessageEndReason;
   readonly usage: TokenUsage;
+  /** The provider's ID of the answer visitors see, for rating it; absent if there was none. */
+  readonly answerItemId?: string | undefined;
 }
 
 /** What `askdare doctor` checks for one bot: the features it uses, with the server's key. */

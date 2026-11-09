@@ -36,7 +36,7 @@ export const GALLERY_STATES = [
 export type GalleryState = (typeof GALLERY_STATES)[number];
 
 /** The widget settings the iframe app needs; colors arrive as the theme stylesheet. */
-export type EmbedWidget = Omit<Bot['widget'], 'theme' | 'css' | 'texts'> & {
+export type EmbedWidget = Omit<Bot['widget'], 'theme' | 'css' | 'texts' | 'feedback'> & {
   readonly preset: PresetName;
   readonly variants: ThemeVariants;
   /** Every text in the visitor's language, overrides applied; plural keys included. */
@@ -52,6 +52,8 @@ export interface EmbedConfig {
   readonly widget: EmbedWidget;
   /** Whether the bot accepts a page description from askdare('configure', { context }). */
   readonly pageContext: boolean;
+  /** Whether answers get rating buttons: the handler has `onFeedback` and the bot allows it. */
+  readonly feedback: boolean;
   /** Only in gallery mode: render this state from fixtures instead of talking to the server. */
   readonly gallery?: GalleryState;
   /** What the visitor may attach; absent when attachments are off. */
@@ -87,10 +89,12 @@ export interface EmbedView {
   /** Theme stylesheet URL, content-hashed. */
   readonly themeHref: string;
   readonly gallery?: GalleryState | undefined;
+  /** Whether answers get rating buttons; see `EmbedConfig.feedback`. */
+  readonly feedback?: boolean | undefined;
 }
 
 export function embedConfig(bot: Bot, basePath: string, view?: EmbedView): EmbedConfig {
-  const { theme, css: _css, texts: overrides, ...widget } = bot.widget;
+  const { theme, css: _css, texts: overrides, feedback: _feedback, ...widget } = bot.widget;
   const resolved = view?.theme ?? theme;
   const locale = view?.locale ?? (widget.locale === 'auto' ? 'en' : widget.locale);
   const texts = textsFor(locale, overrides);
@@ -100,6 +104,7 @@ export function embedConfig(bot: Bot, basePath: string, view?: EmbedView): Embed
     botId: bot.id,
     allowedOrigins: bot.security.allowedOrigins,
     pageContext: bot.pageContext,
+    feedback: view?.feedback ?? false,
     widget: {
       ...widget,
       locale,

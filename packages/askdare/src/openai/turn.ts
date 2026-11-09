@@ -127,7 +127,13 @@ export async function runTurn(client: OpenAI, request: TurnRequest): Promise<Tur
       }
       usage = addUsage(usage, outcome.usage);
       request.onStep?.({ model: outcome.model, usage: outcome.usage });
-      if (outcome.functionCalls.length === 0) return { reason: endReason(outcome), usage };
+      if (outcome.functionCalls.length === 0) {
+        return {
+          reason: endReason(outcome),
+          usage,
+          ...(outcome.answerItemId ? { answerItemId: outcome.answerItemId } : {}),
+        };
+      }
       input = await executeCalls(outcome.functionCalls, request);
     }
     return { reason: 'max_steps', usage };

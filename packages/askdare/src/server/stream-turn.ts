@@ -1,7 +1,12 @@
 import type { Bot, BotContext } from '../bot/define-bot';
 import { AskdareError, TurnAbortedError, toAskdareError } from '../errors';
 import type { ModelGateway, TokenUsage, ToolCallRecord, TurnAttachment } from '../gateway';
-import type { ErrorCode, MessageEndReason, ProtocolEvent } from '../protocol/events';
+import type {
+  ErrorCode,
+  FeedbackHandle,
+  MessageEndReason,
+  ProtocolEvent,
+} from '../protocol/events';
 import { encodeComment, encodeEvent } from '../protocol/sse';
 import { PROTOCOL_HEADER, PROTOCOL_VERSION } from '../protocol/version';
 import { addUsage, ZERO_USAGE } from '../usage';
@@ -35,6 +40,10 @@ export interface StreamTurnOptions {
    * the turn's `waitUntil` work; whatever it throws is caught.
    */
   readonly report?: ((report: ChatUsageReport) => void | Promise<void>) | undefined;
+  /** Issues the rating handle of the answer; absent when the bot's answers can't be rated. */
+  readonly issueFeedback?:
+    | ((conversationId: string, itemId: string) => Promise<FeedbackHandle>)
+    | undefined;
   /** Holds the budget for one more model call before a tool round; see `TurnRequest`. */
   readonly reserveCall?: (() => Promise<boolean>) | undefined;
   /** Server-side reporting hook. Receives client-safe errors with internals in `cause`. */
@@ -174,11 +183,19 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         const resumeToken = options.conversationId
           ? await options.issueResumeToken(conversationId).catch(() => undefined)
           : undefined;
+        // Best effort too: an answer without a handle just can't be rated.
+        const feedback =
+          result.answerItemId && options.issueFeedback
+            ? await options
+                .issueFeedback(conversationId, result.answerItemId)
+                .catch(() => undefined)
+            : undefined;
         emit({
           type: 'message.end',
           messageId,
           reason: result.reason,
           ...(resumeToken ? { resumeToken } : {}),
+          ...(feedback ? { feedback } : {}),
         });
       };
 

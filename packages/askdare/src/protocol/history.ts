@@ -1,3 +1,5 @@
+import type { FeedbackHandle } from './events';
+
 /** One message of a stored conversation, as returned by `POST /history`. */
 export interface HistoryMessage {
   readonly id: string;
@@ -6,6 +8,8 @@ export interface HistoryMessage {
   readonly citations: readonly HistoryCitation[];
   /** Images or files sent with the message. Their content is not shown again (ADR-0003). */
   readonly attachments: number;
+  /** On answers, when visitors may rate this bot's answers. */
+  readonly feedback?: FeedbackHandle | undefined;
 }
 
 export interface HistoryCitation {

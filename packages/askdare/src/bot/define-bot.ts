@@ -126,6 +126,11 @@ export interface WidgetConfig {
   readonly css?: string;
   /** Suggested questions on the welcome screen; a click sends one. Up to 4. */
   readonly starters?: readonly string[];
+  /**
+   * 👍/👎 under each answer, with an optional comment after 👎. They show only when
+   * `createChatHandler` has `onFeedback`; `false` hides them for this bot. Default `true`.
+   */
+  readonly feedback?: boolean;
   /** The assistant's picture: a path on your app such as `/avatar.png`, or a small data: image. */
   readonly avatar?: string;
   /** Text on the pill launcher; shortcut for `texts['launcher.label']`. */
@@ -146,6 +151,8 @@ export interface BotWidget {
   /** The configured BCP 47 tag, or `auto`. */
   readonly locale: string;
   readonly starters: readonly string[];
+  /** Whether this bot lets visitors rate answers, when the handler has `onFeedback`. */
+  readonly feedback: boolean;
   readonly avatar: string | undefined;
   readonly launcherLabel: string;
   /** Text overrides, including the title, greeting, placeholder and launcher label shortcuts. */
@@ -342,6 +349,7 @@ const definitionSchema = z.object({
       css: z.string().max(50_000).optional(),
       subtitle: z.string().trim().min(1).max(120).optional(),
       starters: z.array(z.string().trim().min(1).max(80)).max(4).optional(),
+      feedback: z.boolean().optional(),
       avatar: z
         .string()
         .regex(AVATAR, 'must be a path like /avatar.png or a PNG, JPEG, WebP or GIF data URL')
@@ -431,6 +439,7 @@ export function defineBot(definition: BotDefinition): Bot {
       placeholder: texts['composer.placeholder'] ?? '',
       locale,
       starters: Object.freeze([...(widget.starters ?? [])]),
+      feedback: widget.feedback ?? true,
       avatar: widget.avatar,
       launcherLabel: texts['launcher.label'] ?? '',
       texts: overrides,

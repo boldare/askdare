@@ -8,7 +8,7 @@ export declare const PROTOCOL_VERSION: 1;
 export { type AttachmentConfig, type Bot, type BotContext, type BotDefinition, type BotLimits, type BotSecurity, type ColorScheme, type CounterHit, type KnowledgeConfig, type PresetName, type RateLimitStore, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
 
 // ==== next.d.ts ====
-import { i as Bot, n as RateLimitStore } from "./store.js";
+import { C as VisitorIdentity, i as Bot, n as RateLimitStore } from "./store.js";
 /**
  * Which proxy to trust when reading the client IP:
  * - `vercel`: Vercel overwrites `x-forwarded-for` and sets `x-real-ip`, so both are reliable.
@@ -20,6 +20,25 @@ import { i as Bot, n as RateLimitStore } from "./store.js";
  * Never expose `next start` without a proxy in front: the client then controls these headers.
  */
 type TrustProxy = "auto" | "vercel" | "heroku" | number;
+/** One rating, as `onFeedback` receives it (ADR-0012). */
+interface ChatFeedbackReport {
+  readonly bot: string;
+  /** `null` when the visitor took their rating back. */
+  readonly rating: "up" | "down" | null;
+  /** What the visitor wrote, up to 500 characters. Treat it as personal data. */
+  readonly comment?: string | undefined;
+  /**
+   * A pseudonym (HMAC) of the signed-in user's ID, or of the visitor's: the same value
+   * `onUsage` reports, so ratings and costs line up.
+   */
+  readonly visitor: string;
+  /** The signed-in user, verified (ADR-0009); absent for anonymous visitors. */
+  readonly identity?: VisitorIdentity | undefined;
+  /** The OpenAI conversation, for your own review of it. Never sent to the browser. */
+  readonly conversationId: string;
+  /** The OpenAI ID of the rated answer within the conversation. */
+  readonly itemId: string;
+}
 /** Stable error codes sent to clients. The accompanying message never contains internals. */
 declare const ERROR_CODES: readonly ["invalid_input", "unauthorized", "session_expired", "not_found", "rate_limited", "budget_exceeded", "bot_unavailable", "content_blocked", "timeout", "upstream_error", "internal_error"];
 type ErrorCode = (typeof ERROR_CODES)[number];
@@ -106,6 +125,12 @@ interface ChatHandlerOptions {
    */
   readonly onUsage?: (report: ChatUsageReport) => void | Promise<void>;
   /**
+   * Called when a visitor rates an answer 👍 or 👎, with an optional comment, or takes a rating
+   * back. Without it, answers can't be rated; a bot can opt out with `widget.feedback: false`.
+   * askdare stores no ratings: keep them here. May be async; nothing it throws reaches the chat.
+   */
+  readonly onFeedback?: (report: ChatFeedbackReport) => void | Promise<void>;
+  /**
    * Serves the state gallery: `/embed/<bot>?gallery=<state>&preset=<preset>&scheme=<scheme>`
    * renders fixture states without calling the model. For development and visual tests; leave
    * it off in production.
@@ -151,7 +176,7 @@ interface ChatHandlers {
  * `next build`) never requires them.
  */
 export declare function createChatHandler(options: ChatHandlerOptions): ChatHandlers;
-export type { ChatErrorReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlers, ChatTokenUsage, ChatToolCallReport, ChatUsageReport, RouteHandler, TrustProxy };
+export type { ChatErrorReport, ChatFeedbackReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlers, ChatTokenUsage, ChatToolCallReport, ChatUsageReport, RouteHandler, TrustProxy };
 
 // ==== store.d.ts ====
 import { z } from "zod";
@@ -466,6 +491,11 @@ interface WidgetConfig {
   readonly css?: string;
   /** Suggested questions on the welcome screen; a click sends one. Up to 4. */
   readonly starters?: readonly string[];
+  /**
+   * 👍/👎 under each answer, with an optional comment after 👎. They show only when
+   * `createChatHandler` has `onFeedback`; `false` hides them for this bot. Default `true`.
+   */
+  readonly feedback?: boolean;
   /** The assistant's picture: a path on your app such as `/avatar.png`, or a small data: image. */
   readonly avatar?: string;
   /** Text on the pill launcher; shortcut for `texts['launcher.label']`. */
@@ -485,6 +515,8 @@ interface BotWidget {
   /** The configured BCP 47 tag, or `auto`. */
   readonly locale: string;
   readonly starters: readonly string[];
+  /** Whether this bot lets visitors rate answers, when the handler has `onFeedback`. */
+  readonly feedback: boolean;
   readonly avatar: string | undefined;
   readonly launcherLabel: string;
   /** Text overrides, including the title, greeting, placeholder and launcher label shortcuts. */
