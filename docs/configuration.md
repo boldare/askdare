@@ -297,7 +297,7 @@ export const { GET, POST, DELETE } = createChatHandler({
 });
 ```
 
-It may be async. askdare calls it after the stream has closed, so it never delays an answer, keeps the function alive until it finishes, and logs anything it throws by its error's name. For OpenTelemetry spans, pass `otelUsage()` from `@boldare/askdare-otel`.
+It may be async. askdare calls it after the stream has closed, so it never delays an answer, keeps the function alive until it finishes, and logs anything it throws by its error's name. For OpenTelemetry spans, pass `otelUsage()` from `@boldare/askdare-otel`; see [Observability](observability.md).
 
 `ChatUsageReport`:
 

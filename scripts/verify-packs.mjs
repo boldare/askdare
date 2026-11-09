@@ -98,7 +98,7 @@ let ok = false;
 try {
   // 1. The packages, packed as npm would publish them (workspace: ranges become versions).
   run('npx', ['-y', PNPM, '--filter', './packages/*', 'run', 'build'], repo);
-  for (const name of ['askdare', 'askdare-upstash']) {
+  for (const name of ['askdare', 'askdare-upstash', 'askdare-otel']) {
     run('npx', ['-y', PNPM, 'pack', '--pack-destination', work], join(repo, 'packages', name));
   }
   const tarballs = readdirSync(work)
@@ -128,7 +128,11 @@ try {
     ],
     work,
   );
-  run('npm', ['install', ...tarballs, 'zod@^4.1.0', '@upstash/redis@^1.35.0'], app);
+  run(
+    'npm',
+    ['install', ...tarballs, 'zod@^4.1.0', '@upstash/redis@^1.35.0', '@opentelemetry/api@^1.3.0'],
+    app,
+  );
 
   // 3. What a user runs: init, then the values they would fill in (test values here).
   run(join(app, 'node_modules/.bin/askdare'), ['init', '--model', 'mock-model'], app);
@@ -143,7 +147,7 @@ try {
     [
       '--input-type=module',
       '-e',
-      "const { upstashStore } = await import('@boldare/askdare-upstash'); if (typeof upstashStore !== 'function') process.exit(1);",
+      "const { upstashStore } = await import('@boldare/askdare-upstash'); const { otelUsage } = await import('@boldare/askdare-otel'); if (typeof upstashStore !== 'function' || typeof otelUsage !== 'function') process.exit(1);",
     ],
     app,
   );
