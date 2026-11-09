@@ -128,6 +128,12 @@ export const { GET, POST, DELETE } = createChatHandler({
 });
 ```
 
+## Tracking what the chat costs
+
+[`onUsage`](configuration.md#onusage) receives every turn's tokens as OpenAI reports them: input, cached and cache-write input, output and reasoning, with the model that answered. Multiply them by your model's prices to get the cost per turn, per bot or per conversation, and send them to your metrics or, with `@boldare/askdare-otel`, to your tracing.
+
+The report holds pseudonyms, never message text. A turn that breaks off mid-answer reports what askdare received, while OpenAI may bill a little more, so compare with the OpenAI dashboard now and then.
+
 ## Choosing a model
 
 The model decides most of the bill, which is why askdare never picks one for you.

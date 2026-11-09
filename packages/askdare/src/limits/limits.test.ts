@@ -27,7 +27,9 @@ const DAY_KEY = 'ask:t:support:2026-10-29';
 const usage = (input: number, output: number) => ({
   inputTokens: input,
   cachedInputTokens: 0,
+  cacheWriteTokens: 0,
   outputTokens: output,
+  reasoningTokens: 0,
 });
 
 function setup(start = Date.parse('2026-10-29T12:00:00Z'), globalDailyTokens?: number) {
@@ -302,7 +304,13 @@ describe('attachments', () => {
     expect(await reservation.extend()).toBe(false);
     expect(await spent()).toBe(2 * 410);
     await reservation.settle(
-      { inputTokens: 500, cachedInputTokens: 0, outputTokens: 50 },
+      {
+        inputTokens: 500,
+        cachedInputTokens: 0,
+        cacheWriteTokens: 0,
+        outputTokens: 50,
+        reasoningTokens: 0,
+      },
       'conv_1',
     );
     expect(await spent()).toBe(550);

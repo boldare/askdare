@@ -5,6 +5,7 @@ import type { ModelGateway, TurnRequest, TurnResult } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
 import { decodeEvent, SseParser } from '../protocol/sse';
 import { STREAM_HEADERS, type StreamTurnOptions, streamTurn } from './stream-turn';
+import type { ChatUsageReport } from './usage-report';
 
 const bot: Bot = {
   ...defineBot({ id: 'support', model: 'test-model', instructions: 'Be brief.' }),
@@ -19,7 +20,13 @@ const bot: Bot = {
 
 const COMPLETED: TurnResult = {
   reason: 'completed',
-  usage: { inputTokens: 10, cachedInputTokens: 0, outputTokens: 5 },
+  usage: {
+    inputTokens: 10,
+    cachedInputTokens: 0,
+    cacheWriteTokens: 0,
+    outputTokens: 5,
+    reasoningTokens: 0,
+  },
 };
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
@@ -92,7 +99,7 @@ describe('streamTurn', () => {
       return COMPLETED;
     });
     const onUsage = vi.fn();
-    const { raw, events } = await collect(streamTurn(options({ gateway, onUsage })));
+    const { raw, events } = await collect(streamTurn(options({ gateway, settle: onUsage })));
 
     expect(raw.startsWith(': ok\n\n')).toBe(true);
     expect(events).toEqual([
@@ -178,13 +185,22 @@ describe('streamTurn', () => {
       visitor.abort();
       await sleep(20);
       expect(request.signal.aborted).toBe(false);
-      return { ...COMPLETED, usage: { inputTokens: 40, cachedInputTokens: 0, outputTokens: 7 } };
+      return {
+        ...COMPLETED,
+        usage: {
+          inputTokens: 40,
+          cachedInputTokens: 0,
+          cacheWriteTokens: 0,
+          outputTokens: 7,
+          reasoningTokens: 0,
+        },
+      };
     });
     const stream = streamTurn(
       options({
         gateway,
         signal: visitor.signal,
-        onUsage,
+        settle: onUsage,
         onError,
         waitUntil: (promise) => {
           work = promise;
@@ -196,10 +212,138 @@ describe('streamTurn', () => {
     await reader.cancel();
     await work;
     expect(onUsage).toHaveBeenCalledWith(
-      { inputTokens: 40, cachedInputTokens: 0, outputTokens: 7 },
+      {
+        inputTokens: 40,
+        cachedInputTokens: 0,
+        cacheWriteTokens: 0,
+        outputTokens: 7,
+        reasoningTokens: 0,
+      },
       'conv_new',
     );
     expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('reports the turn once its stream has ended: tokens, steps, tools and pseudonyms', async () => {
+    const step = { ...COMPLETED.usage, cacheWriteTokens: 3, reasoningTokens: 2 };
+    const gateway = fakeGateway(async (request) => {
+      request.onStep?.({ model: 'test-model-2026', usage: step });
+      request.onToolCall?.({ name: 'lookup', startedAt: 1, durationMs: 4, outcome: 'ok' });
+      request.onStep?.({ model: 'test-model-2026', usage: step });
+      return COMPLETED;
+    });
+    const reports: ChatUsageReport[] = [];
+    let work: Promise<unknown> | undefined;
+    await collect(
+      streamTurn(
+        options({
+          gateway,
+          report: (report) => {
+            reports.push(report);
+          },
+          waitUntil: (promise) => {
+            work = promise;
+          },
+        }),
+      ),
+    );
+    await work;
+    expect(reports).toEqual([
+      {
+        bot: 'support',
+        model: 'test-model-2026',
+        conversation: 'hmac(conversation:conv_new)',
+        visitor: 'hmac(visitor-1)',
+        startedAt: expect.any(Number),
+        durationMs: expect.any(Number),
+        outcome: 'completed',
+        finishReason: 'completed',
+        usage: {
+          inputTokens: 20,
+          cachedInputTokens: 0,
+          cacheWriteTokens: 6,
+          outputTokens: 10,
+          reasoningTokens: 4,
+        },
+        steps: 2,
+        tools: [{ name: 'lookup', startedAt: 1, durationMs: 4, outcome: 'ok' }],
+      },
+    ]);
+  });
+
+  it('reports a failed turn with what it spent before failing', async () => {
+    const gateway = fakeGateway(async (request) => {
+      request.onStep?.({ model: undefined, usage: COMPLETED.usage });
+      throw new AskdareError('upstream_error');
+    });
+    const report = vi.fn();
+    let work: Promise<unknown> | undefined;
+    await collect(
+      streamTurn(
+        options({
+          gateway,
+          conversationId: 'conv_old',
+          report,
+          waitUntil: (promise) => {
+            work = promise;
+          },
+        }),
+      ),
+    );
+    await work;
+    expect(report).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'test-model',
+        conversation: 'hmac(conversation:conv_old)',
+        outcome: 'failed',
+        errorCode: 'upstream_error',
+        usage: COMPLETED.usage,
+        steps: 1,
+      }),
+    );
+    expect(report.mock.calls[0]?.[0]).not.toHaveProperty('finishReason');
+  });
+
+  it('logs a failing usage hook by name only and still ends the answer', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    let work: Promise<unknown> | undefined;
+    const { events } = await collect(
+      streamTurn(
+        options({
+          report: () => {
+            throw new TypeError('secret detail');
+          },
+          waitUntil: (promise) => {
+            work = promise;
+          },
+        }),
+      ),
+    );
+    await work;
+    expect(events.at(-1)).toMatchObject({ type: 'message.end' });
+    expect(consoleError).toHaveBeenCalledWith('[askdare] the onUsage hook failed: TypeError');
+    expect(JSON.stringify(consoleError.mock.calls)).not.toContain('secret detail');
+    consoleError.mockRestore();
+  });
+
+  it('reports nothing when the visitor left before anything was spent', async () => {
+    const visitor = new AbortController();
+    visitor.abort();
+    const report = vi.fn();
+    let work: Promise<unknown> | undefined;
+    await collect(
+      streamTurn(
+        options({
+          signal: visitor.signal,
+          report,
+          waitUntil: (promise) => {
+            work = promise;
+          },
+        }),
+      ),
+    );
+    await work;
+    expect(report).not.toHaveBeenCalled();
   });
 
   it('calls nothing upstream when the visitor left before the turn started', async () => {

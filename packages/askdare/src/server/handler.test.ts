@@ -137,7 +137,13 @@ const gateway: ModelGateway = {
     request.emit({ type: 'text.delta', messageId: request.messageId, delta: 'Hello!' });
     return {
       reason: 'completed',
-      usage: { inputTokens: 1, cachedInputTokens: 0, outputTokens: 1 },
+      usage: {
+        inputTokens: 1,
+        cachedInputTokens: 0,
+        cacheWriteTokens: 0,
+        outputTokens: 1,
+        reasoningTokens: 0,
+      },
     };
   },
 };
