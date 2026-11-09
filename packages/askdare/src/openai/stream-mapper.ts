@@ -16,6 +16,8 @@ export interface StepOutcome {
   readonly incompleteReason: string | undefined;
   /** The model that answered, as the response reports it. */
   readonly model: string | undefined;
+  /** The provider's ID of the step's last visible answer message, the one visitors rate. */
+  readonly answerItemId: string | undefined;
   readonly usage: TokenUsage;
   readonly functionCalls: readonly FunctionCall[];
 }
@@ -46,6 +48,7 @@ export class ResponseStreamMapper {
   readonly #emit: (event: ProtocolEvent) => void;
   readonly #citations: CitationRegistry;
   readonly #functionCalls: FunctionCall[] = [];
+  #answerItemId: string | undefined;
   #outcome: StepOutcome | undefined;
 
   constructor(
@@ -82,6 +85,8 @@ export class ResponseStreamMapper {
       case 'response.output_item.added':
         if (event.item.type === 'reasoning') {
           this.#emit({ type: 'reasoning', messageId: this.#messageId, state: 'started' });
+        } else if (event.item.type === 'message' && event.item.phase !== 'commentary') {
+          this.#answerItemId = event.item.id;
         }
         return;
       case 'response.output_item.done':
@@ -103,6 +108,7 @@ export class ResponseStreamMapper {
           status: event.type === 'response.completed' ? 'completed' : 'incomplete',
           incompleteReason: event.response.incomplete_details?.reason,
           model: event.response.model || undefined,
+          answerItemId: this.#answerItemId,
           usage: event.response.usage
             ? {
                 inputTokens: event.response.usage.input_tokens,

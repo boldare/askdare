@@ -206,6 +206,7 @@ Everything in `widget` is sent to browsers. Never put secrets in it. [Styling](s
 | `texts` | `Partial<Record<TextKey, string>>` | `{}` | Any widget text by its key, 1–300 characters each. |
 | `disclosure` | `false \| { privacyUrl?: string }` | shown, no link | The note that visitors talk to an AI. `privacyUrl` is an `https://` URL or a path on your app, such as `/privacy`. `false` hides the note. |
 | `starters` | `string[]` | `[]` | Suggested questions on the welcome screen. Up to 4, 1–80 characters each. |
+| `feedback` | `boolean` | `true` | 👍/👎 under each answer, with an optional comment after 👎. They show only when `createChatHandler` has [`onFeedback`](#onfeedback); `false` hides them for this bot. |
 | `avatar` | `string` | none | A path on your app, such as `/avatar.png`, or a PNG, JPEG, WebP or GIF `data:` URL of up to 90,000 base64 characters. |
 | `theme` | `PresetName \| ThemeDefinition` | `'aura'` | `'halo'`, `'aura'`, `'sage'`, `'care'`, or a theme from `defineTheme`. |
 | `colorScheme` | `'auto' \| 'light' \| 'dark'` | `'auto'` | `'auto'` follows the visitor's system setting. |
@@ -215,7 +216,7 @@ The text defaults come from the built-in dictionary of the configured language. 
 
 ## `createChatHandler`
 
-`createChatHandler(options: ChatHandlerOptions): ChatHandlers` returns `GET`, `POST` and `DELETE` for the catch-all route. Its types are exported from `@boldare/askdare/next`: `ChatHandlerOptions`, `ChatHandlerLimitsOptions`, `ChatErrorReport`, `ChatUsageReport`, `ChatTokenUsage`, `ChatToolCallReport`, `TrustProxy`, `ChatHandlers` and `RouteHandler`.
+`createChatHandler(options: ChatHandlerOptions): ChatHandlers` returns `GET`, `POST` and `DELETE` for the catch-all route. Its types are exported from `@boldare/askdare/next`: `ChatHandlerOptions`, `ChatHandlerLimitsOptions`, `ChatErrorReport`, `ChatUsageReport`, `ChatTokenUsage`, `ChatToolCallReport`, `ChatFeedbackReport`, `TrustProxy`, `ChatHandlers` and `RouteHandler`.
 
 | Option | Type | Default | Notes |
 | --- | --- | --- | --- |
@@ -228,6 +229,7 @@ The text defaults come from the built-in dictionary of the configured language. 
 | `limits` | `ChatHandlerLimitsOptions` | see [Handler limits](#handler-limits) | The counter store, the client IP and a budget across bots. |
 | `onError` | `(report: ChatErrorReport) => void \| Promise<void>` | one `console.error` line | Your error reporting. See [`onError`](#onerror). |
 | `onUsage` | `(report: ChatUsageReport) => void \| Promise<void>` | none | Each turn's tokens, timings and tool calls, for cost tracking and tracing. See [`onUsage`](#onusage). |
+| `onFeedback` | `(report: ChatFeedbackReport) => void \| Promise<void>` | none | Visitors' ratings of answers. Without it, answers can't be rated. See [`onFeedback`](#onfeedback). |
 | `gallery` | `boolean` | `false` | Serves the state gallery. See [`gallery`](#gallery). |
 
 A wrong `basePath`, a duplicate bot ID or an empty `bots` list throws a `TypeError` when the route loads. A missing key or a missing or weak secret doesn't stop the route from loading. Instead, requests that need it answer `bot_unavailable`, and `onError` receives the reason. In development (`next dev`), the chat itself says what to fix.
@@ -317,6 +319,35 @@ It may be async. askdare calls it after the stream has closed, so it never delay
 | `tools` | `ChatToolCallReport[]` | One per function call: `name`, `startedAt`, `durationMs` and `outcome` (`ok`, `error` or `timeout`). |
 
 The pseudonyms change when `CHAT_SECRET` rotates. A turn that fails mid-stream reports the usage askdare saw, which can be less than what OpenAI bills; [Costs](costs.md) explains the difference.
+
+### `onFeedback`
+
+With `onFeedback`, visitors can rate each answer 👍 or 👎, add a comment after 👎, and take a rating back. askdare stores no ratings: it hands each one to this function, after the response, so you can keep them where you keep other data.
+
+```ts
+export const { GET, POST, DELETE } = createChatHandler({
+  bots,
+  onFeedback: async ({ bot, rating, comment, conversationId, itemId }) => {
+    await db.insert(ratings).values({ bot, rating, comment, conversationId, itemId });
+  },
+});
+```
+
+It may be async, like `onUsage`, and nothing it throws reaches the chat. A bot hides the buttons with `widget.feedback: false`.
+
+`ChatFeedbackReport`:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `bot` | `string` | The bot's ID. |
+| `rating` | `'up' \| 'down' \| null` | `null` when the visitor took their rating back. |
+| `comment` | `string` | What the visitor wrote, up to 500 characters. Absent when they wrote nothing or took the rating back. Treat it as personal data. |
+| `visitor` | `string` | The same pseudonym `onUsage` reports, so ratings and costs line up. |
+| `identity` | `VisitorIdentity` | The signed-in user, verified ([Signed-in visitors](identity.md)). Absent for anonymous visitors. |
+| `conversationId` | `string` | The OpenAI conversation, for your own review of it, e.g. with `openai.conversations.items.list`. Never sent to the browser. |
+| `itemId` | `string` | The OpenAI ID of the rated answer within that conversation. |
+
+A visitor can rate only answers in their own conversations: each answer carries an encrypted handle bound to the visitor, or to the signed-in user, and the bot. Ratings are limited to 20 per minute per visitor.
 
 ### `gallery`
 

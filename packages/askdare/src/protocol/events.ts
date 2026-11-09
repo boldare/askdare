@@ -85,6 +85,14 @@ export interface ToolStatusEvent {
   readonly state: 'running' | 'done' | 'error';
 }
 
+/** What the client needs to rate one answer (ADR-0012). */
+export interface FeedbackHandle {
+  /** Opaque; sent back to `POST /feedback`. */
+  readonly handle: string;
+  /** Stable for the answer across reloads, so the client can remember its rating. Hex. */
+  readonly key: string;
+}
+
 export interface MessageEndEvent {
   readonly type: 'message.end';
   readonly messageId: string;
@@ -94,6 +102,8 @@ export interface MessageEndEvent {
    * days after its last message rather than its first.
    */
   readonly resumeToken?: string | undefined;
+  /** Present when visitors may rate this bot's answers. */
+  readonly feedback?: FeedbackHandle | undefined;
 }
 
 export interface ErrorEvent {

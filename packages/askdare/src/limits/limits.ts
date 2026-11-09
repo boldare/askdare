@@ -58,6 +58,8 @@ export interface Limits {
   beginTurn(bot: Bot, keys: TurnLimitKeys): Promise<TurnReservation>;
   /** History reads and deletions: no tokens, but they still cost upstream calls. */
   checkConversationAccess(bot: Bot, visitorId: string): Promise<void>;
+  /** Ratings of answers, which each reach the app's `onFeedback`. */
+  checkFeedback(bot: Bot, visitorId: string): Promise<void>;
   /** File uploads: no tokens until sent (then reserved with the turn), but they use storage. */
   checkUpload(bot: Bot, keys: UploadLimitKeys): Promise<void>;
   /** Dictations: rate per visitor, then the longest allowed duration reserved against daily speech budgets. */
@@ -178,6 +180,11 @@ export function createLimits(options: LimitsOptions): Limits {
     async checkConversationAccess(bot, visitorId) {
       assertEnabled();
       await enforce(`ask:r:${bot.id}:${visitorId}`, MINUTE, 20);
+    },
+
+    async checkFeedback(bot, visitorId) {
+      assertEnabled();
+      await enforce(`ask:f:${bot.id}:${visitorId}`, MINUTE, 20);
     },
 
     async checkUpload(bot, keys) {

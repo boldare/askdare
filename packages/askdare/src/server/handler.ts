@@ -12,6 +12,7 @@ import type { ModelGateway, TurnAttachment } from '../gateway';
 import { canonicalLocale } from '../i18n/texts';
 import type { Limits } from '../limits/limits';
 import type { DoctorReport } from '../protocol/doctor';
+import type { FeedbackHandle } from '../protocol/events';
 import type { IdentityFailure, IdentityVerifier, VerifiedIdentity } from '../security/identity';
 import { newVisitorId, type ResumeGrant, type TokenService } from '../security/tokens';
 import { PRESET_NAMES, type PresetName } from '../theme/presets';
@@ -26,8 +27,9 @@ import {
   renderEmbedPage,
   themeAsset,
 } from './embed-page';
+import type { ChatFeedbackReport } from './feedback-report';
 import { loaderWithLook } from './launcher';
-import { STREAM_HEADERS, streamTurn } from './stream-turn';
+import { hookError, STREAM_HEADERS, streamTurn } from './stream-turn';
 import type { ChatUsageReport } from './usage-report';
 
 export interface HandlerConfig {
@@ -44,6 +46,8 @@ export interface HandlerConfig {
   readonly onError?: ((error: AskdareError) => void) | undefined;
   /** Receives each turn's report once its stream has ended (ADR-0012). */
   readonly onUsage?: ((report: ChatUsageReport) => void | Promise<void>) | undefined;
+  /** Receives visitors' ratings of answers; without it, answers can't be rated (ADR-0012). */
+  readonly onFeedback?: ((report: ChatFeedbackReport) => void | Promise<void>) | undefined;
   /**
    * Development only: a description of a setup error to show in the chat instead of the generic
    * message, such as a missing OPENAI_API_KEY. Never given in production.
@@ -91,6 +95,16 @@ const sessionBody = z.object({
    */
   identityToken: z.string().max(4096).nullable().optional(),
 });
+
+const feedbackBody = z.object({
+  botId: z.string().max(64),
+  feedback: z.string().min(1).max(4096),
+  rating: z.enum(['up', 'down']).nullable(),
+  comment: z.string().max(500).optional(),
+});
+
+/** Provider message IDs a feedback handle may carry; history may hold others. */
+const ANSWER_ITEM_ID = /^msg_[A-Za-z0-9_-]{1,128}$/;
 
 const conversationBody = z.object({
   botId: z.string().max(64),
@@ -211,7 +225,11 @@ async function readJson<T>(request: Request, schema: z.ZodType<T>): Promise<T> {
  * Whether the current session may use a conversation: anonymous conversations stay open to their
  * visitor, signed-in ones only to the same user (ADR-0009).
  */
-function sameOwner(grant: ResumeGrant, visitorId: string, key: string | undefined): boolean {
+function sameOwner(
+  grant: Pick<ResumeGrant, 'visitorId' | 'identityKey'>,
+  visitorId: string,
+  key: string | undefined,
+): boolean {
   // A signed-in user's conversation follows them, even when the visitor ID changed (an expired
   // session on a laptop that slept); an anonymous one stays with its visitor.
   return grant.identityKey === undefined
@@ -347,6 +365,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       theme,
       gallery,
       themeHref: `${config.basePath}/theme/${bot.id}.css?${overrides}`,
+      feedback: feedbackOn(bot),
     };
   };
 
@@ -417,6 +436,29 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       },
     });
   };
+
+  /** Whether visitors may rate this bot's answers. */
+  const feedbackOn = (bot: Bot): boolean => config.onFeedback !== undefined && bot.widget.feedback;
+
+  /** The rating handle of one answer, bound to the session that may rate it. */
+  const feedbackHandle = async (
+    tokens: TokenService,
+    bot: Bot,
+    owner: { readonly visitorId: string; readonly key: string | undefined },
+    conversationId: string,
+    itemId: string,
+  ): Promise<FeedbackHandle> => ({
+    handle: (
+      await tokens.issueFeedback(bot.id, {
+        visitorId: owner.visitorId,
+        conversationId,
+        itemId,
+        identityKey: owner.key,
+      })
+    ).token,
+    // Stable across reloads, so the widget can show the visitor's own rating again.
+    key: (await tokens.pseudonym(`answer:${itemId}`)).slice(0, 32),
+  });
 
   /** With identity off (no IDENTITY_SECRET), identities in older access tokens no longer count. */
   const keyed = <Grant extends { identity?: VerifiedIdentity | undefined }>(grant: Grant): Grant =>
@@ -554,6 +596,9 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
         reservation.settle(usage, id).catch((error: unknown) => report(toAskdareError(error)));
       },
       report: config.onUsage,
+      issueFeedback: feedbackOn(bot)
+        ? (id, itemId) => feedbackHandle(tokens, bot, { visitorId, key }, id, itemId)
+        : undefined,
       reserveCall: () => reservation.extend(),
       onError: report,
       explain: config.explain,
@@ -720,7 +765,12 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
   /** Authenticates the visitor and proves they own the conversation behind the resume token. */
   const ownedConversation = async (
     request: Request,
-  ): Promise<{ bot: Bot; conversationId: string }> => {
+  ): Promise<{
+    bot: Bot;
+    conversationId: string;
+    tokens: TokenService;
+    owner: { readonly visitorId: string; readonly key: string | undefined };
+  }> => {
     assertSameOrigin(request);
     const body = await readJson(request, conversationBody);
     const bot = findBot(body.botId);
@@ -732,13 +782,58 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       throw new AskdareError('not_found');
     }
     await config.limits.checkConversationAccess(bot, visitorId);
-    return { bot, conversationId: grant.conversationId };
+    return { bot, conversationId: grant.conversationId, tokens, owner: { visitorId, key } };
   };
 
   const readHistory = async (request: Request): Promise<Response> => {
-    const { conversationId } = await ownedConversation(request);
-    const messages = await config.gateway().listMessages(conversationId, request.signal);
+    const { bot, conversationId, tokens, owner } = await ownedConversation(request);
+    let messages = await config.gateway().listMessages(conversationId, request.signal);
+    if (feedbackOn(bot)) {
+      messages = await Promise.all(
+        messages.map(async (message) =>
+          message.role === 'assistant' && ANSWER_ITEM_ID.test(message.id)
+            ? {
+                ...message,
+                feedback: await feedbackHandle(tokens, bot, owner, conversationId, message.id),
+              }
+            : message,
+        ),
+      );
+    }
     return jsonResponse({ messages });
+  };
+
+  /**
+   * A visitor's rating of one answer, handed to `onFeedback` after the response. The handle must
+   * belong to the same visitor, or the same signed-in user, as the session.
+   */
+  const submitFeedback = async (request: Request): Promise<Response> => {
+    assertSameOrigin(request);
+    const body = await readJson(request, feedbackBody);
+    const bot = findBot(body.botId);
+    const onFeedback = config.onFeedback;
+    if (!onFeedback || !bot.widget.feedback) throw new AskdareError('not_found');
+    const tokens = await config.tokens();
+    const { visitorId, identity } = keyed(await tokens.verifyAccess(bearerToken(request), bot.id));
+    const key = identity ? await keyOf(bot, identity) : undefined;
+    const grant = await tokens.verifyFeedback(body.feedback, bot.id);
+    if (!sameOwner(grant, visitorId, key)) throw new AskdareError('not_found');
+    await config.limits.checkFeedback(bot, visitorId);
+    const comment = body.comment?.trim();
+    const work = (async () =>
+      onFeedback({
+        bot: bot.id,
+        rating: body.rating,
+        ...(comment && body.rating !== null ? { comment } : {}),
+        visitor: await tokens.pseudonym(identity ? `user:${identity.identity.id}` : visitorId),
+        ...(identity ? { identity: identity.identity } : {}),
+        conversationId: grant.conversationId,
+        itemId: grant.itemId,
+      }))().catch((error: unknown) => {
+      console.error(`[askdare] the onFeedback hook failed: ${hookError(error)}`);
+    });
+    config.waitUntil?.(work);
+    return new Response(null, { status: 204, headers: NO_STORE });
   };
 
   const deleteConversation = async (request: Request): Promise<Response> => {
@@ -816,6 +911,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       if (path === '/session') return createSession(request);
       if (path === '/messages') return sendMessage(request);
       if (path === '/history') return readHistory(request);
+      if (path === '/feedback') return submitFeedback(request);
       if (path === '/attachments') return uploadAttachment(request);
       if (path === '/transcriptions') return transcribe(request);
       if (path === '/doctor') return runDoctor(request);

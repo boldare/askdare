@@ -261,6 +261,8 @@ describe('runTurn', () => {
         outputTokens: 9,
         reasoningTokens: 0,
       },
+      // The answer's message, which visitors rate.
+      answerItemId: 'msg_out',
     });
   });
 

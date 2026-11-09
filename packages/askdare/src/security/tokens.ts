@@ -7,6 +7,7 @@ const ISSUER = 'askdare';
 const ACCESS_TYP = 'askdare-access+jwt';
 const RESUME_TYP = 'askdare-resume+jwt';
 const ATTACHMENT_TYP = 'askdare-attachment+jwt';
+const FEEDBACK_TYP = 'askdare-feedback+jwt';
 const DOCTOR_TYP = 'askdare-doctor+jwt';
 const DOCTOR_AUDIENCE = 'askdare-doctor';
 const DOCTOR_TTL_SECONDS = 120;
@@ -15,6 +16,7 @@ const MIN_DISTINCT_CHARACTERS = 12;
 const VISITOR_ID = /^v_[0-9a-f]{32}$/;
 const CONVERSATION_ID = /^conv_[A-Za-z0-9_-]{1,128}$/;
 const FILE_ID = /^file-[A-Za-z0-9_-]{1,128}$/;
+const ITEM_ID = /^msg_[A-Za-z0-9_-]{1,128}$/;
 /** How long after expiry an access token still identifies its visitor for a renewal. */
 const RENEWAL_GRACE_SECONDS = 60 * 60;
 const encoder = new TextEncoder();
@@ -50,6 +52,15 @@ export interface ResumeGrant {
   readonly visitorId: string;
   readonly conversationId: string;
   /** Set when the conversation started while signed in: only that user may resume it. */
+  readonly identityKey?: string | undefined;
+}
+
+/** An answer a visitor may rate: its conversation and the provider's ID of the message. */
+export interface FeedbackGrant {
+  readonly visitorId: string;
+  readonly conversationId: string;
+  readonly itemId: string;
+  /** Set when the conversation is bound to a signed-in user, as in `ResumeGrant`. */
   readonly identityKey?: string | undefined;
 }
 
@@ -90,6 +101,10 @@ export interface TokenService {
   issueAttachment(botId: string, grant: AttachmentGrant): Promise<IssuedToken>;
   /** Throws `invalid_input` for a forged, expired or foreign handle, and for raw file IDs. */
   verifyAttachment(token: string, botId: string): Promise<AttachmentGrant>;
+  /** A handle for rating one answer (ADR-0012). Lives as long as a resume handle. */
+  issueFeedback(botId: string, grant: FeedbackGrant): Promise<IssuedToken>;
+  /** Throws `not_found`, so a forged or stale handle reveals nothing. */
+  verifyFeedback(token: string, botId: string): Promise<FeedbackGrant>;
   /** A 2-minute token with which `askdare doctor` proves it knows `CHAT_SECRET`. */
   issueDoctor(): Promise<IssuedToken>;
   /** Throws `unauthorized`. */
@@ -306,6 +321,39 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
         throw invalid();
       }
       return { visitorId: payload.sub, fileId: fid, kind: knd, tokens: est };
+    },
+
+    issueFeedback: (botId, grant) =>
+      issue(FEEDBACK_TYP, botId, grant.visitorId, resumeTtl, {
+        cid: grant.conversationId,
+        iid: grant.itemId,
+        ...(grant.identityKey ? { ids: grant.identityKey } : {}),
+      }),
+
+    async verifyFeedback(token, botId) {
+      try {
+        const { payload } = await verify(token, FEEDBACK_TYP, botId);
+        const { cid, iid, ids } = payload;
+        if (
+          typeof payload.sub !== 'string' ||
+          !VISITOR_ID.test(payload.sub) ||
+          typeof cid !== 'string' ||
+          !CONVERSATION_ID.test(cid) ||
+          typeof iid !== 'string' ||
+          !ITEM_ID.test(iid) ||
+          (ids !== undefined && typeof ids !== 'string')
+        ) {
+          throw new AskdareError('not_found');
+        }
+        return {
+          visitorId: payload.sub,
+          conversationId: cid,
+          itemId: iid,
+          ...(ids === undefined ? {} : { identityKey: ids }),
+        };
+      } catch (error) {
+        throw new AskdareError('not_found', { cause: error });
+      }
     },
 
     issueDoctor: () => issue(DOCTOR_TYP, DOCTOR_AUDIENCE, 'doctor', DOCTOR_TTL_SECONDS),

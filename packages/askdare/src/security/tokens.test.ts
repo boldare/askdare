@@ -186,6 +186,44 @@ describe('attachment handles', () => {
   });
 });
 
+describe('feedback handles', () => {
+  const grant = {
+    visitorId: VISITOR,
+    conversationId: 'conv_Abc123',
+    itemId: 'msg_Def456',
+    identityKey: 'k3y',
+  } as const;
+
+  it('round-trips the answer and keeps its IDs opaque', async () => {
+    const tokens = await createTokenService({ secret: SECRET });
+    const { token } = await tokens.issueFeedback('support', grant);
+    expect(token).not.toContain('Abc123');
+    expect(token).not.toContain('Def456');
+    await expect(tokens.verifyFeedback(token, 'support')).resolves.toEqual(grant);
+  });
+
+  it('rejects forged handles, other token types, other bots and expired handles', async () => {
+    let clock = 1_000_000;
+    const tokens = await createTokenService({ secret: SECRET, now: () => clock });
+    const notFound = { code: 'not_found' };
+    await expect(tokens.verifyFeedback('msg_Def456', 'support')).rejects.toMatchObject(notFound);
+    const forged = await forge('askdare-feedback+jwt', undefined, {
+      cid: 'conv_Abc123',
+      iid: 'msg_Def456',
+    });
+    await expect(tokens.verifyFeedback(forged, 'support')).rejects.toMatchObject(notFound);
+    const resume = await tokens.issueResume('support', {
+      visitorId: VISITOR,
+      conversationId: 'conv_Abc123',
+    });
+    await expect(tokens.verifyFeedback(resume.token, 'support')).rejects.toMatchObject(notFound);
+    const { token } = await tokens.issueFeedback('support', grant);
+    await expect(tokens.verifyFeedback(token, 'sales')).rejects.toMatchObject(notFound);
+    clock += 30 * 24 * 60 * 60 + 1;
+    await expect(tokens.verifyFeedback(token, 'support')).rejects.toMatchObject(notFound);
+  });
+});
+
 describe('newVisitorId', () => {
   it('produces unique, unguessable identifiers in the accepted format', () => {
     const ids = new Set(Array.from({ length: 100 }, newVisitorId));

@@ -15,6 +15,8 @@ This page lists what data the chat handles, where it goes and how long it stays,
 | IP addresses, visitor IDs, conversation IDs | Rate-limit counters, in your server's memory or in Upstash | IP addresses up to 2 days, conversation IDs up to 30 days |
 | An HMAC of the visitor or user ID (`safety_identifier`) | Sent to OpenAI with every model request | OpenAI's retention |
 | Error reports | Your server log, or your `onError` function | Your hosting's log retention |
+| Turn reports: token counts, timings, tool names, pseudonyms | Your `onUsage` function, if you set one | Wherever you keep them |
+| Ratings of answers and the comments visitors write | Your `onFeedback` function, if you set one | Wherever you keep them |
 
 ## In the visitor's browser
 
@@ -67,6 +69,8 @@ The server gives every new visitor a random ID: `v_` followed by 32 hexadecimal 
 - It logs one line per server error: the error code, an explanation of setup problems, and the underlying error, such as OpenAI's status, error code and request ID. It also logs the ID of an uploaded file it couldn't delete.
 - Errors thrown by your own tools are logged as they are. Keep personal data out of their messages.
 - With `onError` in `createChatHandler`, the same reports go to your function, for example to Sentry, instead of the log.
+- With `onUsage`, every turn's report goes to your function: token counts, timings, tool names and outcomes, and pseudonyms (HMACs) of the conversation and the visitor or user. It holds no message text. See [Observability](observability.md).
+- With `onFeedback`, visitors can rate answers, and each rating goes to your function with the comment the visitor wrote, the OpenAI conversation and answer IDs, a pseudonym of the visitor, and the signed-in user if there is one. askdare keeps none of it. A comment is free text the visitor typed, so treat it like a message: mention it in your notice and keep it no longer than you need.
 - Your hosting provider may log every request, IP addresses included, according to its own settings.
 
 ### `safety_identifier`
@@ -145,6 +149,7 @@ The note exists for the transparency duty in Article 50 of the EU AI Act: people
 | Upstash | With `@boldare/askdare-upstash` | Rate-limit counters, whose names hold IP addresses, visitor IDs and conversation IDs |
 | Your hosting provider, such as Vercel or Heroku | Always | Every request to the app, with IP addresses, and the server log |
 | Your error monitoring | With `onError` | Error reports, without message contents or API keys |
+| Your metrics or tracing | With `onUsage`, e.g. through `@boldare/askdare-otel` | Turn reports: counters, timings and pseudonyms, without message text |
 
 Your tools may send data to further services of your own.
 
