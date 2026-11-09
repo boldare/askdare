@@ -1,0 +1,84 @@
+event: response.created
+data: {"type":"response.created","response":{"id":"resp_s50011","object":"response","created_at":1794258888,"status":"in_progress","access_programs":{"cyber":"standard"},"background":false,"completed_at":null,"conversation":{"id":"conv_s50003"},"error":null,"frequency_penalty":0.0,"image":{"context_compression":"disabled"},"incomplete_details":null,"instructions":"Answer from the provided files and cite them. Be brief.","max_output_tokens":400,"max_tool_calls":null,"model":"gpt-6.1-terra","moderation":null,"output":[],"parallel_tool_calls":true,"presence_penalty":0.0,"previous_response_id":null,"prompt_cache_key":"askdare:spike-s5","prompt_cache_retention":"24h","reasoning":{"context":"all_turns","effort":"medium","mode":"standard","summary":null},"safety_identifier":"7239f48669a58354d9d6a3207fc49157c0399a2961748e8cb0f8ed4db552e601","service_tier":"auto","store":true,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tool_usage":{"image_gen":{"input_tokens":0,"input_tokens_details":{"image_tokens":0,"text_tokens":0},"output_tokens":0,"output_tokens_details":{"image_tokens":0,"text_tokens":0},"total_tokens":0},"web_search":{"num_requests":0}},"tools":[{"type":"file_search","filters":null,"max_num_results":3,"ranking_options":{"ranker":"auto","score_threshold":0.0},"vector_store_ids":["vs_s50001"]}],"top_logprobs":0,"top_p":0.98,"truncation":"auto","usage":null,"user":null,"metadata":{}},"sequence_number":0}
+
+event: response.in_progress
+data: {"type":"response.in_progress","response":{"id":"resp_s50011","object":"response","created_at":1794258888,"status":"in_progress","access_programs":{"cyber":"standard"},"background":false,"completed_at":null,"conversation":{"id":"conv_s50003"},"error":null,"frequency_penalty":0.0,"image":{"context_compression":"disabled"},"incomplete_details":null,"instructions":"Answer from the provided files and cite them. Be brief.","max_output_tokens":400,"max_tool_calls":null,"model":"gpt-6.1-terra","moderation":null,"output":[],"parallel_tool_calls":true,"presence_penalty":0.0,"previous_response_id":null,"prompt_cache_key":"askdare:spike-s5","prompt_cache_retention":"24h","reasoning":{"context":"all_turns","effort":"medium","mode":"standard","summary":null},"safety_identifier":"7239f48669a58354d9d6a3207fc49157c0399a2961748e8cb0f8ed4db552e601","service_tier":"auto","store":true,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tool_usage":{"image_gen":{"input_tokens":0,"input_tokens_details":{"image_tokens":0,"text_tokens":0},"output_tokens":0,"output_tokens_details":{"image_tokens":0,"text_tokens":0},"total_tokens":0},"web_search":{"num_requests":0}},"tools":[{"type":"file_search","filters":null,"max_num_results":3,"ranking_options":{"ranker":"auto","score_threshold":0.0},"vector_store_ids":["vs_s50001"]}],"top_logprobs":0,"top_p":0.98,"truncation":"auto","usage":null,"user":null,"metadata":{}},"sequence_number":1}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","item":{"id":"fs_s50001","type":"file_search_call","status":"in_progress","queries":[],"results":null},"output_index":0,"sequence_number":2}
+
+event: response.file_search_call.in_progress
+data: {"type":"response.file_search_call.in_progress","item_id":"fs_s50001","output_index":0,"sequence_number":3}
+
+event: response.file_search_call.searching
+data: {"type":"response.file_search_call.searching","item_id":"fs_s50001","output_index":0,"sequence_number":4}
+
+event: response.file_search_call.completed
+data: {"type":"response.file_search_call.completed","item_id":"fs_s50001","output_index":0,"sequence_number":5}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","item":{"id":"fs_s50001","type":"file_search_call","status":"completed","queries":["What is the office dog called?"],"results":[{"attributes":{},"file_id":"file-s5redacted","filename":"askdare-handbook.md","score":0.9924,"text":"# Team handbook\n\nThe office dog is called Pixel. Pixel visits on Fridays.\n\nThe coffee machine is cleaned every Wednesday by the facilities team.","vector_store_id":""}]},"output_index":0,"sequence_number":6}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","item":{"id":"cmp_s50014","type":"compaction","encrypted_content":"redacted"},"output_index":1,"sequence_number":7}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","item":{"id":"cmp_s50014","type":"compaction","encrypted_content":"redacted"},"output_index":1,"sequence_number":8}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","item":{"id":"msg_s50015","type":"message","status":"in_progress","content":[],"phase":"final_answer","role":"assistant"},"output_index":2,"sequence_number":9}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","content_index":0,"item_id":"msg_s50015","output_index":2,"part":{"type":"output_text","annotations":[],"logprobs":[],"text":""},"sequence_number":10}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"The","item_id":"msg_s50015","logprobs":[],"obfuscation":"B3s9FApwwLvJX","output_index":2,"sequence_number":11}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":" office","item_id":"msg_s50015","logprobs":[],"obfuscation":"xTQ6mQiEc","output_index":2,"sequence_number":12}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":" dog","item_id":"msg_s50015","logprobs":[],"obfuscation":"PDpVEw7eBFcr","output_index":2,"sequence_number":13}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":" is","item_id":"msg_s50015","logprobs":[],"obfuscation":"FTzQz36oVoB0d","output_index":2,"sequence_number":14}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":" called","item_id":"msg_s50015","logprobs":[],"obfuscation":"3Y5mBbWUc","output_index":2,"sequence_number":15}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":" **","item_id":"msg_s50015","logprobs":[],"obfuscation":"ey8UuhVNfJz74","output_index":2,"sequence_number":16}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"Pixel","item_id":"msg_s50015","logprobs":[],"obfuscation":"6iJzAlP9xJE","output_index":2,"sequence_number":17}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"**","item_id":"msg_s50015","logprobs":[],"obfuscation":"hzH7OPUyIj1oU4","output_index":2,"sequence_number":18}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":".","item_id":"msg_s50015","logprobs":[],"obfuscation":"dGxkIQb4k5ZX2Ti","output_index":2,"sequence_number":19}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":" ","item_id":"msg_s50015","logprobs":[],"obfuscation":"eHMKYbEAc7admke","output_index":2,"sequence_number":20}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":" ","item_id":"msg_s50015","logprobs":[],"obfuscation":"tcVNmkv8bwTKEYv","output_index":2,"sequence_number":21}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","content_index":0,"item_id":"msg_s50015","logprobs":[],"output_index":2,"sequence_number":22,"text":"The office dog is called **Pixel**.  "}
+
+event: response.content_part.done
+data: {"type":"response.content_part.done","content_index":0,"item_id":"msg_s50015","output_index":2,"part":{"type":"output_text","annotations":[],"logprobs":[],"text":"The office dog is called **Pixel**.  "},"sequence_number":23}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","item":{"id":"msg_s50015","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":"The office dog is called **Pixel**.  "}],"phase":"final_answer","role":"assistant"},"output_index":2,"sequence_number":24}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","item":{"id":"cmp_s50015","type":"compaction","encrypted_content":"redacted"},"output_index":3,"sequence_number":25}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","item":{"id":"cmp_s50015","type":"compaction","encrypted_content":"redacted"},"output_index":3,"sequence_number":26}
+
+event: response.completed
+data: {"type":"response.completed","response":{"id":"resp_s50011","object":"response","created_at":1794258888,"status":"completed","access_programs":{"cyber":"standard"},"background":false,"completed_at":1794258895,"conversation":{"id":"conv_s50003"},"error":null,"frequency_penalty":0.0,"image":{"context_compression":"disabled"},"incomplete_details":null,"instructions":"Answer from the provided files and cite them. Be brief.","max_output_tokens":400,"max_tool_calls":null,"model":"gpt-6.1-terra","moderation":null,"output":[{"id":"fs_s50001","type":"file_search_call","status":"completed","queries":["What is the office dog called?"],"results":[{"attributes":{},"file_id":"file-s5redacted","filename":"askdare-handbook.md","score":0.9924,"text":"# Team handbook\n\nThe office dog is called Pixel. Pixel visits on Fridays.\n\nThe coffee machine is cleaned every Wednesday by the facilities team.","vector_store_id":""}]},{"id":"cmp_s50014","type":"compaction","encrypted_content":"redacted"},{"id":"msg_s50015","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":"The office dog is called **Pixel**.  "}],"phase":"final_answer","role":"assistant"},{"id":"cmp_s50015","type":"compaction","encrypted_content":"redacted"}],"parallel_tool_calls":true,"presence_penalty":0.0,"previous_response_id":null,"prompt_cache_key":"askdare:spike-s5","prompt_cache_retention":"24h","reasoning":{"context":"all_turns","effort":"medium","mode":"standard","summary":null},"safety_identifier":"7239f48669a58354d9d6a3207fc49157c0399a2961748e8cb0f8ed4db552e601","service_tier":"default","store":true,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tool_usage":{"image_gen":{"input_tokens":0,"input_tokens_details":{"image_tokens":0,"text_tokens":0},"output_tokens":0,"output_tokens_details":{"image_tokens":0,"text_tokens":0},"total_tokens":0},"web_search":{"num_requests":0}},"tools":[{"type":"file_search","filters":null,"max_num_results":3,"ranking_options":{"ranker":"auto","score_threshold":0.0},"vector_store_ids":["vs_s50001"]}],"top_logprobs":0,"top_p":0.98,"truncation":"auto","usage":{"input_tokens":1610,"input_tokens_details":{"cache_write_tokens":11,"cached_tokens":1472},"output_tokens":94,"output_tokens_details":{"reasoning_tokens":66},"total_tokens":1704},"user":null,"metadata":{}},"sequence_number":27}
+

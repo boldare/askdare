@@ -1,0 +1,1087 @@
+{
+  "model": "gpt-6.1-terra",
+  "sdk": "7.52.0",
+  "startedAt": "2026-11-09T21:13:30.733Z",
+  "e0_threshold_floor": {
+    "ok": true,
+    "ms": 4579,
+    "tries": {
+      "0": {
+        "accepted": false,
+        "error": {
+          "kind": "BadRequestError",
+          "status": 400,
+          "code": "integer_below_min_value",
+          "param": "context_management[0].compact_threshold",
+          "message": "400 Invalid 'context_management[0].compact_threshold': integer below minimum value. Expected a value >= 1000, but got 0 instead."
+        }
+      },
+      "1": {
+        "accepted": false,
+        "error": {
+          "kind": "BadRequestError",
+          "status": 400,
+          "code": "integer_below_min_value",
+          "param": "context_management[0].compact_threshold",
+          "message": "400 Invalid 'context_management[0].compact_threshold': integer below minimum value. Expected a value >= 1000, but got 1 instead."
+        }
+      },
+      "100": {
+        "accepted": false,
+        "error": {
+          "kind": "BadRequestError",
+          "status": 400,
+          "code": "integer_below_min_value",
+          "param": "context_management[0].compact_threshold",
+          "message": "400 Invalid 'context_management[0].compact_threshold': integer below minimum value. Expected a value >= 1000, but got 100 instead."
+        }
+      },
+      "1000": {
+        "accepted": true,
+        "compacted": false,
+        "usage": {
+          "input": 17,
+          "cached": 0,
+          "cacheWrite": 0,
+          "output": 5,
+          "reasoning": 0
+        },
+        "sequence": [
+          "response.created",
+          "response.in_progress",
+          "response.output_item.added:message",
+          "response.content_part.added",
+          "response.output_text.delta",
+          "response.output_text.done",
+          "response.content_part.done",
+          "response.output_item.done:message",
+          "response.completed"
+        ]
+      }
+    },
+    "items": {
+      "count": 2,
+      "hasMore": false,
+      "typesAsc": [
+        "message:user",
+        "message:assistant"
+      ],
+      "compactionStored": false,
+      "compactionIndex": -1
+    }
+  },
+  "e1_plain_chat_until_compaction": {
+    "ok": true,
+    "ms": 13984,
+    "threshold": 1300,
+    "compactedAt": 3,
+    "turns": [
+      {
+        "turn": 1,
+        "text": "noted",
+        "ttftMs": 1559,
+        "totalMs": 3189,
+        "status": "completed",
+        "usage": {
+          "input": 542,
+          "cached": 0,
+          "cacheWrite": 0,
+          "output": 6,
+          "reasoning": 0
+        },
+        "rawUsage": {
+          "input_tokens": 542,
+          "input_tokens_details": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0
+          },
+          "output_tokens": 6,
+          "output_tokens_details": {
+            "reasoning_tokens": 0
+          },
+          "total_tokens": 548
+        },
+        "sequence": [
+          "response.created",
+          "response.in_progress",
+          "response.output_item.added:message",
+          "response.content_part.added",
+          "response.output_text.delta ×2",
+          "response.output_text.done",
+          "response.content_part.done",
+          "response.output_item.done:message",
+          "response.completed"
+        ],
+        "outputItems": [
+          {
+            "index": 0,
+            "type": "message"
+          }
+        ],
+        "compacted": false,
+        "finalOutputTypes": [
+          "message"
+        ],
+        "annotations": []
+      },
+      {
+        "turn": 2,
+        "text": "noted",
+        "ttftMs": 1756,
+        "totalMs": 3781,
+        "status": "completed",
+        "usage": {
+          "input": 1068,
+          "cached": 0,
+          "cacheWrite": 1065,
+          "output": 6,
+          "reasoning": 0
+        },
+        "rawUsage": {
+          "input_tokens": 1068,
+          "input_tokens_details": {
+            "cache_write_tokens": 1065,
+            "cached_tokens": 0
+          },
+          "output_tokens": 6,
+          "output_tokens_details": {
+            "reasoning_tokens": 0
+          },
+          "total_tokens": 1074
+        },
+        "sequence": [
+          "response.created",
+          "response.in_progress",
+          "response.output_item.added:message",
+          "response.content_part.added",
+          "response.output_text.delta ×2",
+          "response.output_text.done",
+          "response.content_part.done",
+          "response.output_item.done:message",
+          "response.completed"
+        ],
+        "outputItems": [
+          {
+            "index": 0,
+            "type": "message"
+          }
+        ],
+        "compacted": false,
+        "finalOutputTypes": [
+          "message"
+        ],
+        "annotations": []
+      },
+      {
+        "turn": 3,
+        "text": "noted",
+        "ttftMs": 3557,
+        "totalMs": 7014,
+        "status": "completed",
+        "usage": {
+          "input": 1714,
+          "cached": 1065,
+          "cacheWrite": 525,
+          "output": 219,
+          "reasoning": 213
+        },
+        "rawUsage": {
+          "input_tokens": 1714,
+          "input_tokens_details": {
+            "cache_write_tokens": 525,
+            "cached_tokens": 1065
+          },
+          "output_tokens": 219,
+          "output_tokens_details": {
+            "reasoning_tokens": 213
+          },
+          "total_tokens": 1933
+        },
+        "sequence": [
+          "response.created",
+          "response.in_progress",
+          "response.output_item.added:compaction",
+          "response.output_item.done:compaction",
+          "response.output_item.added:message",
+          "response.content_part.added",
+          "response.output_text.delta ×2",
+          "response.output_text.done",
+          "response.content_part.done",
+          "response.output_item.done:message",
+          "response.output_item.added:compaction",
+          "response.output_item.done:compaction",
+          "response.completed"
+        ],
+        "outputItems": [
+          {
+            "index": 0,
+            "type": "compaction"
+          },
+          {
+            "index": 1,
+            "type": "message"
+          },
+          {
+            "index": 2,
+            "type": "compaction"
+          }
+        ],
+        "compacted": true,
+        "compaction": {
+          "outputIndex": 2,
+          "idPrefix": "cmp",
+          "encryptedChars": 4664,
+          "ms": 1776
+        },
+        "finalOutputTypes": [
+          "compaction",
+          "message",
+          "compaction"
+        ],
+        "annotations": []
+      }
+    ]
+  },
+  "e2_items_after_compaction": {
+    "ok": true,
+    "ms": 725,
+    "count": 8,
+    "hasMore": false,
+    "typesAsc": [
+      "message:user",
+      "message:assistant",
+      "message:user",
+      "message:assistant",
+      "message:user",
+      "compaction",
+      "message:assistant",
+      "compaction"
+    ],
+    "compactionStored": true,
+    "compactionIndex": 5,
+    "messagesBeforeCompaction": 5
+  },
+  "e3_turns_after_compaction": {
+    "ok": true,
+    "ms": 19756,
+    "small": {
+      "text": "ok",
+      "ttftMs": 2711,
+      "totalMs": 6230,
+      "status": "completed",
+      "usage": {
+        "input": 1802,
+        "cached": 0,
+        "cacheWrite": 1746,
+        "output": 151,
+        "reasoning": 146
+      },
+      "rawUsage": {
+        "input_tokens": 1802,
+        "input_tokens_details": {
+          "cache_write_tokens": 1746,
+          "cached_tokens": 0
+        },
+        "output_tokens": 151,
+        "output_tokens_details": {
+          "reasoning_tokens": 146
+        },
+        "total_tokens": 1953
+      },
+      "sequence": [
+        "response.created",
+        "response.in_progress",
+        "response.output_item.added:compaction",
+        "response.output_item.done:compaction",
+        "response.output_item.added:message",
+        "response.content_part.added",
+        "response.output_text.delta",
+        "response.output_text.done",
+        "response.content_part.done",
+        "response.output_item.done:message",
+        "response.output_item.added:compaction",
+        "response.output_item.done:compaction",
+        "response.completed"
+      ],
+      "outputItems": [
+        {
+          "index": 0,
+          "type": "compaction"
+        },
+        {
+          "index": 1,
+          "type": "message"
+        },
+        {
+          "index": 2,
+          "type": "compaction"
+        }
+      ],
+      "compacted": true,
+      "compaction": {
+        "outputIndex": 2,
+        "idPrefix": "cmp",
+        "encryptedChars": 5092,
+        "ms": 1766
+      },
+      "finalOutputTypes": [
+        "compaction",
+        "message",
+        "compaction"
+      ],
+      "annotations": []
+    },
+    "recall": {
+      "text": "PAPAYA-42",
+      "ttftMs": 2774,
+      "totalMs": 5573,
+      "status": "completed",
+      "usage": {
+        "input": 1755,
+        "cached": 0,
+        "cacheWrite": 1705,
+        "output": 103,
+        "reasoning": 94
+      },
+      "rawUsage": {
+        "input_tokens": 1755,
+        "input_tokens_details": {
+          "cache_write_tokens": 1705,
+          "cached_tokens": 0
+        },
+        "output_tokens": 103,
+        "output_tokens_details": {
+          "reasoning_tokens": 94
+        },
+        "total_tokens": 1858
+      },
+      "sequence": [
+        "response.created",
+        "response.in_progress",
+        "response.output_item.added:compaction",
+        "response.output_item.done:compaction",
+        "response.output_item.added:message",
+        "response.content_part.added",
+        "response.output_text.delta ×5",
+        "response.output_text.done",
+        "response.content_part.done",
+        "response.output_item.done:message",
+        "response.output_item.added:compaction",
+        "response.output_item.done:compaction",
+        "response.completed"
+      ],
+      "outputItems": [
+        {
+          "index": 0,
+          "type": "compaction"
+        },
+        {
+          "index": 1,
+          "type": "message"
+        },
+        {
+          "index": 2,
+          "type": "compaction"
+        }
+      ],
+      "compacted": true,
+      "compaction": {
+        "outputIndex": 2,
+        "idPrefix": "cmp",
+        "encryptedChars": 4196,
+        "ms": 1209
+      },
+      "finalOutputTypes": [
+        "compaction",
+        "message",
+        "compaction"
+      ],
+      "annotations": [],
+      "remembersCodeWord": true
+    },
+    "detail": {
+      "text": "Ghent ships 17 clay tiles.",
+      "ttftMs": 3738,
+      "totalMs": 7288,
+      "status": "completed",
+      "usage": {
+        "input": 1779,
+        "cached": 0,
+        "cacheWrite": 1697,
+        "output": 169,
+        "reasoning": 157
+      },
+      "rawUsage": {
+        "input_tokens": 1779,
+        "input_tokens_details": {
+          "cache_write_tokens": 1697,
+          "cached_tokens": 0
+        },
+        "output_tokens": 169,
+        "output_tokens_details": {
+          "reasoning_tokens": 157
+        },
+        "total_tokens": 1948
+      },
+      "sequence": [
+        "response.created",
+        "response.in_progress",
+        "response.output_item.added:compaction",
+        "response.output_item.done:compaction",
+        "response.output_item.added:message",
+        "response.content_part.added",
+        "response.output_text.delta ×8",
+        "response.output_text.done",
+        "response.content_part.done",
+        "response.output_item.done:message",
+        "response.output_item.added:compaction",
+        "response.output_item.done:compaction",
+        "response.completed"
+      ],
+      "outputItems": [
+        {
+          "index": 0,
+          "type": "compaction"
+        },
+        {
+          "index": 1,
+          "type": "message"
+        },
+        {
+          "index": 2,
+          "type": "compaction"
+        }
+      ],
+      "compacted": true,
+      "compaction": {
+        "outputIndex": 2,
+        "idPrefix": "cmp",
+        "encryptedChars": 4748,
+        "ms": 1747
+      },
+      "finalOutputTypes": [
+        "compaction",
+        "message",
+        "compaction"
+      ],
+      "annotations": [],
+      "expected": "Note 1.1: the Ghent depot ships 17 clay tiles every Wednesday, and the driver checks the seals twice before leaving.",
+      "remembersNote": true
+    },
+    "items": {
+      "count": 20,
+      "hasMore": false,
+      "typesAsc": [
+        "message:user",
+        "message:assistant",
+        "message:user",
+        "message:assistant",
+        "message:user",
+        "compaction",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "compaction",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "compaction",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "compaction",
+        "message:assistant",
+        "compaction"
+      ],
+      "compactionStored": true,
+      "compactionIndex": 5,
+      "messagesBeforeCompaction": 5
+    }
+  },
+  "e4_function_tool": {
+    "ok": true,
+    "ms": 29698,
+    "threshold": 1000,
+    "steps": [
+      {
+        "step": "turn 1",
+        "text": "noted",
+        "ttftMs": 1240,
+        "totalMs": 6532,
+        "status": "completed",
+        "usage": {
+          "input": 566,
+          "cached": 0,
+          "cacheWrite": 0,
+          "output": 254,
+          "reasoning": 248
+        },
+        "rawUsage": {
+          "input_tokens": 566,
+          "input_tokens_details": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0
+          },
+          "output_tokens": 254,
+          "output_tokens_details": {
+            "reasoning_tokens": 248
+          },
+          "total_tokens": 820
+        },
+        "sequence": [
+          "response.created",
+          "response.in_progress",
+          "response.output_item.added:message",
+          "response.content_part.added",
+          "response.output_text.delta ×2",
+          "response.output_text.done",
+          "response.content_part.done",
+          "response.output_item.done:message",
+          "response.output_item.added:compaction",
+          "response.output_item.done:compaction",
+          "response.completed"
+        ],
+        "outputItems": [
+          {
+            "index": 0,
+            "type": "message"
+          },
+          {
+            "index": 1,
+            "type": "compaction"
+          }
+        ],
+        "compacted": true,
+        "compaction": {
+          "outputIndex": 1,
+          "idPrefix": "cmp",
+          "encryptedChars": 5476,
+          "ms": 3543
+        },
+        "finalOutputTypes": [
+          "message",
+          "compaction"
+        ],
+        "annotations": []
+      },
+      {
+        "step": "turn 2, step 1",
+        "text": "",
+        "totalMs": 4948,
+        "status": "completed",
+        "usage": {
+          "input": 1445,
+          "cached": 0,
+          "cacheWrite": 1351,
+          "output": 94,
+          "reasoning": 94
+        },
+        "rawUsage": {
+          "input_tokens": 1445,
+          "input_tokens_details": {
+            "cache_write_tokens": 1351,
+            "cached_tokens": 0
+          },
+          "output_tokens": 94,
+          "output_tokens_details": {
+            "reasoning_tokens": 94
+          },
+          "total_tokens": 1539
+        },
+        "sequence": [
+          "response.created",
+          "response.in_progress",
+          "response.output_item.added:compaction",
+          "response.output_item.done:compaction",
+          "response.output_item.added:function_call",
+          "response.function_call_arguments.delta ×6",
+          "response.function_call_arguments.done",
+          "response.output_item.done:function_call",
+          "response.completed"
+        ],
+        "outputItems": [
+          {
+            "index": 0,
+            "type": "compaction"
+          },
+          {
+            "index": 1,
+            "type": "function_call",
+            "name": "get_weather",
+            "call_id": "call_s50001"
+          }
+        ],
+        "compacted": true,
+        "compaction": {
+          "outputIndex": 0,
+          "idPrefix": "cmp",
+          "encryptedChars": 4344,
+          "ms": 4
+        },
+        "finalOutputTypes": [
+          "compaction",
+          "function_call"
+        ],
+        "annotations": []
+      },
+      {
+        "step": "turn 2, step 2",
+        "text": "Warsaw: 12°C and cloudy.",
+        "ttftMs": 3191,
+        "totalMs": 9553,
+        "status": "incomplete",
+        "incompleteReason": "max_output_tokens",
+        "usage": {
+          "input": 1313,
+          "cached": 0,
+          "cacheWrite": 1256,
+          "output": 400,
+          "reasoning": 387
+        },
+        "rawUsage": {
+          "input_tokens": 1313,
+          "input_tokens_details": {
+            "cache_write_tokens": 1256,
+            "cached_tokens": 0
+          },
+          "output_tokens": 400,
+          "output_tokens_details": {
+            "reasoning_tokens": 387
+          },
+          "total_tokens": 1713
+        },
+        "sequence": [
+          "response.created",
+          "response.in_progress",
+          "response.output_item.added:compaction",
+          "response.output_item.done:compaction",
+          "response.output_item.added:message",
+          "response.content_part.added",
+          "response.output_text.delta ×9",
+          "response.output_text.done",
+          "response.content_part.done",
+          "response.output_item.done:message",
+          "response.output_item.added:compaction",
+          "response.output_item.done:compaction",
+          "response.incomplete"
+        ],
+        "outputItems": [
+          {
+            "index": 0,
+            "type": "compaction"
+          },
+          {
+            "index": 1,
+            "type": "message"
+          },
+          {
+            "index": 2,
+            "type": "compaction"
+          }
+        ],
+        "compacted": true,
+        "compaction": {
+          "outputIndex": 2,
+          "idPrefix": "cmp",
+          "encryptedChars": 4492,
+          "ms": 4667
+        },
+        "finalOutputTypes": [
+          "compaction",
+          "message",
+          "compaction"
+        ],
+        "annotations": [],
+        "answerMentions12": true
+      },
+      {
+        "step": "turn 3, step 1",
+        "text": "",
+        "totalMs": 7871,
+        "status": "incomplete",
+        "incompleteReason": "max_output_tokens",
+        "usage": {
+          "input": 0,
+          "cached": 0,
+          "cacheWrite": 0,
+          "output": 0,
+          "reasoning": 0
+        },
+        "rawUsage": {
+          "input_tokens": 0,
+          "input_tokens_details": {
+            "cache_write_tokens": 0,
+            "cached_tokens": 0
+          },
+          "output_tokens": 0,
+          "output_tokens_details": {
+            "reasoning_tokens": 0
+          },
+          "total_tokens": 0
+        },
+        "sequence": [
+          "response.created",
+          "response.in_progress",
+          "response.output_item.added:compaction",
+          "response.output_item.done:compaction",
+          "response.incomplete"
+        ],
+        "outputItems": [
+          {
+            "index": 0,
+            "type": "compaction"
+          }
+        ],
+        "compacted": true,
+        "compaction": {
+          "outputIndex": 0,
+          "idPrefix": "cmp",
+          "encryptedChars": 5004,
+          "ms": 1
+        },
+        "finalOutputTypes": [
+          "compaction"
+        ],
+        "annotations": []
+      }
+    ],
+    "items": {
+      "count": 12,
+      "hasMore": false,
+      "typesAsc": [
+        "message:user",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "compaction",
+        "function_call",
+        "function_call_output",
+        "compaction",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "compaction"
+      ],
+      "compactionStored": true,
+      "compactionIndex": 2,
+      "messagesBeforeCompaction": 2
+    }
+  },
+  "e5_file_search": {
+    "ok": true,
+    "ms": 43148,
+    "threshold": 1000,
+    "fileStatus": "completed",
+    "steps": [
+      {
+        "turn": 1,
+        "text": "The office dog is called **Pixel**.  ",
+        "ttftMs": 5019,
+        "totalMs": 8707,
+        "status": "completed",
+        "usage": {
+          "input": 1610,
+          "cached": 1472,
+          "cacheWrite": 11,
+          "output": 94,
+          "reasoning": 66
+        },
+        "rawUsage": {
+          "input_tokens": 1610,
+          "input_tokens_details": {
+            "cache_write_tokens": 11,
+            "cached_tokens": 1472
+          },
+          "output_tokens": 94,
+          "output_tokens_details": {
+            "reasoning_tokens": 66
+          },
+          "total_tokens": 1704
+        },
+        "sequence": [
+          "response.created",
+          "response.in_progress",
+          "response.output_item.added:file_search_call",
+          "response.file_search_call.in_progress",
+          "response.file_search_call.searching",
+          "response.file_search_call.completed",
+          "response.output_item.done:file_search_call",
+          "response.output_item.added:compaction",
+          "response.output_item.done:compaction",
+          "response.output_item.added:message",
+          "response.content_part.added",
+          "response.output_text.delta ×11",
+          "response.output_text.done",
+          "response.content_part.done",
+          "response.output_item.done:message",
+          "response.output_item.added:compaction",
+          "response.output_item.done:compaction",
+          "response.completed"
+        ],
+        "outputItems": [
+          {
+            "index": 0,
+            "type": "file_search_call"
+          },
+          {
+            "index": 1,
+            "type": "compaction"
+          },
+          {
+            "index": 2,
+            "type": "message"
+          },
+          {
+            "index": 3,
+            "type": "compaction"
+          }
+        ],
+        "compacted": true,
+        "compaction": {
+          "outputIndex": 3,
+          "idPrefix": "cmp",
+          "encryptedChars": 4964,
+          "ms": 1830
+        },
+        "finalOutputTypes": [
+          "file_search_call",
+          "compaction",
+          "message",
+          "compaction"
+        ],
+        "annotations": []
+      },
+      {
+        "turn": 2,
+        "text": "The coffee machine is cleaned every Wednesday.  ",
+        "ttftMs": 9728,
+        "totalMs": 13296,
+        "status": "incomplete",
+        "incompleteReason": "max_output_tokens",
+        "usage": {
+          "input": 2366,
+          "cached": 1488,
+          "cacheWrite": 558,
+          "output": 118,
+          "reasoning": 91
+        },
+        "rawUsage": {
+          "input_tokens": 2366,
+          "input_tokens_details": {
+            "cache_write_tokens": 558,
+            "cached_tokens": 1488
+          },
+          "output_tokens": 118,
+          "output_tokens_details": {
+            "reasoning_tokens": 91
+          },
+          "total_tokens": 2484
+        },
+        "sequence": [
+          "response.created",
+          "response.in_progress",
+          "response.output_item.added:file_search_call",
+          "response.file_search_call.in_progress",
+          "response.file_search_call.searching",
+          "response.file_search_call.completed",
+          "response.output_item.done:file_search_call",
+          "response.output_item.added:compaction",
+          "response.output_item.done:compaction",
+          "response.output_item.added:reasoning",
+          "response.output_item.done:reasoning",
+          "response.output_item.added:compaction",
+          "response.output_item.done:compaction",
+          "response.output_item.added:reasoning",
+          "response.output_item.done:reasoning",
+          "response.output_item.added:compaction",
+          "response.output_item.done:compaction",
+          "response.output_item.added:message",
+          "response.content_part.added",
+          "response.output_text.delta ×10",
+          "response.output_text.done",
+          "response.content_part.done",
+          "response.output_item.done:message",
+          "response.output_item.added:compaction",
+          "response.output_item.done:compaction",
+          "response.incomplete"
+        ],
+        "outputItems": [
+          {
+            "index": 0,
+            "type": "file_search_call"
+          },
+          {
+            "index": 1,
+            "type": "compaction"
+          },
+          {
+            "index": 2,
+            "type": "reasoning"
+          },
+          {
+            "index": 3,
+            "type": "compaction"
+          },
+          {
+            "index": 4,
+            "type": "reasoning"
+          },
+          {
+            "index": 5,
+            "type": "compaction"
+          },
+          {
+            "index": 6,
+            "type": "message"
+          },
+          {
+            "index": 7,
+            "type": "compaction"
+          }
+        ],
+        "compacted": true,
+        "compaction": {
+          "outputIndex": 7,
+          "idPrefix": "cmp",
+          "encryptedChars": 4280,
+          "ms": 1578
+        },
+        "finalOutputTypes": [
+          "file_search_call",
+          "compaction",
+          "reasoning",
+          "compaction",
+          "reasoning",
+          "compaction",
+          "message",
+          "compaction"
+        ],
+        "annotations": []
+      },
+      {
+        "turn": 3,
+        "text": "Pixel visits on **Fridays**.  ",
+        "ttftMs": 7591,
+        "totalMs": 11748,
+        "status": "completed",
+        "usage": {
+          "input": 2656,
+          "cached": 1504,
+          "cacheWrite": 896,
+          "output": 95,
+          "reasoning": 68
+        },
+        "rawUsage": {
+          "input_tokens": 2656,
+          "input_tokens_details": {
+            "cache_write_tokens": 896,
+            "cached_tokens": 1504
+          },
+          "output_tokens": 95,
+          "output_tokens_details": {
+            "reasoning_tokens": 68
+          },
+          "total_tokens": 2751
+        },
+        "sequence": [
+          "response.created",
+          "response.in_progress",
+          "response.output_item.added:compaction",
+          "response.output_item.done:compaction",
+          "response.output_item.added:file_search_call",
+          "response.file_search_call.in_progress",
+          "response.file_search_call.searching",
+          "response.file_search_call.completed",
+          "response.output_item.done:file_search_call",
+          "response.output_item.added:compaction",
+          "response.output_item.done:compaction",
+          "response.output_item.added:message",
+          "response.content_part.added",
+          "response.output_text.delta ×10",
+          "response.output_text.done",
+          "response.content_part.done",
+          "response.output_item.done:message",
+          "response.output_item.added:compaction",
+          "response.output_item.done:compaction",
+          "response.completed"
+        ],
+        "outputItems": [
+          {
+            "index": 0,
+            "type": "compaction"
+          },
+          {
+            "index": 1,
+            "type": "file_search_call"
+          },
+          {
+            "index": 2,
+            "type": "compaction"
+          },
+          {
+            "index": 3,
+            "type": "message"
+          },
+          {
+            "index": 4,
+            "type": "compaction"
+          }
+        ],
+        "compacted": true,
+        "compaction": {
+          "outputIndex": 4,
+          "idPrefix": "cmp",
+          "encryptedChars": 5772,
+          "ms": 2326
+        },
+        "finalOutputTypes": [
+          "compaction",
+          "file_search_call",
+          "compaction",
+          "message",
+          "compaction"
+        ],
+        "annotations": []
+      }
+    ],
+    "items": {
+      "count": 20,
+      "hasMore": false,
+      "typesAsc": [
+        "message:user",
+        "file_search_call",
+        "compaction",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "file_search_call",
+        "compaction",
+        "reasoning",
+        "compaction",
+        "reasoning",
+        "compaction",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "compaction",
+        "file_search_call",
+        "compaction",
+        "message:assistant",
+        "compaction"
+      ],
+      "compactionStored": true,
+      "compactionIndex": 2,
+      "messagesBeforeCompaction": 1
+    }
+  },
+  "cleanup": "6 of 6 deleted",
+  "tokens": {
+    "input": 18633,
+    "cached": 5529,
+    "cacheWrite": 10810,
+    "output": 1714,
+    "reasoning": 1564
+  },
+  "worstCaseUsd": 0.0319,
+  "finishedAt": "2026-11-09T21:15:27.990Z"
+}

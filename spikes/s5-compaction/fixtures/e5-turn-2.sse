@@ -1,0 +1,105 @@
+event: response.created
+data: {"type":"response.created","response":{"id":"resp_s50012","object":"response","created_at":1794258897,"status":"in_progress","access_programs":{"cyber":"standard"},"background":false,"completed_at":null,"conversation":{"id":"conv_s50003"},"error":null,"frequency_penalty":0.0,"image":{"context_compression":"disabled"},"incomplete_details":null,"instructions":"Answer from the provided files and cite them. Be brief.","max_output_tokens":400,"max_tool_calls":null,"model":"gpt-6.1-terra","moderation":null,"output":[],"parallel_tool_calls":true,"presence_penalty":0.0,"previous_response_id":null,"prompt_cache_key":"askdare:spike-s5","prompt_cache_retention":"24h","reasoning":{"context":"all_turns","effort":"medium","mode":"standard","summary":null},"safety_identifier":"7239f48669a58354d9d6a3207fc49157c0399a2961748e8cb0f8ed4db552e601","service_tier":"auto","store":true,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tool_usage":{"image_gen":{"input_tokens":0,"input_tokens_details":{"image_tokens":0,"text_tokens":0},"output_tokens":0,"output_tokens_details":{"image_tokens":0,"text_tokens":0},"total_tokens":0},"web_search":{"num_requests":0}},"tools":[{"type":"file_search","filters":null,"max_num_results":3,"ranking_options":{"ranker":"auto","score_threshold":0.0},"vector_store_ids":["vs_s50001"]}],"top_logprobs":0,"top_p":0.98,"truncation":"auto","usage":null,"user":null,"metadata":{}},"sequence_number":0}
+
+event: response.in_progress
+data: {"type":"response.in_progress","response":{"id":"resp_s50012","object":"response","created_at":1794258897,"status":"in_progress","access_programs":{"cyber":"standard"},"background":false,"completed_at":null,"conversation":{"id":"conv_s50003"},"error":null,"frequency_penalty":0.0,"image":{"context_compression":"disabled"},"incomplete_details":null,"instructions":"Answer from the provided files and cite them. Be brief.","max_output_tokens":400,"max_tool_calls":null,"model":"gpt-6.1-terra","moderation":null,"output":[],"parallel_tool_calls":true,"presence_penalty":0.0,"previous_response_id":null,"prompt_cache_key":"askdare:spike-s5","prompt_cache_retention":"24h","reasoning":{"context":"all_turns","effort":"medium","mode":"standard","summary":null},"safety_identifier":"7239f48669a58354d9d6a3207fc49157c0399a2961748e8cb0f8ed4db552e601","service_tier":"auto","store":true,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tool_usage":{"image_gen":{"input_tokens":0,"input_tokens_details":{"image_tokens":0,"text_tokens":0},"output_tokens":0,"output_tokens_details":{"image_tokens":0,"text_tokens":0},"total_tokens":0},"web_search":{"num_requests":0}},"tools":[{"type":"file_search","filters":null,"max_num_results":3,"ranking_options":{"ranker":"auto","score_threshold":0.0},"vector_store_ids":["vs_s50001"]}],"top_logprobs":0,"top_p":0.98,"truncation":"auto","usage":null,"user":null,"metadata":{}},"sequence_number":1}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","item":{"id":"fs_s50002","type":"file_search_call","status":"in_progress","queries":[],"results":null},"output_index":0,"sequence_number":2}
+
+event: response.file_search_call.in_progress
+data: {"type":"response.file_search_call.in_progress","item_id":"fs_s50002","output_index":0,"sequence_number":3}
+
+event: response.file_search_call.searching
+data: {"type":"response.file_search_call.searching","item_id":"fs_s50002","output_index":0,"sequence_number":4}
+
+event: response.file_search_call.completed
+data: {"type":"response.file_search_call.completed","item_id":"fs_s50002","output_index":0,"sequence_number":5}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","item":{"id":"fs_s50002","type":"file_search_call","status":"completed","queries":["When is the coffee machine cleaned?"],"results":[{"attributes":{},"file_id":"file-s5redacted","filename":"askdare-handbook.md","score":0.965,"text":"# Team handbook\n\nThe office dog is called Pixel. Pixel visits on Fridays.\n\nThe coffee machine is cleaned every Wednesday by the facilities team.","vector_store_id":""}]},"output_index":0,"sequence_number":6}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","item":{"id":"cmp_s50016","type":"compaction","encrypted_content":"redacted"},"output_index":1,"sequence_number":7}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","item":{"id":"cmp_s50016","type":"compaction","encrypted_content":"redacted"},"output_index":1,"sequence_number":8}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","item":{"id":"rs_s50001","type":"reasoning","content":[],"encrypted_content":"redacted","summary":[]},"output_index":2,"sequence_number":9}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","item":{"id":"rs_s50001","type":"reasoning","content":[],"encrypted_content":"redacted","summary":[]},"output_index":2,"sequence_number":10}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","item":{"id":"cmp_s50017","type":"compaction","encrypted_content":"redacted"},"output_index":3,"sequence_number":11}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","item":{"id":"cmp_s50017","type":"compaction","encrypted_content":"redacted"},"output_index":3,"sequence_number":12}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","item":{"id":"rs_s50002","type":"reasoning","content":[],"encrypted_content":"redacted","summary":[]},"output_index":4,"sequence_number":13}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","item":{"id":"rs_s50002","type":"reasoning","content":[],"encrypted_content":"redacted","summary":[]},"output_index":4,"sequence_number":14}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","item":{"id":"cmp_s50018","type":"compaction","encrypted_content":"redacted"},"output_index":5,"sequence_number":15}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","item":{"id":"cmp_s50018","type":"compaction","encrypted_content":"redacted"},"output_index":5,"sequence_number":16}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","item":{"id":"msg_s50016","type":"message","status":"in_progress","content":[],"phase":"final_answer","role":"assistant"},"output_index":6,"sequence_number":17}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","content_index":0,"item_id":"msg_s50016","output_index":6,"part":{"type":"output_text","annotations":[],"logprobs":[],"text":""},"sequence_number":18}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"The","item_id":"msg_s50016","logprobs":[],"obfuscation":"TIgOLl9aDFFZP","output_index":6,"sequence_number":19}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":" coffee","item_id":"msg_s50016","logprobs":[],"obfuscation":"bzn4XstQD","output_index":6,"sequence_number":20}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":" machine","item_id":"msg_s50016","logprobs":[],"obfuscation":"Jbu9oLqN","output_index":6,"sequence_number":21}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":" is","item_id":"msg_s50016","logprobs":[],"obfuscation":"evStWnLCVZTz0","output_index":6,"sequence_number":22}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":" cleaned","item_id":"msg_s50016","logprobs":[],"obfuscation":"EP1zXfZl","output_index":6,"sequence_number":23}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":" every","item_id":"msg_s50016","logprobs":[],"obfuscation":"VNIlcTTDxe","output_index":6,"sequence_number":24}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":" Wednesday","item_id":"msg_s50016","logprobs":[],"obfuscation":"oIBIiM","output_index":6,"sequence_number":25}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":".","item_id":"msg_s50016","logprobs":[],"obfuscation":"zmwLZIFmijJUyGo","output_index":6,"sequence_number":26}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":" ","item_id":"msg_s50016","logprobs":[],"obfuscation":"TOacfFsz0Z4spWh","output_index":6,"sequence_number":27}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":" ","item_id":"msg_s50016","logprobs":[],"obfuscation":"CQ5Y9N35dE8AyCv","output_index":6,"sequence_number":28}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","content_index":0,"item_id":"msg_s50016","logprobs":[],"output_index":6,"sequence_number":29,"text":"The coffee machine is cleaned every Wednesday.  "}
+
+event: response.content_part.done
+data: {"type":"response.content_part.done","content_index":0,"item_id":"msg_s50016","output_index":6,"part":{"type":"output_text","annotations":[],"logprobs":[],"text":"The coffee machine is cleaned every Wednesday.  "},"sequence_number":30}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","item":{"id":"msg_s50016","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":"The coffee machine is cleaned every Wednesday.  "}],"phase":"final_answer","role":"assistant"},"output_index":6,"sequence_number":31}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","item":{"id":"cmp_s50019","type":"compaction","encrypted_content":"redacted"},"output_index":7,"sequence_number":32}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","item":{"id":"cmp_s50019","type":"compaction","encrypted_content":"redacted"},"output_index":7,"sequence_number":33}
+
+event: response.incomplete
+data: {"type":"response.incomplete","response":{"id":"resp_s50012","object":"response","created_at":1794258897,"status":"incomplete","access_programs":{"cyber":"standard"},"background":false,"completed_at":null,"conversation":{"id":"conv_s50003"},"error":null,"frequency_penalty":0.0,"image":{"context_compression":"disabled"},"incomplete_details":{"reason":"max_output_tokens"},"instructions":"Answer from the provided files and cite them. Be brief.","max_output_tokens":400,"max_tool_calls":null,"model":"gpt-6.1-terra","moderation":null,"output":[{"id":"fs_s50002","type":"file_search_call","status":"completed","queries":["When is the coffee machine cleaned?"],"results":[{"attributes":{},"file_id":"file-s5redacted","filename":"askdare-handbook.md","score":0.965,"text":"# Team handbook\n\nThe office dog is called Pixel. Pixel visits on Fridays.\n\nThe coffee machine is cleaned every Wednesday by the facilities team.","vector_store_id":""}]},{"id":"cmp_s50016","type":"compaction","encrypted_content":"redacted"},{"id":"rs_s50001","type":"reasoning","content":[],"encrypted_content":"redacted","summary":[]},{"id":"cmp_s50017","type":"compaction","encrypted_content":"redacted"},{"id":"rs_s50002","type":"reasoning","content":[],"encrypted_content":"redacted","summary":[]},{"id":"cmp_s50018","type":"compaction","encrypted_content":"redacted"},{"id":"msg_s50016","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":"The coffee machine is cleaned every Wednesday.  "}],"phase":"final_answer","role":"assistant"},{"id":"cmp_s50019","type":"compaction","encrypted_content":"redacted"}],"parallel_tool_calls":true,"presence_penalty":0.0,"previous_response_id":null,"prompt_cache_key":"askdare:spike-s5","prompt_cache_retention":"24h","reasoning":{"context":"all_turns","effort":"medium","mode":"standard","summary":null},"safety_identifier":"7239f48669a58354d9d6a3207fc49157c0399a2961748e8cb0f8ed4db552e601","service_tier":"default","store":true,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tool_usage":{"image_gen":{"input_tokens":0,"input_tokens_details":{"image_tokens":0,"text_tokens":0},"output_tokens":0,"output_tokens_details":{"image_tokens":0,"text_tokens":0},"total_tokens":0},"web_search":{"num_requests":0}},"tools":[{"type":"file_search","filters":null,"max_num_results":3,"ranking_options":{"ranker":"auto","score_threshold":0.0},"vector_store_ids":["vs_s50001"]}],"top_logprobs":0,"top_p":0.98,"truncation":"auto","usage":{"input_tokens":2366,"input_tokens_details":{"cache_write_tokens":558,"cached_tokens":1488},"output_tokens":118,"output_tokens_details":{"reasoning_tokens":91},"total_tokens":2484},"user":null,"metadata":{}},"sequence_number":34}
+
