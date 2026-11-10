@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <title>askdare</title>
+  <defs>
+    <radialGradient id="orb" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0" stop-color="#f3dcff"/>
+      <stop offset="0.5" stop-color="#b8a1f6"/>
+      <stop offset="1" stop-color="#6b52e0"/>
+    </radialGradient>
+  </defs>
+  <path d="M16 2a13 13 0 1 1-6.9 24.02L3.6 29.2a.6.6 0 0 1-.86-.7l1.8-5.6A13 13 0 0 1 16 2z" fill="url(#orb)"/>
+  <ellipse cx="11.5" cy="9.5" rx="4.6" ry="3" fill="#fff" opacity="0.7"/>
+</svg>
