@@ -41,6 +41,12 @@ export function Root({
       `[askdare] The chat's basePath must be a path on this app, like /api/chat; got "${config.basePath}".`,
     );
   }
+  // The stylesheets come from the same route: a config must not point them anywhere else.
+  for (const href of Object.values(config.styles ?? {})) {
+    if (!href.startsWith(`${config.basePath}/`) || href.includes('//') || href.includes('\\')) {
+      throw new TypeError(`[askdare] The chat's stylesheets must come from ${config.basePath}.`);
+    }
+  }
   const page: PageOptions = pageOptions({ greeting, starters, context });
   // One chat per bot, route and language: another config starts another chat.
   const id = `${config.basePath} ${config.botId} ${config.widget.locale}`;

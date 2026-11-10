@@ -120,24 +120,24 @@ export function embedContentSecurityPolicy(bot: Bot): string {
 /** Stylesheet and content hash of a theme plus a bot's own CSS, cached per distinct pair. */
 const stylesheets = new WeakMap<ResolvedTheme, Map<string, { css: string; hash: string }>>();
 
-/** `inline`: for a chat inside a page, scoped to the theme root (ADR-0011). */
+/** With `inlineFor`, a bot id: for that bot's chat inside a page, scoped to it (ADR-0011). */
 export function themeAsset(
   theme: ResolvedTheme,
   custom = '',
-  scope: 'frame' | 'inline' = 'frame',
+  inlineFor?: string,
 ): { css: string; hash: string } {
   let byCustom = stylesheets.get(theme);
   if (!byCustom) {
     byCustom = new Map();
     stylesheets.set(theme, byCustom);
   }
-  const key = `${scope}\n${custom}`;
+  const key = `${inlineFor ?? ''}\n${custom}`;
   let asset = byCustom.get(key);
   if (!asset) {
     const [rules, own] =
-      scope === 'inline'
-        ? [inlineThemeStylesheet(theme), inlineCustomCss(custom)]
-        : [themeStylesheet(theme), custom];
+      inlineFor === undefined
+        ? [themeStylesheet(theme), custom]
+        : [inlineThemeStylesheet(theme, inlineFor), inlineCustomCss(custom, inlineFor)];
     // The bot's CSS comes after the theme and outside the library's layer, so it wins.
     const css = own ? `${rules}\n${own}` : rules;
     // FNV-1a: only a cache key for the URL, not a security boundary.

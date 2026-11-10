@@ -15,13 +15,14 @@ export interface ThemeProps extends ComponentProps<'div'> {
  * `className` or `style`; the chat fills it.
  */
 export function Theme({ colorScheme, children, ...props }: ThemeProps): ReactElement {
-  const { widget, styles } = useStore().config;
+  const { botId, widget, styles } = useStore().config;
   const variants = Object.fromEntries(
     Object.entries(widget.variants).map(([name, value]) => [`data-ask-${name}`, value]),
   );
   return (
     <div
       data-askdare-root=""
+      data-ask-bot={botId}
       data-ask-preset={widget.preset}
       data-ask-scheme={colorScheme ?? widget.colorScheme}
       {...variants}

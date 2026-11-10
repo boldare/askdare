@@ -54,7 +54,7 @@ The code splits into three layers in `packages/askdare/src/`:
 - **`getChatConfig({ bots, bot, basePath?, locale? })`** in `@boldare/askdare/next` returns the `config` for `Root`.
   - It is synchronous and runs in a Server Component.
   - It can't come from `createChatHandler`, because a route file may export only handlers. The starter exports `basePath` from `askdare.config.ts` so the route and the page agree.
-  - It reads asset names from a small generated module, so the page's server bundle doesn't pull in the inlined widget and fonts.
+  - It reads asset names from a small generated module and never touches the inlined widget and fonts, so a bundler can leave those out of the page's server bundle.
   - It can't know whether the route has `onFeedback`. The rating buttons show on answers that carry a feedback handle, and the server issues handles only when ratings are on.
 
 ### Server rendering and hydration
@@ -70,8 +70,8 @@ The code splits into three layers in `packages/askdare/src/`:
   - `react/skin/askdare.css` is the skin. Its 57 `:root…` selectors become `[data-askdare-root]…`, with the same specificity. Its global rules (`*`, `button`, `:focus-visible`, reduced motion) go under `:where([data-askdare-root])`, which adds no specificity.
   - `widget-app/frame.css` keeps `html`, `body` and `#askdare-root`, which only the iframe has.
 - **Inside the iframe, `<html>` stays the theme root.** It gets `data-askdare-root` next to the variant attributes. `:root` in `widget.css` and the attributes on `<html>` are public API (`docs/styling.md`), so they keep working, and the theme stylesheet and its hash don't change.
-- **In a page, `Theme` is the root:** a `<div data-askdare-root>` with the variant attributes. It loads:
-  - the tokens from `<basePath>/theme/<bot>.css?scope=inline`, where each scheme is a `[data-askdare-root][data-ask-scheme="…"]` block, so `colorScheme` can switch it. The bot's `widget.css` follows, with `:root` rewritten to `[data-askdare-root]`;
+- **In a page, `Theme` is the root:** a `<div data-askdare-root data-ask-bot="<bot>">` with the variant attributes. It loads:
+  - the tokens from `<basePath>/theme/<bot>.css?scope=inline`, where each scheme is a `[data-askdare-root][data-ask-bot="<bot>"][data-ask-scheme="…"]` block, so `colorScheme` can switch it and two bots on one page keep their own themes. The bot's `widget.css` follows inside `@scope` of that root, with `:root` rewritten to `:scope`, so a rule written for the iframe's document can't style the page. `@font-face` and `@keyframes` stay global;
   - the fonts from the existing `fonts.<hash>.css`.
 
   `DefaultChat` also loads the skin from `<basePath>/assets/skin.<hash>.css`. The links use React 19's `precedence`, so nobody configures a bundler or imports CSS from the package. Ejected code imports its own copy of `askdare.css` instead.
@@ -95,7 +95,7 @@ The code splits into three layers in `packages/askdare/src/`:
 ### Security of a chat inside the page
 
 The iframe isolated the chat from the host page (ADR-0005). Inside a page, that isolation is gone, so these rules apply. `THREAT_MODEL.md` gets the same section.
-- **Same origin only.** The page and the chat route are one app. `Root` rejects a `basePath` that isn't a plain path, so it never talks to another origin. There is no CORS, and `assertSameOrigin` doesn't change.
+- **Same origin only.** The page and the chat route are one app. `Root` rejects a `basePath` that isn't a plain path, and stylesheet URLs outside it, so it never talks to another origin. There is no CORS, and `assertSameOrigin` doesn't change.
 - **The Markdown renderer is the only guard against XSS.** In a page there is no iframe CSP behind it. The renderer still produces only React elements, never HTML. The XSS test suite runs against the built `react.js`, Biome forbids `dangerouslySetInnerHTML`, and every change to the renderer gets a security review. Citation links go through the same `safeUrl` check as links in answers.
 - **The page's scripts can see the chat.** Its tokens and messages live in the page's memory and storage. A site that runs scripts it doesn't trust should keep the iframe.
 - **A page that passes `identity` must be dynamic and sent with `Cache-Control: no-store`,** because the token is in its HTML.

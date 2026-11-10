@@ -108,6 +108,20 @@ describe('Root and the default look', () => {
     ).toThrow(/must be a path on this app/);
   });
 
+  it('refuses stylesheets from anywhere but the chat route', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const styles = { theme: '/api/chat/theme/support.css', fonts: '/api/chat/assets/f.css' };
+    for (const skin of [
+      'https://evil.example/skin.css',
+      '/other/skin.css',
+      '/api/chat//evil.example/x.css',
+    ]) {
+      expect(() => render(<Root config={testConfig({ styles: { ...styles, skin } })} />)).toThrow(
+        /stylesheets must come from/,
+      );
+    }
+  });
+
   it('renders on the server without storage or network', () => {
     const fetch = vi.fn();
     vi.stubGlobal('fetch', fetch);

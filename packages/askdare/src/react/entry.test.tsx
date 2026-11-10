@@ -45,6 +45,7 @@ describe('dist/react.js', () => {
     const html = renderToString(<Page />);
     expect(html).toContain('data-askdare-root=""');
     expect(html).toContain('data-ask-preset="aura"');
+    expect(html).toContain('data-ask-bot="support"');
     expect(html).toContain('data-ask-scheme="auto"');
     for (const href of Object.values(config.styles)) {
       expect(html).toContain(`href="${href.replace('&', '&amp;')}"`);

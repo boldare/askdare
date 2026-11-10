@@ -49,7 +49,7 @@ describe('publicConfig', () => {
 describe('getChatConfig', () => {
   it('points at the stylesheets the route serves', () => {
     const config = getChatConfig({ bots: [bot], bot: 'support', basePath: '/chat-api' });
-    const { hash } = themeAsset(bot.widget.theme, bot.widget.css, 'inline');
+    const { hash } = themeAsset(bot.widget.theme, bot.widget.css, bot.id);
     expect(config.basePath).toBe('/chat-api');
     expect(config.styles?.theme).toBe(`/chat-api/theme/support.css?scope=inline&v=${hash}`);
     expect(config.styles?.skin).toMatch(/^\/chat-api\/assets\/skin\.[0-9a-f]+\.css$/);
@@ -73,9 +73,29 @@ describe('getChatConfig', () => {
     ).toThrow(/basePath/);
   });
 
-  it("scopes the bot's own CSS to the chat", () => {
-    const { css } = themeAsset(bot.widget.theme, bot.widget.css, 'inline');
-    expect(css).toContain('[data-askdare-root] { --ask-color-accent: #0f766e; }');
+  it("scopes the bot's theme and its own CSS to that bot's chat", () => {
+    const own = [
+      '@font-face { font-family: "Brand"; src: url("/fonts/brand.woff2"); }',
+      ':root { --ask-color-accent: #0f766e; }',
+      'body { background: red; }',
+      '@media (max-width: 600px) { [data-ask-part="bubble"] { border-radius: 6px; } }',
+      '[data-ask-part="title"]::after { content: "}"; }',
+    ].join('\n');
+    const { css } = themeAsset(bot.widget.theme, own, 'support');
+    const root = '[data-askdare-root][data-ask-bot="support"]';
+    expect(css).toContain(`${root}{--ask-color-accent:`);
+    expect(css).toContain(`${root}[data-ask-scheme="dark"]{`);
+    // Fonts are global by nature; everything else lives inside the bot's scope.
+    const [before, scoped] = css.split(`@scope (${root}){`);
+    expect(before).toContain('@font-face');
+    expect(scoped).toContain(':scope { --ask-color-accent: #0f766e; }');
+    expect(scoped).toContain('body { background: red; }');
+    expect(scoped).toContain('@media (max-width: 600px)');
+    expect(scoped).toContain('content: "}"');
     expect(css).not.toContain(':root');
+    // Another bot gets its own stylesheet and hash.
+    expect(themeAsset(bot.widget.theme, own, 'sales').hash).not.toBe(
+      themeAsset(bot.widget.theme, own, 'support').hash,
+    );
   });
 });

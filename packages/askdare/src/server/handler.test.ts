@@ -230,8 +230,8 @@ describe('static routes', () => {
 
     const theme = await handler(new Request(`${BASE}/theme/support.css?scope=inline`));
     const css = await theme.text();
-    expect(css).toContain('[data-askdare-root][data-ask-preset]{');
-    expect(css).toContain('[data-askdare-root][data-ask-preset][data-ask-scheme="dark"]{');
+    expect(css).toContain('[data-askdare-root][data-ask-bot="support"]{');
+    expect(css).toContain('[data-askdare-root][data-ask-bot="support"][data-ask-scheme="dark"]{');
     expect(css).toContain('@media (prefers-color-scheme: dark)');
     // Nothing in it can style the page around the chat.
     expect(css).not.toContain(':root');

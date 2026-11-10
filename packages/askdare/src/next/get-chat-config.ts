@@ -41,7 +41,7 @@ export function getChatConfig(options: ChatConfigOptions): ChatConfig {
     bot.widget.locale === 'auto'
       ? ((options.locale ? canonicalLocale(options.locale) : undefined) ?? 'en')
       : bot.widget.locale;
-  const { hash } = themeAsset(bot.widget.theme, bot.widget.css, 'inline');
+  const { hash } = themeAsset(bot.widget.theme, bot.widget.css, bot.id);
   return {
     ...publicConfig(bot, basePath, { locale }),
     styles: {

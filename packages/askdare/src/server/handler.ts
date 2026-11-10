@@ -374,7 +374,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     // `scope=inline`: the bot's own theme for a chat inside a page (ADR-0011).
     const { css, hash } =
       query.get('scope') === 'inline'
-        ? themeAsset(bot.widget.theme, bot.widget.css, 'inline')
+        ? themeAsset(bot.widget.theme, bot.widget.css, bot.id)
         : themeAsset(viewFor(bot, query, request).theme, bot.widget.css);
     return new Response(css, {
       headers: {
