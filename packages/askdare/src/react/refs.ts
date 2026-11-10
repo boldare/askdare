@@ -14,3 +14,11 @@ export function useMergedRef<T>(
     [own, passed],
   );
 }
+
+/** Focuses the element a ref holds, if it is in the page; says whether it did. */
+export function focusElement(ref: RefObject<HTMLElement | null>): boolean {
+  const element = ref.current;
+  if (!element?.isConnected) return false;
+  element.focus();
+  return true;
+}

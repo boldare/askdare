@@ -10,7 +10,7 @@ import { acceptTypes } from '../chat/prepare-file';
 import { canSend } from '../chat/state';
 import { useChat, useStore } from './context';
 import { FileList } from './messages';
-import { useMergedRef } from './refs';
+import { focusElement, useMergedRef } from './refs';
 
 /** Grows the message field with its content, up to the height set in CSS. */
 function fitToContent(field: HTMLTextAreaElement): void {
@@ -58,7 +58,8 @@ export function Input({ ref, onKeyDown, onPaste, onChange, ...props }: InputProp
   }, [draft]);
 
   useEffect(
-    () => store.onFocus('input', () => requestAnimationFrame(() => own.current?.focus())),
+    // After a dictation the field is new: the store keeps the request until this one can take it.
+    () => store.onFocus('input', () => focusElement(own)),
     [store],
   );
 
@@ -204,10 +205,7 @@ export function Recorder({ cancelIcon = '×', ...props }: RecorderProps): ReactE
   const { state, actions, bot, t } = useChat();
   const { dictation } = state;
 
-  useEffect(
-    () => store.onFocus('dictation', () => requestAnimationFrame(() => done.current?.focus())),
-    [store],
-  );
+  useEffect(() => store.onFocus('dictation', () => focusElement(done)), [store]);
 
   // Only the level meter follows animation frames, and it is written to the DOM, not rendered.
   useEffect(() => {

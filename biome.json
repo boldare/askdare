@@ -84,7 +84,13 @@
                   "react-dom": "src/chat is the core without React (ADR-0011).",
                   "preact": "src/chat is the core without React (ADR-0011).",
                   "openai": "Only packages/askdare/src/openai/ may import openai (ADR-0002)."
-                }
+                },
+                "patterns": [
+                  {
+                    "group": ["openai/**"],
+                    "message": "Only packages/askdare/src/openai/ may import openai (ADR-0002)."
+                  }
+                ]
               }
             }
           }
@@ -115,6 +121,10 @@
                   "openai": "Only packages/askdare/src/openai/ may import openai (ADR-0002)."
                 },
                 "patterns": [
+                  {
+                    "group": ["openai/**"],
+                    "message": "Only packages/askdare/src/openai/ may import openai (ADR-0002)."
+                  },
                   {
                     "group": ["../*", "../**"],
                     "message": "The skin imports only @boldare/askdare/react and its own files, so add ui can copy it (ADR-0011)."

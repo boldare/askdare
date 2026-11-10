@@ -61,10 +61,10 @@ export interface ChatStore {
   /** The microphone's loudness from 0 to 1 while recording. */
   level(): number | undefined;
   /**
-   * Called when the chat moves focus to `target`. A request made while nothing listens for it (the
-   * field is back only after a dictation) waits for the next listener. Returns an unsubscribe.
+   * Registers what takes focus for `target`. The listener focuses its element and returns whether
+   * it could; a request nobody could take yet goes to the next listener. Returns an unsubscribe.
    */
-  onFocus(target: FocusTarget, listener: () => void): () => void;
+  onFocus(target: FocusTarget, listener: FocusListener): () => void;
 }
 
 export interface Recorder {
@@ -80,27 +80,35 @@ export interface ChatStoreOptions {
   readonly page?: PageOptions;
 }
 
+/** Focuses its element and says whether it could; false when the element is gone. */
+export type FocusListener = () => boolean;
+
 /**
- * Where the chat wants focus next. A request made while nothing listens for it (the message field
- * comes back only after a dictation ends) waits for the next listener.
+ * Where the chat wants focus next. A request stays pending until a listener for its target really
+ * takes it: the message field comes back only after a dictation ends, and a listener whose element
+ * has just unmounted must not swallow the request. Only the latest request is kept.
  */
 export function focusRequests(): {
   focus(target: FocusTarget): void;
-  onFocus(target: FocusTarget, listener: () => void): () => void;
+  onFocus(target: FocusTarget, listener: FocusListener): () => void;
 } {
-  const listeners: Record<FocusTarget, Set<() => void>> = {
+  const listeners: Record<FocusTarget, Set<FocusListener>> = {
     input: new Set(),
     dictation: new Set(),
   };
-  const waiting = new Set<FocusTarget>();
+  let pending: FocusTarget | undefined;
+  const deliver = (target: FocusTarget): boolean => {
+    let taken = false;
+    for (const listener of listeners[target]) taken = listener() || taken;
+    return taken;
+  };
   return {
     focus(target) {
-      if (listeners[target].size === 0) waiting.add(target);
-      for (const listener of listeners[target]) listener();
+      pending = deliver(target) ? undefined : target;
     },
     onFocus(target, listener) {
       listeners[target].add(listener);
-      if (waiting.delete(target)) listener();
+      if (pending === target && listener()) pending = undefined;
       return () => listeners[target].delete(listener);
     },
   };

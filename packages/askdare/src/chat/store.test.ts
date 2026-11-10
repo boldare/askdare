@@ -49,7 +49,7 @@ describe('createChatStore', () => {
     const server = fakeServer();
     const store = createChatStore(testConfig(), { client: testClient(server) });
     const focus: FocusTarget[] = [];
-    store.onFocus('input', () => focus.push('input'));
+    store.onFocus('input', () => focus.push('input') > 0);
     store.start();
     await until(store, (state) => state.phase === 'ready');
 
@@ -234,8 +234,8 @@ describe('createChatStore', () => {
       recorder,
     });
     const focus: FocusTarget[] = [];
-    store.onFocus('input', () => focus.push('input'));
-    store.onFocus('dictation', () => focus.push('dictation'));
+    store.onFocus('input', () => focus.push('input') > 0);
+    store.onFocus('dictation', () => focus.push('dictation') > 0);
     store.start();
     await until(store, (state) => state.phase === 'ready');
     expect(store.getSnapshot().canDictate).toBe(true);
@@ -257,14 +257,20 @@ describe('createChatStore', () => {
     expect(recorder.cancelled).toBe(1);
   });
 
-  it('keeps a focus request until something can take it', () => {
+  it('keeps a focus request until something really takes it', () => {
     const store = createChatStore(testConfig(), { client: testClient(fakeServer()) });
     store.actions.focus();
-    const focused = vi.fn();
-    store.onFocus('input', focused);
-    expect(focused).toHaveBeenCalledOnce();
-    store.onFocus('input', focused);
-    expect(focused).toHaveBeenCalledOnce();
+    // A listener whose element is gone (the field unmounts for a dictation) can't take it.
+    const gone = vi.fn(() => false);
+    store.onFocus('input', gone);
+    expect(gone).toHaveBeenCalledOnce();
+    const field = vi.fn(() => true);
+    store.onFocus('input', field);
+    expect(field).toHaveBeenCalledOnce();
+    // Taken: a later listener gets nothing.
+    const later = vi.fn(() => true);
+    store.onFocus('input', later);
+    expect(later).not.toHaveBeenCalled();
   });
 
   it('starts over with an empty chat', async () => {
