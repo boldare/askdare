@@ -1,5 +1,18 @@
 # @boldare/askdare-upstash
 
+## 0.1.1-rc.0
+
+### Patch Changes
+
+- Updated dependencies [1a1659f]
+- Updated dependencies [7c9fb36]
+- Updated dependencies [9bd1b16]
+- Updated dependencies [05076dc]
+- Updated dependencies [45ef7de]
+- Updated dependencies [48ddabf]
+- Updated dependencies [94a1e30]
+  - @boldare/askdare@0.2.0-rc.0
+
 ## 0.1.0
 
 ### Minor Changes
