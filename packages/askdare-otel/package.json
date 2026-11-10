@@ -1,6 +1,6 @@
 {
   "name": "@boldare/askdare-otel",
-  "version": "0.0.0",
+  "version": "0.1.0-rc.0",
   "description": "OpenTelemetry spans for @boldare/askdare chat turns, following the GenAI semantic conventions.",
   "license": "MIT",
   "author": {
