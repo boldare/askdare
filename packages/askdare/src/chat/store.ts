@@ -60,8 +60,11 @@ export interface ChatStore {
   hide(): void;
   /** The microphone's loudness from 0 to 1 while recording. */
   level(): number | undefined;
-  /** Called when the chat moves focus; returns an unsubscribe function. */
-  onFocus(listener: (target: FocusTarget) => void): () => void;
+  /**
+   * Called when the chat moves focus to `target`. A request made while nothing listens for it (the
+   * field is back only after a dictation) waits for the next listener. Returns an unsubscribe.
+   */
+  onFocus(target: FocusTarget, listener: () => void): () => void;
 }
 
 export interface Recorder {
@@ -75,6 +78,32 @@ export interface ChatStoreOptions {
   readonly recorder?: Recorder;
   /** The page's greeting, starters and context from the start, so the server renders them. */
   readonly page?: PageOptions;
+}
+
+/**
+ * Where the chat wants focus next. A request made while nothing listens for it (the message field
+ * comes back only after a dictation ends) waits for the next listener.
+ */
+export function focusRequests(): {
+  focus(target: FocusTarget): void;
+  onFocus(target: FocusTarget, listener: () => void): () => void;
+} {
+  const listeners: Record<FocusTarget, Set<() => void>> = {
+    input: new Set(),
+    dictation: new Set(),
+  };
+  const waiting = new Set<FocusTarget>();
+  return {
+    focus(target) {
+      if (listeners[target].size === 0) waiting.add(target);
+      for (const listener of listeners[target]) listener();
+    },
+    onFocus(target, listener) {
+      listeners[target].add(listener);
+      if (waiting.delete(target)) listener();
+      return () => listeners[target].delete(listener);
+    },
+  };
 }
 
 const MICROPHONE_MESSAGES: Readonly<Record<MicrophoneError['reason'], TextKey>> = {
@@ -125,10 +154,7 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
     state = { ...state, ...change };
     for (const listener of listeners) listener();
   };
-  const focusListeners = new Set<(target: FocusTarget) => void>();
-  const focus = (target: FocusTarget): void => {
-    for (const listener of focusListeners) listener(target);
-  };
+  const { focus, onFocus } = focusRequests();
 
   let localId = 0;
   const nextLocalId = (): string => `local_${++localId}`;
@@ -451,9 +477,6 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
 
     level: () => recording?.level(),
 
-    onFocus(listener) {
-      focusListeners.add(listener);
-      return () => focusListeners.delete(listener);
-    },
+    onFocus,
   };
 }

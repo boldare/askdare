@@ -49,7 +49,7 @@ describe('createChatStore', () => {
     const server = fakeServer();
     const store = createChatStore(testConfig(), { client: testClient(server) });
     const focus: FocusTarget[] = [];
-    store.onFocus((target) => focus.push(target));
+    store.onFocus('input', () => focus.push('input'));
     store.start();
     await until(store, (state) => state.phase === 'ready');
 
@@ -234,7 +234,8 @@ describe('createChatStore', () => {
       recorder,
     });
     const focus: FocusTarget[] = [];
-    store.onFocus((target) => focus.push(target));
+    store.onFocus('input', () => focus.push('input'));
+    store.onFocus('dictation', () => focus.push('dictation'));
     store.start();
     await until(store, (state) => state.phase === 'ready');
     expect(store.getSnapshot().canDictate).toBe(true);
@@ -254,6 +255,16 @@ describe('createChatStore', () => {
     store.hide();
     expect(store.getSnapshot().dictation).toBe('idle');
     expect(recorder.cancelled).toBe(1);
+  });
+
+  it('keeps a focus request until something can take it', () => {
+    const store = createChatStore(testConfig(), { client: testClient(fakeServer()) });
+    store.actions.focus();
+    const focused = vi.fn();
+    store.onFocus('input', focused);
+    expect(focused).toHaveBeenCalledOnce();
+    store.onFocus('input', focused);
+    expect(focused).toHaveBeenCalledOnce();
   });
 
   it('starts over with an empty chat', async () => {

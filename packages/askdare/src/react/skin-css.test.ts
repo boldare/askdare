@@ -1,9 +1,8 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import css from './skin/askdare.css?raw';
 
 // Inside a page, the skin shares the document with the site: no rule may reach outside the chat
 // (ADR-0011). Every selector starts at a part or at the theme root, and none names the document.
-const css = readFileSync(new URL('./skin/askdare.css', import.meta.url), 'utf8');
 
 /** The selector lists of every style rule, outside @keyframes. */
 function selectorLists(source: string): string[] {
