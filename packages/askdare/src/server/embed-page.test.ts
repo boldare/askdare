@@ -42,6 +42,8 @@ describe('renderEmbedPage', () => {
     fontsCss: '',
     fontsCssFile: 'fonts.css',
     fontFiles: {},
+    skinCss: '[data-ask-part="panel"]{display:flex}',
+    skinCssFile: 'skin.333.css',
   };
   const page = (widget: NonNullable<Parameters<typeof defineBot>[0]['widget']>): string => {
     const bot = defineBot({ id: 'support', model: 'm', instructions: 'x', widget });

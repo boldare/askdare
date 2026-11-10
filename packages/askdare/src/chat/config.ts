@@ -23,8 +23,20 @@ export interface ChatWidget {
   readonly disclosure: false | { readonly privacyUrl: string | undefined };
   readonly preset: PresetName;
   readonly variants: ThemeVariants;
+  /** `auto` follows the visitor's system setting. */
+  readonly colorScheme: 'auto' | 'light' | 'dark';
   /** Every text in the visitor's language, overrides applied; plural keys included. */
   readonly texts: Readonly<Record<string, string>>;
+}
+
+/** Stylesheets of a chat inside a page, served by the chat route (ADR-0011). */
+export interface ChatStyles {
+  /** The bot's tokens for both color schemes, then its own `widget.css`. */
+  readonly theme: string;
+  /** The default look; only `DefaultChat` loads it. */
+  readonly skin: string;
+  /** `@font-face` rules of the built-in themes; browsers fetch only the fonts in use. */
+  readonly fonts: string;
 }
 
 /** What the browser needs to run one bot's chat. Public: it never holds secrets (ADR-0008). */
@@ -42,4 +54,6 @@ export interface ChatConfig {
   readonly attachments?: ChatAttachments;
   /** Absent when voice input is off. The model stays on the server. */
   readonly voice?: { readonly maxSeconds: number };
+  /** From `getChatConfig`, for a chat inside a page. The iframe links its own stylesheets. */
+  readonly styles?: ChatStyles;
 }

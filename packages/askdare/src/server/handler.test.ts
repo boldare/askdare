@@ -32,6 +32,8 @@ const assets: EmbedAssets = {
   fontsCss: '@font-face{font-family:x;src:url(./x.111.woff2)}',
   fontsCssFile: 'fonts.222.css',
   fontFiles: { 'x.111.woff2': btoa('wOF2font') },
+  skinCss: '[data-ask-part="panel"]{display:flex}',
+  skinCssFile: 'skin.333.css',
 };
 
 const bot = defineBot({
@@ -219,6 +221,20 @@ describe('static routes', () => {
     });
     const response = await development(new Request(`${BASE}/widget.js?bot=support`));
     expect(response.headers.get('cache-control')).toBe('no-cache');
+  });
+
+  it('serves the skin and a theme scoped to the chat, for a chat inside a page', async () => {
+    const skin = await handler(new Request(`${BASE}/assets/skin.333.css`));
+    expect(skin.headers.get('content-type')).toContain('text/css');
+    expect(skin.headers.get('cache-control')).toContain('immutable');
+
+    const theme = await handler(new Request(`${BASE}/theme/support.css?scope=inline`));
+    const css = await theme.text();
+    expect(css).toContain('[data-askdare-root][data-ask-preset]{');
+    expect(css).toContain('[data-askdare-root][data-ask-preset][data-ask-scheme="dark"]{');
+    expect(css).toContain('@media (prefers-color-scheme: dark)');
+    // Nothing in it can style the page around the chat.
+    expect(css).not.toContain(':root');
   });
 
   it('serves hashed assets with immutable caching and 404s anything else', async () => {

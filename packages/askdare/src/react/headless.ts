@@ -50,3 +50,5 @@ export type { PanelProps } from './panel';
 export { Panel } from './panel';
 export type { RootProps } from './root';
 export { Root } from './root';
+export type { ThemeProps } from './theme';
+export { Theme } from './theme';
