@@ -13,7 +13,7 @@
 In a Next.js 16 app:
 
 ```bash
-npm install @boldare/askdare@rc zod
+npm install @boldare/askdare zod
 npx @boldare/askdare init
 ```
 
@@ -34,7 +34,7 @@ export const bots = [
 ];
 ```
 
-**[Getting started](https://askdare.vercel.app/docs/getting-started)** takes you from an empty app to a working chat in about 15 minutes. askdare is a release candidate, so pin the exact version.
+**[Getting started](https://askdare.vercel.app/docs/getting-started)** takes you from an empty app to a working chat in about 15 minutes.
 
 ## What you get
 
