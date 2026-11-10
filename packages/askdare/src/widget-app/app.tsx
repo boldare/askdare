@@ -6,61 +6,36 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
-import { formatText, pluralText } from '../i18n/format';
+import { type ChatClient, SessionRefused } from '../chat/chat-client';
+import type { Fixture } from '../chat/fixture-store';
+import type { PageOptions } from '../chat/page-options';
+import { acceptTypes, prepareFile } from '../chat/prepare-file';
+import { canRecord, MicrophoneError, type Recording, startRecording } from '../chat/recorder';
+import {
+  activityFor,
+  applyEvent,
+  failStreaming,
+  fromHistory,
+  type Translate,
+  translator,
+} from '../chat/reducer';
+import type { ChatMessage, PendingFile, SentFile } from '../chat/state';
+import { pluralText } from '../i18n/format';
 import type { TextKey } from '../i18n/texts';
-import type { ProtocolEvent } from '../protocol/events';
-import type { HistoryMessage } from '../protocol/history';
 import type { EmbedConfig } from '../server/embed-page';
-import { type ChatClient, SessionRefused } from './chat-client';
-import type { HostBridge, PageOptions } from './host-bridge';
+import type { HostBridge } from './host-bridge';
 import { AttachIcon, CloseIcon, MicIcon, RestartIcon, SendIcon } from './icons';
 import { Markdown } from './markdown';
-import { acceptTypes, prepareFile } from './prepare-file';
-import { canRecord, MicrophoneError, type Recording, startRecording } from './recorder';
 import { Avatar, Welcome } from './welcome';
-
-export interface Citation {
-  readonly index: number;
-  readonly title: string;
-  readonly url?: string | undefined;
-}
-
-export interface SentFile {
-  readonly name: string;
-  readonly kind: 'image' | 'pdf';
-  /** Local preview of an image sent in this session; history only knows how many files there were. */
-  readonly previewUrl?: string | undefined;
-}
-
-export interface Message {
-  readonly id: string;
-  readonly role: 'user' | 'assistant';
-  readonly text: string;
-  readonly citations: readonly Citation[];
-  /** Number of files, from history. */
-  readonly attachments: number;
-  /** Files sent in this session. */
-  readonly files?: readonly SentFile[];
-  readonly status: 'streaming' | 'done' | 'error';
-}
-
-export interface PendingFile {
-  readonly key: string;
-  readonly name: string;
-  readonly kind?: 'image' | 'pdf' | undefined;
-  readonly previewUrl?: string | undefined;
-  readonly status: 'uploading' | 'ready' | 'error';
-  readonly handle?: string | undefined;
-  readonly error?: string | undefined;
-}
 
 const megabytes = (bytes: number): string => `${Math.floor(bytes / 100_000) / 10} MB`;
 
 /** False for an assistant message that ended (or failed) before any text, files or sources. */
-const hasContent = (message: Message): boolean =>
+const hasContent = (message: ChatMessage): boolean =>
   message.role === 'user' ||
   message.status === 'streaming' ||
   message.text !== '' ||
@@ -74,8 +49,6 @@ function fitToContent(field: HTMLTextAreaElement): void {
 
 const clock = (seconds: number): string =>
   `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
-
-type Translate = (key: TextKey, params?: Readonly<Record<string, string | number>>) => string;
 
 const MICROPHONE_MESSAGES: Readonly<Record<MicrophoneError['reason'], TextKey>> = {
   blocked: 'microphone.blocked',
@@ -142,18 +115,6 @@ function FileList({
   );
 }
 
-/** A frozen state for the gallery: design review and visual tests, never a live chat. */
-export interface Fixture {
-  readonly messages: readonly Message[];
-  readonly pending?: readonly PendingFile[];
-  readonly draft?: string;
-  readonly busy?: boolean;
-  readonly activity?: string;
-  readonly error?: string;
-  readonly dictation?: 'recording' | 'transcribing';
-  readonly elapsed?: number;
-}
-
 export interface AppProps {
   readonly config: EmbedConfig;
   readonly client: ChatClient;
@@ -166,57 +127,6 @@ export interface AppProps {
 let localId = 0;
 const nextLocalId = (): string => `local_${++localId}`;
 
-const fromHistory = (message: HistoryMessage): Message => ({ ...message, status: 'done' });
-
-function applyEvent(messages: readonly Message[], event: ProtocolEvent): readonly Message[] {
-  const update = (id: string, change: (message: Message) => Message): readonly Message[] =>
-    messages.map((message) => (message.id === id ? change(message) : message));
-  switch (event.type) {
-    case 'message.start':
-      return [
-        ...messages,
-        {
-          id: event.messageId,
-          role: 'assistant',
-          text: '',
-          citations: [],
-          attachments: 0,
-          status: 'streaming',
-        },
-      ];
-    case 'text.delta':
-      return update(event.messageId, (message) => ({
-        ...message,
-        text: message.text + event.delta,
-      }));
-    case 'citation':
-      return update(event.messageId, (message) => ({
-        ...message,
-        citations: [
-          ...message.citations,
-          { index: event.index, title: event.title, url: event.url },
-        ],
-      }));
-    case 'message.end':
-      return update(event.messageId, (message) => ({ ...message, status: 'done' }));
-    default:
-      return messages;
-  }
-}
-
-/** What the assistant is doing right now, shown while no text streams. */
-function activityFor(event: ProtocolEvent, t: Translate): string | null | undefined {
-  if (event.type === 'reasoning') return event.state === 'started' ? t('status.thinking') : null;
-  if (event.type === 'tool.status')
-    return event.state === 'running'
-      ? event.name === 'file_search'
-        ? t('status.searching')
-        : t('status.tool', { name: event.name })
-      : null;
-  if (event.type === 'text.delta' || event.type === 'message.end') return null;
-  return undefined; // unchanged
-}
-
 export function App({ config, client, bridge, fixture, inline = false }: AppProps) {
   const [page, setPage] = useState<PageOptions>({});
   useEffect(() => bridge.onConfigure(setPage), [bridge]);
@@ -227,11 +137,8 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
     ...(page.starters ? { starters: page.starters } : {}),
   };
   // Stable, so effects can use it: the texts never change while the chat is open.
-  const t = useCallback<Translate>(
-    (key, params) => formatText(widget.texts[key] ?? key, params),
-    [widget.texts],
-  );
-  const [messages, setMessages] = useState<readonly Message[]>(fixture?.messages ?? []);
+  const t = useMemo(() => translator(widget.texts), [widget.texts]);
+  const [messages, setMessages] = useState<readonly ChatMessage[]>(fixture?.messages ?? []);
   const [draft, setDraft] = useState(fixture?.draft ?? '');
   const [busy, setBusy] = useState(fixture?.busy ?? false);
   const [loading, setLoading] = useState(() => !fixture && client.hasConversation());
@@ -486,11 +393,7 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
       if (next !== undefined) setActivity(next);
       if (event.type === 'error') {
         setError(event.message);
-        setMessages((current) =>
-          current.map((message) =>
-            message.status === 'streaming' ? { ...message, status: 'error' } : message,
-          ),
-        );
+        setMessages(failStreaming);
         return;
       }
       setMessages((current) => applyEvent(current, event));

@@ -1,5 +1,6 @@
+import type { Fixture } from '../chat/fixture-store';
+import type { ChatMessage } from '../chat/state';
 import type { GalleryState } from '../server/embed-page';
-import type { Fixture, Message } from './app';
 
 /** A small landscape, as a stand-in for a visitor's photo (an <img> never runs SVG scripts). */
 const PHOTO = `data:image/svg+xml,${encodeURIComponent(
@@ -8,12 +9,12 @@ const PHOTO = `data:image/svg+xml,${encodeURIComponent(
 
 const message = (
   id: string,
-  role: Message['role'],
+  role: ChatMessage['role'],
   text: string,
-  extra: Partial<Message> = {},
-): Message => ({ id, role, text, citations: [], attachments: 0, status: 'done', ...extra });
+  extra: Partial<ChatMessage> = {},
+): ChatMessage => ({ id, role, text, citations: [], attachments: 0, status: 'done', ...extra });
 
-const conversation: readonly Message[] = [
+const conversation: readonly ChatMessage[] = [
   message('u1', 'user', 'What does the Business plan include?'),
   message(
     'a1',

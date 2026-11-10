@@ -1,4 +1,5 @@
 import type { Bot } from '../bot/define-bot';
+import type { ChatConfig, ChatWidget } from '../chat/config';
 import { textLocale, textsFor } from '../i18n/texts';
 
 const uiLanguage = (locale: string): string =>
@@ -6,7 +7,6 @@ const uiLanguage = (locale: string): string =>
 
 import { PROTOCOL_VERSION } from '../protocol/version';
 import { themeAttributes, themeStylesheet } from '../theme/css';
-import type { PresetName, ThemeVariants } from '../theme/presets';
 import type { ResolvedTheme } from '../theme/theme';
 
 /** Built iframe app and loader, inlined into the package at build time (no runtime file reads). */
@@ -36,30 +36,13 @@ export const GALLERY_STATES = [
 export type GalleryState = (typeof GALLERY_STATES)[number];
 
 /** The widget settings the iframe app needs; colors arrive as the theme stylesheet. */
-export type EmbedWidget = Omit<Bot['widget'], 'theme' | 'css' | 'texts' | 'feedback'> & {
-  readonly preset: PresetName;
-  readonly variants: ThemeVariants;
-  /** Every text in the visitor's language, overrides applied; plural keys included. */
-  readonly texts: Readonly<Record<string, string>>;
-};
+export type EmbedWidget = ChatWidget;
 
 /** Public configuration handed to the iframe app. Must never contain secrets. */
-export interface EmbedConfig {
-  readonly protocolVersion: number;
-  readonly basePath: string;
-  readonly botId: string;
+export interface EmbedConfig extends ChatConfig {
   readonly allowedOrigins: readonly string[];
-  readonly widget: EmbedWidget;
-  /** Whether the bot accepts a page description from askdare('configure', { context }). */
-  readonly pageContext: boolean;
-  /** Whether answers get rating buttons: the handler has `onFeedback` and the bot allows it. */
-  readonly feedback: boolean;
   /** Only in gallery mode: render this state from fixtures instead of talking to the server. */
   readonly gallery?: GalleryState;
-  /** What the visitor may attach; absent when attachments are off. */
-  readonly attachments?: NonNullable<Bot['attachments']>;
-  /** Dictation settings; absent when voice input is off. The model stays on the server. */
-  readonly voice?: { readonly maxSeconds: number };
 }
 
 const HTML_ESCAPES: Readonly<Record<string, string>> = {

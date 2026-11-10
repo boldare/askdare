@@ -1,11 +1,11 @@
 import { createRoot } from 'react-dom/client';
+import { ChatClient } from '../chat/chat-client';
+import { browserStorage } from '../chat/storage';
 import { formatText } from '../i18n/format';
 import type { EmbedConfig } from '../server/embed-page';
 import { App } from './app';
-import { ChatClient } from './chat-client';
 import { FIXTURES } from './gallery';
 import { connectToHost } from './host-bridge';
-import { browserStorage } from './storage';
 import './styles.css';
 
 function readConfig(): EmbedConfig {
