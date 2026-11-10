@@ -97,6 +97,21 @@ test('the default look has no axe violations inside the page', async ({ page }) 
   await chat.getByRole('button', { name: 'Start a new conversation' }).click();
   await expect(chat.getByRole('alertdialog')).toBeVisible();
   expect(await check(), 'question').toEqual([]);
+
+  // Inside a page the question covers only the chat: it isn't modal, so screen readers keep the
+  // page, while Tab stays in the question and Escape in it answers no.
+  const question = chat.getByRole('alertdialog', { name: 'Start a new conversation' });
+  await expect(question).not.toHaveAttribute('aria-modal');
+  await expect(question).toHaveAccessibleDescription(/.+/);
+  const cancel = question.getByRole('button', { name: 'Cancel' });
+  await expect(cancel).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(question.getByRole('button', { name: 'Start new' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(cancel).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(question).toHaveCount(0);
+  await expect(chat.getByRole('button', { name: 'Start a new conversation' })).toBeFocused();
 });
 
 test('works with markup written by the page', async ({ page }) => {
