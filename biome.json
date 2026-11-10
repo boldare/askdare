@@ -72,6 +72,26 @@
       }
     },
     {
+      "includes": ["packages/askdare/src/chat/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "react": "src/chat is the core without React (ADR-0011).",
+                  "react-dom": "src/chat is the core without React (ADR-0011).",
+                  "preact": "src/chat is the core without React (ADR-0011).",
+                  "openai": "Only packages/askdare/src/openai/ may import openai (ADR-0002)."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
       "includes": ["packages/askdare/src/widget-app/**"],
       "linter": {
         "rules": {
