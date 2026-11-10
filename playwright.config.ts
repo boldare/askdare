@@ -28,10 +28,11 @@ export default defineConfig({
         },
       },
     },
-    // The embedding, the page API and accessibility in the other engines (`pnpm e2e:browsers`).
+    // The embedding, the page API, accessibility and the chat inside a page in the other engines
+    // (`pnpm e2e:browsers`).
     {
       name: 'firefox',
-      testMatch: /(embed|host-api|a11y)\.spec\.ts/,
+      testMatch: /(embed|host-api|a11y|inline)\.spec\.ts/,
       use: {
         ...devices['Desktop Firefox'],
         // A fake microphone without a prompt, like Chromium's flags above.
@@ -45,7 +46,7 @@ export default defineConfig({
     },
     {
       name: 'webkit',
-      testMatch: /(embed|host-api|a11y)\.spec\.ts/,
+      testMatch: /(embed|host-api|a11y|inline)\.spec\.ts/,
       use: { ...devices['Desktop Safari'] },
     },
     {
