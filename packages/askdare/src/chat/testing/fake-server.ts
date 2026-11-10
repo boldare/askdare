@@ -113,6 +113,7 @@ export function testConfig(change: Partial<ChatConfig> = {}): ChatConfig {
       disclosure: { privacyUrl: undefined },
       preset: 'aura',
       variants: PRESETS.aura.variants,
+      colorScheme: 'auto',
       texts,
     },
     ...change,

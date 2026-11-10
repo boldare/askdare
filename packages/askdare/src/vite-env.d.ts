@@ -6,3 +6,9 @@ declare module '*.css?raw' {
   const css: string;
   export default css;
 }
+
+// The built entry as text, for tests of what is published.
+declare module '*.js?raw' {
+  const source: string;
+  export default source;
+}

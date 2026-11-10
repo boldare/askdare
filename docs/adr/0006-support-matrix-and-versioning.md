@@ -15,7 +15,7 @@ A library runs inside its users' apps, so every supported combination of version
 |---|---|---|
 | Node.js | 22 and 24 (`engines: >=22`) | 20 or older (end of life) |
 | Next.js | 16.x, latest minor (peer `^16`), App Router, Node.js runtime | Pages Router, Edge runtime, static export |
-| React | 19 in your app. 0.1 has no React peer: the chat is a prebuilt iframe app. The React subpath in 0.2 adds the peer `^19`. | 18 |
+| React | 19 in your app. The script-tag widget needs no React: it is a prebuilt iframe app. `@boldare/askdare/react` (0.2, ADR-0011) has the optional peer `^19`. | 18 |
 | Zod | `^4.1` (peer, required) | 3 |
 | Bundlers | Turbopack (default) and `next build --webpack` | |
 | Consumer TypeScript | 5.9, 6.0 and 7.0 (published `.d.ts` tested against each) | |
@@ -29,6 +29,8 @@ A library runs inside its users' apps, so every supported combination of version
 - The SSE protocol has its own version (`x-askdare-protocol`).
 - **The public surface is exactly:**
   - `defineBot`, `defineTool`, `createChatHandler` (and `defineTheme`);
+  - `getChatConfig`, and everything `@boldare/askdare/react` exports: `Root`, `DefaultChat`, `Theme`, the hooks and the primitives (ADR-0011);
+  - the `data-askdare-root` attribute of the theme root;
   - the script tag's `data-*` attributes and the `askdare()` JS API, `identify` included;
   - the identity token's claims, `IDENTITY_SECRET` and `context.identity` (ADR-0009);
   - `--ask-*` tokens, `data-ask-part` names and dictionary keys;
@@ -40,7 +42,7 @@ A library runs inside its users' apps, so every supported combination of version
   Everything else is internal.
 - **Guards** (published for users in [Support](../support.md)):
   - a `.d.ts` snapshot (`packages/askdare/api/askdare.api.txt`) fails the check when the published types change, until it is updated on purpose with a changeset; a consumer project type-checks the published `.d.ts` with TypeScript 5.9, 6.0 and 7.0;
-  - size budgets fail the build: loader 5 KB, chat app 50 KB, its styles 8 KB, each preset's fonts 82 KB (gzipped);
+  - size budgets fail the build: loader 5 KB, chat app 50 KB, its styles 8 KB, each preset's fonts 82 KB, and `@boldare/askdare/react` 32 KB in an app's bundle, or 12 KB for a page that uses only `Root` and `useChat` (gzipped);
   - a nightly canary runs the checks and browser tests against `next@canary` and `openai@latest` (with the mocked OpenAI API);
   - a daily live smoke test runs on a cheap model in a dedicated, spend-capped OpenAI project, so a retired model or a changed API fails there.
 

@@ -1,13 +1,18 @@
 import type { Bot } from '../bot/define-bot';
 import type { ChatConfig, ChatWidget } from '../chat/config';
-import { textLocale, textsFor } from '../i18n/texts';
+import { textLocale } from '../i18n/texts';
 
 const uiLanguage = (locale: string): string =>
   locale.toLowerCase().split('-')[0] === textLocale(locale) ? locale : textLocale(locale);
 
-import { PROTOCOL_VERSION } from '../protocol/version';
-import { themeAttributes, themeStylesheet } from '../theme/css';
+import {
+  inlineCustomCss,
+  inlineThemeStylesheet,
+  themeAttributes,
+  themeStylesheet,
+} from '../theme/css';
 import type { ResolvedTheme } from '../theme/theme';
+import { publicConfig } from './public-config';
 
 /** Built iframe app and loader, inlined into the package at build time (no runtime file reads). */
 export interface EmbedAssets {
@@ -22,6 +27,9 @@ export interface EmbedAssets {
   readonly fontsCssFile: string;
   /** Base64 woff2 files by published name. */
   readonly fontFiles: Readonly<Record<string, string>>;
+  /** The default look alone, for a chat inside a page (ADR-0011). */
+  readonly skinCss: string;
+  readonly skinCssFile: string;
 }
 
 /** States the gallery can render without a model, for design review and visual tests. */
@@ -77,31 +85,15 @@ export interface EmbedView {
 }
 
 export function embedConfig(bot: Bot, basePath: string, view?: EmbedView): EmbedConfig {
-  const { theme, css: _css, texts: overrides, feedback: _feedback, ...widget } = bot.widget;
-  const resolved = view?.theme ?? theme;
-  const locale = view?.locale ?? (widget.locale === 'auto' ? 'en' : widget.locale);
-  const texts = textsFor(locale, overrides);
   return {
-    protocolVersion: PROTOCOL_VERSION,
-    basePath,
-    botId: bot.id,
+    ...publicConfig(bot, basePath, {
+      locale: view?.locale,
+      theme: view?.theme,
+      // The iframe is served by the route, which knows whether it takes ratings.
+      feedback: view?.feedback ?? false,
+    }),
     allowedOrigins: bot.security.allowedOrigins,
-    pageContext: bot.pageContext,
-    feedback: view?.feedback ?? false,
-    widget: {
-      ...widget,
-      locale,
-      title: texts['header.title'] ?? widget.title,
-      greeting: texts['welcome.greeting'] ?? widget.greeting,
-      placeholder: texts['composer.placeholder'] ?? widget.placeholder,
-      launcherLabel: texts['launcher.label'] ?? widget.launcherLabel,
-      texts,
-      preset: resolved.preset,
-      variants: resolved.variants,
-    },
     ...(view?.gallery ? { gallery: view.gallery } : {}),
-    ...(bot.attachments ? { attachments: bot.attachments } : {}),
-    ...(bot.voice ? { voice: { maxSeconds: bot.voice.maxSeconds } } : {}),
   };
 }
 
@@ -128,23 +120,33 @@ export function embedContentSecurityPolicy(bot: Bot): string {
 /** Stylesheet and content hash of a theme plus a bot's own CSS, cached per distinct pair. */
 const stylesheets = new WeakMap<ResolvedTheme, Map<string, { css: string; hash: string }>>();
 
-export function themeAsset(theme: ResolvedTheme, custom = ''): { css: string; hash: string } {
+/** With `inlineFor`, a bot id: for that bot's chat inside a page, scoped to it (ADR-0011). */
+export function themeAsset(
+  theme: ResolvedTheme,
+  custom = '',
+  inlineFor?: string,
+): { css: string; hash: string } {
   let byCustom = stylesheets.get(theme);
   if (!byCustom) {
     byCustom = new Map();
     stylesheets.set(theme, byCustom);
   }
-  let asset = byCustom.get(custom);
+  const key = `${inlineFor ?? ''}\n${custom}`;
+  let asset = byCustom.get(key);
   if (!asset) {
+    const [rules, own] =
+      inlineFor === undefined
+        ? [themeStylesheet(theme), custom]
+        : [inlineThemeStylesheet(theme, inlineFor), inlineCustomCss(custom, inlineFor)];
     // The bot's CSS comes after the theme and outside the library's layer, so it wins.
-    const css = custom ? `${themeStylesheet(theme)}\n${custom}` : themeStylesheet(theme);
+    const css = own ? `${rules}\n${own}` : rules;
     // FNV-1a: only a cache key for the URL, not a security boundary.
     let value = 0x811c9dc5;
     for (let index = 0; index < css.length; index += 1) {
       value = Math.imul(value ^ css.charCodeAt(index), 0x01000193) >>> 0;
     }
     asset = { css, hash: value.toString(16).padStart(8, '0') };
-    byCustom.set(custom, asset);
+    byCustom.set(key, asset);
   }
   return asset;
 }

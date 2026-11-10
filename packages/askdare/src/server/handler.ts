@@ -371,7 +371,11 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
 
   const serveTheme = (botId: string, query: URLSearchParams, request: Request): Response => {
     const bot = findBot(botId);
-    const { css, hash } = themeAsset(viewFor(bot, query, request).theme, bot.widget.css);
+    // `scope=inline`: the bot's own theme for a chat inside a page (ADR-0011).
+    const { css, hash } =
+      query.get('scope') === 'inline'
+        ? themeAsset(bot.widget.theme, bot.widget.css, bot.id)
+        : themeAsset(viewFor(bot, query, request).theme, bot.widget.css);
     return new Response(css, {
       headers: {
         'Content-Type': 'text/css; charset=utf-8',
@@ -425,7 +429,9 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
           ? { content: assets.widgetCss, type: 'text/css; charset=utf-8' }
           : file === assets.fontsCssFile
             ? { content: assets.fontsCss, type: 'text/css; charset=utf-8' }
-            : undefined;
+            : file === assets.skinCssFile
+              ? { content: assets.skinCss, type: 'text/css; charset=utf-8' }
+              : undefined;
     if (!body) throw new AskdareError('not_found');
     return new Response(body.content, {
       headers: {

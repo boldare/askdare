@@ -229,8 +229,8 @@ export interface MarkdownProps {
   readonly text: string;
 }
 
-export const Markdown: NamedExoticComponent<MarkdownProps> = memo(function Markdown({
-  text,
-}: MarkdownProps) {
-  return <Fallback text={text}>{render(text)}</Fallback>;
-});
+export const Markdown: NamedExoticComponent<MarkdownProps> = /* @__PURE__ */ memo(
+  function Markdown({ text }: MarkdownProps) {
+    return <Fallback text={text}>{render(text)}</Fallback>;
+  },
+);

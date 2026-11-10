@@ -11,7 +11,7 @@ export interface Skin {
   readonly restartRef: RefObject<HTMLButtonElement | null>;
 }
 
-export const SkinContext: Context<Skin | null> = createContext<Skin | null>(null);
+export const SkinContext: Context<Skin | null> = /* @__PURE__ */ createContext<Skin | null>(null);
 
 export function useSkin(): Skin {
   const skin = useContext(SkinContext);
