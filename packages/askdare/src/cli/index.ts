@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { createRequire } from 'node:module';
 import { parseArgs } from 'node:util';
+import { AddUiError, addUi } from './add-ui';
 import { doctor, isLocal } from './doctor';
 import { InitError, init } from './init';
 import { KB_USAGE, kbSync } from './kb-sync';
@@ -23,6 +24,12 @@ Commands:
                        .env.development and .env, as next dev reads them)
     --origin <url>     Check that this site may embed the chat (the bot's
                        security.allowedOrigins), e.g. https://www.example.com
+
+  add ui             Copy the chat's default look (React components and their
+                     stylesheet) into the app, to change it freely. Never
+                     overwrites files. For the chat inside a page: docs/react.md
+    --dir <folder>     Where to put it (default: components/askdare, under src/
+                       if the app has one)
 
   kb sync <folder>   Make an OpenAI vector store mirror a folder of documents.
                      See: npx @boldare/askdare kb sync --help
@@ -59,6 +66,30 @@ async function runInit(args: readonly string[]): Promise<number> {
   } catch (error) {
     if (error instanceof InitError) {
       console.error(`askdare init: ${error.message}`);
+      return 1;
+    }
+    throw error;
+  }
+  return 0;
+}
+
+async function runAddUi(args: readonly string[]): Promise<number> {
+  const { values } = parseArgs({
+    args: [...args],
+    options: {
+      dir: { type: 'string' },
+      help: { type: 'boolean', short: 'h', default: false },
+    },
+  });
+  if (values.help) {
+    console.log(USAGE);
+    return 0;
+  }
+  try {
+    await addUi({ root: process.cwd(), dir: values.dir, print: (line) => console.log(line) });
+  } catch (error) {
+    if (error instanceof AddUiError) {
+      console.error(`askdare add ui: ${error.message}`);
       return 1;
     }
     throw error;
@@ -117,6 +148,7 @@ async function main(argv: readonly string[]): Promise<number> {
   const [command, ...rest] = argv;
   if (command === 'init') return runInit(rest);
   if (command === 'doctor') return runDoctor(rest);
+  if (command === 'add' && rest[0] === 'ui') return runAddUi(rest.slice(1));
   if (command === 'kb' && rest[0] === 'sync') return kbSync(rest.slice(1));
   if (command === '-v' || command === '--version') {
     console.log(version());

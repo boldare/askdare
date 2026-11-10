@@ -37,7 +37,7 @@ A library runs inside its users' apps, so every supported combination of version
   - the shadow parts on the host page (`launcher`, `panel`, `unavailable`) and the host element's `data-askdare` attribute;
   - the protocol version;
   - ports implemented by official add-ons: `RateLimitStore` (and `CounterHit`);
-  - the `askdare` commands and their options (`init`, `doctor`, `kb sync`), but not their printed output or the `/doctor` report behind `doctor`.
+  - the `askdare` commands and their options (`init`, `doctor`, `kb sync`, `add ui`), but not their printed output or the `/doctor` report behind `doctor`. The files `add ui` copies are the user's code from then on: their content is not API;
 
   Everything else is internal.
 - **Guards** (published for users in [Support](../support.md)):
