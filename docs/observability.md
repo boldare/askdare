@@ -9,6 +9,8 @@ Once the chat is live, you'll want to know what it costs, where a slow answer sp
 
 Both may be async. askdare calls them after the answer has streamed, keeps the function alive until they finish, and logs anything they throw by its error's name, so a broken hook never breaks the chat. Neither receives message text: reports carry counters and pseudonyms.
 
+Visitors' ratings of answers reach a third hook, `onFeedback`: see [Answer ratings](feedback.md).
+
 ## Costs per turn
 
 ```ts

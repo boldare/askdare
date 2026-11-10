@@ -52,7 +52,7 @@ export const bots = [
 
 [![What it does: answers from your documents with citations, your own tools, images and PDFs, voice input, secure by default, and no database.](.github/assets/askdare-features.png)](https://askdare.vercel.app/#features)
 
-[Knowledge base](docs/knowledge-base.md) · [Tools](docs/tools.md) · [Attachments](docs/attachments.md) · [Voice input](docs/voice-input.md) · [Security](THREAT_MODEL.md)
+[Knowledge base](docs/knowledge-base.md) · [Tools](docs/tools.md) · [Attachments](docs/attachments.md) · [Voice input](docs/voice-input.md) · [The chat inside your page (React)](docs/react.md) · [Answer ratings](docs/feedback.md) · [Observability](docs/observability.md) · [Security](THREAT_MODEL.md)
 
 ## Themes
 

@@ -8,7 +8,8 @@ What askdare is tested with and promises to keep working. The reasoning is in [A
 | --- | --- | --- |
 | Node.js | 22 and 24 | 20 and older |
 | Next.js | 16.x with the App Router, on the Node.js runtime; Turbopack and `next build --webpack` | Pages Router, Edge runtime, static export |
-| React | 19 | 18 |
+| React | 19 (only for `@boldare/askdare/react`, an optional peer) | 18 |
+| OpenTelemetry | `@opentelemetry/api` 1.3 or later, for `@boldare/askdare-otel` | |
 | zod | 4.1 or later | 3 |
 | TypeScript | 5.9, 6.0 and 7.0 | |
 | Hosting | Vercel and Heroku | Other hosts that run `next start` should work, but aren't tested |

@@ -49,7 +49,7 @@ Counters expire with their window, so the database needs no cleanup. Check the s
 
 ## Requirements
 
-`@boldare/askdare` of the same minor version, `@upstash/redis` 1.35 or later, and Node.js 22 or later.
+`@boldare/askdare` in the range of its peer dependency (each askdare release brings a matching add-on release), `@upstash/redis` 1.35 or later, and Node.js 22 or later.
 
 ## License
 

@@ -28,7 +28,10 @@ In scope:
 - the embed handshake (`postMessage`, `frame-ancestors`);
 - rendering of model output (XSS);
 - upload validation;
-- leakage of server configuration to the client.
+- leakage of server configuration to the client, including what `getChatConfig` returns;
+- rating handles and `POST /feedback`;
+- the chat inside a page (`@boldare/askdare/react`): its same-origin checks and output rendering;
+- the add-ons `@boldare/askdare-upstash` and `@boldare/askdare-otel`.
 
 Prompt injection that causes **only** off-topic answers is a known limitation of LLMs and is out of scope. Prompt injection that triggers tool misuse, data exposure or cost amplification is in scope.
 
