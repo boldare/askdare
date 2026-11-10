@@ -14,7 +14,7 @@
 
 <p align="center">
   <a href="https://github.com/boldare/askdare/actions/workflows/ci.yml"><img src="https://github.com/boldare/askdare/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://www.npmjs.com/package/@boldare/askdare"><img src="https://img.shields.io/npm/v/@boldare/askdare/rc?label=npm%20%40rc" alt="npm @rc"></a>
+  <a href="https://www.npmjs.com/package/@boldare/askdare"><img src="https://img.shields.io/npm/v/@boldare/askdare" alt="npm"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
 </p>
 
@@ -25,7 +25,7 @@
 In a Next.js 16 app:
 
 ```bash
-npm install @boldare/askdare@rc zod
+npm install @boldare/askdare zod
 npx @boldare/askdare init
 ```
 
@@ -46,7 +46,7 @@ export const bots = [
 ];
 ```
 
-**[Getting started](docs/getting-started.md)** takes you from an empty app to a working chat in about 15 minutes. askdare is a release candidate, so pin the exact version.
+**[Getting started](docs/getting-started.md)** takes you from an empty app to a working chat in about 15 minutes.
 
 ## What you get
 
