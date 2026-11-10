@@ -1,6 +1,6 @@
 import type { ChatConfig } from './config';
 import { translator } from './reducer';
-import type { ChatMessage, ChatState, PendingFile } from './state';
+import type { ChatMessage, ChatState, PendingFile, Rating } from './state';
 import { type ChatActions, type ChatStore, focusRequests } from './store';
 
 /** A frozen state for the gallery: design review and visual tests, never a live chat. */
@@ -13,6 +13,8 @@ export interface Fixture {
   readonly error?: string;
   readonly dictation?: 'recording' | 'transcribing';
   readonly elapsed?: number;
+  readonly ratings?: Readonly<Record<string, Rating>>;
+  readonly commenting?: string;
 }
 
 const nothing = async (): Promise<void> => {};
@@ -31,6 +33,8 @@ export function createFixtureStore(config: ChatConfig, fixture: Fixture): ChatSt
     elapsed: fixture.elapsed ?? 0,
     canDictate: config.voice !== undefined,
     page: {},
+    ratings: fixture.ratings ?? {},
+    commenting: fixture.commenting,
   };
   const initial = state;
   const listeners = new Set<() => void>();
@@ -48,6 +52,8 @@ export function createFixtureStore(config: ChatConfig, fixture: Fixture): ChatSt
     finishDictation: nothing,
     cancelDictation: () => {},
     newConversation: nothing,
+    rate: nothing,
+    dismissComment: () => set({ commenting: undefined }),
     // The field takes focus as in a live chat, so the gallery shows the same state.
     focus: () => focus('input'),
   };

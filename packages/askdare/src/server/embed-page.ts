@@ -40,6 +40,7 @@ export const GALLERY_STATES = [
   'attachments',
   'error',
   'listening',
+  'feedback',
 ] as const;
 export type GalleryState = (typeof GALLERY_STATES)[number];
 

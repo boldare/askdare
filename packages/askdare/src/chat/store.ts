@@ -12,7 +12,7 @@ import {
   type Translate,
   translator,
 } from './reducer';
-import { type ChatState, canSend, type PendingFile, type SentFile } from './state';
+import { type ChatState, canSend, type PendingFile, type Rating, type SentFile } from './state';
 import { browserStorage } from './storage';
 
 /** What visitors can do in the chat; the same for every UI on top of the store. */
@@ -29,6 +29,13 @@ export interface ChatActions {
   cancelDictation(): void;
   /** Deletes the conversation and starts with an empty chat. */
   newConversation(): Promise<void>;
+  /**
+   * Rates an answer by its message id: 👍, 👎, or null to take the rating back. After 👎 the chat
+   * asks what went wrong (`state.commenting`); pass the answer as `comment` with the same rating.
+   */
+  rate(messageId: string, rating: Rating | null, comment?: string): Promise<void>;
+  /** Closes the question after 👎 without a comment. */
+  dismissComment(): void;
   /** Moves keyboard focus to the message field. */
   focus(): void;
 }
@@ -125,6 +132,9 @@ const MICROPHONE_MESSAGES: Readonly<Record<MicrophoneError['reason'], TextKey>> 
   failed: 'microphone.failed',
 };
 
+/** As the server's limit for a rating's comment. */
+const MAX_COMMENT = 500;
+
 const megabytes = (bytes: number): string => `${Math.floor(bytes / 100_000) / 10} MB`;
 
 function revokePreviews(files: readonly { readonly previewUrl?: string | undefined }[]): void {
@@ -160,6 +170,8 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
     elapsed: 0,
     canDictate: false,
     page: options.page ?? {},
+    ratings: {},
+    commenting: undefined,
   };
   let state = initial;
   const listeners = new Set<() => void>();
@@ -418,8 +430,40 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
       revokePreviews(state.messages.flatMap((message) => message.files ?? []));
       cancelUploads(uploads.keys());
       revokePreviews(state.files);
-      set({ files: [], messages: [], error: undefined, busy: false });
+      set({ files: [], messages: [], error: undefined, busy: false, commenting: undefined });
       focus('input');
+    },
+
+    async rate(messageId, rating, comment) {
+      const feedback = state.messages.find((message) => message.id === messageId)?.feedback;
+      if (!feedback) return;
+      const before = state.ratings[feedback.key];
+      const text = comment?.trim().slice(0, MAX_COMMENT);
+      const ratings = (value: Rating | null | undefined): ChatState['ratings'] => {
+        const { [feedback.key]: _previous, ...others } = state.ratings;
+        return value ? { ...others, [feedback.key]: value } : others;
+      };
+      // Shown at once; taken back if the server refuses it.
+      set({
+        ratings: ratings(rating),
+        error: undefined,
+        // A fresh 👎 asks what went wrong; a comment, or any other rating, ends the question.
+        commenting: rating === 'down' && !text && before !== 'down' ? messageId : undefined,
+      });
+      const problem = await client.rate(
+        feedback.handle,
+        rating,
+        rating === null ? undefined : text,
+      );
+      if (problem) {
+        set({ ratings: ratings(before), error: problem, commenting: undefined });
+        return;
+      }
+      client.rememberRating(feedback.key, rating);
+    },
+
+    dismissComment() {
+      if (state.commenting !== undefined) set({ commenting: undefined });
     },
 
     focus() {
@@ -443,6 +487,7 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
       const current = {};
       run = current;
       set({
+        ratings: client.ratings(),
         canDictate: voice !== undefined && recorder.canRecord(),
         // The stored conversation shows as loading from the first paint.
         ...(state.phase === 'starting' && client.hasConversation()
@@ -479,7 +524,7 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
         // Signed in, out or as someone else: show that person's conversation, if any.
         if (!(await client.identify(token))) return;
         loaded = false;
-        set({ messages: [], error: undefined });
+        set({ messages: [], error: undefined, commenting: undefined });
         if (identityReady && run) loadHistory();
       });
     },

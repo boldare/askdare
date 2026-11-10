@@ -60,13 +60,14 @@ export function DefaultPanel({
     requestAnimationFrame(() => restartRef.current?.focus());
   };
 
-  // Escape answers the question, else cancels a dictation, else closes the chat. Inside a page,
+  // Escape answers a question of the chat, else cancels a dictation, else closes the chat. Inside a page,
   // only when it is pressed in the chat; as the page itself (the iframe), wherever focus is.
   const main = headingLevel === 1;
   const panelRef = useRef<HTMLElement>(null);
   const onEscape = useRef(() => {});
   onEscape.current = () => {
     if (confirming) cancelStartOver();
+    else if (state.commenting !== undefined) actions.dismissComment();
     else if (state.dictation === 'recording') actions.cancelDictation();
     else onClose?.();
   };

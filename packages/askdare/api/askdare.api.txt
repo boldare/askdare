@@ -394,6 +394,12 @@ declare const EN: {
   readonly "status.tool": "Using {name}…";
   readonly "status.typing": "The assistant is typing";
   readonly "message.sources": "Sources";
+  readonly "feedback.label": "Rate this answer";
+  readonly "feedback.up": "Helpful";
+  readonly "feedback.down": "Not helpful";
+  readonly "feedback.comment": "What went wrong?";
+  readonly "feedback.send": "Send feedback";
+  readonly "feedback.skip": "Skip";
   readonly "message.attachments.one": "{count} attachment";
   readonly "message.attachments.other": "{count} attachments";
   readonly "attachment.list": "Attachments";
@@ -454,6 +460,13 @@ declare const EN: {
 declare const PLURAL_BASES: readonly ["message.attachments"];
 declare const PLURAL_FORMS: readonly ["zero", "one", "two", "few", "many", "other"];
 type TextKey = keyof typeof EN | `${(typeof PLURAL_BASES)[number]}.${(typeof PLURAL_FORMS)[number]}`;
+/** What the client needs to rate one answer (ADR-0012). */
+interface FeedbackHandle {
+  /** Opaque; sent back to `POST /feedback`. */
+  readonly handle: string;
+  /** Stable for the answer across reloads, so the client can remember its rating. Hex. */
+  readonly key: string;
+}
 /** What a page may set with askdare('configure') or the props of `Root`, checked again here. */
 interface PageOptions {
   readonly greeting?: string;
@@ -481,7 +494,10 @@ interface ChatMessage {
   /** Files sent in this session. */
   readonly files?: readonly SentFile[];
   readonly status: "streaming" | "done" | "error";
+  /** On answers the visitor may rate: `key` is where `ChatState.ratings` keeps their rating. */
+  readonly feedback?: FeedbackHandle | undefined;
 }
+type Rating = "up" | "down";
 /** A file picked for the next message. */
 interface PendingFile {
   readonly key: string;
@@ -515,6 +531,10 @@ interface ChatState {
   readonly canDictate: boolean;
   /** Greeting, starters and context set by the page. */
   readonly page: PageOptions;
+  /** The visitor's own ratings of answers, by `ChatMessage.feedback.key`; kept in this browser. */
+  readonly ratings: Readonly<Record<string, Rating>>;
+  /** The id of the answer just rated 👎, while the chat asks what went wrong. */
+  readonly commenting: string | undefined;
 }
 /** A text in the visitor's language, with `{name}` placeholders filled. */
 type Translate = (key: TextKey, params?: Readonly<Record<string, string | number>>) => string;
@@ -532,6 +552,13 @@ interface ChatActions {
   cancelDictation(): void;
   /** Deletes the conversation and starts with an empty chat. */
   newConversation(): Promise<void>;
+  /**
+   * Rates an answer by its message id: 👍, 👎, or null to take the rating back. After 👎 the chat
+   * asks what went wrong (`state.commenting`); pass the answer as `comment` with the same rating.
+   */
+  rate(messageId: string, rating: Rating | null, comment?: string): Promise<void>;
+  /** Closes the question after 👎 without a comment. */
+  dismissComment(): void;
   /** Moves keyboard focus to the message field. */
   focus(): void;
 }
@@ -609,6 +636,16 @@ export declare function useChat(): Chat;
 export declare function useChatState<T>(select: (state: ChatState) => T): T;
 /** The message being rendered, inside `MessageList`. */
 export declare function useMessage(): ChatMessage;
+interface FeedbackButtonProps extends ComponentProps<"button"> {
+  /** What a click rates the answer: 👍 `up` or 👎 `down`. A second click takes the rating back. */
+  readonly rating: Rating;
+}
+/**
+ * Rates the answer it is in (ADR-0012), pressed while that is the visitor's rating. Renders
+ * nothing for the visitor's own messages, an answer still streaming, or a bot whose answers can't
+ * be rated. After 👎 the chat's `state.commenting` names the answer to ask about.
+ */
+export declare function FeedbackButton({ rating, onClick, ...props }: FeedbackButtonProps): ReactElement | null;
 /**
  * Renders model output as markdown (GFM) without ever producing raw HTML: marked only tokenizes,
  * and each token becomes an element here. HTML in the source is dropped, links are limited to
@@ -693,7 +730,7 @@ interface RootProps {
  * take what `askdare('identify')` and `askdare('configure')` take, checked the same way.
  */
 export declare function Root({ config, identity, context, greeting, starters, children }: RootProps): ReactElement;
-export type { AttachButtonProps, Chat, ChatActions, ChatAttachments, ChatBot, ChatConfig, ChatMessage, ChatPhase, ChatState, ChatStyles, ChatWidget, Citation, CitationsProps, ComposerProps, DefaultChatComponents, DefaultChatProps, DictateButtonProps, Dictation, ErrorMessageProps, FilesProps, InputProps, MarkdownProps, MessageFilesProps, MessageListProps, MessageProps, MessageTextProps, MessagesProps, PanelProps, PendingFile, RecorderProps, RootProps, SendProps, SentFile, StatusProps, ThemeProps, Translate };
+export type { AttachButtonProps, Chat, ChatActions, ChatAttachments, ChatBot, ChatConfig, ChatMessage, ChatPhase, ChatState, ChatStyles, ChatWidget, Citation, CitationsProps, ComposerProps, DefaultChatComponents, DefaultChatProps, DictateButtonProps, Dictation, ErrorMessageProps, FeedbackButtonProps, FilesProps, InputProps, MarkdownProps, MessageFilesProps, MessageListProps, MessageProps, MessageTextProps, MessagesProps, PanelProps, PendingFile, Rating, RecorderProps, RootProps, SendProps, SentFile, StatusProps, ThemeProps, Translate };
 
 // ==== store.d.ts ====
 import { z } from "zod";
@@ -722,6 +759,12 @@ declare const EN: {
   readonly "status.tool": "Using {name}…";
   readonly "status.typing": "The assistant is typing";
   readonly "message.sources": "Sources";
+  readonly "feedback.label": "Rate this answer";
+  readonly "feedback.up": "Helpful";
+  readonly "feedback.down": "Not helpful";
+  readonly "feedback.comment": "What went wrong?";
+  readonly "feedback.send": "Send feedback";
+  readonly "feedback.skip": "Skip";
   readonly "message.attachments.one": "{count} attachment";
   readonly "message.attachments.other": "{count} attachments";
   readonly "attachment.list": "Attachments";

@@ -1,3 +1,4 @@
+import type { FeedbackHandle } from '../protocol/events';
 import type { PageOptions } from './page-options';
 
 export interface Citation {
@@ -23,7 +24,11 @@ export interface ChatMessage {
   /** Files sent in this session. */
   readonly files?: readonly SentFile[];
   readonly status: 'streaming' | 'done' | 'error';
+  /** On answers the visitor may rate: `key` is where `ChatState.ratings` keeps their rating. */
+  readonly feedback?: FeedbackHandle | undefined;
 }
+
+export type Rating = 'up' | 'down';
 
 /** A file picked for the next message. */
 export interface PendingFile {
@@ -61,6 +66,10 @@ export interface ChatState {
   readonly canDictate: boolean;
   /** Greeting, starters and context set by the page. */
   readonly page: PageOptions;
+  /** The visitor's own ratings of answers, by `ChatMessage.feedback.key`; kept in this browser. */
+  readonly ratings: Readonly<Record<string, Rating>>;
+  /** The id of the answer just rated 👎, while the chat asks what went wrong. */
+  readonly commenting: string | undefined;
 }
 
 /** Whether the draft, or the files ready to go, can be sent now. */

@@ -53,6 +53,41 @@ describe('Root and the default look', () => {
     expect(document.querySelectorAll('[data-ask-part="message"]')).toHaveLength(2);
   });
 
+  it('rates an answer and asks what went wrong after a 👎', async () => {
+    const server = fakeServer();
+    vi.stubGlobal('fetch', server.fetch);
+    render(
+      <Root config={testConfig()}>
+        <DefaultPanel />
+      </Root>,
+    );
+    const field = screen.getByRole('textbox');
+    fireEvent.change(field, { target: { value: 'Hello' } });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Send' }).hasAttribute('disabled')).toBe(false),
+    );
+    fireEvent.keyDown(field, { key: 'Enter' });
+    const group = await screen.findByRole('group', { name: 'Rate this answer' });
+    expect(group.parentElement?.closest('[data-role="assistant"]')).toBeTruthy();
+    const down = screen.getByRole('button', { name: 'Not helpful' });
+    expect(down.getAttribute('aria-pressed')).toBe('false');
+
+    fireEvent.click(down);
+    const comment = await screen.findByLabelText('What went wrong?');
+    expect(down.getAttribute('aria-pressed')).toBe('true');
+    await waitFor(() => expect(document.activeElement).toBe(comment));
+    fireEvent.change(comment, { target: { value: 'Too vague' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }));
+    await waitFor(() => expect(screen.queryByLabelText('What went wrong?')).toBeNull());
+    const ratings = server.requests.filter((request) => request.path === '/feedback');
+    expect(ratings.at(-1)?.body).toMatchObject({ rating: 'down', comment: 'Too vague' });
+
+    // A second click on the pressed button takes the rating back.
+    fireEvent.click(down);
+    await waitFor(() => expect(down.getAttribute('aria-pressed')).toBe('false'));
+    expect(screen.queryByLabelText('What went wrong?')).toBeNull();
+  });
+
   it('takes the page greeting and starters from its props', () => {
     vi.stubGlobal('fetch', fakeServer().fetch);
     render(

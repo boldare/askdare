@@ -298,6 +298,89 @@ describe('createChatStore', () => {
     expect(server.requests.some((request) => request.path === '/conversation')).toBe(true);
   });
 
+  it('rates an answer, asks about a 👎, and remembers the rating in this browser', async () => {
+    const storage = memoryStorage();
+    const server = fakeServer();
+    const store = createChatStore(testConfig(), { client: testClient(server, storage) });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.send('Hello');
+    const answer = store.getSnapshot().messages.at(-1);
+    expect(answer?.feedback).toEqual({ handle: 'handle-1', key: 'a1b2c3d4e5f60718' });
+    const id = answer?.id ?? '';
+    const sent = () =>
+      server.requests.filter((request) => request.path === '/feedback').map(({ body }) => body);
+
+    await store.actions.rate(id, 'up');
+    expect(store.getSnapshot()).toMatchObject({
+      ratings: { a1b2c3d4e5f60718: 'up' },
+      commenting: undefined,
+    });
+
+    await store.actions.rate(id, 'down');
+    expect(store.getSnapshot()).toMatchObject({
+      ratings: { a1b2c3d4e5f60718: 'down' },
+      commenting: id,
+    });
+    await store.actions.rate(id, 'down', '  It missed the yearly price.  ');
+    expect(store.getSnapshot().commenting).toBeUndefined();
+
+    expect(sent()).toEqual([
+      { botId: 'support', feedback: 'handle-1', rating: 'up' },
+      { botId: 'support', feedback: 'handle-1', rating: 'down' },
+      {
+        botId: 'support',
+        feedback: 'handle-1',
+        rating: 'down',
+        comment: 'It missed the yearly price.',
+      },
+    ]);
+
+    // A new visit in the same browser shows the rating again.
+    const again = createChatStore(testConfig(), { client: testClient(fakeServer(), storage) });
+    again.start();
+    await until(again, (state) => state.ratings['a1b2c3d4e5f60718'] === 'down');
+
+    await store.actions.rate(id, null);
+    expect(store.getSnapshot().ratings).toEqual({});
+    expect(sent().at(-1)).toEqual({ botId: 'support', feedback: 'handle-1', rating: null });
+    expect(JSON.parse(storage.get('askdare:support:ratings') ?? '')).toEqual({});
+  });
+
+  it('takes a rating back when the server refuses it', async () => {
+    const storage = memoryStorage();
+    const store = createChatStore(testConfig(), {
+      client: testClient(fakeServer({ refuseFeedback: true }), storage),
+    });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.send('Hello');
+    await store.actions.rate(store.getSnapshot().messages.at(-1)?.id ?? '', 'down');
+    expect(store.getSnapshot()).toMatchObject({
+      ratings: {},
+      commenting: undefined,
+      error: 'Too many messages. Please wait a moment.',
+    });
+    expect(storage.get('askdare:support:ratings')).toBeUndefined();
+  });
+
+  it('skips the question after a 👎 and ignores messages that cannot be rated', async () => {
+    const server = fakeServer();
+    const store = createChatStore(testConfig(), { client: testClient(server) });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.send('Hello');
+    const [question, answer] = store.getSnapshot().messages;
+    await store.actions.rate(question?.id ?? '', 'up');
+    expect(server.requests.some((request) => request.path === '/feedback')).toBe(false);
+    await store.actions.rate(answer?.id ?? '', 'down');
+    store.actions.dismissComment();
+    expect(store.getSnapshot()).toMatchObject({
+      commenting: undefined,
+      ratings: { a1b2c3d4e5f60718: 'down' },
+    });
+  });
+
   it('sends the page context only to a bot that accepts it', async () => {
     const server = fakeServer();
     const store = createChatStore(testConfig({ pageContext: true }), {

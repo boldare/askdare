@@ -4,7 +4,15 @@ import { expect, type Page, test } from '@playwright/test';
 const APP = 'http://localhost:3100/api/chat/embed/support';
 const PRESETS = ['halo', 'aura', 'sage', 'care'] as const;
 const SCHEMES = ['light', 'dark'] as const;
-const STATES = ['welcome', 'conversation', 'streaming', 'attachments', 'error', 'listening'];
+const STATES = [
+  'welcome',
+  'conversation',
+  'streaming',
+  'attachments',
+  'error',
+  'listening',
+  'feedback',
+];
 
 async function render(page: Page, query: Record<string, string>): Promise<void> {
   await page.goto(`${APP}?${new URLSearchParams(query)}`);

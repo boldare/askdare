@@ -74,3 +74,15 @@ export const ArrowIcon = (): ReactElement => (
     <path d="M5 12h14M13 6l6 6-6 6" />
   </Icon>
 );
+
+export const ThumbUpIcon = (): ReactElement => (
+  <Icon size={16}>
+    <path d="M7 10.5v9.5M7 10.5l4.2-7a2.2 2.2 0 0 1 2.6 2.7L13 9.5h5.2a2 2 0 0 1 2 2.4l-1.2 6.5a2 2 0 0 1-2 1.6H4.5V10.5H7Z" />
+  </Icon>
+);
+
+export const ThumbDownIcon = (): ReactElement => (
+  <Icon size={16}>
+    <path d="M17 13.5V4M17 13.5l-4.2 7a2.2 2.2 0 0 1-2.6-2.7l.8-3.3H5.8a2 2 0 0 1-2-2.4L5 5.6A2 2 0 0 1 7 4h12.5v9.5H17Z" />
+  </Icon>
+);

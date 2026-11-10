@@ -36,7 +36,19 @@ const assistant = {
   security: { allowedOrigins },
   // Five bots share one OpenAI project: each gets a fifth of the default daily budgets, and
   // the route caps them together (globalDailyTokens).
-  limits: { dailyTokens: 400_000, dailyTokensPerIp: 40_000 },
+  limits: {
+    dailyTokens: 400_000,
+    dailyTokensPerIp: 40_000,
+    // The end-to-end tests chat from one address: dozens of visitors and conversations a minute,
+    // which the per-address defaults (for real visitors) would refuse.
+    ...(process.env.ASKDARE_E2E_LIMITS === '1'
+      ? {
+          sessionsPerIpPerHour: 1000,
+          conversationsPerIpPerHour: 1000,
+          messagesPerIpPerMinute: 1000,
+        }
+      : {}),
+  },
 } satisfies Omit<BotDefinition, 'id'>;
 
 /** Brightloop isn't real: the demo says so in each chat's header. */
@@ -176,6 +188,8 @@ export const bots = [
       greeting: 'Hello! I can help you with:',
       starters,
       theme: 'care',
+      // Answers of this bot can't be rated; the others get 👍 and 👎 (see the route's onFeedback).
+      feedback: false,
     },
   }),
   // A custom theme in Boldare's style: a built-in preset adjusted with defineTheme, plus a few

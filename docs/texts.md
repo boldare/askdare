@@ -112,6 +112,12 @@ The table is generated from the library's dictionaries with `pnpm --filter @bold
 | `status.tool` | Using {name}… | Korzystam z narzędzia {name}… |
 | `status.typing` | The assistant is typing | Asystent pisze |
 | `message.sources` | Sources | Źródła |
+| `feedback.label` | Rate this answer | Oceń tę odpowiedź |
+| `feedback.up` | Helpful | Pomocna |
+| `feedback.down` | Not helpful | Niepomocna |
+| `feedback.comment` | What went wrong? | Co było nie tak? |
+| `feedback.send` | Send feedback | Wyślij opinię |
+| `feedback.skip` | Skip | Pomiń |
 | `message.attachments.zero` | — | — |
 | `message.attachments.one` | {count} attachment | {count} załącznik |
 | `message.attachments.two` | — | — |

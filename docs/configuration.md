@@ -333,7 +333,7 @@ export const { GET, POST, DELETE } = createChatHandler({
 });
 ```
 
-It may be async, like `onUsage`, and nothing it throws reaches the chat. A bot hides the buttons with `widget.feedback: false`.
+It may be async, like `onUsage`, and nothing it throws reaches the chat. A bot hides the buttons with `widget.feedback: false`. What visitors see, and how a 👎 and its comment arrive, is in [Answer ratings](feedback.md).
 
 `ChatFeedbackReport`:
 
