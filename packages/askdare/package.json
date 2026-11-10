@@ -1,6 +1,6 @@
 {
   "name": "@boldare/askdare",
-  "version": "0.2.0-rc.0",
+  "version": "0.2.0-rc.1",
   "description": "Embeddable AI chatbot for Next.js, as a script-tag widget or React components, built on the official OpenAI SDK.",
   "license": "MIT",
   "author": {

@@ -1,5 +1,11 @@
 # @boldare/askdare
 
+## 0.2.0-rc.1
+
+### Patch Changes
+
+- eb7b7aa: The chat window is built with Preact 11.2. It looks and works the same.
+
 ## 0.2.0-rc.0
 
 ### Minor Changes
