@@ -32,7 +32,8 @@ Every release is tested in Chromium, Firefox and WebKit: embedding, the page API
 | | Gzipped | Budget |
 | --- | --- | --- |
 | The loader (`widget.js`), on every page | about 3 KB | 5 KB |
-| The chat itself, when the visitor opens it | about 34 KB, plus 5 KB of styles | 50 KB and 8 KB |
+| The chat itself, when the visitor opens it | about 38 KB, plus 6 KB of styles | 50 KB and 8 KB |
+| `@boldare/askdare/react` in your app's bundle, without React itself | about 28 KB; about 8 KB with only `Root` and the hooks | 32 KB and 12 KB |
 | One theme's fonts, from your app | up to 82 KB | 82 KB |
 
 The build fails when one of these grows past its budget.

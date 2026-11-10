@@ -19,6 +19,7 @@ description: Add, configure or troubleshoot the @boldare/askdare AI chat in a Ne
 
 - `defineBot`, `defineTool`, `defineTheme` from `@boldare/askdare`; `createChatHandler` from `@boldare/askdare/next`.
 - On pages: `<script src="…/api/chat/widget.js?bot=<id>" async>` with `data-launcher="none"` or `data-mode="inline" data-target="…"`, and `askdare('open' | 'close' | 'toggle' | 'configure', …)`.
+- The chat inside a page of the same Next.js app (React 19): `getChatConfig` from `@boldare/askdare/next` in a Server Component, then `Root`, `DefaultChat`, the hooks (`useChat`, `useChatState`, `useMessage`) and the primitives from `@boldare/askdare/react` (see `docs/react.md`). To change the default components, run `npx @boldare/askdare add ui`; don't copy them from `node_modules` by hand.
 - Styling: `widget.texts`, `widget.theme`, `widget.css` with `[data-ask-part="…"]` selectors and `--ask-*` tokens (see `docs/styling.md`).
 
 Never import from `@boldare/askdare/dist/…` or other internal paths.
@@ -31,6 +32,7 @@ Never import from `@boldare/askdare/dist/…` or other internal paths.
 - Secrets (`OPENAI_API_KEY`, `CHAT_SECRET`) belong in `.env.local` or the host's settings, never in code, instructions or commits. Never print them.
 - Bot instructions must contain no secrets: visitors can make the model repeat them.
 - Sites that embed the chat go in `security.allowedOrigins` as exact origins, without wildcards.
+- With `@boldare/askdare/react`: never render `message.text` as HTML (use `MessageText` or `Markdown`); sign a visitor out with `identity={null}`, since `undefined` keeps the current one; a page that passes `identity` must not be cached; on pages with third-party scripts, prefer the script-tag widget.
 - Tools: every Zod field is required (use `.nullable()`, not `.optional()`). Never take user IDs, emails or permissions from tool arguments; use the verified `context` (`visitorId`, `botId`, `locale`, `identity`, `signal`). Keep tools read-only.
 - Signed-in users: the site's backend signs an HS256 JWT with `IDENTITY_SECRET` (`sub`, `aud` = bot ID, `iat`, `exp`), and the page calls `askdare('identify', token)` (`null` on sign-out). See `docs/identity.md`.
 - More than one server instance (Vercel, several dynos) needs shared limits: `@boldare/askdare-upstash`.

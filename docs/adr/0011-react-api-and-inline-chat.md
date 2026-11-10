@@ -1,6 +1,6 @@
 # ADR-0011: Headless React API and the chat inside a page
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-10
 
 ## Context
@@ -111,6 +111,15 @@ The iframe isolated the chat from the host page (ADR-0005). Inside a page, that 
 - **Proof in CI:**
   - `tsconfig.eject.json` type-checks `dist/ui` against `dist/react.d.ts` alone;
   - `verify-packs` runs `add ui` in a fresh app, builds a page with the ejected chat with Turbopack and with webpack, and sends a message.
+
+## Evidence
+
+Built on `release/0.2` in November 2026:
+- **The iframe is unchanged for visitors.** All 56 visual baselines of the widget passed through every step without an update; ratings added 8 baselines for a new gallery state.
+- **In browsers.** `e2e/inline.spec.ts` and `e2e/feedback.spec.ts` run in Chromium, Firefox and WebKit against `site/app/inline`: chatting, history after a reload, attachments, ratings, focus and Escape, no hydration errors, axe inside the chat, and identical computed styles with Tailwind 3 and 4 resets.
+- **Sizes** (gzipped): `react.js` 28 KB in an app's bundle, 8 KB for `Root` and the hooks alone, the iframe app 38 KB.
+- **Eject.** `verify-packs` runs `add ui` in a fresh `create-next-app`, builds with Turbopack and webpack and chats through the ejected components.
+- **Reviews.** A security review and a code review ran on the primitives and on the React entry. They led to the per-bot theme scope, `@scope` for a bot's own CSS, the check of stylesheet URLs in `Root`, and Escape handled only inside the chat.
 
 ## Consequences
 

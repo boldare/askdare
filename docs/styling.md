@@ -1,12 +1,14 @@
 # Styling and customization
 
-Three levels, each with more freedom than the last ([ADR-0008](adr/0008-ui-customization-and-themes.md)). Streaming, security and limits stay in the library whatever you change.
+Five levels, each with more freedom than the last ([ADR-0008](adr/0008-ui-customization-and-themes.md)). Streaming, security and limits stay in the library whatever you change.
 
 | Level | How | For |
 | --- | --- | --- |
 | 1. Configuration | `widget: { … }` in `defineBot` | Texts, language, theme, suggestions, avatar, disclosure |
 | 2. Your own CSS | `widget.css`, plus `::part()` for the launcher | Any look, on top of the parts and tokens below |
 | 3. Page JavaScript | `askdare(…)` and attributes on the script tag | Your own button, the chat inside your page, per-page texts and context |
+| 4. React | `@boldare/askdare/react` | The chat as components of your own Next.js app, with the default look or your own markup: see [React](react.md) |
+| 5. Your copy of the components | `npx @boldare/askdare add ui` | Changing the default components themselves |
 
 ## 1. Configuration
 
@@ -170,6 +172,15 @@ Every preset sets both font tokens, so set both. You can also set them as the `f
 An inline chat loads with the page without taking focus or scrolling to itself.
 
 In a React app, Next.js included, add the script after hydration, for example from a `useEffect` in a small client component. The loader adds the chat inside your element, and React must not find it there while it hydrates. The demo site's [`chat-script.tsx`](../site/app/chat-script.tsx) does this. The chat loads once per page load and lives as long as its element: put the element in a layout that stays, or link to the page with full page loads, because a client-side navigation away and back leaves the element empty.
+
+## Inside a page (React)
+
+With `@boldare/askdare/react` the chat is part of your page instead of an iframe ([React](react.md)). The tokens, parts and states above are the same. What differs:
+
+- **The theme root is an element.** Where this page says `<html>` or `:root`, a chat inside a page has `<div data-askdare-root data-ask-bot="<bot id>">` with the same variant attributes. `:root` in a bot's `widget.css` means that element there, and the rest of `widget.css` applies only inside that bot's chat.
+- **Your site's stylesheet can style the chat directly.** `[data-ask-part="…"]` selectors work from your own CSS, and unlayered rules win over the chat's `@layer askdare`. The chat's own styles never reach outside it.
+- **A CSS reset must be in a layer before `askdare`,** or it overrides the chat. [React](react.md#with-a-css-reset-tailwind) has the lines for Tailwind CSS 3 and 4.
+- **Your page's Content Security Policy applies,** not the iframe's: fonts and images in `widget.css` follow your policy.
 
 ## Accessibility
 
