@@ -1,5 +1,6 @@
 // The .js suffix: Next.js has no exports map, so plain Node ESM can't resolve `next/server`.
 import { after } from 'next/server.js';
+import { isBasePath } from '../base-path';
 import type { Bot } from '../bot/define-bot';
 import { AskdareError } from '../errors';
 import type { ModelGateway } from '../gateway';
@@ -148,7 +149,7 @@ function required(value: string | undefined, name: string): string {
  */
 export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
   const basePath = options.basePath ?? '/api/chat';
-  if (!/^(\/[a-zA-Z0-9._~-]+)+$/.test(basePath)) {
+  if (!isBasePath(basePath)) {
     throw new TypeError(`[askdare] basePath must look like /api/chat, got "${basePath}".`);
   }
   const ids = options.bots.map((bot) => bot.id);

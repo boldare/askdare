@@ -45,14 +45,18 @@ export function DefaultPanel({
   headingLevel = 2,
   onClose,
   components = {},
-}: DefaultPanelProps): ReactElement {
-  const { state, actions } = useChat();
+  ownsDocument = false,
+}: DefaultPanelProps & {
+  /** The chat is the whole document, as in its iframe: Escape works wherever focus is. */
+  readonly ownsDocument?: boolean;
+}): ReactElement {
+  const { state, actions, bot, t } = useChat();
   const [confirming, setConfirming] = useState(false);
   const restartRef = useRef<HTMLButtonElement>(null);
   const askStartOver = useCallback(() => setConfirming(true), []);
   const skin = useMemo<Skin>(
-    () => ({ headingLevel, onClose, askStartOver, restartRef }),
-    [headingLevel, onClose, askStartOver],
+    () => ({ bot, t, headingLevel, onClose, askStartOver, restartRef }),
+    [bot, t, headingLevel, onClose, askStartOver],
   );
 
   const cancelStartOver = (): void => {
@@ -61,7 +65,7 @@ export function DefaultPanel({
   };
 
   // Escape answers a question of the chat, else cancels a dictation, else closes the chat. Inside a page,
-  // only when it is pressed in the chat; as the page itself (the iframe), wherever focus is.
+  // only when it is pressed in the chat; as the whole document (the iframe), wherever focus is.
   const main = headingLevel === 1;
   const panelRef = useRef<HTMLElement>(null);
   const onEscape = useRef(() => {});
@@ -73,13 +77,14 @@ export function DefaultPanel({
   };
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape') return;
+      // Not when a handler already used it, or while an input method composes text.
+      if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing) return;
       const inside = event.target instanceof Node && panelRef.current?.contains(event.target);
-      if (main || inside) onEscape.current();
+      if (ownsDocument || inside) onEscape.current();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [main]);
+  }, [ownsDocument]);
 
   const Header = components.Header ?? DefaultHeader;
   const Welcome = components.Welcome ?? DefaultWelcome;
@@ -94,6 +99,7 @@ export function DefaultPanel({
         <Header />
         {confirming && (
           <StartOverQuestion
+            modal={ownsDocument}
             onCancel={cancelStartOver}
             onAccept={() => {
               setConfirming(false);

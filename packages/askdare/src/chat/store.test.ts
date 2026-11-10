@@ -4,7 +4,7 @@ import type { Recording } from './recorder';
 import { type ChatState, canSend } from './state';
 import { memoryStorage } from './storage';
 import { createChatStore, type FocusTarget, type Recorder } from './store';
-import { fakeServer, testClient, testConfig } from './testing/fake-server';
+import { echo, fakeServer, testClient, testConfig } from './testing/fake-server';
 
 const settled = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -257,6 +257,52 @@ describe('createChatStore', () => {
     expect(recorder.cancelled).toBe(1);
   });
 
+  it('starts no dictation while the last one is being transcribed', async () => {
+    const recorder = fakeRecorder();
+    const start = vi.spyOn(recorder, 'startRecording');
+    const store = createChatStore(testConfig({ voice: { maxSeconds: 60 } }), {
+      client: testClient(fakeServer()),
+      recorder,
+    });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.startDictation();
+    const finishing = store.actions.finishDictation();
+    expect(store.getSnapshot().dictation).toBe('transcribing');
+    await store.actions.startDictation();
+    await finishing;
+    expect(start).toHaveBeenCalledOnce();
+    expect(store.getSnapshot()).toMatchObject({ dictation: 'idle', draft: 'Dictated text' });
+  });
+
+  it('stops the answer being streamed when the chat stops', async () => {
+    // The answer has begun, and its end never comes.
+    const server = fakeServer({ holdAnswer: true, answer: (text) => echo(text).slice(0, 3) });
+    const store = createChatStore(testConfig(), { client: testClient(server) });
+    const focus = vi.fn(() => true);
+    store.onFocus('input', focus);
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    const sending = store.actions.send('Hello');
+    await until(store, (state) => state.messages.at(-1)?.status === 'streaming');
+    store.stop();
+    await sending;
+    expect(store.getSnapshot()).toMatchObject({ busy: false, activity: null });
+    expect(store.getSnapshot().messages.at(-1)?.status).toBe('error');
+    expect(focus).not.toHaveBeenCalled();
+  });
+
+  it('marks a focus request of the page as explicit, and those of the chat as not', async () => {
+    const store = createChatStore(testConfig(), { client: testClient(fakeServer()) });
+    const requests: boolean[] = [];
+    store.onFocus('input', (explicit) => requests.push(explicit) > 0);
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    store.actions.focus();
+    await store.actions.send('Hello');
+    expect(requests).toEqual([true, false]);
+  });
+
   it('keeps a focus request until something really takes it', () => {
     const store = createChatStore(testConfig(), { client: testClient(fakeServer()) });
     store.actions.focus();
@@ -362,6 +408,74 @@ describe('createChatStore', () => {
       error: 'Too many messages. Please wait a moment.',
     });
     expect(storage.get('askdare:support:ratings')).toBeUndefined();
+  });
+
+  it('sends ratings of one answer in order, and shows the latest the server took', async () => {
+    const storage = memoryStorage();
+    const answers: ((accepted: boolean) => void)[] = [];
+    const server = fakeServer({
+      feedback: () => new Promise<boolean>((resolve) => answers.push(resolve)),
+    });
+    const store = createChatStore(testConfig(), { client: testClient(server, storage) });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.send('Hello');
+    const id = store.getSnapshot().messages.at(-1)?.id ?? '';
+    const sent = () => server.requests.filter((request) => request.path === '/feedback');
+
+    // 👍 then 👎 before the first answer: the 👎 waits for the 👍, then the 👍 fails.
+    const up = store.actions.rate(id, 'up');
+    const down = store.actions.rate(id, 'down');
+    await until(store, () => sent().length === 1);
+    answers[0]?.(false);
+    await up;
+    expect(store.getSnapshot()).toMatchObject({
+      ratings: { a1b2c3d4e5f60718: 'down' },
+      commenting: id,
+    });
+    await until(store, () => sent().length === 2);
+    answers[1]?.(true);
+    await down;
+    expect(store.getSnapshot()).toMatchObject({
+      ratings: { a1b2c3d4e5f60718: 'down' },
+      commenting: id,
+    });
+    expect(JSON.parse(storage.get('askdare:support:ratings') ?? '')).toEqual({
+      a1b2c3d4e5f60718: 'down',
+    });
+
+    // A rating taken back that fails returns to the 👎 the server holds.
+    const back = store.actions.rate(id, null);
+    await until(store, () => sent().length === 3);
+    answers[2]?.(false);
+    await back;
+    expect(store.getSnapshot().ratings).toEqual({ a1b2c3d4e5f60718: 'down' });
+    expect(store.getSnapshot().error).toBe('Too many messages. Please wait a moment.');
+  });
+
+  it('keeps the question open with its comment until the comment is sent', async () => {
+    let accept = true;
+    const server = fakeServer({ feedback: async () => accept });
+    const store = createChatStore(testConfig(), { client: testClient(server) });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.send('Hello');
+    const id = store.getSnapshot().messages.at(-1)?.id ?? '';
+    await store.actions.rate(id, 'down');
+
+    accept = false;
+    const sending = store.actions.rate(id, 'down', 'It missed the yearly price.');
+    expect(store.getSnapshot().commenting).toBe(id);
+    await sending;
+    expect(store.getSnapshot()).toMatchObject({
+      commenting: id,
+      ratings: { a1b2c3d4e5f60718: 'down' },
+      error: 'Too many messages. Please wait a moment.',
+    });
+
+    accept = true;
+    await store.actions.rate(id, 'down', 'It missed the yearly price.');
+    expect(store.getSnapshot()).toMatchObject({ commenting: undefined, error: undefined });
   });
 
   it('skips the question after a 👎 and ignores messages that cannot be rated', async () => {

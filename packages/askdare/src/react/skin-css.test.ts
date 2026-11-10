@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import css from './skin/askdare.css?raw';
 
-// Inside a page, the skin shares the document with the site: no rule may reach outside the chat
-// (ADR-0011). Every selector starts at a part or at the theme root, and none names the document.
+// Inside a page, the skin shares the document with the site and maybe a headless chat: no rule may
+// reach outside the default look (ADR-0011). Apart from the tokens on the theme root, every rule
+// applies only inside [data-ask-skin], and none names the document.
 
 /** The selector lists of every style rule, outside @keyframes. */
 function selectorLists(source: string): string[] {
@@ -54,8 +55,12 @@ function split(list: string): string[] {
 }
 
 const selectors = selectorLists(css).flatMap(split);
-const SCOPED =
-  /^(?:\[data-ask-part=|\[data-askdare-root\]|:is\(\[data-ask-part=|:where\(\[data-ask(?:-part=|dare-root\]))/;
+/** Tokens and variants on the theme root, which a headless chat may use too. */
+const TOKENS = /^\[data-askdare-root\](?:\[[^\]]+\])*$/;
+/** The skin's own resets, from its root down, without specificity. */
+const GLOBAL = /^:where\(\[data-ask-skin\][ ,)]/;
+/** Any other rule: its subject must be inside the default look, before any pseudo-element. */
+const INSIDE = /:where\(\[data-ask-skin\] \*\)(?:::[a-z-]+(?:\([^)]*\))?)?$/;
 
 describe('the skin stylesheet', () => {
   it('has rules to check', () => {
@@ -69,13 +74,24 @@ describe('the skin stylesheet', () => {
     expect(offending).toEqual([]);
   });
 
-  it('starts every selector at a part or at the theme root', () => {
-    expect(selectors.filter((selector) => !SCOPED.test(selector))).toEqual([]);
+  it('applies every rule but the tokens only inside the default look', () => {
+    const outside = selectors.filter(
+      (selector) => !TOKENS.test(selector) && !GLOBAL.test(selector) && !INSIDE.test(selector),
+    );
+    expect(outside).toEqual([]);
+  });
+
+  it('styles parts of the default look only, not those of a headless chat', () => {
+    const tokens = selectors.filter((selector) => TOKENS.test(selector));
+    expect(tokens.every((selector) => !selector.includes('data-ask-part'))).toBe(true);
+    expect(
+      selectors.filter((selector) => selector.includes('data-ask-part')).length,
+    ).toBeGreaterThan(150);
   });
 
   it('keeps global rules without specificity', () => {
     const global = selectors.filter((selector) =>
-      /^:where\(\[data-askdare-root\](?:,|\))/.test(selector),
+      /^:where\(\[data-ask-skin\](?:,|\))/.test(selector),
     );
     expect(global.length).toBeGreaterThan(0);
   });

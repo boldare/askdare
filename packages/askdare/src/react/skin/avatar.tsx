@@ -1,5 +1,5 @@
-import { useChat } from '@boldare/askdare/react';
 import type { ReactElement } from 'react';
+import { useSkin } from './context';
 import { SparkIcon } from './icons';
 
 const initials = (title: string): string =>
@@ -12,7 +12,7 @@ const initials = (title: string): string =>
 
 /** The assistant's face: the configured picture, else the preset's orb, icon or initials. */
 export function Avatar({ size }: { readonly size: 'small' | 'large' }): ReactElement | null {
-  const { bot } = useChat();
+  const { bot } = useSkin();
   const variant = bot.avatar ? 'image' : bot.variants.avatar;
   if (variant === 'none') return null;
   return (

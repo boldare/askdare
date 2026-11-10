@@ -1,11 +1,9 @@
 import { type ReactElement, type ReactNode, useEffect, useState } from 'react';
+import { isBasePath } from '../base-path';
 import type { ChatConfig } from '../chat/config';
 import { identityToken, type PageOptions, pageOptions } from '../chat/page-options';
 import { createChatStore } from '../chat/store';
 import { ChatProvider } from './context';
-
-/** A path on this app, like createChatHandler's `basePath`: never another origin (ADR-0011). */
-const BASE_PATH = /^(\/[a-zA-Z0-9._~-]+)+$/;
 
 export interface RootProps {
   /** From `getChatConfig()` in a Server Component. */
@@ -36,7 +34,7 @@ export function Root({
   starters,
   children,
 }: RootProps): ReactElement {
-  if (!BASE_PATH.test(config.basePath)) {
+  if (!isBasePath(config.basePath)) {
     throw new TypeError(
       `[askdare] The chat's basePath must be a path on this app, like /api/chat; got "${config.basePath}".`,
     );

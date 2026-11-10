@@ -136,6 +136,101 @@ describe('Root and the default look', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it('leaves Escape outside the chat to the page, even as the main landmark', () => {
+    vi.stubGlobal('fetch', fakeServer().fetch);
+    const onClose = vi.fn();
+    render(
+      <>
+        <button type="button">Outside</button>
+        <Root config={testConfig()}>
+          <DefaultPanel headingLevel={1} onClose={onClose} />
+        </Root>
+      </>,
+    );
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Outside' }), { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
+    // A handler that already used Escape keeps it.
+    const field = screen.getByRole('textbox');
+    field.addEventListener('keydown', (event) => event.preventDefault());
+    fireEvent.keyDown(field, { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('closes on Escape anywhere when the chat is the whole document', () => {
+    vi.stubGlobal('fetch', fakeServer().fetch);
+    const onClose = vi.fn();
+    render(
+      <>
+        <button type="button">Outside</button>
+        <Root config={testConfig()}>
+          <DefaultPanel headingLevel={1} onClose={onClose} ownsDocument />
+        </Root>
+      </>,
+    );
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Outside' }), { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('asks before starting over, modal only when the chat is the whole document', async () => {
+    vi.stubGlobal('fetch', fakeServer().fetch);
+    const ask = async (ownsDocument: boolean): Promise<HTMLElement> => {
+      render(
+        <Root config={testConfig()}>
+          <DefaultPanel ownsDocument={ownsDocument} />
+        </Root>,
+      );
+      const field = screen.getByRole('textbox');
+      fireEvent.change(field, { target: { value: 'Hello' } });
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Send' }).hasAttribute('disabled')).toBe(false),
+      );
+      fireEvent.keyDown(field, { key: 'Enter' });
+      fireEvent.click(await screen.findByRole('button', { name: 'Start a new conversation' }));
+      return screen.getByRole('alertdialog');
+    };
+    // Inside a page, the page around the chat stays usable.
+    expect((await ask(false)).hasAttribute('aria-modal')).toBe(false);
+    cleanup();
+    localStorage.clear();
+    expect((await ask(true)).getAttribute('aria-modal')).toBe('true');
+  });
+
+  it('returns focus to the field after an answer, but never from the page', async () => {
+    vi.stubGlobal('fetch', fakeServer().fetch);
+    render(
+      <>
+        <input aria-label="Newsletter" />
+        <Root config={testConfig()}>
+          <DefaultPanel />
+        </Root>
+      </>,
+    );
+    const field = screen.getByRole('textbox', { name: 'Ask anything' });
+    field.focus();
+    fireEvent.change(field, { target: { value: 'Hello' } });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Send' }).hasAttribute('disabled')).toBe(false),
+    );
+    fireEvent.keyDown(field, { key: 'Enter' });
+    // The visitor moves on to the page's own form while the answer streams.
+    const newsletter = screen.getByRole('textbox', { name: 'Newsletter' });
+    newsletter.focus();
+    await screen.findByText('You said: Hello');
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Send' }).hasAttribute('disabled')).toBe(true),
+    );
+    expect(document.activeElement).toBe(newsletter);
+
+    // From inside the chat, focus comes back to the field.
+    fireEvent.change(field, { target: { value: 'Again' } });
+    const button = screen.getByRole('button', { name: 'Send' });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    button.focus();
+    fireEvent.click(button);
+    await screen.findByText('You said: Again');
+    await waitFor(() => expect(document.activeElement).toBe(field));
+  });
+
   it('refuses a basePath on another origin', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(() =>
@@ -221,6 +316,42 @@ describe('primitives', () => {
     expect(log.current?.className).toBe('my-log');
     expect(field.current?.id).toBe('question');
     expect(field.current?.value).toBe('Draft');
+  });
+
+  it('let your handlers take over sending and pasting', async () => {
+    const sendSpy = vi.fn();
+    const chat = store();
+    const send = vi.spyOn(chat.actions, 'send').mockImplementation(async () => sendSpy());
+    const addFiles = vi.spyOn(chat.actions, 'addFiles');
+    const onSubmit = vi.fn();
+    let takeOver = true;
+    render(
+      <ChatProvider store={chat}>
+        <Composer
+          onSubmit={(event) => {
+            onSubmit();
+            if (takeOver) event.preventDefault();
+          }}
+        >
+          <Input onPaste={(event) => event.preventDefault()} />
+          <Send>Go</Send>
+        </Composer>
+      </ChatProvider>,
+    );
+    const field = screen.getByRole('textbox');
+    // Enter goes through the form, so onSubmit sees it like the button.
+    fireEvent.keyDown(field, { key: 'Enter' });
+    expect(onSubmit).toHaveBeenCalledOnce();
+    expect(send).not.toHaveBeenCalled();
+    takeOver = false;
+    fireEvent.keyDown(field, { key: 'Enter' });
+    expect(onSubmit).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(sendSpy).toHaveBeenCalledOnce());
+
+    fireEvent.paste(field, {
+      clipboardData: { files: [new File(['x'], 'shot.png', { type: 'image/png' })] },
+    });
+    expect(addFiles).not.toHaveBeenCalled();
   });
 
   it('render each message with useMessage(), and check citation links', () => {

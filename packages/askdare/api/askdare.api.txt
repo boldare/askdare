@@ -559,7 +559,7 @@ interface ChatActions {
   rate(messageId: string, rating: Rating | null, comment?: string): Promise<void>;
   /** Closes the question after 👎 without a comment. */
   dismissComment(): void;
-  /** Moves keyboard focus to the message field. */
+  /** Moves keyboard focus to the message field, wherever focus is now. */
   focus(): void;
 }
 type ComposerProps = ComponentProps<"form">;

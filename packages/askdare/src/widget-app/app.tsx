@@ -29,7 +29,7 @@ export function App({ store, bridge, inline = false }: AppProps): ReactElement {
   );
   return (
     <ChatProvider store={store}>
-      <DefaultPanel headingLevel={1} onClose={onClose} />
+      <DefaultPanel headingLevel={1} onClose={onClose} ownsDocument />
     </ChatProvider>
   );
 }

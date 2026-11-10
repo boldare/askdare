@@ -1,7 +1,14 @@
+import type { ChatBot, Translate } from '@boldare/askdare/react';
 import { type Context, createContext, type RefObject, useContext } from 'react';
 
 /** What the parts of the default look share; slots read it too. */
 export interface Skin {
+  /**
+   * The bot and the texts, for parts rendered once per message: unlike `useChat()`, they don't
+   * re-render those parts on every change of the chat.
+   */
+  readonly bot: ChatBot;
+  readonly t: Translate;
   /** Level of the chat's title; the welcome's heading is one below. */
   readonly headingLevel: 1 | 2 | 3 | 4 | 5;
   readonly onClose: (() => void) | undefined;

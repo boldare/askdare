@@ -44,6 +44,8 @@ describe('dist/react.js', () => {
   it('renders the theme root with its stylesheets on the server', () => {
     const html = renderToString(<Page />);
     expect(html).toContain('data-askdare-root=""');
+    // The default look's rules reach only inside this root, never a headless chat beside it.
+    expect(html).toContain('data-ask-skin=""');
     expect(html).toContain('data-ask-preset="aura"');
     expect(html).toContain('data-ask-bot="support"');
     expect(html).toContain('data-ask-scheme="auto"');
