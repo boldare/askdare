@@ -93,8 +93,11 @@ const STYLES = `
   width: min(400px, calc(100vw - 48px)); height: min(680px, calc(100dvh - 120px));
   overflow: hidden; border-radius: var(--r); background: var(--l);
   box-shadow: 0 28px 70px -12px rgb(15 23 42 / .4), 0 0 0 1px rgb(15 23 42 / .06);
-  transform-origin: bottom right; animation: in .22s cubic-bezier(.2, .8, .2, 1);
+  transform-origin: bottom right; animation: in .34s cubic-bezier(.3, 1.3, .5, 1);
 }
+/* Closing plays the opening backwards, faster, before the panel is hidden. */
+[part=panel][data-closing] { pointer-events: none;
+  animation: out .18s cubic-bezier(.4, 0, 1, 1) forwards; }
 :host([data-askdare-scheme=dark]) [part=panel] { background: var(--d); }
 @media (prefers-color-scheme: dark) {
   :host([data-askdare-scheme=auto]) [part=panel] { background: var(--d); }
@@ -107,13 +110,20 @@ const STYLES = `
 [part=panel].inline { position: relative; inset: auto; z-index: auto; width: 100%; height: 100%;
   border-radius: inherit; box-shadow: none; animation: none; }
 iframe { display: block; width: 100%; height: 100%; border: 0; }
-@keyframes in { from { opacity: 0; transform: translateY(10px) scale(.97); } }
+/* The icon turns as it swaps between chat and close; not on the first paint. */
+[data-turned] svg { animation: turn .26s cubic-bezier(.3, 1.4, .5, 1); }
+@keyframes in { from { opacity: 0; transform: translateY(18px) scale(.9); } 50% { opacity: 1; } }
+@keyframes out { to { opacity: 0; transform: translateY(12px) scale(.94); } }
+@keyframes turn { from { opacity: 0; transform: rotate(-90deg) scale(.5); } }
+@keyframes up { from { transform: translateY(100%); } }
 @media (max-width: 480px) {
-  [part=panel] { inset: 0; width: 100vw; height: 100dvh; border-radius: 0; }
+  [part=panel] { inset: 0; width: 100vw; height: 100dvh; border-radius: 0;
+    animation: up .3s cubic-bezier(.2, .8, .2, 1); }
+  [part=panel][data-closing] { animation: out .18s ease-in forwards; }
   [aria-expanded=true][data-ready] { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  [part=launcher], [part=panel] { transition: none; animation: none; }
+  [part=launcher], [part=panel], [part=panel][data-closing], svg { transition: none; animation: none; }
 }
 `;
 
@@ -296,6 +306,13 @@ function boot(): void {
     let identity: string | null | undefined;
     /** Where focus was before opening, so closing returns it (a page's own trigger, for example). */
     let returnFocus: HTMLElement | undefined;
+    /** Hides the panel once its closing animation has played; cleared when it opens again. */
+    let closing: ReturnType<typeof setTimeout> | undefined;
+    const isOpen = (): boolean => !panel.hidden && closing === undefined;
+    const turnIcon = (open: boolean): void => {
+      launcher.dataset['turned'] = '';
+      showIcon(open);
+    };
 
     const connect = (frame: HTMLIFrameElement): void => {
       port?.close();
@@ -322,11 +339,16 @@ function boot(): void {
     };
 
     const open = (focus = true): void => {
+      // Opening again while the panel closes takes it back without hiding it.
+      if (!inline && !isOpen()) turnIcon(true);
       if (!inline && panel.hidden) {
         // Our own launcher shows up as the host element; the page's own trigger as itself.
         const active = document.activeElement;
         returnFocus = active instanceof HTMLElement && active !== host ? active : undefined;
       }
+      clearTimeout(closing);
+      closing = undefined;
+      delete panel.dataset['closing'];
       if (!iframe) {
         iframe = document.createElement('iframe');
         iframe.title = 'Chat';
@@ -339,18 +361,27 @@ function boot(): void {
         setTimeout(unavailable, 8000);
       }
       panel.hidden = false;
-      showIcon(true);
       launcher.setAttribute('aria-expanded', 'true');
       launcher.setAttribute('aria-label', texts.close);
       if (focus) iframe.focus();
     };
 
     function close(): void {
-      if (inline || panel.hidden) return;
+      if (inline || !isOpen()) return;
       // The iframe keeps running while hidden; let it stop anything live, such as a dictation.
       port?.postMessage({ v: 1, type: 'hidden' });
-      panel.hidden = true;
-      showIcon(false);
+      // The panel animates out first, unless the visitor asked for reduced motion.
+      const hide = (): void => {
+        closing = undefined;
+        delete panel.dataset['closing'];
+        panel.hidden = true;
+      };
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) hide();
+      else {
+        panel.dataset['closing'] = '';
+        closing = setTimeout(hide, 180);
+      }
+      turnIcon(false);
       launcher.setAttribute('aria-expanded', 'false');
       launcher.setAttribute('aria-label', closedName);
       // Back to whatever opened the chat: the page's own button, else the launcher. Firefox leaves
@@ -362,7 +393,7 @@ function boot(): void {
       }
     }
 
-    launcher.addEventListener('click', () => (panel.hidden ? open() : close()));
+    launcher.addEventListener('click', () => (isOpen() ? close() : open()));
     (container ?? document.body ?? document.documentElement).append(host);
     // An inline chat is part of the page: it must not take focus or scroll the page on load.
     if (inline) open(false);
@@ -370,7 +401,7 @@ function boot(): void {
     const api = ((command: Command | 'configure' | 'identify', options?: unknown) => {
       if (command === 'open') open();
       else if (command === 'close') close();
-      else if (command === 'toggle') (panel.hidden ? open : close)();
+      else if (command === 'toggle') (isOpen() ? close : open)();
       else if (command === 'identify') {
         // A token, else signed out: a missing token must never keep the previous user signed in.
         if (typeof options !== 'string' && options !== null) {
