@@ -1,7 +1,7 @@
 import type { ChatConfig } from './config';
 import { translator } from './reducer';
 import type { ChatMessage, ChatState, PendingFile } from './state';
-import type { ChatActions, ChatStore } from './store';
+import { type ChatActions, type ChatStore, focusRequests } from './store';
 
 /** A frozen state for the gallery: design review and visual tests, never a live chat. */
 export interface Fixture {
@@ -17,7 +17,7 @@ export interface Fixture {
 
 const nothing = async (): Promise<void> => {};
 
-/** A store that shows one fixture and talks to no server. Only the draft can change. */
+/** A store that shows one fixture and talks to no server. Only the draft and focus can change. */
 export function createFixtureStore(config: ChatConfig, fixture: Fixture): ChatStore {
   let state: ChatState = {
     phase: 'ready',
@@ -38,6 +38,7 @@ export function createFixtureStore(config: ChatConfig, fixture: Fixture): ChatSt
     state = { ...state, ...change };
     for (const listener of listeners) listener();
   };
+  const { focus, onFocus } = focusRequests();
   const actions: ChatActions = {
     send: nothing,
     setDraft: (draft) => set({ draft }),
@@ -47,7 +48,8 @@ export function createFixtureStore(config: ChatConfig, fixture: Fixture): ChatSt
     finishDictation: nothing,
     cancelDictation: () => {},
     newConversation: nothing,
-    focus: () => {},
+    // The field takes focus as in a live chat, so the gallery shows the same state.
+    focus: () => focus('input'),
   };
   return {
     config,
@@ -65,6 +67,6 @@ export function createFixtureStore(config: ChatConfig, fixture: Fixture): ChatSt
     configure: (page) => set({ page }),
     hide: () => {},
     level: () => undefined,
-    onFocus: () => () => {},
+    onFocus,
   };
 }

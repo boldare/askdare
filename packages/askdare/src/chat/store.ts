@@ -60,8 +60,11 @@ export interface ChatStore {
   hide(): void;
   /** The microphone's loudness from 0 to 1 while recording. */
   level(): number | undefined;
-  /** Called when the chat moves focus; returns an unsubscribe function. */
-  onFocus(listener: (target: FocusTarget) => void): () => void;
+  /**
+   * Registers what takes focus for `target`. The listener focuses its element and returns whether
+   * it could; a request nobody could take yet goes to the next listener. Returns an unsubscribe.
+   */
+  onFocus(target: FocusTarget, listener: FocusListener): () => void;
 }
 
 export interface Recorder {
@@ -75,6 +78,45 @@ export interface ChatStoreOptions {
   readonly recorder?: Recorder;
   /** The page's greeting, starters and context from the start, so the server renders them. */
   readonly page?: PageOptions;
+}
+
+/** How long a focus request waits for its element to appear, such as the field after a dictation. */
+const FOCUS_WAIT_MS = 2_000;
+
+/** Focuses its element and says whether it could; false when the element is gone. */
+export type FocusListener = () => boolean;
+
+/**
+ * Where the chat wants focus next. A request stays pending until a listener for its target really
+ * takes it: the message field comes back only after a dictation ends, and a listener whose element
+ * has just unmounted must not swallow the request. Only the latest request is kept.
+ */
+export function focusRequests(): {
+  focus(target: FocusTarget): void;
+  onFocus(target: FocusTarget, listener: FocusListener): () => void;
+} {
+  const listeners: Record<FocusTarget, Set<FocusListener>> = {
+    input: new Set(),
+    dictation: new Set(),
+  };
+  let pending: { readonly target: FocusTarget; readonly at: number } | undefined;
+  const deliver = (target: FocusTarget): boolean => {
+    let taken = false;
+    for (const listener of listeners[target]) taken = listener() || taken;
+    return taken;
+  };
+  return {
+    focus(target) {
+      pending = deliver(target) ? undefined : { target, at: Date.now() };
+    },
+    onFocus(target, listener) {
+      listeners[target].add(listener);
+      // Only while it is fresh: an element that appears much later must not grab focus.
+      const fresh = pending?.target === target && Date.now() - pending.at < FOCUS_WAIT_MS;
+      if (fresh && listener()) pending = undefined;
+      return () => listeners[target].delete(listener);
+    },
+  };
 }
 
 const MICROPHONE_MESSAGES: Readonly<Record<MicrophoneError['reason'], TextKey>> = {
@@ -125,10 +167,7 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
     state = { ...state, ...change };
     for (const listener of listeners) listener();
   };
-  const focusListeners = new Set<(target: FocusTarget) => void>();
-  const focus = (target: FocusTarget): void => {
-    for (const listener of focusListeners) listener(target);
-  };
+  const { focus, onFocus } = focusRequests();
 
   let localId = 0;
   const nextLocalId = (): string => `local_${++localId}`;
@@ -413,7 +452,11 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
       document.addEventListener('visibilitychange', onVisibility);
       // The first request waits for the page's identity, so a signed-in visitor gets theirs.
       void (startOptions.handshake ?? Promise.resolve())
-        .then(() => identities)
+        // A handshake that fails is like none: the chat starts without the page's identity.
+        .then(
+          () => identities,
+          () => identities,
+        )
         .finally(() => {
           if (run !== current) return;
           identityReady = true;
@@ -451,9 +494,6 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
 
     level: () => recording?.level(),
 
-    onFocus(listener) {
-      focusListeners.add(listener);
-      return () => focusListeners.delete(listener);
-    },
+    onFocus,
   };
 }
