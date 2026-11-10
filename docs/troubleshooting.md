@@ -334,6 +334,18 @@ Related errors:
 
 **To switch back on**, remove the variable or set it to anything else, and restart or redeploy.
 
+## No 👍 and 👎 under answers
+
+- `createChatHandler` has no `onFeedback`. Without it the buttons don't show, because a rating would have nowhere to go.
+- The bot sets `widget: { feedback: false }`.
+- The answer is still streaming, or it failed. See [Answer ratings](feedback.md).
+
+## The chat inside a page is unstyled or has no height
+
+- `DefaultChat` fills the element it sits in: give it a height with `className` or `style`.
+- The page's Content Security Policy blocks the chat route's stylesheets or fonts: allow `style-src 'self'` and `font-src 'self'` ([React](react.md#content-security-policy)).
+- A CSS reset in your own stylesheet comes after the chat's: put it in a layer before `askdare` ([React](react.md#with-a-css-reset-tailwind)).
+
 ## Doctor can't check the app
 
 | `doctor` says | Fix |

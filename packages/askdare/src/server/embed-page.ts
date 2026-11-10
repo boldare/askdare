@@ -1,13 +1,18 @@
 import type { Bot } from '../bot/define-bot';
-import { textLocale, textsFor } from '../i18n/texts';
+import type { ChatConfig, ChatWidget } from '../chat/config';
+import { textLocale } from '../i18n/texts';
 
 const uiLanguage = (locale: string): string =>
   locale.toLowerCase().split('-')[0] === textLocale(locale) ? locale : textLocale(locale);
 
-import { PROTOCOL_VERSION } from '../protocol/version';
-import { themeAttributes, themeStylesheet } from '../theme/css';
-import type { PresetName, ThemeVariants } from '../theme/presets';
+import {
+  inlineCustomCss,
+  inlineThemeStylesheet,
+  themeAttributes,
+  themeStylesheet,
+} from '../theme/css';
 import type { ResolvedTheme } from '../theme/theme';
+import { publicConfig } from './public-config';
 
 /** Built iframe app and loader, inlined into the package at build time (no runtime file reads). */
 export interface EmbedAssets {
@@ -22,6 +27,9 @@ export interface EmbedAssets {
   readonly fontsCssFile: string;
   /** Base64 woff2 files by published name. */
   readonly fontFiles: Readonly<Record<string, string>>;
+  /** The default look alone, for a chat inside a page (ADR-0011). */
+  readonly skinCss: string;
+  readonly skinCssFile: string;
 }
 
 /** States the gallery can render without a model, for design review and visual tests. */
@@ -32,32 +40,18 @@ export const GALLERY_STATES = [
   'attachments',
   'error',
   'listening',
+  'feedback',
 ] as const;
 export type GalleryState = (typeof GALLERY_STATES)[number];
 
 /** The widget settings the iframe app needs; colors arrive as the theme stylesheet. */
-export type EmbedWidget = Omit<Bot['widget'], 'theme' | 'css' | 'texts'> & {
-  readonly preset: PresetName;
-  readonly variants: ThemeVariants;
-  /** Every text in the visitor's language, overrides applied; plural keys included. */
-  readonly texts: Readonly<Record<string, string>>;
-};
+export type EmbedWidget = ChatWidget;
 
 /** Public configuration handed to the iframe app. Must never contain secrets. */
-export interface EmbedConfig {
-  readonly protocolVersion: number;
-  readonly basePath: string;
-  readonly botId: string;
+export interface EmbedConfig extends ChatConfig {
   readonly allowedOrigins: readonly string[];
-  readonly widget: EmbedWidget;
-  /** Whether the bot accepts a page description from askdare('configure', { context }). */
-  readonly pageContext: boolean;
   /** Only in gallery mode: render this state from fixtures instead of talking to the server. */
   readonly gallery?: GalleryState;
-  /** What the visitor may attach; absent when attachments are off. */
-  readonly attachments?: NonNullable<Bot['attachments']>;
-  /** Dictation settings; absent when voice input is off. The model stays on the server. */
-  readonly voice?: { readonly maxSeconds: number };
 }
 
 const HTML_ESCAPES: Readonly<Record<string, string>> = {
@@ -87,33 +81,20 @@ export interface EmbedView {
   /** Theme stylesheet URL, content-hashed. */
   readonly themeHref: string;
   readonly gallery?: GalleryState | undefined;
+  /** Whether answers get rating buttons; see `EmbedConfig.feedback`. */
+  readonly feedback?: boolean | undefined;
 }
 
 export function embedConfig(bot: Bot, basePath: string, view?: EmbedView): EmbedConfig {
-  const { theme, css: _css, texts: overrides, ...widget } = bot.widget;
-  const resolved = view?.theme ?? theme;
-  const locale = view?.locale ?? (widget.locale === 'auto' ? 'en' : widget.locale);
-  const texts = textsFor(locale, overrides);
   return {
-    protocolVersion: PROTOCOL_VERSION,
-    basePath,
-    botId: bot.id,
+    ...publicConfig(bot, basePath, {
+      locale: view?.locale,
+      theme: view?.theme,
+      // The iframe is served by the route, which knows whether it takes ratings.
+      feedback: view?.feedback ?? false,
+    }),
     allowedOrigins: bot.security.allowedOrigins,
-    pageContext: bot.pageContext,
-    widget: {
-      ...widget,
-      locale,
-      title: texts['header.title'] ?? widget.title,
-      greeting: texts['welcome.greeting'] ?? widget.greeting,
-      placeholder: texts['composer.placeholder'] ?? widget.placeholder,
-      launcherLabel: texts['launcher.label'] ?? widget.launcherLabel,
-      texts,
-      preset: resolved.preset,
-      variants: resolved.variants,
-    },
     ...(view?.gallery ? { gallery: view.gallery } : {}),
-    ...(bot.attachments ? { attachments: bot.attachments } : {}),
-    ...(bot.voice ? { voice: { maxSeconds: bot.voice.maxSeconds } } : {}),
   };
 }
 
@@ -140,23 +121,33 @@ export function embedContentSecurityPolicy(bot: Bot): string {
 /** Stylesheet and content hash of a theme plus a bot's own CSS, cached per distinct pair. */
 const stylesheets = new WeakMap<ResolvedTheme, Map<string, { css: string; hash: string }>>();
 
-export function themeAsset(theme: ResolvedTheme, custom = ''): { css: string; hash: string } {
+/** With `inlineFor`, a bot id: for that bot's chat inside a page, scoped to it (ADR-0011). */
+export function themeAsset(
+  theme: ResolvedTheme,
+  custom = '',
+  inlineFor?: string,
+): { css: string; hash: string } {
   let byCustom = stylesheets.get(theme);
   if (!byCustom) {
     byCustom = new Map();
     stylesheets.set(theme, byCustom);
   }
-  let asset = byCustom.get(custom);
+  const key = `${inlineFor ?? ''}\n${custom}`;
+  let asset = byCustom.get(key);
   if (!asset) {
+    const [rules, own] =
+      inlineFor === undefined
+        ? [themeStylesheet(theme), custom]
+        : [inlineThemeStylesheet(theme, inlineFor), inlineCustomCss(custom, inlineFor)];
     // The bot's CSS comes after the theme and outside the library's layer, so it wins.
-    const css = custom ? `${themeStylesheet(theme)}\n${custom}` : themeStylesheet(theme);
+    const css = own ? `${rules}\n${own}` : rules;
     // FNV-1a: only a cache key for the URL, not a security boundary.
     let value = 0x811c9dc5;
     for (let index = 0; index < css.length; index += 1) {
       value = Math.imul(value ^ css.charCodeAt(index), 0x01000193) >>> 0;
     }
     asset = { css, hash: value.toString(16).padStart(8, '0') };
-    byCustom.set(custom, asset);
+    byCustom.set(key, asset);
   }
   return asset;
 }
@@ -178,7 +169,8 @@ export function renderEmbedPage(
     '<!doctype html>',
     // The language the interface is written in: English for a locale without a dictionary or
     // a translation of the operator's.
-    `<html lang="${escapeHtml(lang)}"${attributes}>`,
+    // The theme root (ADR-0011) with the default look: the skin scopes every rule to [data-ask-skin].
+    `<html lang="${escapeHtml(lang)}" data-askdare-root data-ask-skin${attributes}>`,
     '<head>',
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">',

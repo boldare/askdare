@@ -33,10 +33,19 @@ export const NAV: readonly { readonly title: string; readonly pages: readonly st
     title: 'Features',
     pages: ['knowledge-base', 'tools', 'attachments', 'voice-input', 'identity'],
   },
-  { title: 'Look and feel', pages: ['styling', 'themes', 'texts'] },
+  { title: 'Look and feel', pages: ['styling', 'themes', 'texts', 'react'] },
   {
     title: 'Running it',
-    pages: ['deployment', 'going-public', 'costs', 'privacy', 'custom-store', 'support'],
+    pages: [
+      'deployment',
+      'going-public',
+      'costs',
+      'observability',
+      'feedback',
+      'privacy',
+      'custom-store',
+      'support',
+    ],
   },
   { title: 'Reference', pages: ['protocol', 'migrating-from-openai-assistant', 'adr'] },
 ];

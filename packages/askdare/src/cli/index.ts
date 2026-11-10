@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { createRequire } from 'node:module';
 import { parseArgs } from 'node:util';
+import { isBasePath } from '../base-path';
+import { AddUiError, addUi } from './add-ui';
 import { doctor, isLocal } from './doctor';
 import { InitError, init } from './init';
 import { KB_USAGE, kbSync } from './kb-sync';
@@ -23,6 +25,12 @@ Commands:
                        .env.development and .env, as next dev reads them)
     --origin <url>     Check that this site may embed the chat (the bot's
                        security.allowedOrigins), e.g. https://www.example.com
+
+  add ui             Copy the chat's default look (React components and their
+                     stylesheet) into the app, to change it freely. Never
+                     overwrites files. For the chat inside a page: docs/react.md
+    --dir <folder>     Where to put it (default: components/askdare, under src/
+                       if the app has one)
 
   kb sync <folder>   Make an OpenAI vector store mirror a folder of documents.
                      See: npx @boldare/askdare kb sync --help
@@ -66,6 +74,30 @@ async function runInit(args: readonly string[]): Promise<number> {
   return 0;
 }
 
+async function runAddUi(args: readonly string[]): Promise<number> {
+  const { values } = parseArgs({
+    args: [...args],
+    options: {
+      dir: { type: 'string' },
+      help: { type: 'boolean', short: 'h', default: false },
+    },
+  });
+  if (values.help) {
+    console.log(USAGE);
+    return 0;
+  }
+  try {
+    await addUi({ root: process.cwd(), dir: values.dir, print: (line) => console.log(line) });
+  } catch (error) {
+    if (error instanceof AddUiError) {
+      console.error(`askdare add ui: ${error.message}`);
+      return 1;
+    }
+    throw error;
+  }
+  return 0;
+}
+
 async function runDoctor(args: readonly string[]): Promise<number> {
   const { values } = parseArgs({
     args: [...args],
@@ -91,7 +123,7 @@ async function runDoctor(args: readonly string[]): Promise<number> {
     // The doctor token is signed with CHAT_SECRET; it must not cross the network in the clear.
     throw new UsageError('--url must use https (plain http only for localhost).');
   }
-  if (!/^(\/[a-zA-Z0-9._~-]+)+$/.test(values['base-path'])) {
+  if (!isBasePath(values['base-path'])) {
     throw new UsageError('--base-path must look like /api/chat.');
   }
   let origin: string | undefined;
@@ -117,6 +149,7 @@ async function main(argv: readonly string[]): Promise<number> {
   const [command, ...rest] = argv;
   if (command === 'init') return runInit(rest);
   if (command === 'doctor') return runDoctor(rest);
+  if (command === 'add' && rest[0] === 'ui') return runAddUi(rest.slice(1));
   if (command === 'kb' && rest[0] === 'sync') return kbSync(rest.slice(1));
   if (command === '-v' || command === '--version') {
     console.log(version());

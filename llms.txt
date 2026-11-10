@@ -2,14 +2,14 @@
 
 > `@boldare/askdare` adds an AI chatbot to any website. A Next.js 16 app (App Router, Node.js runtime) serves the chat from one catch-all route; other sites embed it with one `<script>` tag. Built on the official `openai` SDK (Responses and Conversations APIs); no database.
 
-Set it up with `npx @boldare/askdare init` and verify it with `npx @boldare/askdare doctor`. The public API is `defineBot`, `defineTool` and `defineTheme` from `@boldare/askdare`, `createChatHandler` from `@boldare/askdare/next`, the `data-*` attributes of the script tag, `askdare(…)` on the page, the `--ask-*` CSS tokens, the `data-ask-part` names and the text keys. Everything else is internal.
+Set it up with `npx @boldare/askdare init` and verify it with `npx @boldare/askdare doctor`. The public API is `defineBot`, `defineTool` and `defineTheme` from `@boldare/askdare`; `createChatHandler` (with `onError`, `onUsage` and `onFeedback`) and `getChatConfig` from `@boldare/askdare/next`; `Root`, `DefaultChat`, the hooks and the primitives from `@boldare/askdare/react`; the CLI commands (`init`, `doctor`, `kb sync`, `add ui`); `upstashStore` from `@boldare/askdare-upstash` and `otelUsage` from `@boldare/askdare-otel`; the `data-*` attributes of the script tag, `askdare(…)` on the page, the `--ask-*` CSS tokens, the `data-ask-part` names and the text keys. Everything else is internal.
 
 ## Docs
 
 - [Getting started](docs/getting-started.md): install, `init`, `.env.local`, `doctor`, embedding on other sites
 - [Configuration](docs/configuration.md): every `defineBot` and `createChatHandler` option, limits with defaults, environment variables
 - [Embedding](docs/embedding.md): the script tag and its `data-*` attributes, several bots, the host page's CSP, staging and production
-- [CLI](docs/cli.md): `init`, `doctor`, `kb sync` and `usage`, with every flag
+- [CLI](docs/cli.md): `init`, `doctor`, `kb sync`, `add ui` and `usage`, with every flag
 - [Troubleshooting](docs/troubleshooting.md): symptoms, causes and fixes, by error code
 - [Tools](docs/tools.md): `defineTool`, Zod schemas, what a tool may trust
 - [Signed-in visitors](docs/identity.md): `askdare('identify')`, IDENTITY_SECRET, `context.identity`
@@ -17,11 +17,14 @@ Set it up with `npx @boldare/askdare init` and verify it with `npx @boldare/askd
 - [Attachments](docs/attachments.md): images and PDFs from visitors
 - [Voice input](docs/voice-input.md): dictation and its limits
 - [Styling](docs/styling.md): texts, languages, AI disclosure, custom CSS, `askdare('open' | 'configure')`, inline mode
+- [React](docs/react.md): the chat inside a page of your own app with `@boldare/askdare/react`: `getChatConfig`, `Root`, `DefaultChat`, hooks and primitives, CSS resets, CSP, `add ui`
 - [Texts](docs/texts.md): every text key with its English and Polish default, plurals, adding a language
 - [Themes](docs/themes.md): Halo, Aura, Sage and Care, tokens and variants
 - [Deployment](docs/deployment.md): Vercel, Heroku, proxies, shared limits
 - [Going public](docs/going-public.md): OpenAI project, secrets, limits, privacy checklist
 - [Costs](docs/costs.md): the worst case under the default limits, and how to keep it bounded
+- [Observability](docs/observability.md): `onUsage` and `onError`, cost per turn, OpenTelemetry spans with `@boldare/askdare-otel`
+- [Answer ratings](docs/feedback.md): 👍/👎 with an optional comment, `onFeedback`, what the report holds
 - [Privacy](docs/privacy.md): what is stored where, for your privacy policy
 - [Support](docs/support.md): Node.js, Next.js, React, zod and TypeScript versions, browsers, sizes
 - [Migrating from @boldare/openai-assistant](docs/migrating-from-openai-assistant.md): what maps to what

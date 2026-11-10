@@ -37,7 +37,7 @@ const json = (response, status, body) => {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function streamResponse(response, text) {
+async function streamResponse(response, text, itemId = 'msg') {
   const reply = { text, outcome: 'streaming' };
   replies.push(reply);
   response.on('close', () => {
@@ -52,11 +52,17 @@ async function streamResponse(response, text) {
       `event: ${event.type}\ndata: ${JSON.stringify({ ...event, sequence_number: sequence++ })}\n\n`,
     );
   send({ type: 'response.created', response: { id: 'resp_mock', status: 'in_progress' } });
+  // The answer's item, announced before its text as the live API does: ratings refer to its id.
+  send({
+    type: 'response.output_item.added',
+    output_index: 0,
+    item: { id: itemId, type: 'message', role: 'assistant', status: 'in_progress', content: [] },
+  });
   for (const word of text.split(/(?<= )/)) {
     await sleep(pause);
     send({
       type: 'response.output_text.delta',
-      item_id: 'msg',
+      item_id: itemId,
       output_index: 0,
       content_index: 0,
       delta: word,
@@ -145,7 +151,7 @@ createServer(async (request, response) => {
         content: [{ type: 'output_text', text: reply, annotations: [], logprobs: [] }],
       },
     );
-    return streamResponse(response, reply);
+    return streamResponse(response, reply, items.at(-1).id);
   }
   const itemsPath = /^\/v1\/conversations\/([^/]+)\/items$/.exec(pathname);
   if (request.method === 'GET' && itemsPath) {

@@ -2,6 +2,10 @@ import { z } from 'zod';
 import { ERROR_CODES, MESSAGE_END_REASONS, type ProtocolEvent } from './events';
 import type { HistoryResponse } from './history';
 
+const feedback = z
+  .object({ handle: z.string().min(1).max(4096), key: z.string().regex(/^[0-9a-f]{16,64}$/) })
+  .optional();
+
 /*
  * The protocol in zod, for the server and the tests. Browsers validate with ./validate.ts, which
  * is far smaller; validate.test.ts keeps the two in agreement.
@@ -42,6 +46,7 @@ export const protocolEventSchema: z.ZodType<ProtocolEvent> = z.discriminatedUnio
     messageId,
     reason: z.enum(MESSAGE_END_REASONS),
     resumeToken: z.string().min(1).optional(),
+    feedback,
   }),
   z.object({
     type: z.literal('error'),
@@ -68,6 +73,7 @@ export const historyResponseSchema: z.ZodType<HistoryResponse> = z.object({
         }),
       ),
       attachments: z.number().int().min(0),
+      feedback,
     }),
   ),
 });

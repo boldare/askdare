@@ -128,6 +128,12 @@ export const { GET, POST, DELETE } = createChatHandler({
 });
 ```
 
+## Tracking what the chat costs
+
+[`onUsage`](configuration.md#onusage) receives every turn's tokens as OpenAI reports them: input, cached and cache-write input, output and reasoning, with the model that answered. Multiply them by your model's prices to get the cost per turn, per bot or per conversation, and send them to your metrics or, with `@boldare/askdare-otel`, to your tracing.
+
+The report holds pseudonyms, never message text. A turn that breaks off mid-answer reports what askdare received, while OpenAI may bill a little more, so compare with the OpenAI dashboard now and then.
+
 ## Choosing a model
 
 The model decides most of the bill, which is why askdare never picks one for you.
@@ -149,7 +155,7 @@ A conversation is stored by OpenAI, and every message sends the whole conversati
 
 - `maxTurns` (default 50) ends a conversation: the visitor is asked to start a new one.
 - askdare sends `truncation: 'auto'`. When a conversation outgrows the model's context window, OpenAI drops the oldest items instead of failing.
-- askdare doesn't compact or summarize conversations yet. OpenAI's server-side compaction is planned for 0.2.
+- askdare doesn't compact or summarize conversations yet. OpenAI's server-side compaction is planned for 0.3: in [spike S5](https://github.com/boldare/askdare/blob/main/spikes/s5-compaction/README.md) it could cut answers off and under-report tokens, so it waits for a larger test.
 - Attached files and your tools' results stay in the conversation, so every later message reads them again. Keep tool results small ([Tools](tools.md)).
 
 ## Prompt caching

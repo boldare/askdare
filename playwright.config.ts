@@ -28,10 +28,11 @@ export default defineConfig({
         },
       },
     },
-    // The embedding, the page API and accessibility in the other engines (`pnpm e2e:browsers`).
+    // The embedding, the page API, accessibility and the chat inside a page in the other engines
+    // (`pnpm e2e:browsers`).
     {
       name: 'firefox',
-      testMatch: /(embed|host-api|a11y)\.spec\.ts/,
+      testMatch: /(embed|host-api|a11y|inline|feedback)\.spec\.ts/,
       use: {
         ...devices['Desktop Firefox'],
         // A fake microphone without a prompt, like Chromium's flags above.
@@ -45,7 +46,7 @@ export default defineConfig({
     },
     {
       name: 'webkit',
-      testMatch: /(embed|host-api|a11y)\.spec\.ts/,
+      testMatch: /(embed|host-api|a11y|inline|feedback)\.spec\.ts/,
       use: { ...devices['Desktop Safari'] },
     },
     {
@@ -88,6 +89,8 @@ export default defineConfig({
         ASKDARE_TRANSCRIBE_MODEL: 'mock-transcribe',
         // Lets the visual tests render fixture states; it never changes a live conversation.
         ASKDARE_GALLERY: '1',
+        // All tests chat from one address; see the limits in site/askdare.config.ts.
+        ASKDARE_E2E_LIMITS: '1',
         KB_VECTOR_STORE_ID: '',
         // No docs chat: it needs a synced vector store.
         DOCS_VECTOR_STORE_ID: '',

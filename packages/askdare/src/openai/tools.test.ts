@@ -3,7 +3,7 @@ import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { type Bot, defineBot } from '../bot/define-bot';
-import type { ModelGateway, TurnRequest } from '../gateway';
+import type { ModelGateway, StepRecord, ToolCallRecord, TurnRequest } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
 import { defineTool, type Tool } from '../tools/define-tool';
 import { createOpenAIGateway } from './gateway';
@@ -80,8 +80,15 @@ function makeBot(tools: Tool[], maxSteps = 5): Bot {
   });
 }
 
-async function run(bot: Bot): Promise<{ events: ProtocolEvent[]; reason: string }> {
+async function run(bot: Bot): Promise<{
+  events: ProtocolEvent[];
+  reason: string;
+  modelCalls: StepRecord[];
+  calls: ToolCallRecord[];
+}> {
   const events: ProtocolEvent[] = [];
+  const modelCalls: StepRecord[] = [];
+  const calls: ToolCallRecord[] = [];
   const request: TurnRequest = {
     bot,
     conversationId: 'conv_1',
@@ -92,9 +99,11 @@ async function run(bot: Bot): Promise<{ events: ProtocolEvent[]; reason: string 
     messageId: 'msg_t',
     signal: new AbortController().signal,
     emit: (event) => events.push(event),
+    onStep: (step) => modelCalls.push(step),
+    onToolCall: (call) => calls.push(call),
   };
   const result = await gateway.runTurn(request);
-  return { events, reason: result.reason };
+  return { events, reason: result.reason, modelCalls, calls };
 }
 
 const outputsOf = (body: Record<string, unknown> | undefined) =>
@@ -155,7 +164,7 @@ describe('tool loop', () => {
       callStep([{ id: 'c1', name: 'echo', args: '{"word":"ha","times":2}' }]),
       textTurnEvents(['Done.']),
     );
-    const { events, reason } = await run(makeBot([echo]));
+    const { events, reason, modelCalls, calls } = await run(makeBot([echo]));
     expect(bodies[0]).toMatchObject({
       tool_choice: 'auto',
       parallel_tool_calls: true,
@@ -169,6 +178,16 @@ describe('tool loop', () => {
       { type: 'tool.status', messageId: 'msg_t', callId: 'c1', name: 'echo', state: 'done' },
     ]);
     expect(reason).toBe('completed');
+    // Two model calls, one function call, for the turn's usage report.
+    expect(modelCalls).toHaveLength(2);
+    expect(calls).toEqual([
+      {
+        name: 'echo',
+        startedAt: expect.any(Number),
+        durationMs: expect.any(Number),
+        outcome: 'ok',
+      },
+    ]);
   });
 
   it('reports invalid arguments, unknown tools, failures and timeouts to the model, not the visitor', async () => {
@@ -198,8 +217,16 @@ describe('tool loop', () => {
       ]),
       textTurnEvents(['Sorry.']),
     );
-    const { events } = await run(makeBot([echo, failing, slow]));
+    const { events, calls } = await run(makeBot([echo, failing, slow]));
     const outputs = outputsOf(bodies[1]);
+    // In the order they finished.
+    expect(calls.map((call) => `${call.name}:${call.outcome}`).sort()).toEqual([
+      'echo:error',
+      'echo:error',
+      'fails:error',
+      'nope:error',
+      'slow:timeout',
+    ]);
     expect(outputs.map((item) => item.call_id)).toEqual(['a', 'b', 'c', 'd', 'e']);
     expect(outputs[0]?.output).toMatchObject({
       error: expect.stringContaining('Invalid arguments'),

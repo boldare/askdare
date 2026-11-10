@@ -1,6 +1,6 @@
 # Wire protocol (version 1)
 
-This is how the askdare server streams a chat turn to its clients: the embed iframe app now, `@boldare/askdare/react` later. The protocol belongs to askdare; raw OpenAI stream events are never forwarded ([ADR-0002](adr/0002-openai-only-no-leaked-types.md)).
+This is how the askdare server streams a chat turn to its clients: the widget's iframe app and `@boldare/askdare/react`. The protocol belongs to askdare; raw OpenAI stream events are never forwarded ([ADR-0002](adr/0002-openai-only-no-leaked-types.md)).
 
 Source of truth: `packages/askdare/src/protocol/`.
 
@@ -17,13 +17,14 @@ Every path sits under the route's base path: `/api/chat` by default, or `basePat
 | `POST /session` | None | Starts or renews a visitor's session and answers an access token ([Identity](#identity)) |
 | `POST /messages` | Access token | Sends a message and answers with the event stream ([Events](#events)) |
 | `POST /history` | Access token | The visible messages of the visitor's conversation |
+| `POST /feedback` | Access token | Rates one answer ([Feedback](#feedback)) |
 | `DELETE /conversation` | Access token | Deletes the visitor's conversation, and its files when the bot accepts attachments |
 | `POST /attachments` | Access token | Uploads one file ([Attachments](#attachments)) |
 | `POST /transcriptions` | Access token | Transcribes one dictation ([Dictation](#dictation)) |
 | `POST /doctor` | Doctor token | Checks the setup for `askdare doctor` ([Diagnostics](#diagnostics)) |
 
 - **`POST /messages`** takes `{ "botId", "text", "resumeToken"?, "attachments"?, "context"?, "locale"? }`. Without `resumeToken`, the server starts a new conversation and sends `conversation.created`. `locale` is the visitor's language tag, passed to the bot's instructions.
-- **`POST /history`** takes `{ "botId", "resumeToken" }` and answers `{ "messages": [{ "id", "role", "text", "citations", "attachments" }] }`, where `attachments` is a count.
+- **`POST /history`** takes `{ "botId", "resumeToken" }` and answers `{ "messages": [{ "id", "role", "text", "citations", "attachments", "feedback"? }] }`, where `attachments` is a count and `feedback` is the answer's rating handle (see [Feedback](#feedback)).
 - **`DELETE /conversation`** takes the same body and answers `204` with no body.
 - **Same origin only.** Every `POST` and `DELETE` except `/doctor` refuses cross-site requests with `401`. The API serves the chat's own iframe, which runs on the same origin.
 
@@ -51,7 +52,7 @@ Every path sits under the route's base path: `/api/chat` by default, or `basePat
 | `text.delta` | `messageId`, `delta` | Append text to the reply (markdown) |
 | `citation` | `messageId`, `index`, `title`, `url?` | Source for marker `[index]`; `url` is http(s) only |
 | `tool.status` | `messageId`, `callId`, `name`, `state: running \| done \| error` | A tool ran; arguments and results stay on the server. `name: file_search` is the knowledge base search |
-| `message.end` | `messageId`, `reason`, `resumeToken?` | The reply finished. A resumed conversation gets a fresh `resumeToken`, so it stays reachable 30 days after its last message. Reasons: `completed`, `max_steps`, `max_output_tokens`, `timeout`, `content_filter`, `aborted` |
+| `message.end` | `messageId`, `reason`, `resumeToken?`, `feedback?` | The reply finished. A resumed conversation gets a fresh `resumeToken`, so it stays reachable 30 days after its last message. `feedback` is the answer's rating handle, when answers can be rated. Reasons: `completed`, `max_steps`, `max_output_tokens`, `timeout`, `content_filter`, `aborted` |
 | `error` | `code`, `message`, `retryAfterMs?`, `key?`, `params?` | The turn failed; `message` is safe to show ([keys and parameters](#error-keys-and-parameters)) |
 
 ## Attachments
@@ -66,6 +67,15 @@ When a bot has `attachments` enabled, files travel separately from the message:
 ## Dictation
 
 When a bot has `voice` enabled, `POST /transcriptions` takes a recording as the raw body (`Content-Type: application/octet-stream`) with the `Bearer` token and two headers: `x-askdare-bot` (bot ID) and `x-askdare-languages` (comma-separated language tags, used as hints). It answers `{ "text": "…" }`. Clients put the text in the message field for the visitor to check; nothing is sent to the model.
+
+## Feedback
+
+When the app sets `onFeedback` and the bot allows it, every answer comes with a rating handle: in `message.end` while it streams, and on assistant messages in `POST /history`. A handle is `{ "handle", "key" }`:
+
+- `handle` is opaque and encrypted, bound to the bot and to the visitor or signed-in user. It holds the conversation and the answer, which the client never sees.
+- `key` is a hex string that stays the same for the answer across reloads, so a client can remember the visitor's own rating.
+
+`POST /feedback` takes `{ "botId", "feedback", "rating", "comment"? }` with the `Bearer` token, where `feedback` is the `handle`, `rating` is `"up"`, `"down"` or `null` to take a rating back, and `comment` holds at most 500 characters. It answers `204` with no body. A handle of another visitor, another bot or a forged one answers `404`, as does a bot whose answers can't be rated. Ratings are limited per visitor (`429`).
 
 ## Identity
 

@@ -1,9 +1,16 @@
 import type { Bot, BotContext } from '../bot/define-bot';
 import { AskdareError, TurnAbortedError, toAskdareError } from '../errors';
-import type { ModelGateway, TokenUsage, TurnAttachment } from '../gateway';
-import type { ProtocolEvent } from '../protocol/events';
+import type { ModelGateway, TokenUsage, ToolCallRecord, TurnAttachment } from '../gateway';
+import type {
+  ErrorCode,
+  FeedbackHandle,
+  MessageEndReason,
+  ProtocolEvent,
+} from '../protocol/events';
 import { encodeComment, encodeEvent } from '../protocol/sse';
 import { PROTOCOL_HEADER, PROTOCOL_VERSION } from '../protocol/version';
+import { addUsage, ZERO_USAGE } from '../usage';
+import type { ChatUsageReport } from './usage-report';
 
 export interface StreamTurnOptions {
   readonly gateway: ModelGateway;
@@ -26,8 +33,17 @@ export interface StreamTurnOptions {
   readonly pseudonym: (value: string) => Promise<string>;
   /** Issues the client-side handle for a new conversation, and a fresh one after each turn. */
   readonly issueResumeToken: (conversationId: string) => Promise<string>;
-  /** Called after a completed turn with real usage and the conversation it belongs to. */
-  readonly onUsage?: ((usage: TokenUsage, conversationId: string) => void) | undefined;
+  /** Settles the budget after a completed turn, with real usage and its conversation. */
+  readonly settle?: ((usage: TokenUsage, conversationId: string) => void) | undefined;
+  /**
+   * Receives the turn's report once the stream has ended, for the `onUsage` hook. Awaited inside
+   * the turn's `waitUntil` work; whatever it throws is caught.
+   */
+  readonly report?: ((report: ChatUsageReport) => void | Promise<void>) | undefined;
+  /** Issues the rating handle of the answer; absent when the bot's answers can't be rated. */
+  readonly issueFeedback?:
+    | ((conversationId: string, itemId: string) => Promise<FeedbackHandle>)
+    | undefined;
   /** Holds the budget for one more model call before a tool round; see `TurnRequest`. */
   readonly reserveCall?: (() => Promise<boolean>) | undefined;
   /** Server-side reporting hook. Receives client-safe errors with internals in `cause`. */
@@ -53,6 +69,11 @@ function defaultId(): string {
 
 function logError(error: AskdareError): void {
   console.error(`[askdare] turn failed: ${error.code}`, error.cause);
+}
+
+/** What a failing hook is logged as: its error's name, never its message, which may hold data. */
+export function hookError(error: unknown): string {
+  return error instanceof Error ? error.name : typeof error;
 }
 
 /**
@@ -96,11 +117,26 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
       );
       const deadline = AbortSignal.timeout(bot.limits.turnTimeoutMs);
       const visitorLeft = (): boolean => options.signal.aborted;
+      // The signed-in user when there is one, so abuse is traced to a person across devices.
+      const subject = options.context.identity
+        ? `user:${options.context.identity.id}`
+        : options.visitorId;
+
+      // What the turn did, for its report.
+      const startedAt = Date.now();
+      let conversationId = options.conversationId;
+      let ran = false;
+      let steps = 0;
+      let model: string | undefined;
+      let usage = ZERO_USAGE;
+      const tools: ToolCallRecord[] = [];
+      let finishReason: MessageEndReason | undefined;
+      let outcome: ChatUsageReport['outcome'] = 'completed';
+      let errorCode: ErrorCode | undefined;
 
       const run = async (): Promise<void> => {
         // Nothing has been spent upstream yet.
         if (visitorLeft()) return;
-        let conversationId = options.conversationId;
         if (conversationId === undefined) {
           conversationId = await gateway.createConversation(
             { botId: bot.id, visitorId: options.visitorId },
@@ -118,6 +154,8 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         emit({ type: 'user.ack', messageId: generateId() });
         const messageId = generateId();
         emit({ type: 'message.start', messageId });
+        const safetyIdentifier = await options.pseudonym(subject);
+        ran = true;
         const result = await gateway.runTurn({
           bot,
           conversationId,
@@ -126,35 +164,77 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           pageContext: options.pageContext,
           context: options.context,
           visitorId: options.visitorId,
-          // The signed-in user when there is one, so abuse is traced to a person across devices.
-          safetyIdentifier: await options.pseudonym(
-            options.context.identity ? `user:${options.context.identity.id}` : options.visitorId,
-          ),
+          safetyIdentifier,
           messageId,
           signal: deadline,
           emit,
           reserveCall: options.reserveCall,
+          onStep: (step) => {
+            steps += 1;
+            model = step.model ?? model;
+            usage = addUsage(usage, step.usage);
+          },
+          onToolCall: (call) => tools.push(call),
         });
-        options.onUsage?.(result.usage, conversationId);
+        finishReason = result.reason;
+        options.settle?.(result.usage, conversationId);
         // A resumed conversation gets a fresh handle: its 30 days count from the last message.
         // Best effort: the old handle stays valid until it expires.
         const resumeToken = options.conversationId
           ? await options.issueResumeToken(conversationId).catch(() => undefined)
           : undefined;
+        // Best effort too: an answer without a handle just can't be rated.
+        const feedback =
+          result.answerItemId && options.issueFeedback
+            ? await options
+                .issueFeedback(conversationId, result.answerItemId)
+                .catch(() => undefined)
+            : undefined;
         emit({
           type: 'message.end',
           messageId,
           reason: result.reason,
           ...(resumeToken ? { resumeToken } : {}),
+          ...(feedback ? { feedback } : {}),
         });
+      };
+
+      /** Hands the report to the hook once the stream is closed, so it never delays the answer. */
+      const sendReport = async (): Promise<void> => {
+        if (!options.report || (!ran && errorCode === undefined)) return;
+        try {
+          await options.report({
+            bot: bot.id,
+            model: model ?? bot.model,
+            conversation: conversationId
+              ? await options.pseudonym(`conversation:${conversationId}`)
+              : undefined,
+            visitor: await options.pseudonym(subject),
+            startedAt,
+            durationMs: Date.now() - startedAt,
+            outcome,
+            ...(finishReason ? { finishReason } : {}),
+            ...(errorCode ? { errorCode } : {}),
+            usage,
+            steps,
+            tools,
+          });
+        } catch (error) {
+          console.error(`[askdare] the onUsage hook failed: ${hookError(error)}`);
+        }
       };
 
       const work = run()
         .catch((error: unknown) => {
-          if (error instanceof TurnAbortedError) return;
+          if (error instanceof TurnAbortedError) {
+            outcome = 'stopped';
+            return;
+          }
           const failure = deadline.aborted
             ? new AskdareError('timeout', { cause: error })
             : toAskdareError(error);
+          outcome = 'failed';
+          errorCode = failure.code;
           reportError(failure);
           const explanation = options.explain?.(failure);
           emit({
@@ -166,7 +246,8 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
             params: failure.params,
           });
         })
-        .finally(finish);
+        .finally(finish)
+        .then(sendReport);
       try {
         options.waitUntil?.(work);
       } catch {

@@ -2,6 +2,7 @@ import type { ResponseStreamEvent } from 'openai/resources/responses/responses';
 import { AskdareError } from '../errors';
 import type { TokenUsage } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
+import { ZERO_USAGE } from '../usage';
 import { addSources, citationSource, type KnowledgeSources } from './citations';
 
 export interface FunctionCall {
@@ -13,6 +14,10 @@ export interface FunctionCall {
 export interface StepOutcome {
   readonly status: 'completed' | 'incomplete';
   readonly incompleteReason: string | undefined;
+  /** The model that answered, as the response reports it. */
+  readonly model: string | undefined;
+  /** The provider's ID of the step's last visible answer message, the one visitors rate. */
+  readonly answerItemId: string | undefined;
   readonly usage: TokenUsage;
   readonly functionCalls: readonly FunctionCall[];
 }
@@ -33,8 +38,6 @@ export class CitationRegistry {
   }
 }
 
-const ZERO_USAGE: TokenUsage = { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0 };
-
 /**
  * Translates one Responses API stream into protocol events. Only text, refusals, citations and
  * reasoning *status* reach the client; tool arguments, reasoning content and everything else stay
@@ -45,6 +48,7 @@ export class ResponseStreamMapper {
   readonly #emit: (event: ProtocolEvent) => void;
   readonly #citations: CitationRegistry;
   readonly #functionCalls: FunctionCall[] = [];
+  #answerItemId: string | undefined;
   #outcome: StepOutcome | undefined;
 
   constructor(
@@ -81,6 +85,8 @@ export class ResponseStreamMapper {
       case 'response.output_item.added':
         if (event.item.type === 'reasoning') {
           this.#emit({ type: 'reasoning', messageId: this.#messageId, state: 'started' });
+        } else if (event.item.type === 'message' && event.item.phase !== 'commentary') {
+          this.#answerItemId = event.item.id;
         }
         return;
       case 'response.output_item.done':
@@ -101,11 +107,16 @@ export class ResponseStreamMapper {
         this.#outcome = {
           status: event.type === 'response.completed' ? 'completed' : 'incomplete',
           incompleteReason: event.response.incomplete_details?.reason,
+          model: event.response.model || undefined,
+          answerItemId: this.#answerItemId,
           usage: event.response.usage
             ? {
                 inputTokens: event.response.usage.input_tokens,
                 cachedInputTokens: event.response.usage.input_tokens_details.cached_tokens,
+                // Older responses and recordings may lack these details.
+                cacheWriteTokens: event.response.usage.input_tokens_details.cache_write_tokens ?? 0,
                 outputTokens: event.response.usage.output_tokens,
+                reasoningTokens: event.response.usage.output_tokens_details?.reasoning_tokens ?? 0,
               }
             : ZERO_USAGE,
           functionCalls: this.#functionCalls,

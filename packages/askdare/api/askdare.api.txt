@@ -8,7 +8,65 @@ export declare const PROTOCOL_VERSION: 1;
 export { type AttachmentConfig, type Bot, type BotContext, type BotDefinition, type BotLimits, type BotSecurity, type ColorScheme, type CounterHit, type KnowledgeConfig, type PresetName, type RateLimitStore, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
 
 // ==== next.d.ts ====
-import { i as Bot, n as RateLimitStore } from "./store.js";
+import { C as VisitorIdentity, S as ThemeVariants, b as PresetName, i as Bot, n as RateLimitStore } from "./store.js";
+/** What a visitor may attach, as the bot allows it. */
+interface ChatAttachments {
+  readonly images: boolean;
+  readonly pdf: boolean;
+  readonly maxBytes: number;
+  readonly maxPerMessage: number;
+  readonly maxPdfPages: number;
+}
+/** A bot's public widget settings, in the visitor's language. */
+interface ChatWidget {
+  readonly title: string;
+  readonly subtitle: string;
+  readonly greeting: string;
+  readonly placeholder: string;
+  /** The language this visitor sees. */
+  readonly locale: string;
+  readonly starters: readonly string[];
+  readonly avatar: string | undefined;
+  readonly launcherLabel: string;
+  readonly disclosure: false | {
+    readonly privacyUrl: string | undefined;
+  };
+  readonly preset: PresetName;
+  readonly variants: ThemeVariants;
+  /** `auto` follows the visitor's system setting. */
+  readonly colorScheme: "auto" | "light" | "dark";
+  /** Every text in the visitor's language, overrides applied; plural keys included. */
+  readonly texts: Readonly<Record<string, string>>;
+}
+/** Stylesheets of a chat inside a page, served by the chat route (ADR-0011). */
+interface ChatStyles {
+  /** The bot's tokens for both color schemes, then its own `widget.css`. */
+  readonly theme: string;
+  /** The default look; only `DefaultChat` loads it. */
+  readonly skin: string;
+  /** `@font-face` rules of the built-in themes; browsers fetch only the fonts in use. */
+  readonly fonts: string;
+}
+/** What the browser needs to run one bot's chat. Public: it never holds secrets (ADR-0008). */
+interface ChatConfig {
+  readonly protocolVersion: number;
+  /** Path of the chat route, such as `/api/chat`. Same origin only (ADR-0011). */
+  readonly basePath: string;
+  readonly botId: string;
+  readonly widget: ChatWidget;
+  /** Whether the bot accepts a description of the page it is on. */
+  readonly pageContext: boolean;
+  /** Whether the bot lets visitors rate answers. Answers carry a handle when the route takes ratings. */
+  readonly feedback: boolean;
+  /** Absent when attachments are off. */
+  readonly attachments?: ChatAttachments;
+  /** Absent when voice input is off. The model stays on the server. */
+  readonly voice?: {
+    readonly maxSeconds: number;
+  };
+  /** From `getChatConfig`, for a chat inside a page. The iframe links its own stylesheets. */
+  readonly styles?: ChatStyles;
+}
 /**
  * Which proxy to trust when reading the client IP:
  * - `vercel`: Vercel overwrites `x-forwarded-for` and sets `x-real-ip`, so both are reliable.
@@ -20,9 +78,79 @@ import { i as Bot, n as RateLimitStore } from "./store.js";
  * Never expose `next start` without a proxy in front: the client then controls these headers.
  */
 type TrustProxy = "auto" | "vercel" | "heroku" | number;
+/** One rating, as `onFeedback` receives it (ADR-0012). */
+interface ChatFeedbackReport {
+  readonly bot: string;
+  /** `null` when the visitor took their rating back. */
+  readonly rating: "up" | "down" | null;
+  /** What the visitor wrote, up to 500 characters. Treat it as personal data. */
+  readonly comment?: string | undefined;
+  /**
+   * A pseudonym (HMAC) of the signed-in user's ID, or of the visitor's: the same value
+   * `onUsage` reports, so ratings and costs line up.
+   */
+  readonly visitor: string;
+  /** The signed-in user, verified (ADR-0009); absent for anonymous visitors. */
+  readonly identity?: VisitorIdentity | undefined;
+  /** The OpenAI conversation, for your own review of it. Never sent to the browser. */
+  readonly conversationId: string;
+  /** The OpenAI ID of the rated answer within the conversation. */
+  readonly itemId: string;
+}
 /** Stable error codes sent to clients. The accompanying message never contains internals. */
 declare const ERROR_CODES: readonly ["invalid_input", "unauthorized", "session_expired", "not_found", "rate_limited", "budget_exceeded", "bot_unavailable", "content_blocked", "timeout", "upstream_error", "internal_error"];
 type ErrorCode = (typeof ERROR_CODES)[number];
+declare const MESSAGE_END_REASONS: readonly ["completed", "max_steps", "max_output_tokens", "timeout", "content_filter", "aborted"];
+type MessageEndReason = (typeof MESSAGE_END_REASONS)[number];
+/** Tokens one turn used, summed over its model calls, as OpenAI reports them. */
+interface ChatTokenUsage {
+  readonly inputTokens: number;
+  /** Input tokens read from the prompt cache; part of `inputTokens`. */
+  readonly cachedInputTokens: number;
+  /** Input tokens written to the prompt cache; part of `inputTokens`. */
+  readonly cacheWriteTokens: number;
+  readonly outputTokens: number;
+  /** Output tokens spent on reasoning; part of `outputTokens`. */
+  readonly reasoningTokens: number;
+}
+/** One function call of a turn. Its arguments and result are never reported. */
+interface ChatToolCallReport {
+  readonly name: string;
+  /** Epoch milliseconds. */
+  readonly startedAt: number;
+  readonly durationMs: number;
+  readonly outcome: "ok" | "error" | "timeout";
+}
+/**
+ * One chat turn, as `onUsage` receives it (ADR-0012). It carries counters, timings and
+ * pseudonyms only: never message text, tool arguments or results, IP addresses or raw IDs.
+ */
+interface ChatUsageReport {
+  readonly bot: string;
+  /** The model that answered, as OpenAI reports it; the configured model if none answered. */
+  readonly model: string;
+  /** A pseudonym (HMAC) of the conversation; undefined when none was created. */
+  readonly conversation: string | undefined;
+  /**
+   * A pseudonym (HMAC) of the signed-in user's ID, or of the visitor's when nobody is signed in:
+   * the same value OpenAI gets as `safety_identifier`.
+   */
+  readonly visitor: string;
+  /** Epoch milliseconds. */
+  readonly startedAt: number;
+  readonly durationMs: number;
+  /** `stopped` when the turn was aborted before it could answer. */
+  readonly outcome: "completed" | "stopped" | "failed";
+  /** Why the answer ended, when it did. */
+  readonly finishReason?: MessageEndReason | undefined;
+  /** The stable error code, when the turn failed. */
+  readonly errorCode?: ErrorCode | undefined;
+  /** What OpenAI reported for the model calls that finished; less than billed if one broke off. */
+  readonly usage: ChatTokenUsage;
+  /** Model calls in the turn: one, plus one after each round of tool calls. */
+  readonly steps: number;
+  readonly tools: readonly ChatToolCallReport[];
+}
 interface ChatHandlerOptions {
   readonly bots: readonly Bot[];
   /** Path of the catch-all route. Default `/api/chat` (route file `app/api/chat/[...path]/route.ts`). */
@@ -44,9 +172,22 @@ interface ChatHandlerOptions {
    * Called for every server error (status 500 and up), for an error that ends a streamed answer,
    * and once a day when a bot-wide or the global budget runs out, for your monitoring, such as Sentry.
    * Defaults to one `console.error` line with a pointer to the troubleshooting guide. Never
-   * receives message contents or API keys.
+   * receives message contents or API keys. May be async; nothing it throws reaches the request.
    */
-  readonly onError?: (report: ChatErrorReport) => void;
+  readonly onError?: (report: ChatErrorReport) => void | Promise<void>;
+  /**
+   * Called once per chat turn, after its answer has streamed, including turns that failed: the
+   * tokens it used, how long it took, which tools it called. For cost tracking and tracing, e.g.
+   * with `@boldare/askdare-otel`. Counters and pseudonyms only, never message text. May be async;
+   * nothing it throws reaches the chat.
+   */
+  readonly onUsage?: (report: ChatUsageReport) => void | Promise<void>;
+  /**
+   * Called when a visitor rates an answer 👍 or 👎, with an optional comment, or takes a rating
+   * back. Without it, answers can't be rated; a bot can opt out with `widget.feedback: false`.
+   * askdare stores no ratings: keep them here. May be async; nothing it throws reaches the chat.
+   */
+  readonly onFeedback?: (report: ChatFeedbackReport) => void | Promise<void>;
   /**
    * Serves the state gallery: `/embed/<bot>?gallery=<state>&preset=<preset>&scheme=<scheme>`
    * renders fixture states without calling the model. For development and visual tests; leave
@@ -93,7 +234,503 @@ interface ChatHandlers {
  * `next build`) never requires them.
  */
 export declare function createChatHandler(options: ChatHandlerOptions): ChatHandlers;
-export type { ChatErrorReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlers, RouteHandler, TrustProxy };
+interface ChatConfigOptions {
+  /** The same bots as in `createChatHandler`. */
+  readonly bots: readonly Bot[];
+  /** The id of the bot to show. */
+  readonly bot: string;
+  /** Path of the chat route, the same as in `createChatHandler`. Default `/api/chat`. */
+  readonly basePath?: string;
+  /**
+   * The page's language, for a bot with `locale: 'auto'`; default English. A bot with a fixed
+   * locale keeps it.
+   */
+  readonly locale?: string;
+}
+/**
+ * The public configuration of one bot for `<Root config={…}>` from `@boldare/askdare/react`. Call
+ * it in a Server Component and pass the result down: it holds only what browsers may see.
+ *
+ * ```tsx
+ * // app/help/page.tsx
+ * const config = getChatConfig({ bots, bot: 'support' });
+ * return <Chat config={config} />; // a client component with <Root> and <DefaultChat>
+ * ```
+ */
+export declare function getChatConfig(options: ChatConfigOptions): ChatConfig;
+export type { ChatAttachments, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlers, ChatStyles, ChatTokenUsage, ChatToolCallReport, ChatUsageReport, ChatWidget, RouteHandler, TrustProxy };
+
+// ==== react.d.ts ====
+
+import { ComponentProps, ComponentType, NamedExoticComponent, ReactElement, ReactNode, Ref } from "react";
+declare const PRESET_NAMES: readonly ["halo", "aura", "sage", "care"];
+type PresetName = (typeof PRESET_NAMES)[number];
+/** Component variants a preset picks; each becomes a `data-ask-*` attribute on the document. */
+interface ThemeVariants {
+  readonly avatar: "orb" | "icon" | "initials" | "none";
+  readonly welcome: "hero" | "persona" | "intro";
+  readonly launcher: "orb" | "circle" | "pill";
+  readonly bubbles: "filled" | "plain";
+  readonly surface: "solid" | "glass";
+  readonly density: "comfortable" | "compact";
+  readonly composer: "outline" | "gradient";
+}
+/** What a visitor may attach, as the bot allows it. */
+interface ChatAttachments {
+  readonly images: boolean;
+  readonly pdf: boolean;
+  readonly maxBytes: number;
+  readonly maxPerMessage: number;
+  readonly maxPdfPages: number;
+}
+/** A bot's public widget settings, in the visitor's language. */
+interface ChatWidget {
+  readonly title: string;
+  readonly subtitle: string;
+  readonly greeting: string;
+  readonly placeholder: string;
+  /** The language this visitor sees. */
+  readonly locale: string;
+  readonly starters: readonly string[];
+  readonly avatar: string | undefined;
+  readonly launcherLabel: string;
+  readonly disclosure: false | {
+    readonly privacyUrl: string | undefined;
+  };
+  readonly preset: PresetName;
+  readonly variants: ThemeVariants;
+  /** `auto` follows the visitor's system setting. */
+  readonly colorScheme: "auto" | "light" | "dark";
+  /** Every text in the visitor's language, overrides applied; plural keys included. */
+  readonly texts: Readonly<Record<string, string>>;
+}
+/** Stylesheets of a chat inside a page, served by the chat route (ADR-0011). */
+interface ChatStyles {
+  /** The bot's tokens for both color schemes, then its own `widget.css`. */
+  readonly theme: string;
+  /** The default look; only `DefaultChat` loads it. */
+  readonly skin: string;
+  /** `@font-face` rules of the built-in themes; browsers fetch only the fonts in use. */
+  readonly fonts: string;
+}
+/** What the browser needs to run one bot's chat. Public: it never holds secrets (ADR-0008). */
+interface ChatConfig {
+  readonly protocolVersion: number;
+  /** Path of the chat route, such as `/api/chat`. Same origin only (ADR-0011). */
+  readonly basePath: string;
+  readonly botId: string;
+  readonly widget: ChatWidget;
+  /** Whether the bot accepts a description of the page it is on. */
+  readonly pageContext: boolean;
+  /** Whether the bot lets visitors rate answers. Answers carry a handle when the route takes ratings. */
+  readonly feedback: boolean;
+  /** Absent when attachments are off. */
+  readonly attachments?: ChatAttachments;
+  /** Absent when voice input is off. The model stays on the server. */
+  readonly voice?: {
+    readonly maxSeconds: number;
+  };
+  /** From `getChatConfig`, for a chat inside a page. The iframe links its own stylesheets. */
+  readonly styles?: ChatStyles;
+}
+/** Parts of the default look you can replace. They take no props: read the chat with the hooks. */
+interface DefaultChatComponents {
+  readonly Header?: ComponentType;
+  readonly Welcome?: ComponentType;
+  /** Rendered for each message; `useMessage()` gives the message. */
+  readonly Message?: ComponentType;
+  /** The message field and the AI notice under it. */
+  readonly Footer?: ComponentType;
+}
+interface DefaultPanelProps {
+  /** Level of the chat's title (default 2); 1 makes the chat the page's main landmark. */
+  readonly headingLevel?: 1 | 2 | 3 | 4 | 5;
+  /** Shows a close button, and Escape calls it too. */
+  readonly onClose?: (() => void) | undefined;
+  readonly components?: DefaultChatComponents | undefined;
+}
+interface ThemeProps extends ComponentProps<"div"> {
+  /** Overrides the bot's color scheme, for example to follow your site's dark mode switch. */
+  readonly colorScheme?: "auto" | "light" | "dark" | undefined;
+}
+/**
+ * The theme root of a chat inside a page: sets the bot's tokens (`--ask-*`) and variant attributes
+ * for everything inside it, and loads the bot's theme and fonts from the chat route. Size it with
+ * `className` or `style`; the chat fills it.
+ */
+export declare function Theme({ colorScheme, children, ...props }: ThemeProps): ReactElement;
+interface DefaultChatProps extends DefaultPanelProps {
+  /** On the element that holds the chat. Give it a height: the chat fills it. */
+  readonly className?: string | undefined;
+  readonly colorScheme?: ThemeProps["colorScheme"];
+}
+/**
+ * The widget's look inside your page: `<Root config={config}><DefaultChat className="…" /></Root>`.
+ * It loads its stylesheets from the chat route, so there is nothing to import or configure.
+ */
+export declare function DefaultChat({ className, colorScheme, ...panel }: DefaultChatProps): ReactElement;
+/**
+ * Every text the widget shows. The keys are public API (ADR-0008): override any of them with
+ * `widget.texts`. Plural keys end in a CLDR category (`zero`, `one`, `two`, `few`, `many`, `other`).
+ */
+declare const EN: {
+  readonly "header.title": "Assistant";
+  readonly "header.newConversation": "Start a new conversation";
+  readonly "header.close": "Close chat";
+  readonly "confirm.newConversation": "Start a new conversation? The current one will be deleted.";
+  readonly "confirm.cancel": "Cancel";
+  readonly "confirm.accept": "Start new";
+  readonly "welcome.label": "Welcome";
+  readonly "welcome.greeting": "Hi! How can I help?";
+  readonly "welcome.online": "Online";
+  readonly "welcome.suggestions": "Suggested questions";
+  readonly "composer.placeholder": "Type your message…";
+  readonly "composer.send": "Send";
+  readonly "composer.attach": "Attach files";
+  readonly "composer.dictate": "Dictate a message";
+  readonly "status.loading": "Loading the conversation…";
+  readonly "status.thinking": "Thinking…";
+  readonly "status.searching": "Searching documents…";
+  readonly "status.tool": "Using {name}…";
+  readonly "status.typing": "The assistant is typing";
+  readonly "message.sources": "Sources";
+  readonly "feedback.label": "Rate this answer";
+  readonly "feedback.up": "Helpful";
+  readonly "feedback.down": "Not helpful";
+  readonly "feedback.comment": "What went wrong?";
+  readonly "feedback.send": "Send feedback";
+  readonly "feedback.skip": "Skip";
+  readonly "message.attachments.one": "{count} attachment";
+  readonly "message.attachments.other": "{count} attachments";
+  readonly "attachment.list": "Attachments";
+  readonly "attachment.uploading": "Uploading…";
+  readonly "attachment.remove": "Remove {name}";
+  readonly "attachment.unsupported": "This file type is not supported.";
+  readonly "attachment.tooLarge": "Too large (max {size}).";
+  readonly "attachment.tooMany": "You can attach up to {count} files per message.";
+  readonly "dictation.listening": "Listening…";
+  readonly "dictation.transcribing": "Transcribing…";
+  readonly "dictation.cancel": "Cancel dictation";
+  readonly "dictation.done": "Done";
+  readonly "dictation.empty": "Nothing was recorded. Please try again.";
+  readonly "microphone.blocked": "Microphone access is blocked. Allow it in your browser to dictate.";
+  readonly "microphone.missing": "No microphone was found.";
+  readonly "microphone.failed": "The microphone could not be started.";
+  readonly "disclosure.text": "You’re chatting with an AI assistant. It can make mistakes.";
+  readonly "disclosure.privacy": "Privacy policy";
+  readonly "launcher.label": "Ask us";
+  readonly "launcher.open": "Open chat";
+  readonly "launcher.close": "Close chat";
+  readonly "launcher.unavailable": "The chat couldn’t load. Please try again later.";
+  readonly "error.connection": "Connection problem. Please try again.";
+  readonly "error.history": "Could not load the previous conversation.";
+  readonly "error.updated": "The assistant was updated. Please reload the page.";
+  readonly "error.stalled": "The connection stalled. Please try again.";
+  readonly "error.uploadFailed": "The file could not be uploaded.";
+  readonly "error.transcriptionFailed": "The recording could not be transcribed.";
+  readonly "error.invalid_input": "The request was invalid.";
+  readonly "error.unauthorized": "Authentication is required.";
+  readonly "error.session_expired": "Your session has expired. Please try again.";
+  readonly "error.not_found": "Not found.";
+  readonly "error.content_blocked": "This message cannot be processed.";
+  readonly "error.rate_limited": "Too many messages. Please wait a moment.";
+  readonly "error.budget_exceeded": "The assistant is unavailable for the rest of the day.";
+  readonly "error.internal_error": "Something went wrong. Please try again.";
+  readonly "error.upstream_error": "The assistant is temporarily unavailable. Please try again.";
+  readonly "error.bot_unavailable": "The assistant is currently unavailable.";
+  readonly "error.timeout": "The assistant took too long to respond. Please try again.";
+  readonly "error.conversationTooLong": "This conversation is too long. Please start a new one.";
+  readonly "error.conversationGone": "This conversation is no longer available.";
+  readonly "error.messageLength": "Messages can be up to {max} characters.";
+  readonly "error.attachmentExpired": "An attachment expired or is invalid. Please attach it again.";
+  readonly "error.filesNotAccepted": "This assistant does not accept files.";
+  readonly "error.tooManyFiles": "Attach up to {count} files per message.";
+  readonly "error.fileType.images": "Only images (PNG, JPEG, WebP, GIF) are supported.";
+  readonly "error.fileType.pdf": "Only PDF files are supported.";
+  readonly "error.fileType.both": "Only images (PNG, JPEG, WebP, GIF) and PDF files are supported.";
+  readonly "error.fileTooLarge": "Files can be up to {size}.";
+  readonly "error.pdfPages": "PDFs can have up to {max} pages.";
+  readonly "error.voiceNotAccepted": "This assistant does not accept voice input.";
+  readonly "error.recordingFormat": "This recording format is not supported.";
+  readonly "error.recordingTooLong": "This recording is too long.";
+  readonly "error.dictationBusy": "Another dictation is still being transcribed. Please try again in a moment.";
+  readonly "error.dictationBudget": "Dictation is unavailable for the rest of the day. You can still type.";
+};
+/** Plural texts: the base plus a CLDR category, every category overridable. */
+declare const PLURAL_BASES: readonly ["message.attachments"];
+declare const PLURAL_FORMS: readonly ["zero", "one", "two", "few", "many", "other"];
+type TextKey = keyof typeof EN | `${(typeof PLURAL_BASES)[number]}.${(typeof PLURAL_FORMS)[number]}`;
+/** What the client needs to rate one answer (ADR-0012). */
+interface FeedbackHandle {
+  /** Opaque; sent back to `POST /feedback`. */
+  readonly handle: string;
+  /** Stable for the answer across reloads, so the client can remember its rating. Hex. */
+  readonly key: string;
+}
+/** What a page may set with askdare('configure') or the props of `Root`, checked again here. */
+interface PageOptions {
+  readonly greeting?: string;
+  readonly starters?: readonly string[];
+  readonly context?: string;
+}
+interface Citation {
+  readonly index: number;
+  readonly title: string;
+  readonly url?: string | undefined;
+}
+interface SentFile {
+  readonly name: string;
+  readonly kind: "image" | "pdf";
+  /** Local preview of an image sent in this session; history only knows how many files there were. */
+  readonly previewUrl?: string | undefined;
+}
+interface ChatMessage {
+  readonly id: string;
+  readonly role: "user" | "assistant";
+  readonly text: string;
+  readonly citations: readonly Citation[];
+  /** Number of files, from history. */
+  readonly attachments: number;
+  /** Files sent in this session. */
+  readonly files?: readonly SentFile[];
+  readonly status: "streaming" | "done" | "error";
+  /** On answers the visitor may rate: `key` is where `ChatState.ratings` keeps their rating. */
+  readonly feedback?: FeedbackHandle | undefined;
+}
+type Rating = "up" | "down";
+/** A file picked for the next message. */
+interface PendingFile {
+  readonly key: string;
+  readonly name: string;
+  readonly kind?: "image" | "pdf" | undefined;
+  readonly previewUrl?: string | undefined;
+  readonly status: "uploading" | "ready" | "error";
+  readonly handle?: string | undefined;
+  readonly error?: string | undefined;
+}
+/**
+ * `starting` until the chat knows who the visitor is (and on the server), `loading` while a stored
+ * conversation loads, then `ready`.
+ */
+type ChatPhase = "starting" | "loading" | "ready";
+type Dictation = "idle" | "recording" | "transcribing";
+interface ChatState {
+  readonly phase: ChatPhase;
+  /** A turn, or deleting the conversation, is under way. */
+  readonly busy: boolean;
+  readonly messages: readonly ChatMessage[];
+  readonly draft: string;
+  readonly error: string | undefined;
+  /** What the assistant is doing while no text streams, such as searching documents. */
+  readonly activity: string | null;
+  readonly files: readonly PendingFile[];
+  readonly dictation: Dictation;
+  /** Seconds of the current dictation. */
+  readonly elapsed: number;
+  /** Whether this browser can record (and the bot has voice input). False on the server. */
+  readonly canDictate: boolean;
+  /** Greeting, starters and context set by the page. */
+  readonly page: PageOptions;
+  /** The visitor's own ratings of answers, by `ChatMessage.feedback.key`; kept in this browser. */
+  readonly ratings: Readonly<Record<string, Rating>>;
+  /** The id of the answer just rated 👎, while the chat asks what went wrong. */
+  readonly commenting: string | undefined;
+}
+/** A text in the visitor's language, with `{name}` placeholders filled. */
+type Translate = (key: TextKey, params?: Readonly<Record<string, string | number>>) => string;
+/** What visitors can do in the chat; the same for every UI on top of the store. */
+interface ChatActions {
+  /** Sends the draft with the files that are ready, or `text` (a starter) on its own. */
+  send(text?: string): Promise<void>;
+  setDraft(text: string): void;
+  /** Uploads files for the next message, as many as the bot allows. */
+  addFiles(files: readonly File[]): void;
+  removeFile(key: string): void;
+  startDictation(): Promise<void>;
+  /** Stops the dictation and puts the transcript into the draft. */
+  finishDictation(): Promise<void>;
+  cancelDictation(): void;
+  /** Deletes the conversation and starts with an empty chat. */
+  newConversation(): Promise<void>;
+  /**
+   * Rates an answer by its message id: 👍, 👎, or null to take the rating back. After 👎 the chat
+   * asks what went wrong (`state.commenting`); pass the answer as `comment` with the same rating.
+   */
+  rate(messageId: string, rating: Rating | null, comment?: string): Promise<void>;
+  /** Closes the question after 👎 without a comment. */
+  dismissComment(): void;
+  /** Moves keyboard focus to the message field, wherever focus is now. */
+  focus(): void;
+}
+type ComposerProps = ComponentProps<"form">;
+/** The form around the message field; submitting it sends the draft. */
+export declare function Composer({ onSubmit, ...props }: ComposerProps): ReactElement;
+type InputProps = Omit<ComponentProps<"textarea">, "value">;
+/**
+ * The message field. Enter sends, Shift+Enter starts a new line, pasted files are attached, and
+ * it grows with its text. It takes focus when the chat moves it here.
+ */
+export declare function Input({ ref, onKeyDown, onPaste, onChange, ...props }: InputProps): ReactElement;
+type SendProps = ComponentProps<"button">;
+/** Sends the draft; disabled until there is something to send. */
+export declare function Send(props: SendProps): ReactElement;
+type AttachButtonProps = ComponentProps<"button">;
+/**
+ * Opens the file picker, next to its hidden file input. Renders nothing when the bot takes no
+ * attachments.
+ */
+export declare function AttachButton({ onClick, ...props }: AttachButtonProps): ReactElement | null;
+type FilesProps = ComponentProps<"ul">;
+/** The files picked for the next message, each with a remove button. */
+export declare function Files(props: FilesProps): ReactElement | null;
+type DictateButtonProps = ComponentProps<"button">;
+/** Starts a dictation. Renders nothing without voice input or a usable microphone. */
+export declare function DictateButton({ onClick, ...props }: DictateButtonProps): ReactElement | null;
+interface RecorderProps extends ComponentProps<"div"> {
+  /** Inside the cancel button, which is labelled for screen readers. Default `×`. */
+  readonly cancelIcon?: ReactNode;
+}
+/**
+ * The dictation in place of the message field: a level meter, the time, cancel and done. Renders
+ * nothing while no dictation runs.
+ */
+export declare function Recorder({ cancelIcon, ...props }: RecorderProps): ReactElement | null;
+/** The bot as the visitor sees it: its settings, with the page's greeting and starters applied. */
+interface ChatBot {
+  readonly id: string;
+  readonly title: string;
+  readonly subtitle: string;
+  readonly greeting: string;
+  readonly starters: readonly string[];
+  readonly placeholder: string;
+  /** The picture configured for the assistant, if any. */
+  readonly avatar: string | undefined;
+  /** The language the visitor sees. */
+  readonly locale: string;
+  /** The AI notice under the message field, with an optional privacy policy link; false when off. */
+  readonly disclosure: false | {
+    readonly privacyUrl: string | undefined;
+  };
+  readonly preset: PresetName;
+  readonly variants: ThemeVariants;
+  /** What visitors may attach; undefined when attachments are off. */
+  readonly attachments: ChatAttachments | undefined;
+  /** Longest dictation in seconds; undefined when voice input is off. */
+  readonly maxDictationSeconds: number | undefined;
+  /** Every text in the visitor's language, plural forms included. */
+  readonly texts: Readonly<Record<string, string>>;
+}
+interface Chat {
+  readonly state: ChatState;
+  readonly actions: ChatActions;
+  readonly bot: ChatBot;
+  /** A text in the visitor's language by its key, such as `composer.send`. */
+  readonly t: Translate;
+}
+/** The whole chat: its state, actions, bot settings and texts. Re-renders on every change. */
+export declare function useChat(): Chat;
+/**
+ * One value from the chat's state, such as `useChatState((state) => state.busy)`. Re-renders only
+ * when that value changes, so return a primitive or a part of the state, not a new object.
+ */
+export declare function useChatState<T>(select: (state: ChatState) => T): T;
+/** The message being rendered, inside `MessageList`. */
+export declare function useMessage(): ChatMessage;
+interface FeedbackButtonProps extends ComponentProps<"button"> {
+  /** What a click rates the answer: 👍 `up` or 👎 `down`. A second click takes the rating back. */
+  readonly rating: Rating;
+}
+/**
+ * Rates the answer it is in (ADR-0012), pressed while that is the visitor's rating. Renders
+ * nothing for the visitor's own messages, an answer still streaming, or a bot whose answers can't
+ * be rated. After 👎 the chat's `state.commenting` names the answer to ask about.
+ */
+export declare function FeedbackButton({ rating, onClick, ...props }: FeedbackButtonProps): ReactElement | null;
+/**
+ * Renders model output as markdown (GFM) without ever producing raw HTML: marked only tokenizes,
+ * and each token becomes an element here. HTML in the source is dropped, links are limited to
+ * http(s)/mailto and open in a new tab, and images are never loaded (ADR-0004).
+ */
+interface MarkdownProps {
+  /** Model output, as streamed. */
+  readonly text: string;
+}
+export declare const Markdown: NamedExoticComponent<MarkdownProps>;
+type MessagesProps = ComponentProps<"div">;
+/**
+ * The conversation: a live region that follows the latest message as it streams. Holds the
+ * welcome, the `MessageList` and the `Status`.
+ */
+export declare function Messages({ ref, ...props }: MessagesProps): ReactElement;
+interface MessageListProps {
+  /** Rendered once per message; read the message with `useMessage()`. */
+  readonly children?: ReactNode;
+}
+/** Renders its children for every message worth showing. Has no element of its own. */
+export declare function MessageList({ children }: MessageListProps): ReactElement;
+type MessageProps = ComponentProps<"div">;
+/**
+ * One message, with `data-role` and `data-status`. The message primitives read only their own
+ * message, so a streaming answer doesn't re-render the earlier ones.
+ */
+export declare function Message(props: MessageProps): ReactElement;
+type MessageTextProps = ComponentProps<"div">;
+/**
+ * The message's bubble: the visitor's text as typed, an answer as Markdown, and typing dots while
+ * an answer has no text yet.
+ */
+export declare function MessageText(props: MessageTextProps): ReactElement | null;
+type CitationsProps = ComponentProps<"ol">;
+/** The sources of an answer. Links go through the same check as links in answers. */
+export declare function Citations(props: CitationsProps): ReactElement | null;
+type MessageFilesProps = Omit<ComponentProps<"ul">, "ref"> & {
+  readonly ref?: Ref<HTMLElement>;
+};
+/**
+ * The files sent with a message: previews from this visit, or after a reload only how many there
+ * were (`attachments-note`).
+ */
+export declare function MessageFiles({ ref, ...props }: MessageFilesProps): ReactElement | null;
+type StatusProps = ComponentProps<"p">;
+/** What the chat is doing: loading a conversation, or what the assistant does before it writes. */
+export declare function Status(props: StatusProps): ReactElement | null;
+type ErrorMessageProps = ComponentProps<"p">;
+/** The latest problem, in the visitor's language, announced to screen readers. */
+export declare function ErrorMessage(props: ErrorMessageProps): ReactElement | null;
+interface PanelProps extends ComponentProps<"section"> {
+  /**
+   * `main` when the chat is the page, as in its iframe; otherwise a region named after the bot,
+   * so it sits among the page's own landmarks. Default `region`.
+   */
+  readonly landmark?: "main" | "region";
+}
+/**
+ * The chat's frame, with `data-busy` while the assistant answers or a dictation runs. Files dropped
+ * on it are attached (`data-dragging` while they are over it).
+ */
+export declare function Panel({ landmark, onDragOver, onDragLeave, onDrop, ...props }: PanelProps): ReactElement;
+interface RootProps {
+  /** From `getChatConfig()` in a Server Component. */
+  readonly config: ChatConfig;
+  /**
+   * The signed-in visitor: a token from your backend, as for `askdare('identify')`, or null when
+   * signed out (ADR-0009). A page that passes one must not be cached.
+   */
+  readonly identity?: string | null | undefined;
+  /** A short description of the page for the assistant, up to 1,000 characters (`pageContext`). */
+  readonly context?: string | undefined;
+  /** This page's greeting, instead of the bot's. */
+  readonly greeting?: string | undefined;
+  /** This page's suggested questions, up to 4. */
+  readonly starters?: readonly string[] | undefined;
+  readonly children?: ReactNode;
+}
+/**
+ * Runs one bot's chat for the components inside it, without rendering any element. Its props
+ * take what `askdare('identify')` and `askdare('configure')` take, checked the same way.
+ */
+export declare function Root({ config, identity, context, greeting, starters, children }: RootProps): ReactElement;
+export type { AttachButtonProps, Chat, ChatActions, ChatAttachments, ChatBot, ChatConfig, ChatMessage, ChatPhase, ChatState, ChatStyles, ChatWidget, Citation, CitationsProps, ComposerProps, DefaultChatComponents, DefaultChatProps, DictateButtonProps, Dictation, ErrorMessageProps, FeedbackButtonProps, FilesProps, InputProps, MarkdownProps, MessageFilesProps, MessageListProps, MessageProps, MessageTextProps, MessagesProps, PanelProps, PendingFile, Rating, RecorderProps, RootProps, SendProps, SentFile, StatusProps, ThemeProps, Translate };
 
 // ==== store.d.ts ====
 import { z } from "zod";
@@ -122,6 +759,12 @@ declare const EN: {
   readonly "status.tool": "Using {name}…";
   readonly "status.typing": "The assistant is typing";
   readonly "message.sources": "Sources";
+  readonly "feedback.label": "Rate this answer";
+  readonly "feedback.up": "Helpful";
+  readonly "feedback.down": "Not helpful";
+  readonly "feedback.comment": "What went wrong?";
+  readonly "feedback.send": "Send feedback";
+  readonly "feedback.skip": "Skip";
   readonly "message.attachments.one": "{count} attachment";
   readonly "message.attachments.other": "{count} attachments";
   readonly "attachment.list": "Attachments";
@@ -408,6 +1051,11 @@ interface WidgetConfig {
   readonly css?: string;
   /** Suggested questions on the welcome screen; a click sends one. Up to 4. */
   readonly starters?: readonly string[];
+  /**
+   * 👍/👎 under each answer, with an optional comment after 👎. They show only when
+   * `createChatHandler` has `onFeedback`; `false` hides them for this bot. Default `true`.
+   */
+  readonly feedback?: boolean;
   /** The assistant's picture: a path on your app such as `/avatar.png`, or a small data: image. */
   readonly avatar?: string;
   /** Text on the pill launcher; shortcut for `texts['launcher.label']`. */
@@ -427,6 +1075,8 @@ interface BotWidget {
   /** The configured BCP 47 tag, or `auto`. */
   readonly locale: string;
   readonly starters: readonly string[];
+  /** Whether this bot lets visitors rate answers, when the handler has `onFeedback`. */
+  readonly feedback: boolean;
   readonly avatar: string | undefined;
   readonly launcherLabel: string;
   /** Text overrides, including the title, greeting, placeholder and launcher label shortcuts. */

@@ -1,6 +1,6 @@
 // biome-ignore-all lint/suspicious/noArrayIndexKey: a token's place in a fixed text is its identity; streaming only appends
 import { Lexer, type Token, type Tokens } from 'marked';
-import { Component, memo, type ReactNode } from 'react';
+import { Component, memo, type NamedExoticComponent, type ReactNode } from 'react';
 
 const SAFE_PROTOCOLS = new Set(['http:', 'https:', 'mailto:']);
 /**
@@ -224,6 +224,13 @@ class Fallback extends Component<{ readonly text: string; readonly children: Rea
  * and each token becomes an element here. HTML in the source is dropped, links are limited to
  * http(s)/mailto and open in a new tab, and images are never loaded (ADR-0004).
  */
-export const Markdown = memo(function Markdown({ text }: { readonly text: string }) {
-  return <Fallback text={text}>{render(text)}</Fallback>;
-});
+export interface MarkdownProps {
+  /** Model output, as streamed. */
+  readonly text: string;
+}
+
+export const Markdown: NamedExoticComponent<MarkdownProps> = /* @__PURE__ */ memo(
+  function Markdown({ text }: MarkdownProps) {
+    return <Fallback text={text}>{render(text)}</Fallback>;
+  },
+);

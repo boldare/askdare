@@ -1,5 +1,6 @@
 // The .js suffix: Next.js has no exports map, so plain Node ESM can't resolve `next/server`.
 import { after } from 'next/server.js';
+import { isBasePath } from '../base-path';
 import type { Bot } from '../bot/define-bot';
 import { AskdareError } from '../errors';
 import type { ModelGateway } from '../gateway';
@@ -8,6 +9,8 @@ import {
   FONTS_CSS,
   FONTS_CSS_FILE,
   LOADER_JS,
+  SKIN_CSS,
+  SKIN_CSS_FILE,
   WIDGET_CSS,
   WIDGET_CSS_FILE,
   WIDGET_JS,
@@ -21,7 +24,10 @@ import type { ErrorCode } from '../protocol/events';
 import { createIdentityVerifier, type IdentityVerifier } from '../security/identity';
 import { createTokenService, type TokenService } from '../security/tokens';
 import { explain, TROUBLESHOOTING } from '../server/explain';
+import type { ChatFeedbackReport } from '../server/feedback-report';
 import { createRequestHandler } from '../server/handler';
+import { hookError } from '../server/stream-turn';
+import type { ChatUsageReport } from '../server/usage-report';
 
 export interface ChatHandlerOptions {
   readonly bots: readonly Bot[];
@@ -44,9 +50,22 @@ export interface ChatHandlerOptions {
    * Called for every server error (status 500 and up), for an error that ends a streamed answer,
    * and once a day when a bot-wide or the global budget runs out, for your monitoring, such as Sentry.
    * Defaults to one `console.error` line with a pointer to the troubleshooting guide. Never
-   * receives message contents or API keys.
+   * receives message contents or API keys. May be async; nothing it throws reaches the request.
    */
-  readonly onError?: (report: ChatErrorReport) => void;
+  readonly onError?: (report: ChatErrorReport) => void | Promise<void>;
+  /**
+   * Called once per chat turn, after its answer has streamed, including turns that failed: the
+   * tokens it used, how long it took, which tools it called. For cost tracking and tracing, e.g.
+   * with `@boldare/askdare-otel`. Counters and pseudonyms only, never message text. May be async;
+   * nothing it throws reaches the chat.
+   */
+  readonly onUsage?: (report: ChatUsageReport) => void | Promise<void>;
+  /**
+   * Called when a visitor rates an answer 👍 or 👎, with an optional comment, or takes a rating
+   * back. Without it, answers can't be rated; a bot can opt out with `widget.feedback: false`.
+   * askdare stores no ratings: keep them here. May be async; nothing it throws reaches the chat.
+   */
+  readonly onFeedback?: (report: ChatFeedbackReport) => void | Promise<void>;
   /**
    * Serves the state gallery: `/embed/<bot>?gallery=<state>&preset=<preset>&scheme=<scheme>`
    * renders fixture states without calling the model. For development and visual tests; leave
@@ -85,6 +104,30 @@ export interface ChatHandlers {
   readonly DELETE: RouteHandler;
 }
 
+/** Keeps async work alive after the response on serverless hosts, where there is a request scope. */
+function keepAlive(work: Promise<unknown>): void {
+  try {
+    after(work);
+  } catch {
+    // No request scope or no platform waitUntil: the work still runs while the process lives.
+  }
+}
+
+/** Wraps an app's hook so it can't break a request: anything it throws is logged by name only. */
+function guard<T>(
+  name: string,
+  hook: ((value: T) => void | Promise<void>) | undefined,
+): ((value: T) => Promise<void>) | undefined {
+  if (!hook) return undefined;
+  return async (value) => {
+    try {
+      await hook(value);
+    } catch (error) {
+      console.error(`[askdare] the ${name} hook failed: ${hookError(error)}`);
+    }
+  };
+}
+
 function required(value: string | undefined, name: string): string {
   if (!value) {
     throw new AskdareError('bot_unavailable', { cause: `${name} is not configured.` });
@@ -106,7 +149,7 @@ function required(value: string | undefined, name: string): string {
  */
 export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
   const basePath = options.basePath ?? '/api/chat';
-  if (!/^(\/[a-zA-Z0-9._~-]+)+$/.test(basePath)) {
+  if (!isBasePath(basePath)) {
     throw new TypeError(`[askdare] basePath must look like /api/chat, got "${basePath}".`);
   }
   const ids = options.bots.map((bot) => bot.id);
@@ -126,14 +169,17 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
   }
   const trustProxy = options.limits?.trustProxy ?? 'auto';
   const development = process.env['NODE_ENV'] === 'development';
+  const onError = guard('onError', options.onError);
   const report = (error: AskdareError): void => {
     const explanation = explain(error);
-    if (options.onError) {
-      options.onError({
-        code: error.code,
-        message: explanation ?? error.message,
-        cause: error.cause,
-      });
+    if (onError) {
+      keepAlive(
+        onError({
+          code: error.code,
+          message: explanation ?? error.message,
+          cause: error.cause,
+        }),
+      );
       return;
     }
     const line = `[askdare] ${error.code}: ${explanation ?? error.message} (see ${TROUBLESHOOTING})`;
@@ -148,13 +194,9 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
     bots: options.bots,
     basePath,
     // A turn outlives a visitor who disconnects; on serverless hosts this keeps the function alive.
-    waitUntil: (work) => {
-      try {
-        after(work);
-      } catch {
-        // No request scope or no platform waitUntil: the turn still runs while the process lives.
-      }
-    },
+    waitUntil: keepAlive,
+    onUsage: guard('onUsage', options.onUsage),
+    onFeedback: guard('onFeedback', options.onFeedback),
     assets: {
       loaderJs: LOADER_JS,
       widgetJs: WIDGET_JS,
@@ -164,6 +206,8 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
       fontsCss: FONTS_CSS,
       fontsCssFile: FONTS_CSS_FILE,
       fontFiles: FONT_FILES,
+      skinCss: SKIN_CSS,
+      skinCssFile: SKIN_CSS_FILE,
     },
     gallery: options.gallery,
     development,

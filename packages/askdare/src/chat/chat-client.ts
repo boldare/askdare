@@ -202,6 +202,56 @@ export class ChatClient {
     }
   }
 
+  /** This browser's ratings of answers, by feedback key (ADR-0012: askdare stores none). */
+  ratings(): Readonly<Record<string, 'up' | 'down'>> {
+    try {
+      const stored: unknown = JSON.parse(this.#options.storage.get(this.#ratingsKey()) ?? '{}');
+      if (typeof stored !== 'object' || stored === null) return {};
+      return Object.fromEntries(
+        Object.entries(stored).filter(
+          (entry): entry is [string, 'up' | 'down'] => entry[1] === 'up' || entry[1] === 'down',
+        ),
+      );
+    } catch {
+      return {};
+    }
+  }
+
+  /** Remembers a rating, or forgets it with null. Only the latest hundred are kept. */
+  rememberRating(key: string, rating: 'up' | 'down' | null): void {
+    const { [key]: _previous, ...others } = this.ratings();
+    const entries = Object.entries(rating ? { ...others, [key]: rating } : others).slice(-100);
+    this.#options.storage.set(this.#ratingsKey(), JSON.stringify(Object.fromEntries(entries)));
+  }
+
+  #ratingsKey(): string {
+    return `askdare:${this.#botId}:ratings`;
+  }
+
+  /**
+   * Sends a rating of one answer (null takes it back) with an optional comment; `handle` comes
+   * with the answer. Resolves to what went wrong, in the visitor's language, or undefined.
+   */
+  async rate(
+    handle: string,
+    rating: 'up' | 'down' | null,
+    comment?: string,
+  ): Promise<string | undefined> {
+    try {
+      const response = await this.#authorized('POST', '/feedback', () =>
+        json({
+          botId: this.#options.botId,
+          feedback: handle,
+          rating,
+          ...(comment ? { comment } : {}),
+        }),
+      );
+      return response.ok ? undefined : (await this.#errorFromResponse(response, false)).message;
+    } catch (error) {
+      return this.#failure(error, 'upstream_error').message;
+    }
+  }
+
   /** Uploads one file for the next message. The server checks its type and size again. */
   async upload(file: Blob, name: string, signal?: AbortSignal): Promise<UploadResult> {
     try {

@@ -96,6 +96,6 @@ Releases are made by CI from `main`, never from a laptop:
 - Dependabot opens dependency updates on Mondays. One that changes a published package's dependencies (not devDependencies) needs a changeset before it merges.
 - Release candidates of each minor version go out as `0.N.0-rc.M` under the npm tag `rc`, while the repository is in pre-release mode (`.changeset/pre.json`).
 - Before a release candidate, run `pnpm check`, `pnpm e2e`, `pnpm e2e:browsers`, `pnpm test:visual` and `pnpm verify:packs`, which installs the packed packages into a fresh Next.js app.
-- For the release itself (such as 0.1.0), run `pnpm changeset pre exit` in a pull request of its own. For the next minor's candidates, run `pnpm changeset pre enter rc` once the release is out.
+- For the release itself (such as 0.1.0), run `pnpm changeset pre exit` in a pull request of its own. For the next minor's candidates, run `pnpm changeset pre enter rc` once the release is out: otherwise Changesets numbers the new work as another candidate of the previous version.
 
-The details are in the `release` skill (`.claude/skills/release/SKILL.md`).
+Before and after every release, go through the [release checklist](RELEASING.md). The details are in the `release` skill (`.claude/skills/release/SKILL.md`).

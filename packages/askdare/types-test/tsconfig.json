@@ -9,10 +9,12 @@
     "target": "es2022",
     "lib": ["es2022", "dom"],
     "types": [],
+    "jsx": "react-jsx",
     "paths": {
       "@boldare/askdare": ["../dist/index.d.ts"],
-      "@boldare/askdare/next": ["../dist/next.d.ts"]
+      "@boldare/askdare/next": ["../dist/next.d.ts"],
+      "@boldare/askdare/react": ["../dist/react.d.ts"]
     }
   },
-  "files": ["consumer.ts"]
+  "files": ["consumer.ts", "consumer-react.tsx"]
 }

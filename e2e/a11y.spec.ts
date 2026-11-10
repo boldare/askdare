@@ -5,7 +5,15 @@ import { expect, test } from '@playwright/test';
 const APP = 'http://localhost:3100/api/chat/embed/support';
 const PRESETS = ['halo', 'aura', 'sage', 'care'] as const;
 const SCHEMES = ['light', 'dark'] as const;
-const STATES = ['welcome', 'conversation', 'streaming', 'attachments', 'error', 'listening'];
+const STATES = [
+  'welcome',
+  'conversation',
+  'streaming',
+  'attachments',
+  'error',
+  'listening',
+  'feedback',
+];
 
 /** axe violations as readable lines, optionally only inside one element. */
 async function violations(

@@ -13,6 +13,7 @@ import { createIdentityVerifier } from '../security/identity';
 import { createTokenService, type TokenService } from '../security/tokens';
 import { defineTool } from '../tools/define-tool';
 import type { EmbedAssets } from './embed-page';
+import type { ChatFeedbackReport } from './feedback-report';
 import { createRequestHandler, type RequestHandler } from './handler';
 
 const APP = 'https://app.example.com';
@@ -31,6 +32,8 @@ const assets: EmbedAssets = {
   fontsCss: '@font-face{font-family:x;src:url(./x.111.woff2)}',
   fontsCssFile: 'fonts.222.css',
   fontFiles: { 'x.111.woff2': btoa('wOF2font') },
+  skinCss: '[data-ask-part="panel"]{display:flex}',
+  skinCssFile: 'skin.333.css',
 };
 
 const bot = defineBot({
@@ -137,7 +140,13 @@ const gateway: ModelGateway = {
     request.emit({ type: 'text.delta', messageId: request.messageId, delta: 'Hello!' });
     return {
       reason: 'completed',
-      usage: { inputTokens: 1, cachedInputTokens: 0, outputTokens: 1 },
+      usage: {
+        inputTokens: 1,
+        cachedInputTokens: 0,
+        cacheWriteTokens: 0,
+        outputTokens: 1,
+        reasoningTokens: 0,
+      },
     };
   },
 };
@@ -212,6 +221,20 @@ describe('static routes', () => {
     });
     const response = await development(new Request(`${BASE}/widget.js?bot=support`));
     expect(response.headers.get('cache-control')).toBe('no-cache');
+  });
+
+  it('serves the skin and a theme scoped to the chat, for a chat inside a page', async () => {
+    const skin = await handler(new Request(`${BASE}/assets/skin.333.css`));
+    expect(skin.headers.get('content-type')).toContain('text/css');
+    expect(skin.headers.get('cache-control')).toContain('immutable');
+
+    const theme = await handler(new Request(`${BASE}/theme/support.css?scope=inline`));
+    const css = await theme.text();
+    expect(css).toContain('[data-askdare-root][data-ask-bot="support"]{');
+    expect(css).toContain('[data-askdare-root][data-ask-bot="support"][data-ask-scheme="dark"]{');
+    expect(css).toContain('@media (prefers-color-scheme: dark)');
+    // Nothing in it can style the page around the chat.
+    expect(css).not.toContain(':root');
   });
 
   it('serves hashed assets with immutable caching and 404s anything else', async () => {
@@ -867,6 +890,153 @@ describe('conversation history and deletion', () => {
     );
     expect(response.status).toBe(204);
     expect(deleted).toContainEqual({ id: 'conv_hist', withFiles: false });
+  });
+});
+
+describe('feedback', () => {
+  const OWNER = `v_${'3c'.repeat(16)}`;
+  const INTRUDER = `v_${'4d'.repeat(16)}`;
+  const quietBot = defineBot({
+    id: 'quiet',
+    model: 'test-model',
+    instructions: 'x',
+    widget: { feedback: false },
+  });
+  const reports: ChatFeedbackReport[] = [];
+  const pending: Promise<unknown>[] = [];
+  let rated: RequestHandler;
+
+  beforeAll(() => {
+    rated = createRequestHandler({
+      bots: [bot, quietBot],
+      basePath: '/api/chat',
+      assets,
+      gateway: () => ({
+        ...gateway,
+        listMessages: async () => [
+          { id: 'msg_q1', role: 'user', text: 'Hi', citations: [], attachments: 0 },
+          { id: 'msg_a1', role: 'assistant', text: 'Hello!', citations: [], attachments: 0 },
+        ],
+        runTurn: async (request) => ({
+          ...(await gateway.runTurn(request)),
+          answerItemId: 'msg_a1',
+        }),
+      }),
+      tokens: async () => tokens,
+      limits: createLimits({ store: memoryStore() }),
+      clientIp: () => 'test',
+      onError: () => {},
+      onFeedback: (report) => {
+        reports.push(report);
+      },
+      waitUntil: (work) => pending.push(work),
+    });
+  });
+
+  async function auth(visitorId: string, botId = 'support') {
+    const access = (await tokens.issueAccess(botId, visitorId)).token;
+    return { authorization: `Bearer ${access}` };
+  }
+
+  async function streamedAnswer(visitorId: string) {
+    const response = await rated(
+      post('/messages', { botId: 'support', text: 'Hi' }, await auth(visitorId)),
+    );
+    const end = (await events(response)).find((event) => event.type === 'message.end');
+    if (end?.type !== 'message.end' || !end.feedback) throw new Error('no feedback handle');
+    return end.feedback;
+  }
+
+  async function rate(handler: RequestHandler, body: Record<string, unknown>, visitorId = OWNER) {
+    const response = await handler(
+      post(
+        '/feedback',
+        { botId: 'support', ...body },
+        await auth(visitorId, String(body['botId'] ?? 'support')),
+      ),
+    );
+    await Promise.all(pending);
+    return response;
+  }
+
+  it('gives each answer a rating handle that stays the same answer after a reload', async () => {
+    const streamed = await streamedAnswer(OWNER);
+    expect(streamed.handle).not.toContain('msg_a1');
+    expect(streamed.key).toMatch(/^[0-9a-f]{32}$/);
+    const resume = await tokens.issueResume('support', {
+      visitorId: OWNER,
+      conversationId: 'conv_1',
+    });
+    const history = await rated(
+      post('/history', { botId: 'support', resumeToken: resume.token }, await auth(OWNER)),
+    );
+    const { messages } = (await history.json()) as {
+      messages: { id: string; feedback?: unknown }[];
+    };
+    expect(messages[0]).not.toHaveProperty('feedback');
+    expect(messages[1]?.feedback).toMatchObject({ key: streamed.key });
+  });
+
+  it('hands a rating and its comment to onFeedback, with the answer it belongs to', async () => {
+    reports.length = 0;
+    const { handle } = await streamedAnswer(OWNER);
+    const response = await rate(rated, {
+      feedback: handle,
+      rating: 'down',
+      comment: '  Too vague.  ',
+    });
+    expect(response.status).toBe(204);
+    expect(reports).toEqual([
+      {
+        bot: 'support',
+        rating: 'down',
+        comment: 'Too vague.',
+        visitor: await tokens.pseudonym(OWNER),
+        conversationId: 'conv_1',
+        itemId: 'msg_a1',
+      },
+    ]);
+  });
+
+  it('drops the comment when the rating is taken back', async () => {
+    reports.length = 0;
+    const { handle } = await streamedAnswer(OWNER);
+    await rate(rated, { feedback: handle, rating: null, comment: 'ignored' });
+    expect(reports[0]).toMatchObject({ rating: null });
+    expect(reports[0]).not.toHaveProperty('comment');
+  });
+
+  it("refuses another visitor's handle, forged handles and long comments", async () => {
+    reports.length = 0;
+    const { handle } = await streamedAnswer(OWNER);
+    expect((await rate(rated, { feedback: handle, rating: 'up' }, INTRUDER)).status).toBe(404);
+    expect((await rate(rated, { feedback: 'msg_a1', rating: 'up' })).status).toBe(404);
+    const long = await rate(rated, { feedback: handle, rating: 'down', comment: 'x'.repeat(501) });
+    expect(long.status).toBe(400);
+    expect(reports).toEqual([]);
+  });
+
+  it('is off without onFeedback, and for a bot that opts out', async () => {
+    const { handle } = await streamedAnswer(OWNER);
+    expect((await rate(handler, { feedback: handle, rating: 'up' })).status).toBe(404);
+    const quiet = await rate(rated, { botId: 'quiet', feedback: handle, rating: 'up' });
+    expect(quiet.status).toBe(404);
+    const plain = await handler(
+      post('/messages', { botId: 'support', text: 'Hi' }, await auth(OWNER)),
+    );
+    const end = (await events(plain)).find((event) => event.type === 'message.end');
+    expect(end).not.toHaveProperty('feedback');
+  });
+
+  it('tells the widget whether answers can be rated', async () => {
+    const config = async (handler: RequestHandler, botId: string) => {
+      const html = await (await handler(new Request(`${BASE}/embed/${botId}`))).text();
+      const json = /<script[^>]*id="askdare-config"[^>]*>(.*?)<\/script>/s.exec(html)?.[1] ?? '{}';
+      return JSON.parse(json) as { feedback?: boolean };
+    };
+    expect((await config(rated, 'support')).feedback).toBe(true);
+    expect((await config(rated, 'quiet')).feedback).toBe(false);
+    expect((await config(handler, 'support')).feedback).toBe(false);
   });
 });
 

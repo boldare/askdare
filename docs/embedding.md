@@ -213,6 +213,8 @@ export default function RootLayout({ children }: { readonly children: ReactNode 
 
 An inline chat inside a React app has a hydration caveat. [Styling](styling.md#3-page-javascript) explains it.
 
+In the Next.js app that serves the chat, you can also render it without an iframe, as React components in your own pages: see [The chat inside your page](react.md).
+
 ## Staging and production
 
 Each environment usually embeds the chat on different sites. Read the list from an environment variable, for example `ASKDARE_ALLOWED_ORIGINS`, split on commas:

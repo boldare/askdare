@@ -1,12 +1,13 @@
 import { createRoot } from 'react-dom/client';
-import { formatText } from '../i18n/format';
+import { createFixtureStore } from '../chat/fixture-store';
+import { createChatStore } from '../chat/store';
 import type { EmbedConfig } from '../server/embed-page';
 import { App } from './app';
-import { ChatClient } from './chat-client';
+import { bindBridge } from './bind-bridge';
 import { FIXTURES } from './gallery';
 import { connectToHost } from './host-bridge';
-import { browserStorage } from './storage';
-import './styles.css';
+import '../react/skin/askdare.css';
+import './frame.css';
 
 function readConfig(): EmbedConfig {
   const element = document.getElementById('askdare-config');
@@ -18,22 +19,15 @@ function readConfig(): EmbedConfig {
 const config = readConfig();
 const root = document.getElementById('askdare-root');
 if (root) {
-  const client = new ChatClient({
-    basePath: config.basePath,
-    botId: config.botId,
-    locale: config.widget.locale,
-    storage: browserStorage(),
-    translate: (key, params) => {
-      const template = config.widget.texts[key];
-      return template === undefined ? undefined : formatText(template, params);
-    },
-  });
+  const fixture = config.gallery ? FIXTURES[config.gallery] : undefined;
+  const store = fixture ? createFixtureStore(config, fixture) : createChatStore(config);
+  const bridge = connectToHost(config.allowedOrigins);
+  // Started before the first render, so a stored conversation shows as loading from the start.
+  bindBridge(store, bridge);
   createRoot(root).render(
     <App
-      config={config}
-      client={client}
-      bridge={connectToHost(config.allowedOrigins)}
-      fixture={config.gallery ? FIXTURES[config.gallery] : undefined}
+      store={store}
+      bridge={bridge}
       inline={new URLSearchParams(window.location.search).get('mode') === 'inline'}
     />,
   );

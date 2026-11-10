@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 
 // The iframe app. Written with React's API and built with Preact, which is a tenth of the size:
@@ -7,6 +8,11 @@ export default defineConfig({
   define: { 'process.env.NODE_ENV': JSON.stringify('production') },
   resolve: {
     alias: [
+      // The skin imports the public entry, as an ejected copy does (ADR-0011).
+      {
+        find: /^@boldare\/askdare\/react$/,
+        replacement: fileURLToPath(new URL('./src/react/headless.ts', import.meta.url)),
+      },
       { find: /^react-dom\/client$/, replacement: 'preact/compat/client' },
       { find: /^react-dom$/, replacement: 'preact/compat' },
       { find: /^react\/jsx-(dev-)?runtime$/, replacement: 'preact/jsx-runtime' },

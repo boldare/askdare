@@ -7,7 +7,7 @@ import type {
 } from 'openai/resources/responses/responses';
 import { z } from 'zod';
 import type { Bot } from '../bot/define-bot';
-import type { TurnRequest } from '../gateway';
+import type { ToolCallRecord, TurnRequest } from '../gateway';
 import type { Tool } from '../tools/define-tool';
 import type { FunctionCall } from './stream-mapper';
 
@@ -82,21 +82,26 @@ async function withTimeout<T>(
   }
 }
 
+type CallOutcome = ToolCallRecord['outcome'];
+
 async function invoke(
   tool: Tool | undefined,
   call: FunctionCall,
   request: TurnRequest,
-): Promise<{ readonly output: unknown; readonly ok: boolean }> {
-  if (!tool) return { output: { error: `Unknown tool "${call.name}".` }, ok: false };
+): Promise<{ readonly output: unknown; readonly outcome: CallOutcome }> {
+  if (!tool) return { output: { error: `Unknown tool "${call.name}".` }, outcome: 'error' };
   let args: unknown;
   try {
     args = JSON.parse(call.arguments);
   } catch {
-    return { output: { error: 'Arguments were not valid JSON.' }, ok: false };
+    return { output: { error: 'Arguments were not valid JSON.' }, outcome: 'error' };
   }
   const parsed = tool.input.safeParse(args);
   if (!parsed.success) {
-    return { output: { error: `Invalid arguments: ${z.prettifyError(parsed.error)}` }, ok: false };
+    return {
+      output: { error: `Invalid arguments: ${z.prettifyError(parsed.error)}` },
+      outcome: 'error',
+    };
   }
   try {
     const output = await withTimeout(
@@ -111,15 +116,15 @@ async function invoke(
       tool.timeoutMs,
       request.signal,
     );
-    return { output: output ?? null, ok: true };
+    return { output: output ?? null, outcome: 'ok' };
   } catch (error) {
     if (error instanceof ToolTimeoutError) {
-      return { output: { error: 'The tool timed out.' }, ok: false };
+      return { output: { error: 'The tool timed out.' }, outcome: 'timeout' };
     }
     if (request.signal.aborted) throw request.signal.reason;
     // The developer needs the details; the model and the visitor only learn that it failed.
     console.error(`[askdare] tool "${tool.name}" failed:`, error);
-    return { output: { error: 'The tool failed.' }, ok: false };
+    return { output: { error: 'The tool failed.' }, outcome: 'error' };
   }
 }
 
@@ -143,19 +148,26 @@ export async function executeCalls(
   }
   return Promise.all(
     calls.map(async (call) => {
+      const startedAt = Date.now();
       const result = await invoke(tools.get(call.name), call, request);
       let output = JSON.stringify(result.output);
-      let ok = result.ok;
+      let outcome = result.outcome;
       if (output.length > MAX_OUTPUT_CHARS) {
         output = JSON.stringify({ error: 'The tool returned too much data.' });
-        ok = false;
+        outcome = 'error';
       }
+      request.onToolCall?.({
+        name: call.name.slice(0, 64),
+        startedAt,
+        durationMs: Date.now() - startedAt,
+        outcome,
+      });
       request.emit({
         type: 'tool.status',
         messageId: request.messageId,
         callId: call.callId,
         name: call.name.slice(0, 64),
-        state: ok ? 'done' : 'error',
+        state: outcome === 'ok' ? 'done' : 'error',
       });
       return { type: 'function_call_output', call_id: call.callId, output } as const;
     }),

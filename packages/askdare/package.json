@@ -1,7 +1,7 @@
 {
   "name": "@boldare/askdare",
   "version": "0.1.0",
-  "description": "Embeddable AI chatbot for Next.js, built on the official OpenAI SDK.",
+  "description": "Embeddable AI chatbot for Next.js, as a script-tag widget or React components, built on the official OpenAI SDK.",
   "license": "MIT",
   "author": {
     "name": "Boldare",
@@ -27,7 +27,9 @@
     "responses-api",
     "rag",
     "openai-assistant",
-    "assistants-api"
+    "assistants-api",
+    "react",
+    "headless"
   ],
   "type": "module",
   "sideEffects": false,
@@ -43,6 +45,10 @@
       "types": "./dist/next.d.ts",
       "default": "./dist/next.js"
     },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "default": "./dist/react.js"
+    },
     "./package.json": "./package.json"
   },
   "types": "./dist/index.d.ts",
@@ -57,10 +63,10 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "build:assets": "vite build -c vite.widget.config.ts && vite build -c vite.loader.config.ts && node scripts/inline-assets.mjs",
-    "build": "pnpm run build:assets && tsdown && node scripts/copy-docs.mjs",
-    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.browser.json",
-    "check:package": "publint --strict && attw --pack . --profile esm-only && node ../../scripts/check-dts-no-leak.mjs dist && node scripts/api-snapshot.mjs && tsc -p types-test",
+    "build:assets": "vite build -c vite.widget.config.ts && vite build -c vite.skin.config.ts && vite build -c vite.loader.config.ts && node scripts/inline-assets.mjs",
+    "build": "pnpm run build:assets && tsdown && node scripts/copy-ui.mjs && node scripts/copy-docs.mjs",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.react.json && tsc -p tsconfig.browser.json",
+    "check:package": "publint --strict && attw --pack . --profile esm-only && node ../../scripts/check-dts-no-leak.mjs dist && node scripts/api-snapshot.mjs && node scripts/react-size.mjs && tsc -p tsconfig.eject.json && tsc -p types-test",
     "api:update": "node scripts/api-snapshot.mjs --update",
     "docs:texts": "node scripts/docs-texts.ts"
   },
@@ -73,8 +79,10 @@
     "@fontsource-variable/atkinson-hyperlegible-next": "5.3.0",
     "@fontsource-variable/geist": "5.3.0",
     "@fontsource-variable/plus-jakarta-sans": "5.3.0",
+    "@testing-library/react": "^16.3.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "happy-dom": "^21.0.4",
     "marked": "18.1.3",
     "next": "^16.4.5",
     "preact": "11.1.1",
@@ -87,10 +95,14 @@
   },
   "peerDependencies": {
     "next": "^16.0.0",
+    "react": "^19.0.0",
     "zod": "^4.1.0"
   },
   "peerDependenciesMeta": {
     "next": {
+      "optional": true
+    },
+    "react": {
       "optional": true
     }
   },

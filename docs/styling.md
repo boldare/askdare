@@ -1,12 +1,14 @@
 # Styling and customization
 
-Three levels, each with more freedom than the last ([ADR-0008](adr/0008-ui-customization-and-themes.md)). Streaming, security and limits stay in the library whatever you change.
+Five levels, each with more freedom than the last ([ADR-0008](adr/0008-ui-customization-and-themes.md)). Streaming, security and limits stay in the library whatever you change.
 
 | Level | How | For |
 | --- | --- | --- |
 | 1. Configuration | `widget: { … }` in `defineBot` | Texts, language, theme, suggestions, avatar, disclosure |
 | 2. Your own CSS | `widget.css`, plus `::part()` for the launcher | Any look, on top of the parts and tokens below |
 | 3. Page JavaScript | `askdare(…)` and attributes on the script tag | Your own button, the chat inside your page, per-page texts and context |
+| 4. React | `@boldare/askdare/react` | The chat as components of your own Next.js app, with the default look or your own markup: see [React](react.md) |
+| 5. Your copy of the components | `npx @boldare/askdare add ui` | Changing the default components themselves |
 
 ## 1. Configuration
 
@@ -64,7 +66,7 @@ A full example is the demo site's BLDR theme, in Boldare's style: `defineTheme` 
 
 The launcher's short variables on your page (`--a`, `--o` and the like) are internal too.
 
-**Parts** (`[data-ask-part="…"]`, public API): `panel`, `header`, `identity`, `identity-text`, `title`, `subtitle`, `actions`, `new-conversation`, `close`, `avatar`, `orb`, `messages`, `welcome`, `greeting`, `starters`, `starter`, `persona`, `persona-name`, `presence`, `intro`, `intro-card`, `message`, `message-body`, `bubble`, `image-alt`, `typing`, `citations`, `citation`, `attachments-note`, `status`, `error`, `composer`, `composer-box`, `input`, `attach`, `voice`, `send`, `attachments`, `message-attachments`, `attachment`, `attachment-preview`, `attachment-badge`, `attachment-name`, `attachment-status`, `attachment-remove`, `recorder`, `recorder-level`, `recorder-label`, `recorder-time`, `recorder-cancel`, `recorder-done`, `send-label` (shown by Aura), `disclosure`, and the question before a new conversation: `confirm-backdrop`, `confirm`, `confirm-icon`, `confirm-text`, `confirm-actions`, `confirm-cancel`, `confirm-accept`.
+**Parts** (`[data-ask-part="…"]`, public API): `panel`, `header`, `identity`, `identity-text`, `title`, `subtitle`, `actions`, `new-conversation`, `close`, `avatar`, `orb`, `messages`, `welcome`, `greeting`, `starters`, `starter`, `persona`, `persona-name`, `presence`, `intro`, `intro-card`, `message`, `message-body`, `bubble`, `image-alt`, `typing`, `citations`, `citation`, `attachments-note`, the rating of an answer: `feedback`, `feedback-button`, `feedback-comment`, `feedback-comment-input`, `feedback-comment-actions`, `feedback-skip`, `feedback-send`, then `status`, `error`, `composer`, `composer-box`, `input`, `attach`, `voice`, `send`, `attachments`, `message-attachments`, `attachment`, `attachment-preview`, `attachment-badge`, `attachment-name`, `attachment-status`, `attachment-remove`, `recorder`, `recorder-level`, `recorder-label`, `recorder-time`, `recorder-cancel`, `recorder-done`, `send-label` (shown by Aura), `disclosure`, and the question before a new conversation: `confirm-backdrop`, `confirm`, `confirm-icon`, `confirm-text`, `confirm-actions`, `confirm-cancel`, `confirm-accept`.
 
 `identity-text` holds the title and subtitle in the header. `image-alt` stands in for an image in a reply: the chat never loads images that the model writes, so it shows their alt text in brackets.
 
@@ -79,6 +81,7 @@ The launcher's short variables on your page (`--a`, `--o` and the like) are inte
 | `attachment` | `data-status` | `uploading`, `ready`, `error`, on files not sent yet; absent in sent messages |
 | `attachment` | `data-kind` | `image`, `pdf`; absent until the chat has recognized the file |
 | `recorder` | `data-state` | `recording`, `transcribing` |
+| `feedback-button` | `data-rating` | `up`, `down`; `aria-pressed="true"` on the visitor's rating |
 | `avatar` | `data-kind` | `orb`, `icon`, `initials`, `image` |
 | `avatar` | `data-size` | `small` in the header, next to the assistant's messages and in the `intro` welcome; `large` in the `hero` and `persona` welcome |
 | `welcome` | `data-layout` | `hero`, `persona`, `intro` |
@@ -169,6 +172,15 @@ Every preset sets both font tokens, so set both. You can also set them as the `f
 An inline chat loads with the page without taking focus or scrolling to itself.
 
 In a React app, Next.js included, add the script after hydration, for example from a `useEffect` in a small client component. The loader adds the chat inside your element, and React must not find it there while it hydrates. The demo site's [`chat-script.tsx`](../site/app/chat-script.tsx) does this. The chat loads once per page load and lives as long as its element: put the element in a layout that stays, or link to the page with full page loads, because a client-side navigation away and back leaves the element empty.
+
+## Inside a page (React)
+
+With `@boldare/askdare/react` the chat is part of your page instead of an iframe ([React](react.md)). The tokens, parts and states above are the same. What differs:
+
+- **The theme root is an element.** Where this page says `<html>` or `:root`, a chat inside a page has `<div data-askdare-root data-ask-bot="<bot id>">` with the same variant attributes. `:root` in a bot's `widget.css` means that element there, and the rest of `widget.css` applies only inside that bot's chat.
+- **Your site's stylesheet can style the chat directly.** `[data-ask-part="…"]` selectors work from your own CSS, and unlayered rules win over the chat's `@layer askdare`. The chat's own styles never reach outside it.
+- **A CSS reset must be in a layer before `askdare`,** or it overrides the chat. [React](react.md#with-a-css-reset-tailwind) has the lines for Tailwind CSS 3 and 4.
+- **Your page's Content Security Policy applies,** not the iframe's: fonts and images in `widget.css` follow your policy.
 
 ## Accessibility
 

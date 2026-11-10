@@ -5,7 +5,8 @@ You configure askdare in two places:
 | Where | What | Import |
 | --- | --- | --- |
 | `askdare.config.ts` | One `defineBot({ … })` per bot: its model, instructions, features, limits and look. | `@boldare/askdare` |
-| `app/api/chat/[...path]/route.ts` | One `createChatHandler({ … })` for all bots: secrets, the counter store, the client IP and error reporting. | `@boldare/askdare/next` |
+| `app/api/chat/[...path]/route.ts` | One `createChatHandler({ … })` for all bots: secrets, the counter store, the client IP, error reporting, usage reports (`onUsage`) and ratings (`onFeedback`). | `@boldare/askdare/next` |
+| A page of your app (Server Component) | `getChatConfig({ bots, bot })` for the chat inside a page: see [React](react.md). | `@boldare/askdare/next` |
 
 `defineBot` checks the whole definition when your app starts. It throws a `TypeError` that lists every problem, for example:
 
@@ -206,6 +207,7 @@ Everything in `widget` is sent to browsers. Never put secrets in it. [Styling](s
 | `texts` | `Partial<Record<TextKey, string>>` | `{}` | Any widget text by its key, 1–300 characters each. |
 | `disclosure` | `false \| { privacyUrl?: string }` | shown, no link | The note that visitors talk to an AI. `privacyUrl` is an `https://` URL or a path on your app, such as `/privacy`. `false` hides the note. |
 | `starters` | `string[]` | `[]` | Suggested questions on the welcome screen. Up to 4, 1–80 characters each. |
+| `feedback` | `boolean` | `true` | 👍/👎 under each answer, with an optional comment after 👎. They show only when `createChatHandler` has [`onFeedback`](#onfeedback); `false` hides them for this bot. |
 | `avatar` | `string` | none | A path on your app, such as `/avatar.png`, or a PNG, JPEG, WebP or GIF `data:` URL of up to 90,000 base64 characters. |
 | `theme` | `PresetName \| ThemeDefinition` | `'aura'` | `'halo'`, `'aura'`, `'sage'`, `'care'`, or a theme from `defineTheme`. |
 | `colorScheme` | `'auto' \| 'light' \| 'dark'` | `'auto'` | `'auto'` follows the visitor's system setting. |
@@ -215,7 +217,7 @@ The text defaults come from the built-in dictionary of the configured language. 
 
 ## `createChatHandler`
 
-`createChatHandler(options: ChatHandlerOptions): ChatHandlers` returns `GET`, `POST` and `DELETE` for the catch-all route. Its types are exported from `@boldare/askdare/next`: `ChatHandlerOptions`, `ChatHandlerLimitsOptions`, `ChatErrorReport`, `TrustProxy`, `ChatHandlers` and `RouteHandler`.
+`createChatHandler(options: ChatHandlerOptions): ChatHandlers` returns `GET`, `POST` and `DELETE` for the catch-all route. Its types are exported from `@boldare/askdare/next`: `ChatHandlerOptions`, `ChatHandlerLimitsOptions`, `ChatErrorReport`, `ChatUsageReport`, `ChatTokenUsage`, `ChatToolCallReport`, `ChatFeedbackReport`, `TrustProxy`, `ChatHandlers` and `RouteHandler`.
 
 | Option | Type | Default | Notes |
 | --- | --- | --- | --- |
@@ -226,7 +228,9 @@ The text defaults come from the built-in dictionary of the configured language. 
 | `previousSecrets` | `readonly string[]` | `process.env.CHAT_SECRET_PREVIOUS`, split at commas | Former secrets that still verify tokens during a rotation. Each follows the same rule as `secret`. See [Going public](going-public.md#2-secrets-and-environment). |
 | `identitySecret` | `string` | `process.env.IDENTITY_SECRET` | Checks identity tokens from your site's backend. Same rule as `secret`, and it must differ from it. Without one, identity is off. See [Signed-in visitors](identity.md). |
 | `limits` | `ChatHandlerLimitsOptions` | see [Handler limits](#handler-limits) | The counter store, the client IP and a budget across bots. |
-| `onError` | `(report: ChatErrorReport) => void` | one `console.error` line | Your error reporting. See [`onError`](#onerror). |
+| `onError` | `(report: ChatErrorReport) => void \| Promise<void>` | one `console.error` line | Your error reporting. See [`onError`](#onerror). |
+| `onUsage` | `(report: ChatUsageReport) => void \| Promise<void>` | none | Each turn's tokens, timings and tool calls, for cost tracking and tracing. See [`onUsage`](#onusage). |
+| `onFeedback` | `(report: ChatFeedbackReport) => void \| Promise<void>` | none | Visitors' ratings of answers. Without it, answers can't be rated. See [`onFeedback`](#onfeedback). |
 | `gallery` | `boolean` | `false` | Serves the state gallery. See [`gallery`](#gallery). |
 
 A wrong `basePath`, a duplicate bot ID or an empty `bots` list throws a `TypeError` when the route loads. A missing key or a missing or weak secret doesn't stop the route from loading. Instead, requests that need it answer `bot_unavailable`, and `onError` receives the reason. In development (`next dev`), the chat itself says what to fix.
@@ -258,7 +262,7 @@ See [Deployment](deployment.md#behind-another-proxy-or-cdn) for setups with a CD
 
 ### `onError`
 
-`onError` receives server errors (status 500 and up), any error that ends an answer while it streams, and once a day a `budget_exceeded` report when a bot's or the global budget runs out (never a single visitor's). Use it for your monitoring. It never receives message contents or API keys. Don't throw from it.
+`onError` receives server errors (status 500 and up), any error that ends an answer while it streams, and once a day a `budget_exceeded` report when a bot's or the global budget runs out (never a single visitor's). Use it for your monitoring. It never receives message contents or API keys. It may be async: askdare keeps the function alive until it finishes, and anything it throws is logged by its error's name and never reaches the request.
 
 ```ts
 import * as Sentry from '@sentry/nextjs';
@@ -282,6 +286,69 @@ Without `onError`, askdare logs one `console.error` line with the code, what wen
 | `cause` | `unknown` | The underlying error, with any API key cut down to its prefix. Optional. |
 
 `code` is one of `invalid_input`, `unauthorized`, `session_expired`, `not_found`, `rate_limited`, `budget_exceeded`, `bot_unavailable`, `content_blocked` (reserved, not sent yet), `timeout`, `upstream_error` or `internal_error`. The codes at status 500 and up are `internal_error` (500), `upstream_error` (502), `bot_unavailable` (503) and `timeout` (504). [Protocol](protocol.md#error-codes) explains each one.
+
+### `onUsage`
+
+`onUsage` is called once per chat turn, after the answer has streamed, including turns that failed. It receives the tokens the turn used, how long it took and which tools it called, for cost tracking, dashboards and tracing (ADR-0012). It holds counters and pseudonyms only: never message text, tool arguments or results, IP addresses or raw IDs.
+
+```ts
+export const { GET, POST, DELETE } = createChatHandler({
+  bots,
+  onUsage: async ({ bot, model, usage, durationMs }) => {
+    await metrics.record('chat.turn', { bot, model, ...usage, durationMs });
+  },
+});
+```
+
+It may be async. askdare calls it after the stream has closed, so it never delays an answer, keeps the function alive until it finishes, and logs anything it throws by its error's name. For OpenTelemetry spans, pass `otelUsage()` from `@boldare/askdare-otel`; see [Observability](observability.md).
+
+`ChatUsageReport`:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `bot` | `string` | The bot's ID. |
+| `model` | `string` | The model that answered, as OpenAI reports it. The configured model if none answered. |
+| `conversation` | `string \| undefined` | A pseudonym (HMAC) of the conversation, the same for every turn of it. Undefined when none was created. |
+| `visitor` | `string` | A pseudonym (HMAC) of the signed-in user's ID, or of the visitor's when nobody is signed in: the same value OpenAI gets as `safety_identifier`. |
+| `startedAt` | `number` | When the turn started, in epoch milliseconds. |
+| `durationMs` | `number` | From the request to the end of the answer. |
+| `outcome` | `'completed' \| 'stopped' \| 'failed'` | `stopped` when the turn was aborted before it could answer. |
+| `finishReason` | `string` | Why the answer ended: `completed`, `max_steps`, `max_output_tokens` or `content_filter`. Absent when it failed. |
+| `errorCode` | `string` | The stable error code (see [`onError`](#onerror)), when it failed. |
+| `usage` | `ChatTokenUsage` | `inputTokens`, `cachedInputTokens`, `cacheWriteTokens`, `outputTokens` and `reasoningTokens`, summed over the turn's model calls. Cached and cache-write tokens are part of the input; reasoning tokens are part of the output. |
+| `steps` | `number` | Model calls in the turn: one, plus one after each round of tool calls. |
+| `tools` | `ChatToolCallReport[]` | One per function call: `name`, `startedAt`, `durationMs` and `outcome` (`ok`, `error` or `timeout`). |
+
+The pseudonyms change when `CHAT_SECRET` rotates. A turn that fails mid-stream reports the usage askdare saw, which can be less than what OpenAI bills; [Costs](costs.md) explains the difference.
+
+### `onFeedback`
+
+With `onFeedback`, visitors can rate each answer 👍 or 👎, add a comment after 👎, and take a rating back. askdare stores no ratings: it hands each one to this function, after the response, so you can keep them where you keep other data.
+
+```ts
+export const { GET, POST, DELETE } = createChatHandler({
+  bots,
+  onFeedback: async ({ bot, rating, comment, conversationId, itemId }) => {
+    await db.insert(ratings).values({ bot, rating, comment, conversationId, itemId });
+  },
+});
+```
+
+It may be async, like `onUsage`, and nothing it throws reaches the chat. A bot hides the buttons with `widget.feedback: false`. What visitors see, and how a 👎 and its comment arrive, is in [Answer ratings](feedback.md).
+
+`ChatFeedbackReport`:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `bot` | `string` | The bot's ID. |
+| `rating` | `'up' \| 'down' \| null` | `null` when the visitor took their rating back. |
+| `comment` | `string` | What the visitor wrote, up to 500 characters. Absent when they wrote nothing or took the rating back. Treat it as personal data. |
+| `visitor` | `string` | The same pseudonym `onUsage` reports, so ratings and costs line up. |
+| `identity` | `VisitorIdentity` | The signed-in user, verified ([Signed-in visitors](identity.md)). Absent for anonymous visitors. |
+| `conversationId` | `string` | The OpenAI conversation, for your own review of it, e.g. with `openai.conversations.items.list`. Never sent to the browser. |
+| `itemId` | `string` | The OpenAI ID of the rated answer within that conversation. |
+
+A visitor can rate only answers in their own conversations: each answer carries an encrypted handle bound to the visitor, or to the signed-in user, and the bot. Ratings are limited to 20 per minute per visitor.
 
 ### `gallery`
 
@@ -355,3 +422,6 @@ A database from the Vercel Marketplace (Upstash for Redis) sets the `KV_` names 
 | Deploy to Vercel or Heroku | [Deployment](deployment.md) |
 | Change texts, language or CSS | [Styling](styling.md) |
 | Pick or adjust a theme | [Themes](themes.md) |
+| Report costs or trace turns | [Observability](observability.md) |
+| Collect ratings of answers | [Answer ratings](feedback.md) |
+| Put the chat inside a page of your app | [React](react.md) |

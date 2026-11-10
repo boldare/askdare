@@ -8,7 +8,8 @@ What askdare is tested with and promises to keep working. The reasoning is in [A
 | --- | --- | --- |
 | Node.js | 22 and 24 | 20 and older |
 | Next.js | 16.x with the App Router, on the Node.js runtime; Turbopack and `next build --webpack` | Pages Router, Edge runtime, static export |
-| React | 19 | 18 |
+| React | 19 (only for `@boldare/askdare/react`, an optional peer) | 18 |
+| OpenTelemetry | `@opentelemetry/api` 1.3 or later, for `@boldare/askdare-otel` | |
 | zod | 4.1 or later | 3 |
 | TypeScript | 5.9, 6.0 and 7.0 | |
 | Hosting | Vercel and Heroku | Other hosts that run `next start` should work, but aren't tested |
@@ -32,7 +33,8 @@ Every release is tested in Chromium, Firefox and WebKit: embedding, the page API
 | | Gzipped | Budget |
 | --- | --- | --- |
 | The loader (`widget.js`), on every page | about 3 KB | 5 KB |
-| The chat itself, when the visitor opens it | about 34 KB, plus 5 KB of styles | 50 KB and 8 KB |
+| The chat itself, when the visitor opens it | about 38 KB, plus 6 KB of styles | 50 KB and 8 KB |
+| `@boldare/askdare/react` in your app's bundle, without React itself | about 28 KB; about 8 KB with only `Root` and the hooks | 32 KB and 12 KB |
 | One theme's fonts, from your app | up to 82 KB | 82 KB |
 
 The build fails when one of these grows past its budget.

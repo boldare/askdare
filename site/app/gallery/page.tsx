@@ -2,7 +2,15 @@ import type { CSSProperties } from 'react';
 
 const PRESETS = ['halo', 'aura', 'sage', 'care'] as const;
 const SCHEMES = ['light', 'dark'] as const;
-const STATES = ['welcome', 'conversation', 'streaming', 'attachments', 'error', 'listening'];
+const STATES = [
+  'welcome',
+  'conversation',
+  'streaming',
+  'attachments',
+  'error',
+  'listening',
+  'feedback',
+];
 const WIDTHS = { panel: 400, mobile: 360 } as const;
 
 type Search = Promise<Record<string, string | string[] | undefined>>;

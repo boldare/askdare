@@ -3,7 +3,8 @@
   "compilerOptions": {
     "lib": ["es2023", "dom", "dom.iterable"],
     "jsx": "react-jsx",
-    "types": []
+    "types": [],
+    "paths": { "@boldare/askdare/react": ["./src/react/headless.ts"] }
   },
   "include": ["src/widget-app", "src/embed", "src/vite-env.d.ts"]
 }

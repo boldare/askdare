@@ -11,6 +11,7 @@ npx @boldare/askdare <command> [options]
 | [`init`](#init) | Adds askdare to the app: a bot config, the route, `.env.local` and the chat script. |
 | [`doctor`](#doctor) | Checks the project, its environment and the running app. |
 | [`kb sync <folder>`](#kb-sync) | Makes an OpenAI vector store mirror a folder of documents. |
+| [`add ui`](#add-ui) | Copies the chat's default look into the app as your own React components. |
 | [`-v`, `--version`](#version-and-help) | Prints the installed version. |
 | [`-h`, `--help`](#version-and-help) | Prints the usage. |
 
@@ -205,6 +206,34 @@ Synced: 2 added, 0 retagged, 1 removed, 12 unchanged.
 
 A file that fails to upload is listed as `Failed: <path> (<reason>)`, and the rest of the sync goes on.
 
+## add ui
+
+```bash
+npx @boldare/askdare add ui
+npx @boldare/askdare add ui --dir app/_chat
+```
+
+Copies the source of the chat's default look into your app, for the chat inside a page ([React](react.md)). Use it when configuration, CSS and the slots of `DefaultChat` aren't enough and you want to change the components themselves. The files are yours from then on: later versions of askdare don't touch them, so take changes to the look from the changelog by hand.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--dir <folder>` | `components/askdare`, or `src/components/askdare` when the app keeps its code in `src/` | Where to put the files, inside the app. |
+
+### What it writes
+
+About a dozen files in one folder: the components (`chat.tsx` with `DefaultChat`, `panel.tsx`, `header.tsx`, `welcome.tsx`, `message.tsx`, `feedback.tsx`, `footer.tsx`, `confirm.tsx`, `avatar.tsx`, `icons.tsx`, `context.ts`), their stylesheet `askdare.css`, and `index.ts`. Each starts with the version it was copied from.
+
+- The components import only `@boldare/askdare/react` and each other. Streaming, limits and security stay in the library.
+- `chat.tsx` imports `askdare.css`, so your bundler ships the stylesheet. The theme's tokens and fonts still come from the chat route.
+- **It never overwrites.** If one of the files is already in the folder, nothing is written and the command exits with `1`.
+
+Then change one import where you render the chat:
+
+```diff
+- import { DefaultChat } from '@boldare/askdare/react';
++ import { DefaultChat } from '@/components/askdare';
+```
+
 ## Version and help
 
 ```bash
@@ -222,6 +251,7 @@ npx @boldare/askdare --help
 | `init` | Done. | The folder isn't a Next.js app with the App Router, or the bot ID is invalid. |
 | `doctor` | No problems. Warnings don't count. | At least one `✗` problem. |
 | `kb sync` | Done, or nothing to do. | At least one file failed to upload. |
+| `add ui` | Done. | The folder isn't a Next.js app with React, `--dir` is outside it, or a file is already there. |
 | All | | An unknown command or option, or a missing or invalid value, such as a `--url` without `https` or no `OPENAI_API_KEY` for `kb sync`. The usage is printed with the error. Any other error is printed as `askdare: <message>`. |
 
 `doctor` exits with `1` while there is a problem, so you can run it in CI after a deploy.

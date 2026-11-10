@@ -6,8 +6,9 @@ This page lists what data the chat handles, where it goes and how long it stays,
 
 | Data | Where | How long |
 | --- | --- | --- |
-| A handle to the current conversation (resume token) | The visitor's browser: `localStorage` of your app's origin, inside the chat's iframe | Until the visitor starts a new conversation; it works for at most 30 days |
-| A session token | The iframe's memory, never stored | 15 minutes |
+| A handle to the current conversation (resume token) | The visitor's browser: `localStorage` of your app's origin, inside the chat's iframe or, for a [chat inside your page](react.md), in the page itself | Until the visitor starts a new conversation; it works for at most 30 days |
+| Which answers the visitor rated 👍 or 👎 | The same `localStorage`, when ratings are on | The latest hundred ratings; never sent anywhere |
+| A session token | The chat's memory (the iframe's, or the page's for a chat inside your page), never stored | 15 minutes |
 | Messages, answers, page context, tool calls and their results | OpenAI, as a conversation in your project | Until deleted |
 | Model responses | OpenAI | OpenAI's retention for stored responses |
 | Uploaded images and PDFs | OpenAI, as files in your project | 30 days, or until the conversation is deleted |
@@ -15,6 +16,8 @@ This page lists what data the chat handles, where it goes and how long it stays,
 | IP addresses, visitor IDs, conversation IDs | Rate-limit counters, in your server's memory or in Upstash | IP addresses up to 2 days, conversation IDs up to 30 days |
 | An HMAC of the visitor or user ID (`safety_identifier`) | Sent to OpenAI with every model request | OpenAI's retention |
 | Error reports | Your server log, or your `onError` function | Your hosting's log retention |
+| Turn reports: token counts, timings, tool names, pseudonyms | Your `onUsage` function, if you set one | Wherever you keep them |
+| Ratings of answers and the comments visitors write | Your `onFeedback` function, if you set one | Wherever you keep them |
 
 ## In the visitor's browser
 
@@ -25,7 +28,9 @@ The script on your site (`widget.js`) adds the chat button and an iframe. It sto
 
 ### What it stores
 
-After the visitor's first message, the chat writes one entry to `localStorage`, in the iframe's storage for your app's origin. Nothing is written before that.
+After the visitor's first message, the chat writes an entry to `localStorage` for your app's origin: in the iframe's storage for the widget, in your page's own storage for a [chat inside your page](react.md). Nothing is written before that. A second entry follows if the visitor rates an answer.
+
+**The conversation**
 
 | | |
 | --- | --- |
@@ -34,15 +39,26 @@ After the visitor's first message, the chat writes one entry to `localStorage`, 
 | Purpose | To show and continue the conversation after a reload |
 | Lifetime | It works for 30 days after the last answer in the conversation: each answer renews it. It is removed when the visitor starts a new conversation, and when the server says the conversation is gone or the token expired |
 
+**Ratings**, only when your route has `onFeedback` and the bot hasn't turned them off with `widget.feedback: false`:
+
+| | |
+| --- | --- |
+| Key | `askdare:<bot id>:ratings` |
+| Value | Which answers this browser rated 👍 or 👎, by a pseudonym of each answer (an HMAC, not the OpenAI ID). No comments, no text, nothing about the visitor |
+| Purpose | To show the visitor's ratings again after a reload |
+| Lifetime | The latest hundred ratings are kept; taking a rating back removes it. It isn't sent to the server: the server keeps no ratings at all |
+
 Everything else stays in memory and disappears with the page: the session token, which lasts 15 minutes, and a signed-in visitor's identity.
 
-The chat sets no cookies. Browsers may partition or block storage in iframes from other sites; then the conversation doesn't survive a reload, and the chat still works. There is no setting to turn the entry off.
+The chat sets no cookies. Browsers may partition or block storage in iframes from other sites; then the conversation doesn't survive a reload, and the chat still works. There is no setting to turn the conversation entry off; ratings go with `onFeedback`.
+
+**A chat inside your page** has no iframe of its own: its entries sit in your page's `localStorage` beside your own, and scripts on the page can read them, the session token and the conversation. The widget's iframe keeps those from the page. See [the React guide](react.md) for when to keep the widget.
 
 ### Consent banners
 
-Whether this entry needs the visitor's consent under the rules that apply to you, such as the ePrivacy Directive in the EU, is for you and your legal advisers to decide. These facts are often relevant:
+Whether these entries need the visitor's consent under the rules that apply to you, such as the ePrivacy Directive in the EU, is for you and your legal advisers to decide. These facts are often relevant:
 
-- It is written only after the visitor sends a message, and only to continue that conversation.
+- The conversation entry is written only after the visitor sends a message, and only to continue that conversation. The ratings entry is written only when the visitor rates an answer, and only to show that rating again.
 - It isn't used for tracking, analytics or advertising, and it isn't shared with other sites.
 - It contains no readable personal data, and it stops working after 30 days at most.
 
@@ -67,6 +83,8 @@ The server gives every new visitor a random ID: `v_` followed by 32 hexadecimal 
 - It logs one line per server error: the error code, an explanation of setup problems, and the underlying error, such as OpenAI's status, error code and request ID. It also logs the ID of an uploaded file it couldn't delete.
 - Errors thrown by your own tools are logged as they are. Keep personal data out of their messages.
 - With `onError` in `createChatHandler`, the same reports go to your function, for example to Sentry, instead of the log.
+- With `onUsage`, every turn's report goes to your function: token counts, timings, tool names and outcomes, and pseudonyms (HMACs) of the conversation and the visitor or user. It holds no message text. See [Observability](observability.md).
+- With `onFeedback`, visitors can rate answers, and each rating goes to your function with the comment the visitor wrote, the OpenAI conversation and answer IDs, a pseudonym of the visitor, and the signed-in user if there is one. askdare keeps none of it. A comment is free text the visitor typed, so treat it like a message: mention it in your notice and keep it no longer than you need. The visitor's browser also remembers which answers they rated 👍 or 👎 (not the comments), next to the conversation in its storage (see [What it stores](#what-it-stores)). See [Answer ratings](feedback.md).
 - Your hosting provider may log every request, IP addresses included, according to its own settings.
 
 ### `safety_identifier`
@@ -145,6 +163,7 @@ The note exists for the transparency duty in Article 50 of the EU AI Act: people
 | Upstash | With `@boldare/askdare-upstash` | Rate-limit counters, whose names hold IP addresses, visitor IDs and conversation IDs |
 | Your hosting provider, such as Vercel or Heroku | Always | Every request to the app, with IP addresses, and the server log |
 | Your error monitoring | With `onError` | Error reports, without message contents or API keys |
+| Your metrics or tracing | With `onUsage`, e.g. through `@boldare/askdare-otel` | Turn reports: counters, timings and pseudonyms, without message text |
 
 Your tools may send data to further services of your own.
 
@@ -169,7 +188,8 @@ There is no previous-secret setting for `IDENTITY_SECRET`. When you change it:
 
 - [ ] Name OpenAI, and Upstash if you use it, as processors, and your hosting provider.
 - [ ] Say that conversations, including what visitors type and attach, are stored by OpenAI until deleted, and how visitors delete them.
-- [ ] Describe the `localStorage` entry and its purpose.
+- [ ] Describe the `localStorage` entries and their purpose: the conversation, and the ratings if you use `onFeedback`.
+- [ ] If you collect ratings, say that visitors' comments reach you and how long you keep them.
 - [ ] Mention IP addresses in rate limits and their retention.
 - [ ] Decide on a retention policy for conversations.
 - [ ] Keep the AI disclosure, and link this notice from it with `privacyUrl`.

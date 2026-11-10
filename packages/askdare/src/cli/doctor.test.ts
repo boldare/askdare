@@ -23,6 +23,8 @@ const assets: EmbedAssets = {
   fontsCss: '',
   fontsCssFile: 'fonts.222.css',
   fontFiles: {},
+  skinCss: '[data-ask-part="panel"]{display:flex}',
+  skinCssFile: 'skin.333.css',
 };
 
 const gateway = {
