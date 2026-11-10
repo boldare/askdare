@@ -1,0 +1,13 @@
+{
+  // The ejected UI (dist/ui, what `askdare add ui` copies) as an app would compile it: against
+  // the published types of @boldare/askdare/react alone, never the package's sources (ADR-0011).
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["es2023", "dom", "dom.iterable"],
+    "jsx": "react-jsx",
+    "types": [],
+    "rootDir": ".",
+    "paths": { "@boldare/askdare/react": ["./dist/react.d.ts"] }
+  },
+  "include": ["dist/ui", "types-test/css.d.ts"]
+}
