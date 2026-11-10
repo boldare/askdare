@@ -80,8 +80,21 @@ test('starts a new conversation and deletes the old one', async ({ page }) => {
   await expect(chat.getByRole('alertdialog')).toHaveCount(0);
   await expect(chat.getByRole('textbox')).toBeVisible();
 
+  // While the server deletes the conversation, the question stays, busy, so the click shows.
+  let release = (): void => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route('**/conversation', async (route) => {
+    if (route.request().method() === 'DELETE') await held;
+    await route.fallback();
+  });
   await restart.click();
   await chat.getByRole('alertdialog').getByRole('button', { name: 'Start new' }).click();
+  await expect(chat.getByRole('alertdialog')).toHaveAttribute('aria-busy', 'true');
+  await expect(chat.locator('[data-ask-part="message"]')).toHaveCount(2);
+  release();
+  await expect(chat.getByRole('alertdialog')).toHaveCount(0);
   await expect(chat.locator('[data-ask-part="message"]')).toHaveCount(0);
 
   await chat.getByRole('textbox').fill('Fresh start');
