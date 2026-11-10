@@ -78,7 +78,7 @@ test('attaches a file dropped into the field’s picker', async ({ page }) => {
   await expect(reply).toContainText('[1 files]');
 });
 
-test('the default look has no axe violations inside the page', async ({ page }) => {
+test('the default look has no axe violations inside the page', async ({ page, browserName }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto(`${APP}/inline`);
   const chat = page.locator(ROOT);
@@ -105,9 +105,11 @@ test('the default look has no axe violations inside the page', async ({ page }) 
   await expect(question).toHaveAccessibleDescription(/.+/);
   const cancel = question.getByRole('button', { name: 'Cancel' });
   await expect(cancel).toBeFocused();
-  await page.keyboard.press('Tab');
+  // Safari moves to buttons with Option+Tab unless the visitor turned on Tab for every item.
+  const tab = browserName === 'webkit' ? 'Alt+Tab' : 'Tab';
+  await page.keyboard.press(tab);
   await expect(question.getByRole('button', { name: 'Start new' })).toBeFocused();
-  await page.keyboard.press('Tab');
+  await page.keyboard.press(tab);
   await expect(cancel).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(question).toHaveCount(0);
