@@ -22,8 +22,10 @@ Simple changes are configuration; hard changes are code. Logic (streaming, secur
 | 1. Configuration | `widget: {...}` in `defineBot`: typed, Zod-validated | 0.1 |
 | 2. Custom CSS | `widget.css` injected into the iframe. Library styles live in `@layer askdare`, so user CSS wins without `!important`. Stable parts via `[data-ask-part]` plus state attributes. The launcher is stylable from host CSS via `::part`. | 0.1 |
 | 3. Host page JavaScript | `askdare('open' \| 'close' \| 'configure')`, `data-launcher="none"` for a custom trigger, `data-mode="inline"` | 0.1 |
-| 4. Headless React | `@boldare/askdare/react`: `useChat()`, primitives `<Chat.*>`, slots, `toolRenderers` | 0.2 |
+| 4. Headless React | `@boldare/askdare/react`: `useChat()`, primitives `<Chat.*>`, slots ([ADR-0011](0011-react-api-and-inline-chat.md)); `toolRenderers` in 0.3 | 0.2 |
 | 5. Eject | `npx @boldare/askdare add ui` copies the default UI source into the user's repo, shadcn-style | 0.2 |
+
+Update (2026-11-10): `toolRenderers` (React components for tool results) and `embedPath` (a custom UI inside the iframe, ADR-0005) move to 0.3. Layers 4 and 5 ship in 0.2 as [ADR-0011](0011-react-api-and-inline-chat.md) describes.
 
 ### Rules
 
