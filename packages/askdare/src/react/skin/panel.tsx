@@ -60,7 +60,10 @@ export function DefaultPanel({
     requestAnimationFrame(() => restartRef.current?.focus());
   };
 
-  // Escape answers the question, else cancels a dictation, else closes the chat.
+  // Escape answers the question, else cancels a dictation, else closes the chat. Inside a page,
+  // only when it is pressed in the chat; as the page itself (the iframe), wherever focus is.
+  const main = headingLevel === 1;
+  const panelRef = useRef<HTMLElement>(null);
   const onEscape = useRef(() => {});
   onEscape.current = () => {
     if (confirming) cancelStartOver();
@@ -69,20 +72,24 @@ export function DefaultPanel({
   };
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onEscape.current();
+      if (event.key !== 'Escape') return;
+      const inside = event.target instanceof Node && panelRef.current?.contains(event.target);
+      if (main || inside) onEscape.current();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [main]);
 
   const Header = components.Header ?? DefaultHeader;
   const Welcome = components.Welcome ?? DefaultWelcome;
   const Message = components.Message ?? DefaultMessage;
   const Footer = components.Footer ?? DefaultFooter;
+  // The same element on every render, so only the message that changed renders again.
+  const message = useMemo(() => <Message />, [Message]);
   const showWelcome = state.messages.length === 0 && state.phase !== 'loading';
   return (
     <SkinContext.Provider value={skin}>
-      <Panel landmark={headingLevel === 1 ? 'main' : 'region'}>
+      <Panel ref={panelRef} landmark={main ? 'main' : 'region'}>
         <Header />
         {confirming && (
           <StartOverQuestion
@@ -95,9 +102,7 @@ export function DefaultPanel({
         )}
         <Messages>
           {showWelcome && <Welcome />}
-          <MessageList>
-            <Message />
-          </MessageList>
+          <MessageList>{message}</MessageList>
           <Status />
         </Messages>
         <ErrorMessage />

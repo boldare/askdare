@@ -273,6 +273,20 @@ describe('createChatStore', () => {
     expect(later).not.toHaveBeenCalled();
   });
 
+  it('drops a focus request nobody took in time', () => {
+    vi.useFakeTimers();
+    try {
+      const store = createChatStore(testConfig(), { client: testClient(fakeServer()) });
+      store.actions.focus();
+      vi.advanceTimersByTime(3_000);
+      const late = vi.fn(() => true);
+      store.onFocus('input', late);
+      expect(late).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('starts over with an empty chat', async () => {
     const server = fakeServer();
     const store = createChatStore(testConfig(), { client: testClient(server) });

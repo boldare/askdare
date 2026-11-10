@@ -8,7 +8,7 @@ import {
 } from 'react';
 import type { ChatMessage, PendingFile, SentFile } from '../chat/state';
 import { pluralText } from '../i18n/format';
-import { MessageProvider, useChat, useChatState, useMessage } from './context';
+import { MessageProvider, useChatState, useMessage, useStore } from './context';
 import { Markdown, safeUrl } from './markdown';
 import { useMergedRef } from './refs';
 
@@ -68,7 +68,10 @@ export function MessageList({ children }: MessageListProps): ReactElement {
 
 export type MessageProps = ComponentProps<'div'>;
 
-/** One message, with `data-role` and `data-status`. */
+/**
+ * One message, with `data-role` and `data-status`. The message primitives read only their own
+ * message, so a streaming answer doesn't re-render the earlier ones.
+ */
 export function Message(props: MessageProps): ReactElement {
   const message = useMessage();
   return (
@@ -84,7 +87,7 @@ export type MessageTextProps = ComponentProps<'div'>;
  */
 export function MessageText(props: MessageTextProps): ReactElement | null {
   const message = useMessage();
-  const { t } = useChat();
+  const { t } = useStore();
   if (message.text !== '') {
     return (
       <div data-ask-part="bubble" {...props}>
@@ -109,7 +112,7 @@ export type CitationsProps = ComponentProps<'ol'>;
 /** The sources of an answer. Links go through the same check as links in answers. */
 export function Citations(props: CitationsProps): ReactElement | null {
   const message = useMessage();
-  const { t } = useChat();
+  const { t } = useStore();
   if (message.citations.length === 0) return null;
   return (
     <ol data-ask-part="citations" aria-label={t('message.sources')} {...props}>
@@ -140,7 +143,7 @@ interface FileListProps extends ComponentProps<'ul'> {
 
 /** Files of a message, or those picked for the next one (which can be removed). */
 export function FileList({ files, list, onRemove, ...props }: FileListProps): ReactElement {
-  const { t } = useChat();
+  const { t } = useStore();
   return (
     <ul data-ask-part={list} aria-label={t('attachment.list')} {...props}>
       {files.map((file, index) => {
@@ -195,7 +198,7 @@ export type MessageFilesProps = Omit<ComponentProps<'ul'>, 'ref'> & {
  */
 export function MessageFiles({ ref, ...props }: MessageFilesProps): ReactElement | null {
   const message = useMessage();
-  const { bot } = useChat();
+  const { widget } = useStore().config;
   if (message.files && message.files.length > 0) {
     return (
       <FileList
@@ -210,10 +213,10 @@ export function MessageFiles({ ref, ...props }: MessageFilesProps): ReactElement
   return (
     <p
       data-ask-part="attachments-note"
-      className={props.className}
+      {...(props as ComponentProps<'p'>)}
       ref={ref as Ref<HTMLParagraphElement>}
     >
-      {pluralText(bot.texts, 'message.attachments', message.attachments, bot.locale)}
+      {pluralText(widget.texts, 'message.attachments', message.attachments, widget.locale)}
     </p>
   );
 }

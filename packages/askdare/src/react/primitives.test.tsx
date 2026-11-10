@@ -68,6 +68,39 @@ describe('Root and the default look', () => {
     expect(screen.getByRole('button', { name: 'Is there a trial?' })).toBeTruthy();
   });
 
+  it('starts another chat when the config changes', async () => {
+    vi.stubGlobal('fetch', fakeServer().fetch);
+    const view = render(
+      <Root config={testConfig()}>
+        <DefaultPanel />
+      </Root>,
+    );
+    const other = testConfig();
+    view.rerender(
+      <Root config={{ ...other, botId: 'sales', widget: { ...other.widget, title: 'Sales' } }}>
+        <DefaultPanel />
+      </Root>,
+    );
+    expect(await screen.findByRole('region', { name: 'Sales' })).toBeTruthy();
+  });
+
+  it('closes on Escape only when it is pressed in the chat', () => {
+    vi.stubGlobal('fetch', fakeServer().fetch);
+    const onClose = vi.fn();
+    render(
+      <>
+        <button type="button">Outside</button>
+        <Root config={testConfig()}>
+          <DefaultPanel onClose={onClose} />
+        </Root>
+      </>,
+    );
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Outside' }), { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
   it('refuses a basePath on another origin', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(() =>

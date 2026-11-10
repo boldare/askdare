@@ -42,7 +42,14 @@ export function Root({
     );
   }
   const page: PageOptions = pageOptions({ greeting, starters, context });
-  const [store] = useState(() => createChatStore(config, { page }));
+  // One chat per bot, route and language: another config starts another chat.
+  const id = `${config.basePath} ${config.botId} ${config.widget.locale}`;
+  const [held, setHeld] = useState(() => ({ id, store: createChatStore(config, { page }) }));
+  let { store } = held;
+  if (held.id !== id) {
+    store = createChatStore(config, { page });
+    setHeld({ id, store });
+  }
 
   // Before start(), so the first request already carries the identity.
   useEffect(() => {

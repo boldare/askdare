@@ -80,6 +80,9 @@ export interface ChatStoreOptions {
   readonly page?: PageOptions;
 }
 
+/** How long a focus request waits for its element to appear, such as the field after a dictation. */
+const FOCUS_WAIT_MS = 2_000;
+
 /** Focuses its element and says whether it could; false when the element is gone. */
 export type FocusListener = () => boolean;
 
@@ -96,7 +99,7 @@ export function focusRequests(): {
     input: new Set(),
     dictation: new Set(),
   };
-  let pending: FocusTarget | undefined;
+  let pending: { readonly target: FocusTarget; readonly at: number } | undefined;
   const deliver = (target: FocusTarget): boolean => {
     let taken = false;
     for (const listener of listeners[target]) taken = listener() || taken;
@@ -104,11 +107,13 @@ export function focusRequests(): {
   };
   return {
     focus(target) {
-      pending = deliver(target) ? undefined : target;
+      pending = deliver(target) ? undefined : { target, at: Date.now() };
     },
     onFocus(target, listener) {
       listeners[target].add(listener);
-      if (pending === target && listener()) pending = undefined;
+      // Only while it is fresh: an element that appears much later must not grab focus.
+      const fresh = pending?.target === target && Date.now() - pending.at < FOCUS_WAIT_MS;
+      if (fresh && listener()) pending = undefined;
       return () => listeners[target].delete(listener);
     },
   };
@@ -447,7 +452,11 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
       document.addEventListener('visibilitychange', onVisibility);
       // The first request waits for the page's identity, so a signed-in visitor gets theirs.
       void (startOptions.handshake ?? Promise.resolve())
-        .then(() => identities)
+        // A handshake that fails is like none: the chat starts without the page's identity.
+        .then(
+          () => identities,
+          () => identities,
+        )
         .finally(() => {
           if (run !== current) return;
           identityReady = true;
