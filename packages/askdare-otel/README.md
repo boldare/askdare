@@ -36,7 +36,7 @@ Spans are recorded once the turn has ended, with its real times. They never cont
 
 ## Requirements
 
-`@boldare/askdare` of the same minor version, `@opentelemetry/api` 1.3 or later, and Node.js 22 or later.
+`@boldare/askdare` in the range of its peer dependency (each askdare release brings a matching add-on release), `@opentelemetry/api` 1.3 or later, and Node.js 22 or later.
 
 ## License
 

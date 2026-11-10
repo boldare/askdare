@@ -94,8 +94,8 @@ Releases are made by CI from `main`, never from a laptop:
 3. With `NPM_RELEASE_MODE=stage` (the default), the versions are staged, and a maintainer approves each one with 2FA: npmjs.com → the package → Staged Packages, or `npm stage approve <stage-id>`. With `NPM_RELEASE_MODE=publish`, they go live at once, with a git tag and a GitHub release.
 
 - Dependabot opens dependency updates on Mondays. One that changes a published package's dependencies (not devDependencies) needs a changeset before it merges.
-- Until 0.1.0 the repository is in pre-release mode (`.changeset/pre.json`), so versions are `0.1.0-rc.N` and go out under the npm tag `rc`.
+- Release candidates of each minor version go out as `0.N.0-rc.M` under the npm tag `rc`, while the repository is in pre-release mode (`.changeset/pre.json`).
 - Before a release candidate, run `pnpm check`, `pnpm e2e`, `pnpm e2e:browsers`, `pnpm test:visual` and `pnpm verify:packs`, which installs the packed packages into a fresh Next.js app.
-- For 0.1.0, run `pnpm changeset pre exit` in a pull request of its own.
+- For the release itself (such as 0.1.0), run `pnpm changeset pre exit` in a pull request of its own. For the next minor's candidates, run `pnpm changeset pre enter rc` once the release is out: otherwise Changesets numbers the new work as another candidate of the previous version.
 
-The details are in the `release` skill (`.claude/skills/release/SKILL.md`).
+Before and after every release, go through the [release checklist](RELEASING.md). The details are in the `release` skill (`.claude/skills/release/SKILL.md`).

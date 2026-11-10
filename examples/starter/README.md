@@ -32,7 +32,7 @@ A minimal Next.js app with an [askdare](https://www.npmjs.com/package/@boldare/a
 | `app/layout.tsx` | Loads the chat on every page with `next/script`. |
 | `AGENTS.md` | Points AI coding agents to the askdare docs that match the installed version. |
 
-The guides are in `node_modules/@boldare/askdare/docs/`: knowledge base, tools, attachments, voice input, styling, themes, identity, deployment and going public.
+The guides are in `node_modules/@boldare/askdare/docs/`: knowledge base, tools, attachments, voice input, styling, themes, the chat inside your page (React), answer ratings, observability, identity, deployment and going public.
 
 ## Deploy
 

@@ -1,6 +1,6 @@
 # Wire protocol (version 1)
 
-This is how the askdare server streams a chat turn to its clients: the embed iframe app now, `@boldare/askdare/react` later. The protocol belongs to askdare; raw OpenAI stream events are never forwarded ([ADR-0002](adr/0002-openai-only-no-leaked-types.md)).
+This is how the askdare server streams a chat turn to its clients: the widget's iframe app and `@boldare/askdare/react`. The protocol belongs to askdare; raw OpenAI stream events are never forwarded ([ADR-0002](adr/0002-openai-only-no-leaked-types.md)).
 
 Source of truth: `packages/askdare/src/protocol/`.
 

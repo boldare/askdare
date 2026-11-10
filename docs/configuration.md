@@ -5,7 +5,8 @@ You configure askdare in two places:
 | Where | What | Import |
 | --- | --- | --- |
 | `askdare.config.ts` | One `defineBot({ … })` per bot: its model, instructions, features, limits and look. | `@boldare/askdare` |
-| `app/api/chat/[...path]/route.ts` | One `createChatHandler({ … })` for all bots: secrets, the counter store, the client IP and error reporting. | `@boldare/askdare/next` |
+| `app/api/chat/[...path]/route.ts` | One `createChatHandler({ … })` for all bots: secrets, the counter store, the client IP, error reporting, usage reports (`onUsage`) and ratings (`onFeedback`). | `@boldare/askdare/next` |
+| A page of your app (Server Component) | `getChatConfig({ bots, bot })` for the chat inside a page: see [React](react.md). | `@boldare/askdare/next` |
 
 `defineBot` checks the whole definition when your app starts. It throws a `TypeError` that lists every problem, for example:
 
@@ -421,3 +422,6 @@ A database from the Vercel Marketplace (Upstash for Redis) sets the `KV_` names 
 | Deploy to Vercel or Heroku | [Deployment](deployment.md) |
 | Change texts, language or CSS | [Styling](styling.md) |
 | Pick or adjust a theme | [Themes](themes.md) |
+| Report costs or trace turns | [Observability](observability.md) |
+| Collect ratings of answers | [Answer ratings](feedback.md) |
+| Put the chat inside a page of your app | [React](react.md) |

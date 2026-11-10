@@ -1,7 +1,7 @@
 {
   "name": "@boldare/askdare",
   "version": "0.1.0-rc.4",
-  "description": "Embeddable AI chatbot for Next.js, built on the official OpenAI SDK.",
+  "description": "Embeddable AI chatbot for Next.js, as a script-tag widget or React components, built on the official OpenAI SDK.",
   "license": "MIT",
   "author": {
     "name": "Boldare",
@@ -27,7 +27,9 @@
     "responses-api",
     "rag",
     "openai-assistant",
-    "assistants-api"
+    "assistants-api",
+    "react",
+    "headless"
   ],
   "type": "module",
   "sideEffects": false,

@@ -23,15 +23,17 @@ description: How changes to published askdare packages are versioned and release
 
 ## Release candidates
 
-The repository is in Changesets pre-release mode (`.changeset/pre.json`, tag `rc`) until 0.1.0:
+The repository is in Changesets pre-release mode (`.changeset/pre.json`, tag `rc`) while a minor version is in release candidates:
 
-- `pnpm changeset version` turns the pending changesets into `0.1.0-rc.N` versions and `CHANGELOG.md` entries; the starter's dependency range follows.
+- `pnpm changeset version` turns the pending changesets into `0.N.0-rc.M` versions and `CHANGELOG.md` entries; the starter's dependency range follows.
 - In CI, `scripts/release-packages.mjs` releases them under the npm dist-tag `rc`. The repository variable `NPM_RELEASE_MODE` picks how:
   - `stage` (default): the user approves each version with 2FA before it goes live (npmjs.com → Staged Packages, or `npm stage approve <stage-id>`).
   - `publish`: live as soon as "Version packages" merges, with a git tag and a GitHub release. The trusted publisher on npm must allow `npm publish`.
 
   Changing the mode is the user's decision. Users install with `@rc`.
-- For 0.1.0: `pnpm changeset pre exit`, then `pnpm changeset version`, and the next release goes out under `latest`.
+- For the release (such as 0.1.0): `pnpm changeset pre exit`, then `pnpm changeset version`, and it goes out under `latest`.
+- For the next minor's candidates (such as 0.2.0-rc.0): only after that release, `pnpm changeset pre enter rc` in a pull request of its own. Merged into a repository still in pre mode, the work is numbered as another candidate of the previous version (a dry run showed `0.1.0-rc.5`).
+- Go through `RELEASING.md` before and after every release.
 - Before every release candidate: `pnpm check`, `pnpm e2e`, `pnpm e2e:browsers`, `pnpm test:visual` and the tarball check (`pnpm verify:packs`).
 
 ## Publishing (only with the user's explicit approval)

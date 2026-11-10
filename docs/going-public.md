@@ -77,5 +77,6 @@ export const { GET, POST, DELETE } = createChatHandler({
 - [ ] Shared store configured if you run more than one instance.
 - [ ] Instructions contain no secrets.
 - [ ] Privacy notice, retention decision and AI disclosure are in place.
+- [ ] If visitors rate answers, your notice covers their comments, and `onFeedback` keeps them no longer than you need.
 - [ ] You know how to flip `ASKDARE_DISABLED=true` and redeploy or restart, and how long that takes on your host.
 - [ ] `npx @boldare/askdare doctor --url <your app> --env-file <production env>` reports no problems ([Deployment](deployment.md)).

@@ -120,5 +120,8 @@ mkdir -p .claude/skills && cp -R node_modules/@boldare/askdare/skills/askdare .c
 | Accept images and PDFs | [Attachments](attachments.md) |
 | Let visitors dictate | [Voice input](voice-input.md) |
 | Change texts, language, colors or the button | [Styling](styling.md) and [Themes](themes.md) |
+| Put the chat inside a page of your app, without an iframe | [The chat inside your page](react.md) |
+| Let visitors rate answers | [Answer ratings](feedback.md) |
+| Track costs per turn, or trace with OpenTelemetry | [Observability](observability.md) |
 | Deploy to Vercel or Heroku | [Deployment](deployment.md) |
 | Open the chat to the public | [Going public](going-public.md) |

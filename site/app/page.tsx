@@ -57,6 +57,18 @@ const FEATURES = [
     more: 'Attachments and voice',
   },
   {
+    title: 'Inside your React pages',
+    text: 'Or skip the iframe: render the chat in your own Next.js pages, ready-made or in your own markup.',
+    href: '/docs/react',
+    more: 'The chat inside your page',
+  },
+  {
+    title: 'Answers your visitors rate',
+    text: '👍 and 👎 under every answer, with a comment after 👎. Ratings and token usage go to your code.',
+    href: '/docs/feedback',
+    more: 'Answer ratings',
+  },
+  {
     title: 'Secure by default',
     text: 'Short-lived tokens, rate limits and daily budgets. Visitors never pick the model or tools.',
     href: '/docs/going-public',

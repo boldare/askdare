@@ -40,7 +40,7 @@ export const bots = [
 
 [![What it does: answers from your documents with citations, your own tools, images and PDFs, voice input, secure by default, and no database.](https://raw.githubusercontent.com/boldare/askdare/main/.github/assets/askdare-features.png)](https://askdare.vercel.app/#features)
 
-[Knowledge base](https://askdare.vercel.app/docs/knowledge-base) · [Tools](https://askdare.vercel.app/docs/tools) · [Attachments](https://askdare.vercel.app/docs/attachments) · [Voice input](https://askdare.vercel.app/docs/voice-input) · [Security](https://github.com/boldare/askdare/blob/main/THREAT_MODEL.md)
+[Knowledge base](https://askdare.vercel.app/docs/knowledge-base) · [Tools](https://askdare.vercel.app/docs/tools) · [Attachments](https://askdare.vercel.app/docs/attachments) · [Voice input](https://askdare.vercel.app/docs/voice-input) · [The chat inside your page (React)](https://askdare.vercel.app/docs/react) · [Answer ratings](https://askdare.vercel.app/docs/feedback) · [Security](https://github.com/boldare/askdare/blob/main/THREAT_MODEL.md)
 
 ## Themes
 
@@ -53,9 +53,17 @@ Pick a theme, set your brand's colors, or restyle any part with your own CSS, th
 The guides are on [askdare.vercel.app/docs](https://askdare.vercel.app/docs), with search. They also ship in this package, in `node_modules/@boldare/askdare/docs/`, so they match the version you installed.
 
 - **Start:** [Getting started](https://askdare.vercel.app/docs/getting-started) · [Embedding the chat](https://askdare.vercel.app/docs/embedding) · [Command line](https://askdare.vercel.app/docs/cli)
-- **Going live:** [Deployment](https://askdare.vercel.app/docs/deployment) · [Going-public checklist](https://askdare.vercel.app/docs/going-public) · [Costs](https://askdare.vercel.app/docs/costs) · [Observability](https://askdare.vercel.app/docs/observability) · [Privacy](https://askdare.vercel.app/docs/privacy)
+- **Look and language:** [Themes](https://askdare.vercel.app/docs/themes) · [Styling](https://askdare.vercel.app/docs/styling) · [Texts](https://askdare.vercel.app/docs/texts) · [The chat inside your page (React)](https://askdare.vercel.app/docs/react)
+- **Going live:** [Deployment](https://askdare.vercel.app/docs/deployment) · [Going-public checklist](https://askdare.vercel.app/docs/going-public) · [Costs](https://askdare.vercel.app/docs/costs) · [Observability](https://askdare.vercel.app/docs/observability) · [Answer ratings](https://askdare.vercel.app/docs/feedback) · [Privacy](https://askdare.vercel.app/docs/privacy)
 - **Reference:** [Configuration](https://askdare.vercel.app/docs/configuration) · [Troubleshooting](https://askdare.vercel.app/docs/troubleshooting) · [Support matrix](https://askdare.vercel.app/docs/support)
 - **AI coding agents:** `llms.txt` and the `askdare` skill ship in the package ([how to use them](https://askdare.vercel.app/docs/getting-started#working-with-an-ai-coding-agent))
+
+## Add-ons
+
+| Package | What it adds |
+| --- | --- |
+| [`@boldare/askdare-upstash`](https://www.npmjs.com/package/@boldare/askdare-upstash) | Rate limits and budgets shared by every server instance, in Upstash Redis |
+| [`@boldare/askdare-otel`](https://www.npmjs.com/package/@boldare/askdare-otel) | OpenTelemetry spans for every chat turn, following the GenAI conventions |
 
 ## Requirements
 
