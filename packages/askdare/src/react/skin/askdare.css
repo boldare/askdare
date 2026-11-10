@@ -1,11 +1,13 @@
 /*
- * Default skin of the iframe app (ADR-0008). Everything is built on the public styling API:
- * the --ask-* tokens (set per bot by the theme stylesheet), the data-ask-part names, and the
- * variant attributes on <html> (data-ask-avatar, -welcome, -bubbles, -surface, -density,
- * -composer). Library styles live in @layer askdare, so a site's own CSS always wins.
+ * Default skin of the chat (ADR-0008, ADR-0011), in the iframe and inside a page. Everything is
+ * built on the public styling API: the --ask-* tokens (set per bot by the theme stylesheet), the
+ * data-ask-part names, and the variant attributes on the theme root, [data-askdare-root]
+ * (data-ask-avatar, -welcome, -bubbles, -surface, -density, -composer). In the iframe the root is
+ * <html>; frame.css styles the rest of that document. Library styles live in @layer askdare, so a
+ * site's own CSS always wins. No selector reaches outside [data-askdare-root] (skin-css.test.ts).
  */
 @layer askdare {
-  :root {
+  [data-askdare-root] {
     /* Fallback tokens (Aura, light) until the theme stylesheet loads. */
     --ask-color-accent: #6b52e0;
     --ask-color-on-accent: #ffffff;
@@ -37,40 +39,79 @@
     color-scheme: light;
   }
 
-  :root[data-ask-density="compact"] {
+  [data-askdare-root][data-ask-density="compact"] {
     --ask-space: 6px;
   }
 
-  *,
-  *::before,
-  *::after {
+  :where([data-askdare-root], [data-askdare-root] *),
+  :where([data-askdare-root] *)::before,
+  :where([data-askdare-root] *)::after {
     box-sizing: border-box;
   }
 
-  html,
-  body,
-  #askdare-root {
-    height: 100%;
-    margin: 0;
-  }
-
-  body {
-    background: var(--ask-backdrop), var(--ask-color-background);
-    background-color: var(--ask-color-background);
-    color: var(--ask-color-text);
-    font: var(--ask-font-size) / 1.55 var(--ask-font-family);
-    -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
-  }
-
-  button {
+  :where([data-askdare-root]) button {
     font: inherit;
     color: inherit;
   }
 
-  :focus-visible {
+  :where([data-askdare-root]) :focus-visible {
     outline: 2px solid var(--ask-color-accent);
     outline-offset: 2px;
+  }
+
+  /*
+   * Browser defaults the skin relies on, set again with no specificity: inside a page, a CSS reset
+   * such as Tailwind's preflight would take them away. Every other rule wins over these.
+   */
+  :where([data-askdare-root] a) {
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  :where([data-askdare-root] :is(strong, b)) {
+    font-weight: bolder;
+  }
+
+  :where([data-askdare-root] em) {
+    font-style: italic;
+  }
+
+  :where([data-askdare-root] del) {
+    text-decoration: line-through;
+  }
+
+  :where([data-ask-part="bubble"] ul) {
+    list-style-type: disc;
+  }
+
+  :where([data-ask-part="bubble"] ol) {
+    list-style-type: decimal;
+  }
+
+  :where([data-ask-part="bubble"] :is(ul, ol) ul) {
+    list-style-type: circle;
+  }
+
+  :where([data-ask-part="bubble"] :is(ul, ol) :is(ul, ol) ul) {
+    list-style-type: square;
+  }
+
+  :where([data-ask-part="bubble"] h5) {
+    margin-block: 1.67em;
+    font-size: 0.83em;
+    font-weight: bold;
+  }
+
+  :where([data-ask-part="bubble"] h6) {
+    margin-block: 2.33em;
+    font-size: 0.67em;
+    font-weight: bold;
+  }
+
+  :where([data-ask-part="bubble"] hr) {
+    margin: 0.5em auto;
+    border: 1px inset;
+    color: gray;
   }
 
   [data-ask-part="panel"] {
@@ -78,6 +119,13 @@
     display: flex;
     flex-direction: column;
     height: 100%;
+    /* The chat's own surface and type. In the iframe the body has them too; in a page, only this. */
+    background: var(--ask-backdrop), var(--ask-color-background);
+    background-color: var(--ask-color-background);
+    color: var(--ask-color-text);
+    font: var(--ask-font-size) / 1.55 var(--ask-font-family);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
   /* ---------- Header ---------- */
@@ -93,7 +141,7 @@
     background: var(--ask-color-background);
   }
 
-  :root[data-ask-surface="glass"] [data-ask-part="header"] {
+  [data-askdare-root][data-ask-surface="glass"] [data-ask-part="header"] {
     background: color-mix(in srgb, var(--ask-color-background) 55%, transparent);
     backdrop-filter: blur(18px) saturate(150%);
     border-bottom-color: color-mix(in srgb, var(--ask-color-border) 70%, transparent);
@@ -122,7 +170,7 @@
     white-space: nowrap;
   }
 
-  :root[data-ask-welcome="persona"] [data-ask-part="title"] {
+  [data-askdare-root][data-ask-welcome="persona"] [data-ask-part="title"] {
     font-size: 1.15rem;
     font-weight: 300;
     letter-spacing: 0;
@@ -338,7 +386,7 @@
     opacity: 0.6;
   }
 
-  :root[data-ask-surface="glass"]
+  [data-askdare-root][data-ask-surface="glass"]
     [data-ask-part="message"][data-role="assistant"]
     [data-ask-part="bubble"] {
     border: 1px solid color-mix(in srgb, var(--ask-color-background) 60%, transparent);
@@ -347,7 +395,7 @@
     box-shadow: 0 1px 2px color-mix(in srgb, var(--ask-color-text) 5%, transparent);
   }
 
-  :root[data-ask-bubbles="plain"]
+  [data-askdare-root][data-ask-bubbles="plain"]
     [data-ask-part="message"][data-role="assistant"]
     [data-ask-part="bubble"] {
     padding-inline: 0;
@@ -588,7 +636,7 @@
     cursor: default;
   }
 
-  :root[data-ask-surface="glass"] [data-ask-part="starter"] {
+  [data-askdare-root][data-ask-surface="glass"] [data-ask-part="starter"] {
     border-color: color-mix(in srgb, var(--ask-color-background) 70%, var(--ask-color-border));
     background: var(--ask-glass);
     backdrop-filter: blur(12px) saturate(140%);
@@ -692,7 +740,7 @@
     background: var(--ask-color-surface);
   }
 
-  :root[data-ask-surface="glass"] [data-ask-part="intro-card"] {
+  [data-askdare-root][data-ask-surface="glass"] [data-ask-part="intro-card"] {
     border: 1px solid color-mix(in srgb, var(--ask-color-background) 60%, transparent);
     background: var(--ask-glass);
     backdrop-filter: blur(12px) saturate(140%);
@@ -874,20 +922,20 @@
     box-shadow: var(--ask-shadow), var(--ask-ring);
   }
 
-  :root[data-ask-surface="glass"] [data-ask-part="composer-box"] {
+  [data-askdare-root][data-ask-surface="glass"] [data-ask-part="composer-box"] {
     background: color-mix(in srgb, var(--ask-color-background) 78%, transparent);
     backdrop-filter: blur(16px) saturate(150%);
   }
 
   /* A thin iridescent border, painted with the orb's colors. */
-  :root[data-ask-composer="gradient"] [data-ask-part="composer-box"] {
+  [data-askdare-root][data-ask-composer="gradient"] [data-ask-part="composer-box"] {
     border: 1.5px solid transparent;
     background:
       linear-gradient(var(--ask-color-background), var(--ask-color-background)) padding-box,
       var(--ask-orb) border-box;
   }
 
-  :root[data-ask-composer="gradient"] [data-ask-part="composer-box"]:focus-within {
+  [data-askdare-root][data-ask-composer="gradient"] [data-ask-part="composer-box"]:focus-within {
     border-color: transparent;
   }
 
@@ -1169,13 +1217,15 @@
    * the same means a site has in widget.css. */
 
   /* Aura and Halo: suggestions as pills that wrap around the center. */
-  :root:is([data-ask-preset="aura"], [data-ask-preset="halo"]) [data-ask-part="starters"] {
+  [data-askdare-root]:is([data-ask-preset="aura"], [data-ask-preset="halo"])
+    [data-ask-part="starters"] {
     flex-flow: row wrap;
     justify-content: center;
     gap: 8px;
   }
 
-  :root:is([data-ask-preset="aura"], [data-ask-preset="halo"]) [data-ask-part="starter"] {
+  [data-askdare-root]:is([data-ask-preset="aura"], [data-ask-preset="halo"])
+    [data-ask-part="starter"] {
     width: auto;
     padding: 7px 14px 7px 11px;
     border-radius: 999px;
@@ -1183,12 +1233,13 @@
   }
 
   /* Aura: a glossy bubble above its own reflection, a two-weight headline, a card composer. */
-  :root[data-ask-preset="aura"] [data-ask-part="welcome"][data-layout="hero"] {
+  [data-askdare-root][data-ask-preset="aura"] [data-ask-part="welcome"][data-layout="hero"] {
     position: relative;
     isolation: isolate;
   }
 
-  :root[data-ask-preset="aura"] [data-ask-part="welcome"][data-layout="hero"]::before {
+  [data-askdare-root][data-ask-preset="aura"]
+    [data-ask-part="welcome"][data-layout="hero"]::before {
     content: "";
     position: absolute;
     inset: -6% 0 34%;
@@ -1204,7 +1255,7 @@
     pointer-events: none;
   }
 
-  :root[data-ask-preset="aura"]
+  [data-askdare-root][data-ask-preset="aura"]
     [data-ask-part="welcome"][data-layout="hero"]
     [data-ask-part="avatar"][data-size="large"] {
     width: 116px;
@@ -1214,14 +1265,14 @@
     -webkit-box-reflect: below 6px linear-gradient(transparent 52%, rgb(255 255 255 / 0.42));
   }
 
-  :root[data-ask-preset="aura"] [data-ask-part="orb"] {
+  [data-askdare-root][data-ask-preset="aura"] [data-ask-part="orb"] {
     box-shadow:
       inset 0 -10px 22px rgb(255 255 255 / 0.35),
       inset 0 8px 16px rgb(255 255 255 / 0.65),
       inset 0 0 0 1px rgb(255 255 255 / 0.5);
   }
 
-  :root[data-ask-preset="aura"]
+  [data-askdare-root][data-ask-preset="aura"]
     [data-ask-part="welcome"][data-layout="hero"]
     [data-ask-part="greeting"] {
     max-width: 320px;
@@ -1232,66 +1283,69 @@
 
   /* Without **bold** words the headline stays in one weight. Only the large hero headline may
      be this pale; elsewhere the greeting is body text and keeps full contrast. */
-  :root[data-ask-preset="aura"] [data-layout="hero"] [data-ask-part="greeting"]:has(strong) {
+  [data-askdare-root][data-ask-preset="aura"]
+    [data-layout="hero"]
+    [data-ask-part="greeting"]:has(strong) {
     color: color-mix(in srgb, var(--ask-color-text) 58%, var(--ask-color-background));
     font-weight: 500;
   }
 
-  :root[data-ask-preset="aura"] [data-ask-part="greeting"] strong {
+  [data-askdare-root][data-ask-preset="aura"] [data-ask-part="greeting"] strong {
     color: var(--ask-color-text);
     font-weight: 700;
   }
 
-  :root[data-ask-preset="aura"] [data-ask-part="starter"] {
+  [data-askdare-root][data-ask-preset="aura"] [data-ask-part="starter"] {
     background: var(--ask-color-background);
     backdrop-filter: none;
   }
 
   /* Raspberry into violet. The dark scheme's accent is light, so there the gradient ends on a
      deeper shade of it, keeping white text readable (see contrast.test.ts). */
-  :root[data-ask-preset="aura"] {
+  [data-askdare-root][data-ask-preset="aura"] {
     --ask-aura-gradient-end: var(--ask-color-accent);
   }
 
-  :root[data-ask-preset="aura"][data-ask-scheme="dark"] {
+  [data-askdare-root][data-ask-preset="aura"][data-ask-scheme="dark"] {
     --ask-aura-gradient-end: color-mix(in srgb, var(--ask-color-accent) 55%, #000);
   }
 
   @media (prefers-color-scheme: dark) {
-    :root[data-ask-preset="aura"][data-ask-scheme="auto"] {
+    [data-askdare-root][data-ask-preset="aura"][data-ask-scheme="auto"] {
       --ask-aura-gradient-end: color-mix(in srgb, var(--ask-color-accent) 55%, #000);
     }
   }
 
-  :root[data-ask-preset="aura"]
+  [data-askdare-root][data-ask-preset="aura"]
     [data-ask-part="message"][data-role="user"]
     [data-ask-part="bubble"],
-  :root[data-ask-preset="aura"] [data-ask-part="send"] {
+  [data-askdare-root][data-ask-preset="aura"] [data-ask-part="send"] {
     background: linear-gradient(115deg, var(--ask-color-user-bubble), var(--ask-aura-gradient-end));
     color: var(--ask-color-on-user-bubble);
   }
 
-  :root[data-ask-preset="aura"]
+  [data-askdare-root][data-ask-preset="aura"]
     [data-ask-part="message"][data-role="user"]
     [data-ask-part="bubble"] {
     border-radius: 20px 20px 6px;
   }
 
-  :root[data-ask-preset="aura"] [data-ask-part="composer-box"] {
+  [data-askdare-root][data-ask-preset="aura"] [data-ask-part="composer-box"] {
     flex-wrap: wrap;
     align-items: center;
     padding: 10px 10px 8px;
     border-radius: 22px;
   }
 
-  :root[data-ask-preset="aura"] [data-ask-part="input"] {
+  [data-askdare-root][data-ask-preset="aura"] [data-ask-part="input"] {
     flex: 1 0 100%;
     order: -1;
     min-height: 44px;
     padding: 4px 8px 6px;
   }
 
-  :root[data-ask-preset="aura"] :is([data-ask-part="attach"], [data-ask-part="voice"]) {
+  [data-askdare-root][data-ask-preset="aura"]
+    :is([data-ask-part="attach"], [data-ask-part="voice"]) {
     width: 34px;
     height: 32px;
     border: 1px solid var(--ask-color-border);
@@ -1300,12 +1354,12 @@
   }
 
   /* Voice and send sit right; without voice, send does. */
-  :root[data-ask-preset="aura"]
+  [data-askdare-root][data-ask-preset="aura"]
     :is([data-ask-part="voice"], [data-ask-part="send"]:not([data-ask-part="voice"] ~ *)) {
     margin-left: auto;
   }
 
-  :root[data-ask-preset="aura"] [data-ask-part="send"] {
+  [data-askdare-root][data-ask-preset="aura"] [data-ask-part="send"] {
     display: inline-flex;
     gap: 6px;
     width: auto;
@@ -1314,19 +1368,19 @@
     border-radius: 999px;
   }
 
-  :root[data-ask-preset="aura"] [data-ask-part="send"] svg {
+  [data-askdare-root][data-ask-preset="aura"] [data-ask-part="send"] svg {
     width: 16px;
     height: 16px;
   }
 
-  :root[data-ask-preset="aura"] [data-ask-part="send-label"] {
+  [data-askdare-root][data-ask-preset="aura"] [data-ask-part="send-label"] {
     display: inline;
     font-size: 0.82rem;
     font-weight: 600;
   }
 
   /* Halo: a frosted orb in rings of light, a bold question, a round field with a soft blue mic. */
-  :root[data-ask-preset="halo"]
+  [data-askdare-root][data-ask-preset="halo"]
     [data-ask-part="welcome"][data-layout="hero"]
     [data-ask-part="avatar"][data-size="large"] {
     width: 104px;
@@ -1340,14 +1394,14 @@
     filter: none;
   }
 
-  :root[data-ask-preset="halo"] [data-ask-part="orb"] {
+  [data-askdare-root][data-ask-preset="halo"] [data-ask-part="orb"] {
     box-shadow:
       inset 0 0 0 2px rgb(255 255 255 / 0.55),
       inset 0 -12px 24px color-mix(in srgb, var(--ask-color-accent) 35%, transparent),
       inset 0 10px 18px rgb(255 255 255 / 0.7);
   }
 
-  :root[data-ask-preset="halo"]
+  [data-askdare-root][data-ask-preset="halo"]
     [data-ask-part="welcome"][data-layout="hero"]
     [data-ask-part="greeting"] {
     font-size: 1.7rem;
@@ -1355,32 +1409,32 @@
     letter-spacing: -0.035em;
   }
 
-  :root[data-ask-preset="halo"]
+  [data-askdare-root][data-ask-preset="halo"]
     [data-ask-part="message"][data-role="user"]
     [data-ask-part="bubble"] {
     border-radius: 18px 18px 6px;
   }
 
-  :root[data-ask-preset="halo"] [data-ask-part="composer-box"] {
+  [data-askdare-root][data-ask-preset="halo"] [data-ask-part="composer-box"] {
     align-items: center;
     padding: 6px 6px 6px 10px;
     border-radius: 999px;
     box-shadow: 0 10px 30px -14px color-mix(in srgb, var(--ask-color-accent) 45%, transparent);
   }
 
-  :root[data-ask-preset="halo"] :is([data-ask-part="voice"], [data-ask-part="send"]) {
+  [data-askdare-root][data-ask-preset="halo"] :is([data-ask-part="voice"], [data-ask-part="send"]) {
     width: 40px;
     height: 40px;
     background: color-mix(in srgb, var(--ask-color-accent) 15%, var(--ask-color-background));
     color: var(--ask-color-accent);
   }
 
-  :root[data-ask-preset="halo"] [data-ask-part="input"] {
+  [data-askdare-root][data-ask-preset="halo"] [data-ask-part="input"] {
     align-self: center;
   }
 
   /* Sage: light type, a mint bubble for the assistant, black pills, the mic beside the field. */
-  :root[data-ask-preset="sage"] [data-ask-part="welcome"][data-layout="persona"] {
+  [data-askdare-root][data-ask-preset="sage"] [data-ask-part="welcome"][data-layout="persona"] {
     padding: calc(var(--ask-space) * 2.25);
     border: 1px solid var(--ask-color-border);
     border-radius: 26px;
@@ -1392,12 +1446,12 @@
     box-shadow: var(--ask-shadow);
   }
 
-  :root[data-ask-preset="sage"] [data-ask-part="persona"] {
+  [data-askdare-root][data-ask-preset="sage"] [data-ask-part="persona"] {
     flex-direction: row-reverse;
     justify-content: space-between;
   }
 
-  :root[data-ask-preset="sage"]
+  [data-askdare-root][data-ask-preset="sage"]
     [data-ask-part="welcome"]
     [data-ask-part="persona"]
     [data-ask-part="avatar"][data-size="large"] {
@@ -1406,7 +1460,7 @@
     border-radius: 50%;
   }
 
-  :root[data-ask-preset="sage"] [data-ask-part="persona-name"] {
+  [data-askdare-root][data-ask-preset="sage"] [data-ask-part="persona-name"] {
     order: 2;
     margin: 10px 0 0;
     font-size: 1.9rem;
@@ -1414,13 +1468,13 @@
     letter-spacing: -0.03em;
   }
 
-  :root[data-ask-preset="sage"] [data-ask-part="persona"] > div {
+  [data-askdare-root][data-ask-preset="sage"] [data-ask-part="persona"] > div {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
   }
 
-  :root[data-ask-preset="sage"] [data-ask-part="presence"] {
+  [data-askdare-root][data-ask-preset="sage"] [data-ask-part="presence"] {
     padding: 3px 10px 3px 8px;
     border-color: transparent;
     background: var(--ask-color-background);
@@ -1428,59 +1482,60 @@
     color: var(--ask-color-text);
   }
 
-  :root[data-ask-preset="sage"]
+  [data-askdare-root][data-ask-preset="sage"]
     [data-ask-part="welcome"][data-layout="persona"]
     [data-ask-part="greeting"] {
     color: var(--ask-color-muted);
     font-weight: 300;
   }
 
-  :root[data-ask-preset="sage"] [data-ask-part="starters"] {
+  [data-askdare-root][data-ask-preset="sage"] [data-ask-part="starters"] {
     flex-flow: row wrap;
     gap: 8px;
   }
 
-  :root[data-ask-preset="sage"] [data-ask-part="starter"] {
+  [data-askdare-root][data-ask-preset="sage"] [data-ask-part="starter"] {
     width: auto;
     padding: 8px 16px;
     border-radius: 999px;
     font-size: 0.85rem;
   }
 
-  :root[data-ask-preset="sage"] [data-ask-part="starter"] svg {
+  [data-askdare-root][data-ask-preset="sage"] [data-ask-part="starter"] svg {
     display: none;
   }
 
-  :root[data-ask-preset="sage"] li:first-child > [data-ask-part="starter"] {
+  [data-askdare-root][data-ask-preset="sage"] li:first-child > [data-ask-part="starter"] {
     border-color: var(--ask-color-accent);
     background: var(--ask-color-accent);
     color: var(--ask-color-on-accent);
   }
 
-  :root[data-ask-preset="sage"]
+  [data-askdare-root][data-ask-preset="sage"]
     [data-ask-part="message"][data-role="user"]
     [data-ask-part="bubble"] {
     border: 1px solid var(--ask-color-border);
     box-shadow: 0 1px 2px color-mix(in srgb, var(--ask-color-text) 6%, transparent);
   }
 
-  :root[data-ask-preset="sage"] [data-ask-part="composer-box"] {
+  [data-askdare-root][data-ask-preset="sage"] [data-ask-part="composer-box"] {
     position: relative;
     align-items: center;
     padding: 6px 6px 6px 8px;
     border-radius: 999px;
   }
 
-  :root[data-ask-preset="sage"] [data-ask-part="composer-box"]:has(> [data-ask-part="voice"]) {
+  [data-askdare-root][data-ask-preset="sage"]
+    [data-ask-part="composer-box"]:has(> [data-ask-part="voice"]) {
     margin-right: 54px;
   }
 
-  :root[data-ask-preset="sage"] [data-ask-part="send"] {
+  [data-askdare-root][data-ask-preset="sage"] [data-ask-part="send"] {
     width: 40px;
     height: 40px;
   }
 
-  :root[data-ask-preset="sage"] [data-ask-part="voice"] {
+  [data-askdare-root][data-ask-preset="sage"] [data-ask-part="voice"] {
     position: absolute;
     top: 50%;
     right: -54px;
@@ -1494,10 +1549,10 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    /* Reduced motion has to beat every animation, including a site's own. */
-    *,
-    *::before,
-    *::after {
+    /* Reduced motion has to beat every animation in the chat, including a site's own. */
+    :where([data-askdare-root], [data-askdare-root] *),
+    :where([data-askdare-root] *)::before,
+    :where([data-askdare-root] *)::after {
       /* biome-ignore lint/complexity/noImportantStyles: see above */
       animation: none !important;
       /* biome-ignore lint/complexity/noImportantStyles: see above */
