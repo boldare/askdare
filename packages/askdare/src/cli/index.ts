@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { createRequire } from 'node:module';
 import { parseArgs } from 'node:util';
+import { isBasePath } from '../base-path';
 import { AddUiError, addUi } from './add-ui';
 import { doctor, isLocal } from './doctor';
 import { InitError, init } from './init';
@@ -122,7 +123,7 @@ async function runDoctor(args: readonly string[]): Promise<number> {
     // The doctor token is signed with CHAT_SECRET; it must not cross the network in the clear.
     throw new UsageError('--url must use https (plain http only for localhost).');
   }
-  if (!/^(\/[a-zA-Z0-9._~-]+)+$/.test(values['base-path'])) {
+  if (!isBasePath(values['base-path'])) {
     throw new UsageError('--base-path must look like /api/chat.');
   }
   let origin: string | undefined;

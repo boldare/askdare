@@ -28,12 +28,15 @@ export type MessagesProps = ComponentProps<'div'>;
 export function Messages({ ref, ...props }: MessagesProps): ReactElement {
   const own = useRef<HTMLDivElement>(null);
   const loading = useChatState((state) => state.phase === 'loading');
-  const latestText = useChatState((state) => state.messages.at(-1)?.text);
-  // Follow the conversation, including each streamed delta of the latest message.
+  const latest = useChatState((state) => state.messages.at(-1));
+  const commenting = useChatState((state) => state.commenting);
+  // Follow the conversation: each streamed delta of the latest message, what its end adds (such as
+  // the rating buttons), and the question after a 👎.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: commenting changes what is below the latest message
   useEffect(() => {
     const log = own.current;
-    if (log && latestText !== undefined) log.scrollTop = log.scrollHeight;
-  }, [latestText]);
+    if (log && latest) log.scrollTop = log.scrollHeight;
+  }, [latest, commenting]);
   return (
     <div
       data-ask-part="messages"

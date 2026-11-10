@@ -1,3 +1,4 @@
+import { isBasePath } from '../base-path';
 import type { Bot } from '../bot/define-bot';
 import type { ChatConfig } from '../chat/config';
 // Names only: the stylesheets themselves stay out of the page's server bundle.
@@ -32,7 +33,7 @@ export interface ChatConfigOptions {
  */
 export function getChatConfig(options: ChatConfigOptions): ChatConfig {
   const basePath = options.basePath ?? '/api/chat';
-  if (!/^(\/[a-zA-Z0-9._~-]+)+$/.test(basePath)) {
+  if (!isBasePath(basePath)) {
     throw new TypeError(`[askdare] basePath must look like /api/chat, got "${basePath}".`);
   }
   const bot = options.bots.find((candidate) => candidate.id === options.bot);

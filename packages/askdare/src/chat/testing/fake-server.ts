@@ -24,6 +24,10 @@ export interface FakeServerOptions {
   readonly identityKey?: (token: string) => string;
   /** Refuses every rating, as a rate limit would. */
   readonly refuseFeedback?: boolean;
+  /** Decides each rating, in the order they arrive: true accepts it, false refuses it. */
+  readonly feedback?: (body: Record<string, unknown>) => Promise<boolean>;
+  /** Streams the answer's events but ends the stream only on `release()`. */
+  readonly holdAnswer?: boolean;
 }
 
 export interface FakeServer {
@@ -80,7 +84,8 @@ export function fakeServer(options: FakeServerOptions = {}): FakeServer {
           start(controller) {
             controller.enqueue(encoder.encode(encodeComment('ok')));
             for (const event of events) controller.enqueue(encoder.encode(encodeEvent(event)));
-            controller.close();
+            if (options.holdAnswer) void held.then(() => controller.close());
+            else controller.close();
           },
         });
         return new Response(stream, {
@@ -88,7 +93,7 @@ export function fakeServer(options: FakeServerOptions = {}): FakeServer {
         });
       }
       case '/feedback':
-        return options.refuseFeedback
+        return (options.feedback ? !(await options.feedback(body)) : options.refuseFeedback)
           ? Response.json(
               {
                 error: {

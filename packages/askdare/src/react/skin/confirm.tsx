@@ -22,9 +22,12 @@ function trapTab(event: KeyboardEvent<HTMLDivElement>): void {
  * over the conversation, which stays in view.
  */
 export function StartOverQuestion({
+  modal,
   onCancel,
   onAccept,
 }: {
+  /** Modal only when the chat is the whole document; inside a page, the page stays usable. */
+  readonly modal: boolean;
   readonly onCancel: () => void;
   readonly onAccept: () => void;
 }): ReactElement {
@@ -42,7 +45,7 @@ export function StartOverQuestion({
         ref={dialog}
         data-ask-part="confirm"
         role="alertdialog"
-        aria-modal="true"
+        aria-modal={modal || undefined}
         aria-describedby={textId}
         aria-label={t('header.newConversation')}
         onKeyDown={trapTab}

@@ -31,6 +31,8 @@ export function Composer({ onSubmit, ...props }: ComposerProps): ReactElement {
       data-ask-part="composer"
       onSubmit={(event) => {
         onSubmit?.(event);
+        // A handler of yours that prevents the default takes the message over.
+        if (event.defaultPrevented) return;
         event.preventDefault();
         void actions.send();
       }}
@@ -59,7 +61,7 @@ export function Input({ ref, onKeyDown, onPaste, onChange, ...props }: InputProp
 
   useEffect(
     // After a dictation the field is new: the store keeps the request until this one can take it.
-    () => store.onFocus('input', () => focusElement(own)),
+    () => store.onFocus('input', (explicit) => focusElement(own, explicit)),
     [store],
   );
 
@@ -81,11 +83,17 @@ export function Input({ ref, onKeyDown, onPaste, onChange, ...props }: InputProp
         if (event.defaultPrevented) return;
         if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
           event.preventDefault();
-          void actions.send();
+          // Through the Composer's form, so its onSubmit sees Enter like the Send button.
+          const form = event.currentTarget.closest<HTMLFormElement>(
+            'form[data-ask-part="composer"]',
+          );
+          if (form) form.requestSubmit();
+          else void actions.send();
         }
       }}
       onPaste={(event) => {
         onPaste?.(event);
+        if (event.defaultPrevented) return;
         const files = Array.from(event.clipboardData.files);
         if (!bot.attachments || files.length === 0) return;
         event.preventDefault();
@@ -205,7 +213,7 @@ export function Recorder({ cancelIcon = '×', ...props }: RecorderProps): ReactE
   const { state, actions, bot, t } = useChat();
   const { dictation } = state;
 
-  useEffect(() => store.onFocus('dictation', () => focusElement(done)), [store]);
+  useEffect(() => store.onFocus('dictation', (explicit) => focusElement(done, explicit)), [store]);
 
   // Only the level meter follows animation frames, and it is written to the DOM, not rendered.
   useEffect(() => {

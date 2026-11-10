@@ -36,7 +36,7 @@ export interface ChatActions {
   rate(messageId: string, rating: Rating | null, comment?: string): Promise<void>;
   /** Closes the question after 👎 without a comment. */
   dismissComment(): void;
-  /** Moves keyboard focus to the message field. */
+  /** Moves keyboard focus to the message field, wherever focus is now. */
   focus(): void;
 }
 
@@ -58,7 +58,7 @@ export interface ChatStore {
   getServerSnapshot(): ChatState;
   /** Connects the chat: reads storage, signs in, loads the stored conversation. Idempotent. */
   start(options?: StartOptions): void;
-  /** Stops anything live, such as a dictation. `start()` may run again. */
+  /** Stops anything live: the turn being answered, uploads and a dictation. `start()` may run again. */
   stop(): void;
   /** Signs the visitor in with a token from the site's backend, or out with null (ADR-0009). */
   identify(token: string | null): void;
@@ -90,8 +90,12 @@ export interface ChatStoreOptions {
 /** How long a focus request waits for its element to appear, such as the field after a dictation. */
 const FOCUS_WAIT_MS = 2_000;
 
-/** Focuses its element and says whether it could; false when the element is gone. */
-export type FocusListener = () => boolean;
+/**
+ * Focuses its element and says whether it handled the request; false when the element is gone.
+ * `explicit` is a request of the page or the visitor; otherwise the chat follows its own work
+ * (an answer, a transcript) and must not take focus from the page around it.
+ */
+export type FocusListener = (explicit: boolean) => boolean;
 
 /**
  * Where the chat wants focus next. A request stays pending until a listener for its target really
@@ -99,28 +103,30 @@ export type FocusListener = () => boolean;
  * has just unmounted must not swallow the request. Only the latest request is kept.
  */
 export function focusRequests(): {
-  focus(target: FocusTarget): void;
+  focus(target: FocusTarget, explicit?: boolean): void;
   onFocus(target: FocusTarget, listener: FocusListener): () => void;
 } {
   const listeners: Record<FocusTarget, Set<FocusListener>> = {
     input: new Set(),
     dictation: new Set(),
   };
-  let pending: { readonly target: FocusTarget; readonly at: number } | undefined;
-  const deliver = (target: FocusTarget): boolean => {
+  let pending:
+    | { readonly target: FocusTarget; readonly explicit: boolean; readonly at: number }
+    | undefined;
+  const deliver = (target: FocusTarget, explicit: boolean): boolean => {
     let taken = false;
-    for (const listener of listeners[target]) taken = listener() || taken;
+    for (const listener of listeners[target]) taken = listener(explicit) || taken;
     return taken;
   };
   return {
-    focus(target) {
-      pending = deliver(target) ? undefined : { target, at: Date.now() };
+    focus(target, explicit = false) {
+      pending = deliver(target, explicit) ? undefined : { target, explicit, at: Date.now() };
     },
     onFocus(target, listener) {
       listeners[target].add(listener);
       // Only while it is fresh: an element that appears much later must not grab focus.
       const fresh = pending?.target === target && Date.now() - pending.at < FOCUS_WAIT_MS;
-      if (fresh && listener()) pending = undefined;
+      if (fresh && listener(pending?.explicit ?? false)) pending = undefined;
       return () => listeners[target].delete(listener);
     },
   };
@@ -192,6 +198,16 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
   let loaded = false;
   let identities = Promise.resolve();
   let history: AbortController | undefined;
+  /** The turn being answered, aborted when the chat stops. */
+  let turn: AbortController | undefined;
+  /**
+   * Per rating key: what the server confirmed, and the latest request. Ratings of one answer go out
+   * one at a time, so the server ends with the latest that succeeded and a failure rolls back to it.
+   */
+  const rated = new Map<
+    string,
+    { confirmed: Rating | undefined; latest: number; queue: Promise<unknown> }
+  >();
   /** In-flight uploads by pending file key, cancelled when the file is removed. */
   const uploads = new Map<string, AbortController>();
 
@@ -331,15 +347,27 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
         ],
       });
       const context = config.pageContext ? state.page.context : undefined;
-      await client.send({ text, attachments: handles, context }, (event) => {
-        const next = activityFor(event, t);
-        if (next !== undefined) set({ activity: next });
-        if (event.type === 'error') {
-          set({ error: event.message, messages: failStreaming(state.messages) });
-          return;
-        }
-        set({ messages: applyEvent(state.messages, event) });
-      });
+      const controller = new AbortController();
+      turn = controller;
+      await client.send(
+        { text, attachments: handles, context },
+        (event) => {
+          const next = activityFor(event, t);
+          if (next !== undefined) set({ activity: next });
+          if (event.type === 'error') {
+            set({ error: event.message, messages: failStreaming(state.messages) });
+            return;
+          }
+          set({ messages: applyEvent(state.messages, event) });
+        },
+        controller.signal,
+      );
+      if (turn === controller) turn = undefined;
+      if (controller.signal.aborted) {
+        // The chat stopped mid-answer: nothing streams into it any more.
+        set({ activity: null, busy: false, messages: failStreaming(state.messages) });
+        return;
+      }
       set({ activity: null, busy: false });
       focus('input');
     },
@@ -364,7 +392,8 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
     },
 
     async startDictation() {
-      if (!voice || recording || starting) return;
+      // Not while the last dictation is still being transcribed: its result would end this one.
+      if (!voice || recording || starting || state.dictation !== 'idle') return;
       set({ error: undefined });
       starting = true;
       let started: Recording;
@@ -437,29 +466,46 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
     async rate(messageId, rating, comment) {
       const feedback = state.messages.find((message) => message.id === messageId)?.feedback;
       if (!feedback) return;
-      const before = state.ratings[feedback.key];
+      const { key } = feedback;
+      const before = state.ratings[key];
       const text = comment?.trim().slice(0, MAX_COMMENT);
+      const commented = rating === 'down' && Boolean(text);
       const ratings = (value: Rating | null | undefined): ChatState['ratings'] => {
-        const { [feedback.key]: _previous, ...others } = state.ratings;
-        return value ? { ...others, [feedback.key]: value } : others;
+        const { [key]: _previous, ...others } = state.ratings;
+        return value ? { ...others, [key]: value } : others;
       };
+      const entry = rated.get(key) ?? { confirmed: before, latest: 0, queue: Promise.resolve() };
+      rated.set(key, entry);
+      const request = ++entry.latest;
       // Shown at once; taken back if the server refuses it.
       set({
         ratings: ratings(rating),
         error: undefined,
-        // A fresh 👎 asks what went wrong; a comment, or any other rating, ends the question.
-        commenting: rating === 'down' && !text && before !== 'down' ? messageId : undefined,
+        // A fresh 👎 asks what went wrong, and the question stays open until its comment is sent;
+        // any other rating ends it.
+        commenting: commented || (rating === 'down' && before !== 'down') ? messageId : undefined,
       });
-      const problem = await client.rate(
-        feedback.handle,
-        rating,
-        rating === null ? undefined : text,
+      const sent = entry.queue.then(() =>
+        client.rate(feedback.handle, rating, rating === null ? undefined : text),
       );
-      if (problem) {
-        set({ ratings: ratings(before), error: problem, commenting: undefined });
-        return;
+      entry.queue = sent;
+      const problem = await sent;
+      if (!problem) {
+        entry.confirmed = rating ?? undefined;
+        client.rememberRating(key, rating);
       }
-      client.rememberRating(feedback.key, rating);
+      // A later rating of the same answer decides what the chat shows.
+      if (entry.latest !== request) return;
+      if (problem) {
+        // A comment that didn't go out stays in its form, so the visitor can send it again.
+        set({
+          ratings: ratings(entry.confirmed),
+          error: problem,
+          ...(commented ? {} : { commenting: undefined }),
+        });
+      } else if (commented && state.commenting === messageId) {
+        set({ commenting: undefined });
+      }
     },
 
     dismissComment() {
@@ -467,7 +513,7 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
     },
 
     focus() {
-      focus('input');
+      focus('input', true);
     },
   };
 
@@ -516,7 +562,14 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
       document.removeEventListener('visibilitychange', onVisibility);
       history?.abort();
       history = undefined;
+      turn?.abort();
+      turn = undefined;
       discardRecording();
+      // Uploads still running stop with their files; files already uploaded stay for the next run.
+      if (uploads.size > 0) {
+        cancelUploads(uploads.keys());
+        set({ files: state.files.filter((file) => file.status !== 'uploading') });
+      }
     },
 
     identify(token) {

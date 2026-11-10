@@ -112,7 +112,7 @@ export function HelpChat() {
 }
 ```
 
-The chat doesn't take focus or scroll to itself when the page loads. Escape pressed outside the chat is left to your page.
+The chat doesn't take focus or scroll to itself when the page loads. When an answer or a transcript arrives, it returns focus to the message field only if focus was in the chat or nowhere, never from your page's own fields, and without scrolling. `actions.focus()` always moves it. Escape pressed outside the chat is left to your page.
 
 ## Your own markup
 
@@ -174,8 +174,8 @@ Without `Theme` and `DefaultChat`, no stylesheet of the chat loads: the look is 
 | `Citations` | `ol` | The answer's sources. |
 | `MessageFiles` | `ul` or `p` | The files sent with a message. |
 | `FeedbackButton` | `button` | Rates the answer; takes `rating="up"` or `"down"`. See [Answer ratings](feedback.md). |
-| `Composer` | `form` | Submitting it sends the draft. |
-| `Input` | `textarea` | The message field: Enter sends, Shift+Enter starts a new line, pasted files are attached. |
+| `Composer` | `form` | Submitting it sends the draft, Enter in the `Input` included. An `onSubmit` of yours that calls `event.preventDefault()` takes the message over. |
+| `Input` | `textarea` | The message field: Enter sends, Shift+Enter starts a new line, pasted files are attached. Your `onKeyDown` or `onPaste` can prevent either. |
 | `Send` | `button` | Sends; disabled until there is something to send. |
 | `AttachButton` | `button` | Opens the file picker. Renders nothing when the bot takes no attachments. |
 | `Files` | `ul` | The files picked for the next message. |

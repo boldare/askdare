@@ -17,7 +17,8 @@ export interface DefaultChatProps extends DefaultPanelProps {
 /** The chat with this folder's look: `<Root config={config}><DefaultChat className="…" /></Root>`. */
 export function DefaultChat({ className, colorScheme, ...panel }: DefaultChatProps): ReactElement {
   return (
-    <Theme className={className} colorScheme={colorScheme}>
+    // data-ask-skin: the skin's rules reach only inside this element, never a headless chat.
+    <Theme className={className} colorScheme={colorScheme} data-ask-skin="">
       <DefaultPanel {...panel} />
     </Theme>
   );

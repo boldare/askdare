@@ -1,5 +1,6 @@
-import { FeedbackButton, useChat, useMessage } from '@boldare/askdare/react';
+import { FeedbackButton, useChat, useChatState, useMessage } from '@boldare/askdare/react';
 import { type FormEvent, type ReactElement, useEffect, useId, useRef, useState } from 'react';
+import { useSkin } from './context';
 import { ThumbDownIcon, ThumbUpIcon } from './icons';
 
 /** As the server's limit. */
@@ -10,14 +11,20 @@ function Comment(): ReactElement {
   const message = useMessage();
   const { actions, t } = useChat();
   const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
   const field = useRef<HTMLTextAreaElement>(null);
   const fieldId = useId();
   // The visitor just pressed 👎: they can type right away.
   useEffect(() => field.current?.focus(), []);
   const onSubmit = (event: FormEvent): void => {
     event.preventDefault();
-    if (text.trim()) void actions.rate(message.id, 'down', text);
-    else actions.dismissComment();
+    if (!text.trim()) {
+      actions.dismissComment();
+      return;
+    }
+    // The form stays until the comment is sent; if it isn't, the text is still here to retry.
+    setSending(true);
+    void actions.rate(message.id, 'down', text).finally(() => setSending(false));
   };
   return (
     <form data-ask-part="feedback-comment" onSubmit={onSubmit}>
@@ -35,7 +42,11 @@ function Comment(): ReactElement {
         <button type="button" data-ask-part="feedback-skip" onClick={actions.dismissComment}>
           {t('feedback.skip')}
         </button>
-        <button type="submit" data-ask-part="feedback-send" disabled={text.trim() === ''}>
+        <button
+          type="submit"
+          data-ask-part="feedback-send"
+          disabled={sending || text.trim() === ''}
+        >
           {t('feedback.send')}
         </button>
       </div>
@@ -46,7 +57,8 @@ function Comment(): ReactElement {
 /** 👍 and 👎 under an answer that can be rated, and the question after a 👎. */
 export function Feedback(): ReactElement | null {
   const message = useMessage();
-  const { state, t } = useChat();
+  const { t } = useSkin();
+  const commenting = useChatState((state) => state.commenting === message.id);
   if (!message.feedback || message.role !== 'assistant' || message.status !== 'done') return null;
   return (
     <>
@@ -59,7 +71,7 @@ export function Feedback(): ReactElement | null {
           <ThumbDownIcon />
         </FeedbackButton>
       </div>
-      {state.commenting === message.id && <Comment />}
+      {commenting && <Comment />}
     </>
   );
 }
