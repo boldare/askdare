@@ -15,7 +15,8 @@ metadata:
 > **Overrides for the askdare repository.** These take precedence over everything below.
 > - **Write DOM, not React Native.** Translate React Native examples (`TextInput`, `onChangeText`, `Button onPress`) to DOM elements.
 > - **Guard nullable contexts.** Read a context created with `createContext<T | null>(null)` through a hook that throws a clear error outside its provider; never destructure it unchecked.
-> - **Use named exports for compound components** (or `export * as`), not a `const Foo = { … }` object. Dot access on an object fails across the `'use client'` boundary.
+> - **Use flat named exports for compound components** (`Root`, `Message`, `Composer`), and let users write `import * as Chat from '…'`. Don't use `export * as Chat` (it breaks in React Server Components) or a `const Chat = { … }` object (dot access fails across the `'use client'` boundary). See ADR-0011.
+> - **Read context with `useContext`, never `use()`.** The primitives also compile with Preact 11 for the iframe, which has no `use()`. `ref` as a prop (no `forwardRef`) works in both and is tested.
 
 # React Composition Patterns
 

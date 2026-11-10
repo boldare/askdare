@@ -50,5 +50,7 @@ v1 used an iframe, but it had a broken script API, `postMessage('*')` and no ori
 ## Alternatives considered
 
 - **Web component in the host page.** Rejected: host CSS and fonts leak in, the host CSP must allow our API, and CORS is required.
-- **Embed page rendered inside the user's Next app.** Rejected for 0.1: the host layout and proxy can break it. It returns in 0.2 as an opt-in `embedPath`.
+- **Embed page rendered inside the user's Next app.** Rejected for 0.1: the host layout and proxy can break it. It was planned for 0.2 as an opt-in `embedPath`.
+
+  Update (2026-11-10): `embedPath` moves to 0.3. 0.2 adds the chat inside a page of the same app instead ([ADR-0011](0011-react-api-and-inline-chat.md)), and `embedPath` builds on its primitives.
 - **npm React component only.** Rejected: it doesn't serve non-React hosts.
