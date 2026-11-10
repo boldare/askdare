@@ -6,7 +6,8 @@ import { App } from './app';
 import { bindBridge } from './bind-bridge';
 import { FIXTURES } from './gallery';
 import { connectToHost } from './host-bridge';
-import './styles.css';
+import '../react/skin/askdare.css';
+import './frame.css';
 
 function readConfig(): EmbedConfig {
   const element = document.getElementById('askdare-config');

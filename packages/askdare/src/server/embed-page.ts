@@ -166,7 +166,8 @@ export function renderEmbedPage(
     '<!doctype html>',
     // The language the interface is written in: English for a locale without a dictionary or
     // a translation of the operator's.
-    `<html lang="${escapeHtml(lang)}"${attributes}>`,
+    // The theme root (ADR-0011): the skin scopes every rule to [data-askdare-root].
+    `<html lang="${escapeHtml(lang)}" data-askdare-root${attributes}>`,
     '<head>',
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">',

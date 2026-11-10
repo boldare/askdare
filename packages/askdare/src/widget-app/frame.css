@@ -1,0 +1,22 @@
+/*
+ * The iframe's own document around the skin (react/skin/askdare.css). A chat inside a page has
+ * no such document, so these rules exist only here (ADR-0011). <html> carries data-askdare-root
+ * and the theme's variant attributes.
+ */
+@layer askdare {
+  html,
+  body,
+  #askdare-root {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    background: var(--ask-backdrop), var(--ask-color-background);
+    background-color: var(--ask-color-background);
+    color: var(--ask-color-text);
+    font: var(--ask-font-size) / 1.55 var(--ask-font-family);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+}
