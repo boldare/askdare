@@ -2,37 +2,22 @@ import {
   type ClipboardEvent,
   type FormEvent,
   type KeyboardEvent,
-  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
-import { type ChatClient, SessionRefused } from '../chat/chat-client';
-import type { Fixture } from '../chat/fixture-store';
-import type { PageOptions } from '../chat/page-options';
-import { acceptTypes, prepareFile } from '../chat/prepare-file';
-import { canRecord, MicrophoneError, type Recording, startRecording } from '../chat/recorder';
-import {
-  activityFor,
-  applyEvent,
-  failStreaming,
-  fromHistory,
-  type Translate,
-  translator,
-} from '../chat/reducer';
-import type { ChatMessage, PendingFile, SentFile } from '../chat/state';
+import { acceptTypes } from '../chat/prepare-file';
+import type { Translate } from '../chat/reducer';
+import { type ChatMessage, canSend, type PendingFile, type SentFile } from '../chat/state';
+import type { ChatStore } from '../chat/store';
 import { pluralText } from '../i18n/format';
-import type { TextKey } from '../i18n/texts';
-import type { EmbedConfig } from '../server/embed-page';
 import type { HostBridge } from './host-bridge';
 import { AttachIcon, CloseIcon, MicIcon, RestartIcon, SendIcon } from './icons';
 import { Markdown } from './markdown';
 import { Avatar, Welcome } from './welcome';
-
-const megabytes = (bytes: number): string => `${Math.floor(bytes / 100_000) / 10} MB`;
 
 /** False for an assistant message that ended (or failed) before any text, files or sources. */
 const hasContent = (message: ChatMessage): boolean =>
@@ -49,16 +34,6 @@ function fitToContent(field: HTMLTextAreaElement): void {
 
 const clock = (seconds: number): string =>
   `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
-
-const MICROPHONE_MESSAGES: Readonly<Record<MicrophoneError['reason'], TextKey>> = {
-  blocked: 'microphone.blocked',
-  missing: 'microphone.missing',
-  failed: 'microphone.failed',
-};
-
-function revokePreviews(files: readonly { readonly previewUrl?: string | undefined }[]): void {
-  for (const file of files) if (file.previewUrl) URL.revokeObjectURL(file.previewUrl);
-}
 
 function FileList({
   files,
@@ -116,35 +91,24 @@ function FileList({
 }
 
 export interface AppProps {
-  readonly config: EmbedConfig;
-  readonly client: ChatClient;
+  readonly store: ChatStore;
   readonly bridge: HostBridge;
   /** Inside an element of the host page (data-mode="inline"): no close button. */
   readonly inline?: boolean;
-  readonly fixture?: Fixture | undefined;
 }
 
-let localId = 0;
-const nextLocalId = (): string => `local_${++localId}`;
-
-export function App({ config, client, bridge, fixture, inline = false }: AppProps) {
-  const [page, setPage] = useState<PageOptions>({});
-  useEffect(() => bridge.onConfigure(setPage), [bridge]);
+export function App({ store, bridge, inline = false }: AppProps) {
+  const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot);
+  const { config, actions, t } = store;
+  const { messages, draft, busy, error, activity, dictation, elapsed, page } = state;
+  const pending = state.files;
+  const loading = state.phase === 'loading';
   // The host page may set a greeting and suggestions per page (askdare('configure')).
   const widget = {
     ...config.widget,
     ...(page.greeting ? { greeting: page.greeting } : {}),
     ...(page.starters ? { starters: page.starters } : {}),
   };
-  // Stable, so effects can use it: the texts never change while the chat is open.
-  const t = useMemo(() => translator(widget.texts), [widget.texts]);
-  const [messages, setMessages] = useState<readonly ChatMessage[]>(fixture?.messages ?? []);
-  const [draft, setDraft] = useState(fixture?.draft ?? '');
-  const [busy, setBusy] = useState(fixture?.busy ?? false);
-  const [loading, setLoading] = useState(() => !fixture && client.hasConversation());
-  const [error, setError] = useState<string | undefined>(fixture?.error);
-  const [activity, setActivity] = useState<string | null>(fixture?.activity ?? null);
-  const [pending, setPending] = useState<readonly PendingFile[]>(fixture?.pending ?? []);
   const [dragging, setDragging] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -157,20 +121,8 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
   const confirmTextId = useId();
   const fileRef = useRef<HTMLInputElement>(null);
   const voice = config.voice;
-  const [voiceAvailable] = useState(() => voice !== undefined && (!!fixture || canRecord()));
-  const [dictation, setDictation] = useState<'idle' | 'recording' | 'transcribing'>(
-    fixture?.dictation ?? 'idle',
-  );
-  const [elapsed, setElapsed] = useState(fixture?.elapsed ?? 0);
-  const recordingRef = useRef<Recording | undefined>(undefined);
-  /** Set while the browser asks for the microphone, so a double click starts one recording. */
-  const startingRef = useRef(false);
-  /** Ends the dictation at maxSeconds; a timer, because animation frames stop in hidden frames. */
-  const limitRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const levelRef = useRef<HTMLSpanElement>(null);
   const doneRef = useRef<HTMLButtonElement>(null);
-  /** In-flight uploads by pending file key, cancelled when the file is removed. */
-  const uploads = useRef(new Map<string, AbortController>());
   const allowed = config.attachments;
 
   // Fit the field to its text whenever it changes, typed or not (a transcript, a restored draft).
@@ -179,13 +131,26 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
     if (inputRef.current && dictation === 'idle') fitToContent(inputRef.current);
   }, [draft, dictation]);
 
-  /** Stops a dictation and throws the audio away. Stable, so effects can depend on it. */
-  const discardRecording = useCallback((): void => {
-    clearTimeout(limitRef.current);
-    recordingRef.current?.cancel();
-    recordingRef.current = undefined;
-    setDictation('idle');
-  }, []);
+  // The store says where focus goes after sending, dictating or starting over.
+  useEffect(
+    () =>
+      store.onFocus((target) => {
+        const element = target === 'dictation' ? doneRef : inputRef;
+        requestAnimationFrame(() => element.current?.focus());
+      }),
+    [store],
+  );
+
+  // Only the level meter follows animation frames, and it is written to the DOM, not rendered.
+  useEffect(() => {
+    if (dictation !== 'recording') return;
+    let frame = requestAnimationFrame(function tick() {
+      const level = store.level();
+      if (level !== undefined) levelRef.current?.style.setProperty('--ask-level', level.toFixed(3));
+      frame = requestAnimationFrame(tick);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [dictation, store]);
 
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent): void => {
@@ -197,88 +162,17 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
         return;
       }
       // While dictating, Escape cancels the recording instead of closing the chat.
-      if (recordingRef.current) {
-        discardRecording();
-        requestAnimationFrame(() => inputRef.current?.focus());
+      if (store.getSnapshot().dictation === 'recording') {
+        actions.cancelDictation();
         return;
       }
       bridge.close();
     };
-    // Never keep the microphone on in a chat the visitor can't see.
-    const onHidden = (): void => discardRecording();
-    const onVisibility = (): void => {
-      if (document.visibilityState === 'hidden') discardRecording();
-    };
     window.addEventListener('keydown', onKey);
-    document.addEventListener('visibilitychange', onVisibility);
-    const unsubscribe = bridge.onHidden(onHidden);
     // A floating chat was just opened by the visitor; an inline one only loaded with the page.
     if (!inline) inputRef.current?.focus();
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.removeEventListener('visibilitychange', onVisibility);
-      unsubscribe();
-      discardRecording();
-    };
-  }, [bridge, discardRecording, inline]);
-
-  // The page signs the visitor in and out with askdare('identify') (ADR-0009). The first request
-  // waits for the loader, so it already carries the identity of a signed-in visitor.
-  const [identityReady, setIdentityReady] = useState(fixture !== undefined);
-  /** Counts switches between users' conversations, to load the one this browser should show. */
-  const [shown, setShown] = useState(0);
-  useEffect(() => {
-    if (fixture) return;
-    let active = true;
-    let unsubscribe = (): void => {};
-    let queue = Promise.resolve();
-    const apply = (token: string | null): void => {
-      queue = queue.then(async () => {
-        // Signed in, out or as someone else: show that person's conversation, if any.
-        if ((await client.identify(token)) && active) {
-          setMessages([]);
-          setError(undefined);
-          setShown((count) => count + 1);
-        }
-      });
-    };
-    void bridge.handshake
-      .then(() => {
-        if (active) unsubscribe = bridge.onIdentify(apply);
-        return queue;
-      })
-      .finally(() => {
-        if (active) setIdentityReady(true);
-      });
-    return () => {
-      active = false;
-      unsubscribe();
-    };
-  }, [bridge, client, fixture]);
-
-  // Restore the stored conversation (about 2 s upstream, so show a loading state), and again
-  // whenever the signed-in user changes.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `shown` only says when to reload
-  useEffect(() => {
-    if (fixture || !identityReady) return;
-    if (!client.hasConversation()) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const controller = new AbortController();
-    client
-      .loadHistory(controller.signal)
-      .then((history) => setMessages(history.map(fromHistory)))
-      .catch((error: unknown) => {
-        // A refused session says why (explained in development); anything else is generic.
-        if (!controller.signal.aborted) {
-          setError(error instanceof SessionRefused ? error.message : t('error.history'));
-        }
-      })
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [client, fixture, identityReady, shown, t]);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [actions, bridge, inline, store]);
 
   // Follow the conversation, including each streamed delta of the latest message.
   const latestText = messages.at(-1)?.text;
@@ -286,180 +180,6 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
     const log = logRef.current;
     if (log && latestText !== undefined) log.scrollTop = log.scrollHeight;
   }, [latestText]);
-
-  const uploading = pending.some((file) => file.status === 'uploading');
-  const ready = pending.filter((file) => file.status === 'ready');
-  const canSend =
-    identityReady && !busy && !loading && !uploading && (draft.trim() !== '' || ready.length > 0);
-
-  const attach = async (file: File): Promise<void> => {
-    if (!allowed) return;
-    const key = nextLocalId();
-    const update = (change: Partial<PendingFile>): void =>
-      setPending((current) =>
-        current.map((item) => (item.key === key ? { ...item, ...change } : item)),
-      );
-    const controller = new AbortController();
-    uploads.current.set(key, controller);
-    setPending((current) => [...current, { key, name: file.name, status: 'uploading' }]);
-    const fail = (error: string): void => {
-      uploads.current.delete(key);
-      if (!controller.signal.aborted) update({ status: 'error', error });
-    };
-    let prepared: Awaited<ReturnType<typeof prepareFile>>;
-    try {
-      prepared = await prepareFile(file, allowed);
-    } catch {
-      fail(t('attachment.unsupported'));
-      return;
-    }
-    if (prepared.blob.size > allowed.maxBytes) {
-      fail(t('attachment.tooLarge', { size: megabytes(allowed.maxBytes) }));
-      return;
-    }
-    if (controller.signal.aborted) return;
-    const previewUrl = prepared.kind === 'image' ? URL.createObjectURL(prepared.blob) : undefined;
-    update({ name: prepared.name, kind: prepared.kind, previewUrl });
-    const result = await client.upload(prepared.blob, prepared.name, controller.signal);
-    uploads.current.delete(key);
-    if (controller.signal.aborted) {
-      // Removed while uploading: the preview may not have reached the rendered list yet.
-      revokePreviews([{ previewUrl }]);
-      return;
-    }
-    update(
-      result.ok
-        ? { status: 'ready', handle: result.file.id, name: result.file.name }
-        : { status: 'error', error: result.message },
-    );
-  };
-
-  const addFiles = (files: readonly File[]): void => {
-    if (!allowed || files.length === 0) return;
-    const room = allowed.maxPerMessage - pending.length;
-    if (files.length > room) {
-      setError(t('attachment.tooMany', { count: allowed.maxPerMessage }));
-    }
-    for (const file of files.slice(0, Math.max(0, room))) void attach(file);
-  };
-
-  const cancelUploads = (keys: Iterable<string>): void => {
-    for (const key of [...keys]) {
-      uploads.current.get(key)?.abort();
-      uploads.current.delete(key);
-    }
-  };
-
-  const removeFile = (file: PendingFile): void => {
-    cancelUploads([file.key]);
-    revokePreviews([file]);
-    setPending((current) => current.filter((item) => item.key !== file.key));
-  };
-
-  /** Sends the draft, or a suggested question picked on the welcome screen. */
-  const send = async (picked?: string): Promise<void> => {
-    const text = (picked ?? draft).trim();
-    if (
-      picked === undefined
-        ? !canSend
-        : !identityReady || busy || loading || uploading || text === ''
-    ) {
-      return;
-    }
-    const files: SentFile[] = ready.flatMap(({ name, kind, previewUrl }) =>
-      kind ? [{ name, kind, previewUrl }] : [],
-    );
-    const handles = ready.flatMap((file) => (file.handle ? [file.handle] : []));
-    revokePreviews(pending.filter((file) => file.status !== 'ready'));
-    setPending([]);
-    if (picked === undefined) setDraft('');
-    setError(undefined);
-    setBusy(true);
-    setMessages((current) => [
-      ...current,
-      {
-        id: nextLocalId(),
-        role: 'user',
-        text,
-        citations: [],
-        attachments: files.length,
-        files,
-        status: 'done',
-      },
-    ]);
-    const context = config.pageContext ? page.context : undefined;
-    await client.send({ text, attachments: handles, context }, (event) => {
-      const next = activityFor(event, t);
-      if (next !== undefined) setActivity(next);
-      if (event.type === 'error') {
-        setError(event.message);
-        setMessages(failStreaming);
-        return;
-      }
-      setMessages((current) => applyEvent(current, event));
-    });
-    setActivity(null);
-    setBusy(false);
-    inputRef.current?.focus();
-  };
-
-  const finishDictation = async (): Promise<void> => {
-    const recording = recordingRef.current;
-    if (!recording) return;
-    recordingRef.current = undefined;
-    clearTimeout(limitRef.current);
-    setDictation('transcribing');
-    const audio = await recording.stop();
-    if (audio.size < 1_000) {
-      setDictation('idle');
-      setError(t('dictation.empty'));
-      return;
-    }
-    const languages = [...navigator.languages.slice(0, 2), config.widget.locale];
-    const result = await client.transcribe(audio, languages);
-    setDictation('idle');
-    if (!result.ok) {
-      setError(result.message);
-    } else if (result.text) {
-      // Into the field, not sent: the visitor checks the transcript first.
-      setDraft((current) => (current.trim() ? `${current.trimEnd()} ${result.text}` : result.text));
-    }
-    requestAnimationFrame(() => inputRef.current?.focus());
-  };
-
-  const startDictation = async (): Promise<void> => {
-    if (!voice || recordingRef.current || startingRef.current) return;
-    setError(undefined);
-    startingRef.current = true;
-    let recording: Recording;
-    try {
-      recording = await startRecording(voice.maxSeconds);
-    } catch (error) {
-      setError(t(MICROPHONE_MESSAGES[error instanceof MicrophoneError ? error.reason : 'failed']));
-      return;
-    } finally {
-      startingRef.current = false;
-    }
-    recordingRef.current = recording;
-    setElapsed(0);
-    setDictation('recording');
-    requestAnimationFrame(() => doneRef.current?.focus());
-    limitRef.current = setTimeout(() => void finishDictation(), voice.maxSeconds * 1000);
-    const started = performance.now();
-    // Only the meter and the clock follow animation frames.
-    const tick = (): void => {
-      if (recordingRef.current !== recording) return;
-      levelRef.current?.style.setProperty('--ask-level', recording.level().toFixed(3));
-      setElapsed(Math.min(voice.maxSeconds, Math.floor((performance.now() - started) / 1000)));
-      requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  };
-
-  const cancelDictation = (): void => {
-    discardRecording();
-    requestAnimationFrame(() => inputRef.current?.focus());
-  };
 
   const askStartOver = (): void => {
     setConfirming(true);
@@ -487,29 +207,20 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
     }
   };
 
-  const startOver = async (): Promise<void> => {
+  const startOver = (): void => {
     setConfirming(false);
-    setBusy(true);
-    await client.deleteConversation().catch(() => undefined);
-    revokePreviews(messages.flatMap((message) => message.files ?? []));
-    cancelUploads(uploads.current.keys());
-    revokePreviews(pending);
-    setPending([]);
-    setMessages([]);
-    setError(undefined);
-    setBusy(false);
-    inputRef.current?.focus();
+    void actions.newConversation();
   };
 
   const onSubmit = (event: FormEvent): void => {
     event.preventDefault();
-    void send();
+    void actions.send();
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
     if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
-      void send();
+      void actions.send();
     }
   };
 
@@ -517,14 +228,10 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
     const files = Array.from(event.clipboardData.files);
     if (!allowed || files.length === 0) return;
     event.preventDefault();
-    addFiles(files);
+    actions.addFiles(files);
   };
 
   // Files dropped anywhere on the chat are attached; the attach button covers keyboard users.
-  const addFilesRef = useRef(addFiles);
-  useEffect(() => {
-    addFilesRef.current = addFiles;
-  });
   useEffect(() => {
     if (!allowed) return;
     const hasFiles = (event: DragEvent): boolean =>
@@ -541,7 +248,7 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
       if (!hasFiles(event)) return;
       event.preventDefault();
       setDragging(false);
-      addFilesRef.current(Array.from(event.dataTransfer?.files ?? []));
+      actions.addFiles(Array.from(event.dataTransfer?.files ?? []));
     };
     document.addEventListener('dragover', onDragOver);
     document.addEventListener('dragleave', onDragLeave);
@@ -551,7 +258,7 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
       document.removeEventListener('dragleave', onDragLeave);
       document.removeEventListener('drop', onDrop);
     };
-  }, [allowed]);
+  }, [actions, allowed]);
 
   const showWelcome = messages.length === 0 && !loading;
   return (
@@ -590,7 +297,7 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
               aria-label={t('header.close')}
               title={t('header.close')}
               onClick={() => {
-                discardRecording();
+                store.hide();
                 bridge.close();
               }}
             >
@@ -620,7 +327,7 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
               <button type="button" data-ask-part="confirm-cancel" onClick={cancelStartOver}>
                 {t('confirm.cancel')}
               </button>
-              <button type="button" data-ask-part="confirm-accept" onClick={() => void startOver()}>
+              <button type="button" data-ask-part="confirm-accept" onClick={startOver}>
                 {t('confirm.accept')}
               </button>
             </div>
@@ -638,8 +345,8 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
         {showWelcome && (
           <Welcome
             widget={widget}
-            disabled={busy || !identityReady}
-            onPick={(text) => void send(text)}
+            disabled={busy || state.phase !== 'ready'}
+            onPick={(text) => void actions.send(text)}
           />
         )}
         {loading && (
@@ -716,7 +423,12 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
       )}
       <form data-ask-part="composer" onSubmit={onSubmit}>
         {pending.length > 0 && (
-          <FileList files={pending} part="attachments" t={t} onRemove={removeFile} />
+          <FileList
+            files={pending}
+            part="attachments"
+            t={t}
+            onRemove={(file) => actions.removeFile(file.key)}
+          />
         )}
         <div data-ask-part="composer-box">
           {dictation === 'idle' ? (
@@ -730,7 +442,7 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
                     multiple
                     accept={acceptTypes(allowed)}
                     onChange={(event) => {
-                      addFiles(Array.from(event.target.files ?? []));
+                      actions.addFiles(Array.from(event.target.files ?? []));
                       event.target.value = '';
                     }}
                   />
@@ -753,17 +465,17 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
                 value={draft}
                 placeholder={widget.placeholder}
                 aria-label={widget.placeholder}
-                onChange={(event) => setDraft(event.target.value)}
+                onChange={(event) => actions.setDraft(event.target.value)}
                 onKeyDown={onKeyDown}
                 onPaste={onPaste}
               />
-              {voiceAvailable && (
+              {state.canDictate && (
                 <button
                   type="button"
                   data-ask-part="voice"
                   aria-label={t('composer.dictate')}
                   title={t('composer.dictate')}
-                  onClick={() => void startDictation()}
+                  onClick={() => void actions.startDictation()}
                 >
                   <MicIcon />
                 </button>
@@ -773,7 +485,7 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
                 data-ask-part="send"
                 aria-label={t('composer.send')}
                 title={t('composer.send')}
-                disabled={!canSend}
+                disabled={!canSend(state)}
               >
                 <SendIcon />
                 <span data-ask-part="send-label" aria-hidden="true">
@@ -797,7 +509,7 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
                     data-ask-part="recorder-cancel"
                     aria-label={t('dictation.cancel')}
                     title={t('dictation.cancel')}
-                    onClick={cancelDictation}
+                    onClick={() => actions.cancelDictation()}
                   >
                     <CloseIcon />
                   </button>
@@ -805,7 +517,7 @@ export function App({ config, client, bridge, fixture, inline = false }: AppProp
                     type="button"
                     data-ask-part="recorder-done"
                     ref={doneRef}
-                    onClick={() => void finishDictation()}
+                    onClick={() => void actions.finishDictation()}
                   >
                     {t('dictation.done')}
                   </button>
