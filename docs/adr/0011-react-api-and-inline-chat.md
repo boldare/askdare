@@ -41,7 +41,7 @@ The code splits into three layers in `packages/askdare/src/`:
   - `useChatState(select)` re-renders only when the selected value changes;
   - `useMessage()` reads the current message inside `MessageList`.
 
-  The actions are `send`, `setDraft`, `addFiles`, `removeFile`, `startDictation`, `finishDictation`, `cancelDictation`, `newConversation`, `rate` and `focus`.
+  The actions are `send`, `setDraft`, `addFiles`, `removeFile`, `startDictation`, `finishDictation`, `cancelDictation`, `newConversation`, `rate`, `dismissComment` and `focus`.
 - **Primitives** render one element each, with the existing `data-ask-part` name, and pass native props and `ref` through. The styling contract doesn't grow. There are two exceptions: `MessageList` renders its children once per message and has no element of its own, and `AttachButton` also renders its hidden file input.
 
   | Group | Primitives |

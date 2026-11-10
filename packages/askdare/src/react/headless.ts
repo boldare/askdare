@@ -10,6 +10,7 @@ export type {
   Citation,
   Dictation,
   PendingFile,
+  Rating,
   SentFile,
 } from '../chat/state';
 export type { ChatActions } from '../chat/store';
@@ -33,6 +34,8 @@ export {
 } from './composer';
 export type { Chat, ChatBot } from './context';
 export { useChat, useChatState, useMessage } from './context';
+export type { FeedbackButtonProps } from './feedback';
+export { FeedbackButton } from './feedback';
 export type { MarkdownProps } from './markdown';
 export { Markdown } from './markdown';
 export type {

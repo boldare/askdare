@@ -94,4 +94,12 @@ export const FIXTURES: Readonly<Record<GalleryState, Fixture>> = {
     draft: 'And the Enterprise plan?',
   },
   listening: { messages: conversation.slice(0, 2), dictation: 'recording', elapsed: 7 },
+  // One answer rated 👍, and the question after a 👎 on the other.
+  feedback: {
+    messages: conversation.map((item) =>
+      item.role === 'assistant' ? { ...item, feedback: { handle: 'h', key: item.id } } : item,
+    ),
+    ratings: { a1: 'up', a2: 'down' },
+    commenting: 'a2',
+  },
 };

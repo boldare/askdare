@@ -22,6 +22,8 @@ export interface FakeServerOptions {
   readonly holdHistory?: boolean;
   readonly transcript?: string;
   readonly identityKey?: (token: string) => string;
+  /** Refuses every rating, as a rate limit would. */
+  readonly refuseFeedback?: boolean;
 }
 
 export interface FakeServer {
@@ -36,7 +38,12 @@ export const echo = (text: string): readonly ProtocolEvent[] => [
   { type: 'conversation.created', resumeToken: 'resume-1' },
   { type: 'message.start', messageId: 'msg_1' },
   { type: 'text.delta', messageId: 'msg_1', delta: `You said: ${text}` },
-  { type: 'message.end', messageId: 'msg_1', reason: 'completed' },
+  {
+    type: 'message.end',
+    messageId: 'msg_1',
+    reason: 'completed',
+    feedback: { handle: 'handle-1', key: 'a1b2c3d4e5f60718' },
+  },
 ];
 
 export function fakeServer(options: FakeServerOptions = {}): FakeServer {
@@ -80,6 +87,18 @@ export function fakeServer(options: FakeServerOptions = {}): FakeServer {
           headers: { 'content-type': 'text/event-stream', 'x-askdare-protocol': '1' },
         });
       }
+      case '/feedback':
+        return options.refuseFeedback
+          ? Response.json(
+              {
+                error: {
+                  code: 'rate_limited',
+                  message: 'Too many messages. Please wait a moment.',
+                },
+              },
+              { status: 429 },
+            )
+          : new Response(null, { status: 204 });
       case '/conversation':
         return new Response(null, { status: 204 });
       case '/transcriptions':

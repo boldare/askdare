@@ -569,6 +569,99 @@
     text-decoration: underline;
   }
 
+  /* ---------- Rating an answer ---------- */
+
+  [data-ask-part="feedback"] {
+    display: flex;
+    gap: 2px;
+    margin-top: -2px;
+  }
+
+  [data-ask-part="feedback-button"] {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--ask-color-muted);
+    cursor: pointer;
+    transition:
+      background-color 150ms var(--ask-ease),
+      color 150ms var(--ask-ease);
+  }
+
+  [data-ask-part="feedback-button"]:hover {
+    background: var(--ask-color-surface);
+    color: var(--ask-color-text);
+  }
+
+  [data-ask-part="feedback-button"][aria-pressed="true"] {
+    background: color-mix(in srgb, var(--ask-color-accent) 16%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ask-color-accent) 45%, transparent);
+    color: var(--ask-color-text);
+  }
+
+  [data-ask-part="feedback-comment"] {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--ask-space) * 0.75);
+    width: min(320px, 100%);
+    padding: calc(var(--ask-space) * 1.25);
+    border: 1px solid var(--ask-color-border);
+    border-radius: var(--ask-radius-small);
+    background: var(--ask-color-background);
+    font-size: 0.88rem;
+  }
+
+  [data-ask-part="feedback-comment"] label {
+    font-weight: 600;
+  }
+
+  [data-ask-part="feedback-comment-input"] {
+    width: 100%;
+    min-height: 52px;
+    margin: 0;
+    padding: 6px 8px;
+    border: 1px solid var(--ask-color-border);
+    border-radius: calc(var(--ask-radius-small) * 0.7);
+    background: var(--ask-color-background);
+    color: inherit;
+    font: inherit;
+    line-height: 1.4;
+    resize: vertical;
+  }
+
+  [data-ask-part="feedback-comment-actions"] {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--ask-space);
+  }
+
+  :is([data-ask-part="feedback-skip"], [data-ask-part="feedback-send"]) {
+    padding: 5px 12px;
+    border: 1px solid var(--ask-color-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ask-color-text);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  [data-ask-part="feedback-send"] {
+    border-color: var(--ask-color-accent);
+    background: var(--ask-color-accent);
+    color: var(--ask-color-on-accent);
+  }
+
+  [data-ask-part="feedback-send"]:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
   /* ---------- Welcome ---------- */
 
   [data-ask-part="welcome"] {

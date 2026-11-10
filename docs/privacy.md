@@ -70,7 +70,7 @@ The server gives every new visitor a random ID: `v_` followed by 32 hexadecimal 
 - Errors thrown by your own tools are logged as they are. Keep personal data out of their messages.
 - With `onError` in `createChatHandler`, the same reports go to your function, for example to Sentry, instead of the log.
 - With `onUsage`, every turn's report goes to your function: token counts, timings, tool names and outcomes, and pseudonyms (HMACs) of the conversation and the visitor or user. It holds no message text. See [Observability](observability.md).
-- With `onFeedback`, visitors can rate answers, and each rating goes to your function with the comment the visitor wrote, the OpenAI conversation and answer IDs, a pseudonym of the visitor, and the signed-in user if there is one. askdare keeps none of it. A comment is free text the visitor typed, so treat it like a message: mention it in your notice and keep it no longer than you need.
+- With `onFeedback`, visitors can rate answers, and each rating goes to your function with the comment the visitor wrote, the OpenAI conversation and answer IDs, a pseudonym of the visitor, and the signed-in user if there is one. askdare keeps none of it. A comment is free text the visitor typed, so treat it like a message: mention it in your notice and keep it no longer than you need. The visitor's browser also remembers which answers they rated 👍 or 👎 (not the comments), next to the conversation in its storage. See [Answer ratings](feedback.md).
 - Your hosting provider may log every request, IP addresses included, according to its own settings.
 
 ### `safety_identifier`
