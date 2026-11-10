@@ -1,0 +1,93 @@
+/* The inline demo pages: a plain page around the chat, to show it living in a site's own layout. */
+.inline-page {
+  box-sizing: border-box;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 48px 24px 96px;
+}
+
+.inline-page h1 {
+  margin: 0 0 8px;
+  font-size: 2rem;
+}
+
+.inline-page > p {
+  margin: 0 0 24px;
+  color: #4f4f4f;
+}
+
+.inline-page nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+  font-size: 0.9rem;
+}
+
+/* The chat fills the element it is given: this is the only sizing a page has to do. */
+.inline-chat {
+  height: 640px;
+  overflow: hidden;
+  border: 1px solid #24242422;
+  border-radius: 16px;
+}
+
+/* The headless page's own markup: nothing here comes from the default look. */
+.plain-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 560px;
+  padding: 16px;
+  border: 2px solid #242424;
+  background: #fff;
+  color: #242424;
+  font:
+    15px / 1.5 system-ui,
+    sans-serif;
+}
+
+.plain-chat [data-ask-part="messages"] {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.plain-chat [data-ask-part="message"] {
+  max-width: 80%;
+  padding: 8px 12px;
+  background: #f1f1f1;
+}
+
+.plain-chat [data-ask-part="message"][data-role="user"] {
+  align-self: flex-end;
+  background: #f2da3a;
+}
+
+.plain-chat [data-ask-part="composer"] {
+  display: flex;
+  gap: 8px;
+}
+
+.plain-chat [data-ask-part="input"] {
+  flex: 1;
+  padding: 8px;
+  border: 2px solid #242424;
+  font: inherit;
+  resize: none;
+}
+
+.plain-chat button {
+  padding: 8px 16px;
+  border: 2px solid #242424;
+  background: #242424;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.plain-chat button:disabled {
+  opacity: 0.5;
+}
