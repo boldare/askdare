@@ -48,7 +48,7 @@ describe('dist/react.js', () => {
     expect(html).toContain('data-ask-bot="support"');
     expect(html).toContain('data-ask-scheme="auto"');
     for (const href of Object.values(config.styles)) {
-      expect(html).toContain(`href="${href.replace('&', '&amp;')}"`);
+      expect(html).toContain(`href="${href.replaceAll('&', '&amp;')}"`);
     }
     expect(html).toContain('data-precedence="askdare"');
   });
