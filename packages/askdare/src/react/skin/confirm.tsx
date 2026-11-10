@@ -23,11 +23,14 @@ function trapTab(event: KeyboardEvent<HTMLDivElement>): void {
  */
 export function StartOverQuestion({
   modal,
+  busy,
   onCancel,
   onAccept,
 }: {
   /** Modal only when the chat is the whole document; inside a page, the page stays usable. */
   readonly modal: boolean;
+  /** Accepted and in progress: the icon turns and the buttons wait. */
+  readonly busy: boolean;
   readonly onCancel: () => void;
   readonly onAccept: () => void;
 }): ReactElement {
@@ -48,6 +51,7 @@ export function StartOverQuestion({
         aria-modal={modal || undefined}
         aria-describedby={textId}
         aria-label={t('header.newConversation')}
+        aria-busy={busy || undefined}
         onKeyDown={trapTab}
       >
         <span data-ask-part="confirm-icon" aria-hidden="true">
@@ -57,10 +61,21 @@ export function StartOverQuestion({
           {t('confirm.newConversation')}
         </p>
         <div data-ask-part="confirm-actions">
-          <button type="button" data-ask-part="confirm-cancel" onClick={onCancel}>
+          {/* aria-disabled, not disabled: focus stays on the button while the chat starts over. */}
+          <button
+            type="button"
+            data-ask-part="confirm-cancel"
+            aria-disabled={busy || undefined}
+            onClick={busy ? undefined : onCancel}
+          >
             {t('confirm.cancel')}
           </button>
-          <button type="button" data-ask-part="confirm-accept" onClick={onAccept}>
+          <button
+            type="button"
+            data-ask-part="confirm-accept"
+            aria-disabled={busy || undefined}
+            onClick={busy ? undefined : onAccept}
+          >
             {t('confirm.accept')}
           </button>
         </div>

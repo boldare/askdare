@@ -52,6 +52,8 @@ export function DefaultPanel({
 }): ReactElement {
   const { state, actions, bot, t } = useChat();
   const [confirming, setConfirming] = useState(false);
+  /** Accepted, and the server is deleting the conversation: the question stays, busy, until then. */
+  const [restarting, setRestarting] = useState(false);
   const restartRef = useRef<HTMLButtonElement>(null);
   const askStartOver = useCallback(() => setConfirming(true), []);
   const skin = useMemo<Skin>(
@@ -60,6 +62,7 @@ export function DefaultPanel({
   );
 
   const cancelStartOver = (): void => {
+    if (restarting) return;
     setConfirming(false);
     requestAnimationFrame(() => restartRef.current?.focus());
   };
@@ -100,10 +103,13 @@ export function DefaultPanel({
         {confirming && (
           <StartOverQuestion
             modal={ownsDocument}
+            busy={restarting}
             onCancel={cancelStartOver}
-            onAccept={() => {
+            onAccept={async () => {
+              setRestarting(true);
+              await actions.newConversation();
+              setRestarting(false);
               setConfirming(false);
-              void actions.newConversation();
             }}
           />
         )}

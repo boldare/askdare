@@ -984,6 +984,21 @@
     background: color-mix(in srgb, var(--ask-color-accent) 80%, var(--ask-color-background));
   }
 
+  /* Starting over: the icon turns until the old conversation is deleted. */
+  [data-ask-part="confirm"][aria-busy="true"]
+    [data-ask-part="confirm-icon"]
+    svg:where([data-ask-skin] *) {
+    animation: ask-spin 0.9s linear infinite;
+  }
+
+  [data-ask-part="confirm"][aria-busy="true"] button:where([data-ask-skin] *) {
+    cursor: progress;
+  }
+
+  [data-ask-part="confirm-cancel"][aria-disabled="true"]:where([data-ask-skin] *) {
+    opacity: 0.5;
+  }
+
   @keyframes ask-fade {
     from {
       opacity: 0;
