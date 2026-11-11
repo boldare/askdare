@@ -867,6 +867,54 @@ describe('conversation history and deletion', () => {
     });
   });
 
+  it("rebuilds the latest answer's options from the bot's tools", async () => {
+    const booking = defineBot({
+      id: 'support',
+      model: 'test-model',
+      instructions: 'x',
+      tools: [
+        defineTool({
+          name: 'find_slots',
+          description: 'd',
+          input: z.object({}),
+          execute: () => ({ slots: ['9:00'] }),
+          replies: (result) => result.slots.map((slot) => `Book ${slot}`),
+        }),
+      ],
+    });
+    const withReplies = createRequestHandler({
+      bots: [booking],
+      basePath: '/api/chat',
+      assets,
+      gateway: () => ({
+        ...gateway,
+        listMessages: async (_id, _signal, replies) => {
+          const offered = replies?.([
+            { name: 'find_slots', arguments: '{}', output: '{"slots":["9:00","11:00"]}' },
+          ]);
+          return [
+            {
+              id: 'msg_a',
+              role: 'assistant',
+              text: 'Two slots.',
+              citations: [],
+              attachments: 0,
+              ...(offered ? { replies: offered } : {}),
+            },
+          ];
+        },
+      }),
+      tokens: async () => tokens,
+      limits: createLimits({ store: memoryStore() }),
+      clientIp: () => 'test',
+      onError: () => {},
+    });
+    const { resumeToken, auth } = await grant(OWNER);
+    const response = await withReplies(post('/history', { botId: 'support', resumeToken }, auth));
+    const { messages } = (await response.json()) as { messages: { replies?: string[] }[] };
+    expect(messages[0]?.replies).toEqual(['Book 9:00', 'Book 11:00']);
+  });
+
   it("answers 404 for another visitor's conversation", async () => {
     const { resumeToken } = await grant(OWNER);
     const { auth } = await grant(INTRUDER);

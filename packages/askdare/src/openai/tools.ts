@@ -8,7 +8,7 @@ import type {
 import { z } from 'zod';
 import type { Bot } from '../bot/define-bot';
 import type { ToolCallRecord, TurnRequest } from '../gateway';
-import type { Tool } from '../tools/define-tool';
+import { type Tool, toolReplies } from '../tools/define-tool';
 import type { FunctionCall } from './stream-mapper';
 
 /** Larger tool results are replaced by an error so one call can't flood the context. */
@@ -84,6 +84,32 @@ async function withTimeout<T>(
 
 type CallOutcome = ToolCallRecord['outcome'];
 
+/**
+ * How the outputs `invoke` and `executeCalls` write for failed calls begin. History skips them,
+ * since a failed call defines no reply options.
+ */
+const FAILURES = [
+  'Unknown tool "',
+  'Arguments were not valid JSON.',
+  'Invalid arguments: ',
+  'The tool timed out.',
+  'The tool failed.',
+  'The tool returned too much data.',
+] as const;
+
+/** Whether a stored output is one askdare wrote for a failed call rather than the tool's result. */
+export function isFailedOutput(output: string): boolean {
+  let value: unknown;
+  try {
+    value = JSON.parse(output);
+  } catch {
+    return true;
+  }
+  if (typeof value !== 'object' || value === null || Object.keys(value).length !== 1) return false;
+  const { error } = value as { error?: unknown };
+  return typeof error === 'string' && FAILURES.some((start) => error.startsWith(start));
+}
+
 async function invoke(
   tool: Tool | undefined,
   call: FunctionCall,
@@ -131,10 +157,12 @@ async function invoke(
 /**
  * Runs every function call of a step in parallel and returns the outputs to send back. Every call
  * gets an output, even on failure: a call left without one breaks the conversation (spike S1, E5).
+ * When a successful call's tool defines reply options, the last such call's go to `onReplies`.
  */
 export async function executeCalls(
   calls: readonly FunctionCall[],
   request: TurnRequest,
+  onReplies?: (replies: readonly string[]) => void,
 ): Promise<ResponseInputItem[]> {
   const tools = new Map(request.bot.tools.map((tool) => [tool.name, tool]));
   for (const call of calls) {
@@ -146,10 +174,12 @@ export async function executeCalls(
       state: 'running',
     });
   }
-  return Promise.all(
-    calls.map(async (call) => {
+  const offered: (readonly string[] | undefined)[] = [];
+  const outputs = await Promise.all(
+    calls.map(async (call, index) => {
       const startedAt = Date.now();
-      const result = await invoke(tools.get(call.name), call, request);
+      const tool = tools.get(call.name);
+      const result = await invoke(tool, call, request);
       let output = JSON.stringify(result.output);
       let outcome = result.outcome;
       if (output.length > MAX_OUTPUT_CHARS) {
@@ -169,9 +199,14 @@ export async function executeCalls(
         name: call.name.slice(0, 64),
         state: outcome === 'ok' ? 'done' : 'error',
       });
+      // From the output as stored, so a reload rebuilds the same options (openai/history.ts).
+      if (tool && outcome === 'ok') offered[index] = toolReplies(tool, output);
       return { type: 'function_call_output', call_id: call.callId, output } as const;
     }),
   );
+  const replies = offered.findLast((items) => items !== undefined);
+  if (replies) onReplies?.(replies);
+  return outputs;
 }
 
 const DANGLING_CALL = /No tool output found for function call ([A-Za-z0-9_-]+)/;
