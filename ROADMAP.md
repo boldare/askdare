@@ -27,7 +27,7 @@ Shipped in 0.2:
 
 | Epic | Goal | Decision |
 |---|---|---|
-| Deploy buttons | One click from the starter to a running chat on Vercel or Heroku | Docs only |
+| Deploy buttons | One click from the starter to a running chat on Vercel or Heroku, in about five minutes. A `/deploy` page on the website walks through it, and the home page hero and the README lead there. | No ADR: the site and docs only |
 | Reply options | Clickable answers under the latest reply. The model can suggest them, or a tool can define them. They're the first slice of `toolRenderers`. | ADR-0015 |
 | Runtime language, step 1 | The page switches the chat's language (`askdare('configure', { locale })`, or following `<html lang>`). The iframe reloads, and the conversation stays. | ADR-0014 |
 | Compaction | Cheaper long conversations, after spike S5b | [ADR-0003](docs/adr/0003-conversation-state.md) |
@@ -89,7 +89,7 @@ Work runs in parallel lanes. Tasks that touch the **hot files** run one at a tim
 |---|---|---|
 | Organization | The roadmap, the Project and the issues | No |
 | Release | The 0.2.0 site demo and poster run side by side, then the gates, then the release | No |
-| Deploy | The deploy buttons | No |
+| Deploy | The deploy buttons, the `/deploy` page, then the links to it from the home page and the README. Those links change `site/app/page.tsx` and `README.md`, which the site demo tasks change too: agree the order with them. | No |
 | Decisions | ADRs, in parallel with everything | No |
 | Spikes | Experiments in `spikes/` | No |
 | Core | The reply-options foundation, then suggested and tool-defined options (in parallel), then runtime language step 1, then compaction | **Yes**, one task at a time |
