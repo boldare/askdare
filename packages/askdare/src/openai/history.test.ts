@@ -279,7 +279,7 @@ describe('listMessages', () => {
       const slots = defineTool({
         name: 'find_slots',
         description: 'd',
-        input: z.object({}),
+        input: z.object({ day: z.string() }),
         execute: () => ({ slots: ['9:00'] }),
         replies: (result) => result.slots.map((slot) => `Book ${slot}`),
       });
@@ -305,7 +305,7 @@ describe('listMessages', () => {
       it("rebuilds the options from the tool's stored output, as the live turn did", async () => {
         const items = turn(
           output('fc_7', '{"slots":["9:00","11:00"]}'),
-          call('fc_7', 'find_slots', '{}'),
+          call('fc_7', 'find_slots', '{"day":"mon"}'),
         );
         expect(await latestReplies('conv_t', items)).toEqual(['Book 9:00', 'Book 11:00']);
       });
@@ -315,8 +315,8 @@ describe('listMessages', () => {
           output('fc_c', '{"slots":[]}'),
           output('fc_b', '{"slots":["9:00"]}'),
           output('fc_a', 'null'),
-          call('fc_c', 'find_slots', '{}'),
-          call('fc_b', 'find_slots', '{}'),
+          call('fc_c', 'find_slots', '{"day":"mon"}'),
+          call('fc_b', 'find_slots', '{"day":"tue"}'),
           call('fc_a', 'fallback', '{}'),
         );
         expect(await latestReplies('conv_last', items)).toEqual(['Book 9:00']);
@@ -327,12 +327,18 @@ describe('listMessages', () => {
           '{"error":"The tool failed."}',
           '{"error":"The tool timed out."}',
           '{"error":"The tool returned too much data."}',
-          '{"error":"Invalid arguments: ✖ Invalid input"}',
-          '{"error":"Arguments were not valid JSON."}',
         ];
         for (const [index, failure] of failures.entries()) {
           const items = turn(output('fc_f', failure), call('fc_f', 'fallback', '{}'));
           expect(await latestReplies(`conv_f${index}`, items)).toBeUndefined();
+        }
+        // Arguments the schema refused never reached the tool, whatever the output says.
+        for (const [index, args] of ['{"day":3}', 'not json'].entries()) {
+          const items = turn(
+            output('fc_a', '{"slots":["9:00"]}'),
+            call('fc_a', 'find_slots', args),
+          );
+          expect(await latestReplies(`conv_a${index}`, items)).toBeUndefined();
         }
         expect(await latestReplies('conv_u', turn(call('fc_u', 'fallback', '{}')))).toBeUndefined();
         const unknown = turn(output('fc_x', 'null'), call('fc_x', 'removed_tool', '{}'));
@@ -340,11 +346,13 @@ describe('listMessages', () => {
       });
 
       it('still offers options for a result that only looks like an error', async () => {
-        const items = turn(
-          output('fc_e', '{"error":"No such order."}'),
-          call('fc_e', 'fallback', '{}'),
-        );
-        expect(await latestReplies('conv_e', items)).toEqual(['Talk to a person']);
+        for (const [index, result] of [
+          '{"error":"No such order."}',
+          '{"error":"Invalid arguments: the order number has 7 digits"}',
+        ].entries()) {
+          const items = turn(output('fc_e', result), call('fc_e', 'fallback', '{}'));
+          expect(await latestReplies(`conv_e${index}`, items)).toEqual(['Talk to a person']);
+        }
       });
     });
   });

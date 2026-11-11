@@ -1,6 +1,6 @@
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { z } from 'zod';
 import { type Bot, defineBot } from '../bot/define-bot';
 import type { ModelGateway, StepRecord, ToolCallRecord, TurnRequest } from '../gateway';
@@ -251,10 +251,15 @@ describe('tool loop', () => {
     expect(
       events.filter((event) => event.type === 'tool.status' && event.state === 'error'),
     ).toHaveLength(5);
-    // History recognizes every one of them, so a failed call never defines options.
-    for (const item of outputsOf(bodies[1])) {
-      expect(isFailedOutput(JSON.stringify(item.output))).toBe(true);
-    }
+    // History recognizes the failures of a running tool by their output; the others by their
+    // arguments or name, so a failed call never defines options after a reload either.
+    expect(outputs.map((item) => isFailedOutput(JSON.stringify(item.output)))).toEqual([
+      false,
+      false,
+      true,
+      true,
+      false,
+    ]);
     consoleError.mockRestore();
   });
 
@@ -340,10 +345,16 @@ describe('reply options from tools', () => {
       shippedAt: new Date('2026-11-10T12:00:00Z'),
     }),
     // Typed from `execute`; the date arrives as the model saw it, a string.
-    replies: (result) =>
-      result.status === 'shipped'
+    replies: (result) => {
+      expectTypeOf(result).toEqualTypeOf<{
+        orderNumber: string;
+        status: string;
+        shippedAt: string;
+      }>();
+      return result.status === 'shipped'
         ? ['Track the parcel', 'Cancel the order', 'Talk to a person']
-        : undefined,
+        : undefined;
+    },
   });
 
   it('turns a successful result into options for the answer, never into model input', async () => {

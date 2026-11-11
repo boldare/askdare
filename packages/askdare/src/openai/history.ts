@@ -68,8 +68,8 @@ export function toHistoryMessage(
 
 /**
  * The function calls of the latest turn, oldest first, with their outputs: what came after the
- * visitor's last message. Older turns aren't read (ADR-0015). A failed call has no output, as in
- * the live turn, where only successful calls define options.
+ * visitor's last message. Older turns aren't read (ADR-0015). A call that failed while running has
+ * no output, as in the live turn, where only successful calls define options.
  */
 function latestTurnCalls(newestFirst: readonly ConversationItem[]): StoredCall[] {
   const outputs = new Map<string, string>();

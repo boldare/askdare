@@ -8,7 +8,7 @@ import type {
 import { z } from 'zod';
 import type { Bot } from '../bot/define-bot';
 import type { ToolCallRecord, TurnRequest } from '../gateway';
-import { type Tool, toolReplies } from '../tools/define-tool';
+import { readToolReplies, type StoredToolCall, type Tool } from '../tools/define-tool';
 import type { FunctionCall } from './stream-mapper';
 
 /** Larger tool results are replaced by an error so one call can't flood the context. */
@@ -84,30 +84,23 @@ async function withTimeout<T>(
 
 type CallOutcome = ToolCallRecord['outcome'];
 
-/**
- * How the outputs `invoke` and `executeCalls` write for failed calls begin. History skips them,
- * since a failed call defines no reply options.
- */
-const FAILURES = [
-  'Unknown tool "',
-  'Arguments were not valid JSON.',
-  'Invalid arguments: ',
-  'The tool timed out.',
-  'The tool failed.',
-  'The tool returned too much data.',
-] as const;
+/** What the model gets when a call fails after its arguments were valid. */
+const FAILURES = {
+  timeout: { error: 'The tool timed out.' },
+  failed: { error: 'The tool failed.' },
+  tooLarge: { error: 'The tool returned too much data.' },
+} as const;
 
-/** Whether a stored output is one askdare wrote for a failed call rather than the tool's result. */
+const FAILED_OUTPUTS: ReadonlySet<string> = new Set(
+  Object.values(FAILURES).map((failure) => JSON.stringify(failure)),
+);
+
+/**
+ * Whether a stored output is one askdare wrote for a call that failed while running. Calls with
+ * invalid arguments are recognized by their arguments instead (`readToolReplies`).
+ */
 export function isFailedOutput(output: string): boolean {
-  let value: unknown;
-  try {
-    value = JSON.parse(output);
-  } catch {
-    return true;
-  }
-  if (typeof value !== 'object' || value === null || Object.keys(value).length !== 1) return false;
-  const { error } = value as { error?: unknown };
-  return typeof error === 'string' && FAILURES.some((start) => error.startsWith(start));
+  return FAILED_OUTPUTS.has(output);
 }
 
 async function invoke(
@@ -145,12 +138,12 @@ async function invoke(
     return { output: output ?? null, outcome: 'ok' };
   } catch (error) {
     if (error instanceof ToolTimeoutError) {
-      return { output: { error: 'The tool timed out.' }, outcome: 'timeout' };
+      return { output: FAILURES.timeout, outcome: 'timeout' };
     }
     if (request.signal.aborted) throw request.signal.reason;
     // The developer needs the details; the model and the visitor only learn that it failed.
     console.error(`[askdare] tool "${tool.name}" failed:`, error);
-    return { output: { error: 'The tool failed.' }, outcome: 'error' };
+    return { output: FAILURES.failed, outcome: 'error' };
   }
 }
 
@@ -174,16 +167,15 @@ export async function executeCalls(
       state: 'running',
     });
   }
-  const offered: (readonly string[] | undefined)[] = [];
+  const succeeded: (StoredToolCall | undefined)[] = [];
   const outputs = await Promise.all(
     calls.map(async (call, index) => {
       const startedAt = Date.now();
-      const tool = tools.get(call.name);
-      const result = await invoke(tool, call, request);
+      const result = await invoke(tools.get(call.name), call, request);
       let output = JSON.stringify(result.output);
       let outcome = result.outcome;
       if (output.length > MAX_OUTPUT_CHARS) {
-        output = JSON.stringify({ error: 'The tool returned too much data.' });
+        output = JSON.stringify(FAILURES.tooLarge);
         outcome = 'error';
       }
       request.onToolCall?.({
@@ -199,12 +191,17 @@ export async function executeCalls(
         name: call.name.slice(0, 64),
         state: outcome === 'ok' ? 'done' : 'error',
       });
-      // From the output as stored, so a reload rebuilds the same options (openai/history.ts).
-      if (tool && outcome === 'ok') offered[index] = toolReplies(tool, output);
+      if (outcome === 'ok')
+        succeeded[index] = { name: call.name, arguments: call.arguments, output };
       return { type: 'function_call_output', call_id: call.callId, output } as const;
     }),
   );
-  const replies = offered.findLast((items) => items !== undefined);
+  // Picked from the outputs as stored, as the history does after a reload (openai/history.ts).
+  const replies = readToolReplies(
+    request.bot.tools,
+    succeeded.filter((call) => call !== undefined),
+    (tool, error) => console.error(`[askdare] replies of tool "${tool.name}" failed:`, error),
+  );
   if (replies) onReplies?.(replies);
   return outputs;
 }

@@ -796,7 +796,13 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     const { bot, conversationId, tokens, owner } = await ownedConversation(request);
     let messages = await config
       .gateway()
-      .listMessages(conversationId, request.signal, (calls) => readToolReplies(bot.tools, calls));
+      .listMessages(
+        conversationId,
+        request.signal,
+        bot.tools.some((tool) => tool.replies)
+          ? (calls) => readToolReplies(bot.tools, calls)
+          : undefined,
+      );
     if (feedbackOn(bot)) {
       messages = await Promise.all(
         messages.map(async (message) =>

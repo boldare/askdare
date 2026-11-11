@@ -17,6 +17,20 @@ export interface ToolContext {
   readonly signal: AbortSignal;
 }
 
+/**
+ * A value as `JSON.parse(JSON.stringify(value))` returns it: `toJSON()` applied (a `Date` becomes
+ * a string), functions, symbols and `undefined` fields gone.
+ */
+export type Jsonified<T> = T extends { toJSON(): infer R }
+  ? Jsonified<R>
+  : T extends bigint | symbol | ((...args: never[]) => unknown) | undefined
+    ? never
+    : T extends readonly (infer Item)[]
+      ? Jsonified<Item>[]
+      : T extends object
+        ? { [Key in keyof T as Jsonified<T[Key]> extends never ? never : Key]: Jsonified<T[Key]> }
+        : T;
+
 export interface ToolDefinition<Input extends z.ZodObject, Output = unknown> {
   /** Name the model calls, 1–64 letters, digits, `_` or `-`. */
   readonly name: string;
@@ -34,12 +48,12 @@ export interface ToolDefinition<Input extends z.ZodObject, Output = unknown> {
   /**
    * Options the visitor can click under the answer, derived from a successful result (ADR-0015).
    * It gets the result as the model received it, parsed back from JSON (a `Date` is a string), so
-   * the options come back the same after a reload. At most 4 of up to 80 characters are shown,
-   * plain text without links; the others are dropped. The visitor sends a clicked option as their
-   * own message. Only the latest answer shows options; when several calls of a turn define them,
-   * the last one wins.
+   * the options come back the same after a reload. A call that failed defines none. At most 4 of
+   * up to 80 characters are shown, plain text without links; the others are dropped. The visitor
+   * sends a clicked option as their own message. Only the latest answer shows options; when
+   * several calls of a turn define them, the last one wins.
    */
-  readonly replies?: (output: Output) => readonly string[] | undefined;
+  readonly replies?: (output: Jsonified<Output>) => readonly string[] | undefined;
 }
 
 export interface Tool {
@@ -106,35 +120,37 @@ export function defineTool<Input extends z.ZodObject, Output = unknown>(
   });
 }
 
-/**
- * The options one successful call defines, from its output as stored (JSON), cleaned up as for
- * any source. A `replies` function that throws or returns something else defines none.
- */
-export function toolReplies(tool: Tool, output: string): readonly string[] | undefined {
-  if (!tool.replies) return undefined;
-  try {
-    const items = tool.replies(JSON.parse(output));
-    return Array.isArray(items) ? normalizeReplies(items) : undefined;
-  } catch (error) {
-    console.error(`[askdare] replies of tool "${tool.name}" failed:`, error);
-    return undefined;
-  }
+/** A function call as stored: arguments and output in JSON, no output if it failed or wasn't answered. */
+export interface StoredToolCall {
+  readonly name: string;
+  readonly arguments: string;
+  readonly output: string | undefined;
 }
 
 /**
- * Rebuilds the options a turn's tools defined from its stored calls, oldest first (ADR-0015):
- * the last call that defined any wins, as in the live turn. A call without an output, or whose
- * output was a failure, defines none.
+ * The options a turn's calls define, oldest call first (ADR-0015): the last call that
+ * defines any wins. The live turn and the history both pick them here, from the stored JSON, so a
+ * reload shows what the turn showed. Arguments that don't fit the tool's schema mean the call
+ * failed, and a tool the bot no longer has defines nothing. A `replies` function that throws
+ * defines none; `onError` hears about it.
  */
 export function readToolReplies(
   tools: readonly Tool[],
-  calls: readonly { readonly name: string; readonly output: string | undefined }[],
+  calls: readonly StoredToolCall[],
+  onError?: (tool: Tool, error: unknown) => void,
 ): readonly string[] | undefined {
   let replies: readonly string[] | undefined;
   for (const call of calls) {
     const tool = tools.find((candidate) => candidate.name === call.name);
-    const items = tool && call.output !== undefined ? toolReplies(tool, call.output) : undefined;
-    if (items) replies = items;
+    if (!tool?.replies || call.output === undefined) continue;
+    try {
+      if (!tool.input.safeParse(JSON.parse(call.arguments)).success) continue;
+      const items = tool.replies(JSON.parse(call.output));
+      const offered = Array.isArray(items) ? normalizeReplies(items) : undefined;
+      if (offered) replies = offered;
+    } catch (error) {
+      onError?.(tool, error);
+    }
   }
   return replies;
 }
