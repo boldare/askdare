@@ -2,6 +2,7 @@
 // The skin imports only this (as '@boldare/askdare/react'), so an ejected copy compiles against
 // the published entry (ADR-0011).
 export type { ChatAttachments, ChatConfig, ChatWidget } from '../chat/config';
+export type { ChatEvent, ChatEventListener, ChatEventType } from '../chat/events';
 export type { Translate } from '../chat/reducer';
 export type {
   ChatMessage,

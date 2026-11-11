@@ -257,4 +257,4 @@ ASKDARE_ALLOWED_ORIGINS=http://127.0.0.1:4000
 
 ## Page JavaScript
 
-The page can open and close the chat, sign the visitor in, and set a greeting, suggestions and page context per page: `askdare('open')`, `askdare('close')`, `askdare('toggle')`, `askdare('identify', token)` and `askdare('configure', { … })`. See [Styling](styling.md#3-page-javascript) and [Signed-in visitors](identity.md).
+The page can open and close the chat, sign the visitor in, and set a greeting, suggestions and page context per page: `askdare('open')`, `askdare('close')`, `askdare('toggle')`, `askdare('identify', token)` and `askdare('configure', { … })`. See [Styling](styling.md#3-page-javascript) and [Signed-in visitors](identity.md). To hear what happens in the chat, for analytics, use `askdare('on', type, listener)`: see [Events in the browser](observability.md#events-in-the-browser).

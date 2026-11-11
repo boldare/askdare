@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ChatEvent } from '../chat/events';
 import type { PageOptions } from '../chat/page-options';
 import { createChatStore } from '../chat/store';
 import { fakeServer, testClient, testConfig } from '../chat/testing/fake-server';
@@ -19,9 +20,11 @@ function fakeBridge(identity: string | null) {
   const hidden = new Set<() => void>();
   const identify = new Set<(token: string | null) => void>();
   let connect = (): void => {};
+  const emitted: ChatEvent[] = [];
   const bridge: HostBridge = {
     embedded: true,
     close: () => {},
+    emit: (event) => emitted.push(event),
     onHidden: (listener) => {
       hidden.add(listener);
       return () => hidden.delete(listener);
@@ -41,6 +44,7 @@ function fakeBridge(identity: string | null) {
   };
   return {
     bridge,
+    emitted,
     connect: () => connect(),
     configure: (options: PageOptions) => {
       for (const listener of configure) listener(options);
@@ -70,6 +74,20 @@ describe('bindBridge', () => {
     }
     expect(store.getSnapshot().phase).toBe('ready');
     expect(server.requests[0]?.body['identityToken']).toBe('a.b.c');
+  });
+
+  it("passes the chat's events on to the page until unbound", async () => {
+    const store = createChatStore(testConfig(), { client: testClient(fakeServer()) });
+    const host = fakeBridge(null);
+    const unbind = bindBridge(store, host.bridge);
+    host.connect();
+    for (let attempt = 0; attempt < 50 && store.getSnapshot().phase !== 'ready'; attempt += 1) {
+      await settled();
+    }
+    expect(host.emitted).toEqual([{ type: 'ready', bot: 'support' }]);
+    unbind();
+    await store.actions.newConversation();
+    expect(host.emitted).toHaveLength(1);
   });
 
   it('passes the page options on and stops when unbound', () => {

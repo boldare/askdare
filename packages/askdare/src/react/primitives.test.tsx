@@ -103,6 +103,42 @@ describe('Root and the default look', () => {
     expect(screen.getByRole('button', { name: 'Is there a trial?' })).toBeTruthy();
   });
 
+  it('reports events to the latest onEvent, without restarting the chat', async () => {
+    vi.stubGlobal('fetch', fakeServer().fetch);
+    const first = vi.fn();
+    const second = vi.fn();
+    const view = render(
+      <Root config={testConfig()} onEvent={first}>
+        <DefaultPanel />
+      </Root>,
+    );
+    await waitFor(() => expect(first).toHaveBeenCalledWith({ type: 'ready', bot: 'support' }));
+    view.rerender(
+      <Root config={testConfig()} onEvent={second}>
+        <DefaultPanel />
+      </Root>,
+    );
+    const field = screen.getByRole('textbox');
+    fireEvent.change(field, { target: { value: 'Hello' } });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Send' }).hasAttribute('disabled')).toBe(false),
+    );
+    fireEvent.keyDown(field, { key: 'Enter' });
+    await screen.findByText('You said: Hello');
+    await waitFor(() =>
+      expect(second).toHaveBeenCalledWith(expect.objectContaining({ type: 'message.received' })),
+    );
+    expect(second).toHaveBeenCalledWith({
+      type: 'message.sent',
+      bot: 'support',
+      length: 5,
+      attachments: 0,
+      source: 'typed',
+    });
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(second.mock.calls.some(([event]) => event.type === 'ready')).toBe(false);
+  });
+
   it('starts another chat when the config changes', async () => {
     vi.stubGlobal('fetch', fakeServer().fetch);
     const view = render(

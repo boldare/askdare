@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ChatEvent } from './events';
 import { createFixtureStore } from './fixture-store';
 import type { Recording } from './recorder';
 import { type ChatState, canSend } from './state';
@@ -506,6 +507,140 @@ describe('createChatStore', () => {
     await store.actions.send('How much?');
     const message = server.requests.find((request) => request.path === '/messages');
     expect(message?.body['context']).toBe('Pricing page');
+  });
+});
+
+describe('chat events', () => {
+  /** Events without the duration, which depends on the clock. */
+  const recorded = (events: ChatEvent[]) =>
+    events.map((event) => {
+      if (event.type !== 'message.received') return event;
+      expect(event.durationMs).toBeGreaterThanOrEqual(0);
+      const { durationMs: _duration, ...rest } = event;
+      return rest;
+    });
+
+  it('reports a whole visit, with metadata and no content', async () => {
+    let turns = 0;
+    const server = fakeServer({
+      answer: (text) => {
+        const messageId = `msg_${++turns}`;
+        return [
+          { type: 'message.start', messageId },
+          { type: 'text.delta', messageId, delta: `You said: ${text} [1]` },
+          { type: 'citation', messageId, index: 1, title: 'Pricing.pdf' },
+          {
+            type: 'message.end',
+            messageId,
+            reason: 'completed',
+            feedback: { handle: 'handle-1', key: 'a1b2c3d4e5f60718' },
+          },
+        ];
+      },
+    });
+    const store = createChatStore(testConfig(), { client: testClient(server) });
+    const events: ChatEvent[] = [];
+    store.onEvent((event) => events.push(event));
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+
+    store.actions.setDraft('My secret question');
+    await store.actions.send();
+    await store.actions.send('A starter');
+    const id = store.getSnapshot().messages.at(-1)?.id ?? '';
+    await store.actions.rate(id, 'down', 'Secret comment');
+    await store.actions.newConversation();
+
+    expect(recorded(events)).toEqual([
+      { type: 'ready', bot: 'support' },
+      { type: 'message.sent', bot: 'support', length: 18, attachments: 0, source: 'typed' },
+      { type: 'message.received', bot: 'support', outcome: 'completed', citations: 1 },
+      { type: 'message.sent', bot: 'support', length: 9, attachments: 0, source: 'starter' },
+      { type: 'message.received', bot: 'support', outcome: 'completed', citations: 1 },
+      { type: 'feedback', bot: 'support', rating: 'down', commented: true },
+      { type: 'conversation.reset', bot: 'support' },
+    ]);
+    const serialized = JSON.stringify(events);
+    for (const secret of ['secret', 'Secret', 'Pricing', 'handle-1', 'a1b2c3', 'msg_']) {
+      expect(serialized).not.toContain(secret);
+    }
+  });
+
+  it('reports a failed turn with its code', async () => {
+    const server = fakeServer({
+      answer: () => [
+        { type: 'message.start', messageId: 'msg_1' },
+        { type: 'error', code: 'timeout', message: 'Took too long.' },
+      ],
+    });
+    const store = createChatStore(testConfig(), { client: testClient(server) });
+    const events: ChatEvent[] = [];
+    store.onEvent((event) => events.push(event));
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.send('Question');
+    expect(recorded(events).slice(2)).toEqual([
+      { type: 'error', bot: 'support', code: 'timeout' },
+      { type: 'message.received', bot: 'support', outcome: 'failed', citations: 0 },
+    ]);
+  });
+
+  it('reports an answer stopped with the chat', async () => {
+    const server = fakeServer({ holdAnswer: true, answer: (text) => echo(text).slice(0, 3) });
+    const store = createChatStore(testConfig(), { client: testClient(server) });
+    const events: ChatEvent[] = [];
+    store.onEvent((event) => events.push(event));
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    const sending = store.actions.send('Hello');
+    await until(store, (state) => state.messages.at(-1)?.status === 'streaming');
+    store.stop();
+    await sending;
+    expect(events.at(-1)).toMatchObject({ type: 'message.received', outcome: 'stopped' });
+  });
+
+  it('reports a rating only once the server took it', async () => {
+    const store = createChatStore(testConfig(), {
+      client: testClient(fakeServer({ refuseFeedback: true })),
+    });
+    const events: ChatEvent[] = [];
+    store.onEvent((event) => events.push(event));
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.send('Hello');
+    await store.actions.rate(store.getSnapshot().messages.at(-1)?.id ?? '', 'up');
+    expect(events.some((event) => event.type === 'feedback')).toBe(false);
+  });
+
+  it('keeps the chat going when a listener throws, and stops calling one that unsubscribed', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const store = createChatStore(testConfig(), { client: testClient(fakeServer()) });
+    const later = vi.fn();
+    store.onEvent(() => {
+      throw new Error('broken analytics');
+    });
+    const stop = store.onEvent(later);
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    stop();
+    await store.actions.send('Hello');
+    expect(store.getSnapshot().messages.at(-1)?.text).toBe('You said: Hello');
+    expect(later).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith('[askdare] A listener for "ready" threw.');
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('broken analytics');
+    warn.mockRestore();
+  });
+
+  it('fires ready once, not again when a sign-in reloads the conversation', async () => {
+    const store = createChatStore(testConfig(), { client: testClient(fakeServer()) });
+    const events: ChatEvent[] = [];
+    store.onEvent((event) => events.push(event));
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    store.identify('token-of-ada');
+    await settled();
+    await until(store, (state) => state.phase === 'ready');
+    expect(events.filter((event) => event.type === 'ready')).toHaveLength(1);
   });
 });
 

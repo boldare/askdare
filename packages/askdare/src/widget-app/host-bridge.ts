@@ -1,3 +1,4 @@
+import type { ChatEvent } from '../chat/events';
 import { identityToken, type PageOptions, pageOptions } from '../chat/page-options';
 
 /** Messages exchanged with the loader over a dedicated MessagePort. Versioned; unknown ones are ignored. */
@@ -8,6 +9,8 @@ export type HostMessage =
   | { readonly v: 1; readonly type: 'ready' }
   | { readonly v: 1; readonly type: 'close' }
   | { readonly v: 1; readonly type: 'hidden' }
+  /** A chat event for the page's askdare('on') listeners (ADR-0013). */
+  | { readonly v: 1; readonly type: 'event'; readonly event: ChatEvent }
   | ({ readonly v: 1; readonly type: 'configure' } & PageOptions);
 
 /** How long to wait for the loader before the first request, when it never says hello. */
@@ -18,6 +21,8 @@ export interface HostBridge {
   readonly embedded: boolean;
   /** Asks the host page to close the panel. */
   close(): void;
+  /** Passes a chat event on to the host page; dropped before the loader connects. */
+  emit(event: ChatEvent): void;
   /** Called when the host page hides the panel; returns an unsubscribe function. */
   onHidden(listener: () => void): () => void;
   /** Called with each askdare('configure') from the host page; returns an unsubscribe function. */
@@ -84,6 +89,9 @@ export function connectToHost(allowedOrigins: readonly string[]): HostBridge {
     embedded,
     close() {
       port?.postMessage({ v: 1, type: 'close' } satisfies HostMessage);
+    },
+    emit(event) {
+      port?.postMessage({ v: 1, type: 'event', event } satisfies HostMessage);
     },
     onHidden(listener) {
       hiddenListeners.add(listener);
