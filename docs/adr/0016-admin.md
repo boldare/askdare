@@ -1,6 +1,6 @@
 # ADR-0016: Admin: a console first, then an add-on with storage
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-11
 
 ## Context

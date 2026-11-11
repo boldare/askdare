@@ -1,6 +1,6 @@
 # ADR-0015: Reply options and tool UI payloads
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-11
 
 ## Context
