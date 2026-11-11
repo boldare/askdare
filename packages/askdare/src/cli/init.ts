@@ -33,7 +33,7 @@ function configTemplate(botId: string): string {
 // Other sites that may embed the chat, comma-separated, e.g. https://www.example.com.
 const allowedOrigins = (process.env.ASKDARE_ALLOWED_ORIGINS ?? '')
   .split(',')
-  .map((origin) => origin.trim())
+  .map((origin) => origin.trim().replace(/\\/+$/, ''))
   .filter(Boolean);
 
 export const bots = [
@@ -41,17 +41,18 @@ export const bots = [
     id: '${botId}',
     // Required: a current OpenAI model your project may use. Set ASKDARE_MODEL in .env.local.
     model: process.env.ASKDARE_MODEL ?? '',
-    // ASKDARE_INSTRUCTIONS and ASKDARE_GREETING are optional and replace the defaults below.
+    // Optional ASKDARE_INSTRUCTIONS and ASKDARE_GREETING replace the defaults below. Where they are
+    // set, as after a one-click deploy, change them there: they win over this file.
     instructions: ({ locale }) =>
       [
-        process.env.ASKDARE_INSTRUCTIONS ||
+        process.env.ASKDARE_INSTRUCTIONS?.trim() ||
           'You are the assistant on our website. Answer briefly and politely. If you do not know something, say so.',
         \`Reply in the language of the visitor's message; default to \${locale}.\`,
-      ].join(' '),
+      ].join('\\n\\n'),
     security: { allowedOrigins },
     widget: {
       locale: 'auto',
-      greeting: process.env.ASKDARE_GREETING || 'Hi! How can I help?',
+      greeting: process.env.ASKDARE_GREETING?.trim() || 'Hi! How can I help?',
       theme: 'aura', // aura, halo, sage or care
     },
     // Knowledge base, tools, attachments, voice and limits: see node_modules/@boldare/askdare/docs.
@@ -248,7 +249,7 @@ export async function init(options: InitOptions): Promise<void> {
     `Start the app (${runScript(project, 'dev')}), then check it: npx @boldare/askdare doctor`,
   );
   steps.push(
-    `To embed the chat on another site, add that site to allowedOrigins and paste:\n       <script src="https://<your app>/api/chat/widget.js?bot=${botId}" async></script>`,
+    `To embed the chat on another site, add it to ASKDARE_ALLOWED_ORIGINS in .env.local (comma-separated) and paste:\n       <script src="https://<your app>/api/chat/widget.js?bot=${botId}" async></script>`,
   );
   print('\nNext:');
   steps.forEach((step, index) => {

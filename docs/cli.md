@@ -38,7 +38,7 @@ The folder needs a `package.json` with `next` among its dependencies, and an `ap
 
 | File | What `init` does | When it leaves the file alone |
 | --- | --- | --- |
-| `askdare.config.ts` | Creates one bot: the ID, `model: process.env.ASKDARE_MODEL ?? ''`, short instructions, an empty `security.allowedOrigins`, `locale: 'auto'`, a greeting and the `aura` theme. It is `askdare.config.js` when the project has no `tsconfig.json`. | An `askdare.config` file already exists (`.ts`, `.tsx`, `.js`, `.jsx` or `.mjs`). |
+| `askdare.config.ts` | Creates one bot: the ID, `model: process.env.ASKDARE_MODEL ?? ''`, short instructions and a greeting (replaced by `ASKDARE_INSTRUCTIONS` and `ASKDARE_GREETING` when they are set), `security.allowedOrigins` from `ASKDARE_ALLOWED_ORIGINS` (comma-separated, empty by default), `locale: 'auto'` and the `aura` theme. It is `askdare.config.js` when the project has no `tsconfig.json`. | An `askdare.config` file already exists (`.ts`, `.tsx`, `.js`, `.jsx` or `.mjs`). |
 | `app/api/chat/[...path]/route.ts` | Creates the catch-all route: `export const maxDuration = 300;` and `createChatHandler({ bots })`. Under `src/app/` if that's where your app is. | A route file is already there. |
 | `.gitignore` | Appends `.env*.local`, so secrets never land in git. | Git already ignores `.env.local` and `.env.production.local`. |
 | `.env.local` | Appends, under `# askdare`, each with a comment: `OPENAI_API_KEY` (empty), `CHAT_SECRET` (32 random bytes, base64url) and `ASKDARE_MODEL` (the `--model` value, or empty). A new file is readable only by you. | Skips each variable that `.env.local` or `.env` already defines. It never changes existing lines. |
@@ -59,7 +59,7 @@ askdare init
 Next:
   1. In .env.local, set OPENAI_API_KEY, ASKDARE_MODEL.
   2. Start the app (npm run dev), then check it: npx @boldare/askdare doctor
-  3. To embed the chat on another site, add that site to allowedOrigins and paste:
+  3. To embed the chat on another site, add it to ASKDARE_ALLOWED_ORIGINS in .env.local (comma-separated) and paste:
        <script src="https://<your app>/api/chat/widget.js?bot=support" async></script>
 ```
 

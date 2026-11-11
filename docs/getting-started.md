@@ -93,7 +93,7 @@ Every check and option is in [Command line](cli.md#doctor).
 
 The chat can live on any site, not only on your Next.js app:
 
-1. Add the site to `ASKDARE_ALLOWED_ORIGINS` in `.env.local`, for example `ASKDARE_ALLOWED_ORIGINS=https://www.example.com`. The `init` config reads it into `security.allowedOrigins`; separate several sites with commas. Restart `npm run dev`.
+1. Add the site to `ASKDARE_ALLOWED_ORIGINS` in `.env.local`, for example `ASKDARE_ALLOWED_ORIGINS=https://www.example.com`. The `init` config reads it into `security.allowedOrigins`; separate several sites with commas. Restart `npm run dev`. A config from the `init` of askdare 0.1 sets `security.allowedOrigins` directly; add the site to that list instead.
 2. Paste one tag into that site's HTML:
 
    ```html

@@ -2,8 +2,9 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { InitError, init } from './init';
 import { gitIgnores } from './project';
 
@@ -182,5 +183,63 @@ describe('askdare init', () => {
     await expect(run()).rejects.toThrow(/not a Next.js app/);
     await nextApp();
     await expect(run({ botId: '../evil' })).rejects.toThrow(/bot ID/);
+  });
+});
+
+describe('the config init writes', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  /** Writes the config with these variables set and loads it with the real defineBot, which checks it. */
+  async function load(env: Record<string, string> = {}) {
+    vi.stubEnv('ASKDARE_MODEL', 'gpt-test');
+    for (const [name, value] of Object.entries(env)) vi.stubEnv(name, value);
+    await nextApp();
+    await run();
+    const file = join(root, 'askdare.config.ts');
+    const library = fileURLToPath(new URL('../index.ts', import.meta.url));
+    await writeFile(
+      file,
+      (await readFile(file, 'utf8')).replace("from '@boldare/askdare'", `from '${library}'`),
+    );
+    const [bot] = (await import(file)).bots;
+    return {
+      instructions: bot.instructions({ locale: 'pl' }),
+      greeting: bot.widget.greeting,
+      origins: bot.security.allowedOrigins,
+    };
+  }
+  const LANGUAGE = "Reply in the language of the visitor's message; default to pl.";
+
+  it('keeps its defaults without the optional variables', async () => {
+    const bot = await load();
+    expect(bot.instructions).toMatch(/^You are the assistant on our website\. .*\n\n/s);
+    expect(bot.instructions.endsWith(`\n\n${LANGUAGE}`)).toBe(true);
+    expect(bot.greeting).toBe('Hi! How can I help?');
+    expect(bot.origins).toEqual([]);
+  });
+
+  it('falls back to the defaults for empty or blank values', async () => {
+    const bot = await load({
+      ASKDARE_INSTRUCTIONS: ' ',
+      ASKDARE_GREETING: '  ',
+      ASKDARE_ALLOWED_ORIGINS: '',
+    });
+    expect(bot.instructions).toMatch(/^You are the assistant on our website\./);
+    expect(bot.greeting).toBe('Hi! How can I help?');
+    expect(bot.origins).toEqual([]);
+  });
+
+  it('uses the variables, trimmed, with origins split on commas and without trailing slashes', async () => {
+    const bot = await load({
+      ASKDARE_INSTRUCTIONS: ' You answer questions about Acme ',
+      ASKDARE_GREETING: ' Cześć! ',
+      ASKDARE_ALLOWED_ORIGINS: ' https://www.example.com/ , https://shop.example.com,, ',
+    });
+    // The language sentence stays its own paragraph, even after text without a final period.
+    expect(bot.instructions).toBe(`You answer questions about Acme\n\n${LANGUAGE}`);
+    expect(bot.greeting).toBe('Cześć!');
+    expect(bot.origins).toEqual(['https://www.example.com', 'https://shop.example.com']);
   });
 });

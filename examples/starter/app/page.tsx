@@ -10,7 +10,8 @@ export default function Home() {
       <ul>
         <li>
           Give the bot its job: edit <code>instructions</code> and <code>widget</code> in{' '}
-          <code>askdare.config.ts</code>.
+          <code>askdare.config.ts</code>. Where <code>ASKDARE_INSTRUCTIONS</code> or{' '}
+          <code>ASKDARE_GREETING</code> are set, as after a one-click deploy, change them there.
         </li>
         <li>
           Check the setup: <code>npx @boldare/askdare doctor</code>.
