@@ -10,6 +10,7 @@ const STATES = [
   'error',
   'listening',
   'feedback',
+  'replies',
 ];
 const WIDTHS = { panel: 400, mobile: 360 } as const;
 

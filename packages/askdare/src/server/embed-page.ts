@@ -41,6 +41,7 @@ export const GALLERY_STATES = [
   'error',
   'listening',
   'feedback',
+  'replies',
 ] as const;
 export type GalleryState = (typeof GALLERY_STATES)[number];
 

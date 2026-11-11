@@ -12,6 +12,7 @@ const STATES = [
   'error',
   'listening',
   'feedback',
+  'replies',
 ];
 
 async function render(page: Page, query: Record<string, string>): Promise<void> {
