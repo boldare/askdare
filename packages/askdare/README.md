@@ -38,7 +38,7 @@ export const bots = [
 
 ## What you get
 
-[![What it does: answers from your documents with citations, your own tools, images and PDFs, voice input, secure by default, and no database.](https://raw.githubusercontent.com/boldare/askdare/main/.github/assets/askdare-features.png)](https://askdare.vercel.app/#features)
+[![What it does: answers from your documents with citations, your own tools, images and PDFs, voice input, and secure by default. New in 0.2: the chat inside your own page with React, thumbs-up and thumbs-down ratings of answers, observability with OpenTelemetry, and chat events for analytics. No database.](https://raw.githubusercontent.com/boldare/askdare/main/.github/assets/askdare-features.png)](https://askdare.vercel.app/#features)
 
 [Knowledge base](https://askdare.vercel.app/docs/knowledge-base) · [Tools](https://askdare.vercel.app/docs/tools) · [Attachments](https://askdare.vercel.app/docs/attachments) · [Voice input](https://askdare.vercel.app/docs/voice-input) · [The chat inside your page (React)](https://askdare.vercel.app/docs/react) · [Answer ratings](https://askdare.vercel.app/docs/feedback) · [Security](https://github.com/boldare/askdare/blob/main/THREAT_MODEL.md)
 
