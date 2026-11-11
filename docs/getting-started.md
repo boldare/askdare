@@ -4,6 +4,12 @@ From an empty Next.js app to a working chat in about 15 minutes. You need Node 2
 
 No Next.js app yet? Create one with the [Next.js installation guide](https://nextjs.org/docs/app/getting-started/installation), then come back.
 
+Just want to see it running first? Deploy the starter app in one click, then come back to add askdare to your own app:
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fboldare%2Faskdare%2Ftree%2Fmain%2Fexamples%2Fstarter&project-name=askdare-chat&repository-name=askdare-chat&env=OPENAI_API_KEY%2CCHAT_SECRET%2CASKDARE_MODEL&envDefaults=%7B%22ASKDARE_MODEL%22%3A%22gpt-6.1-terra%22%7D&envDescription=OPENAI_API_KEY%3A%20a%20key%20from%20a%20dedicated%20OpenAI%20project%20with%20a%20hard%20spend%20limit.%20CHAT_SECRET%3A%20at%20least%2032%20random%20characters%2C%20for%20example%20from%20node%20-e%20%22console.log%28require%28%27node%3Acrypto%27%29.randomBytes%2832%29.toString%28%27base64url%27%29%29%22.%20ASKDARE_MODEL%3A%20a%20current%20OpenAI%20model%20your%20project%20may%20use.&envLink=https%3A%2F%2Faskdare.vercel.app%2Fdocs%2Fdeployment%23one-click-deploy)
+
+[Deployment](deployment.md#one-click-deploy) covers what to fill in, Heroku, and how to check the live app with `doctor`.
+
 ## 1. Get an OpenAI key
 
 1. In the [OpenAI dashboard](https://platform.openai.com/), create a **new project** just for this chat.

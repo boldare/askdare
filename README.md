@@ -48,6 +48,10 @@ export const bots = [
 
 **[Getting started](docs/getting-started.md)** takes you from an empty app to a working chat in about 15 minutes.
 
+Or deploy the [starter](examples/starter) in one click and try it first ([Heroku and the details](docs/deployment.md#one-click-deploy)):
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fboldare%2Faskdare%2Ftree%2Fmain%2Fexamples%2Fstarter&project-name=askdare-chat&repository-name=askdare-chat&env=OPENAI_API_KEY%2CCHAT_SECRET%2CASKDARE_MODEL&envDefaults=%7B%22ASKDARE_MODEL%22%3A%22gpt-6.1-terra%22%7D&envDescription=OPENAI_API_KEY%3A%20a%20key%20from%20a%20dedicated%20OpenAI%20project%20with%20a%20hard%20spend%20limit.%20CHAT_SECRET%3A%20at%20least%2032%20random%20characters%2C%20for%20example%20from%20node%20-e%20%22console.log%28require%28%27node%3Acrypto%27%29.randomBytes%2832%29.toString%28%27base64url%27%29%29%22.%20ASKDARE_MODEL%3A%20a%20current%20OpenAI%20model%20your%20project%20may%20use.&envLink=https%3A%2F%2Faskdare.vercel.app%2Fdocs%2Fdeployment%23one-click-deploy)
+
 ## What you get
 
 [![What it does: answers from your documents with citations, your own tools, images and PDFs, voice input, and secure by default. New in 0.2: the chat inside your own page with React, thumbs-up and thumbs-down ratings of answers, observability with OpenTelemetry, and chat events for analytics. No database.](.github/assets/askdare-features.png)](https://askdare.vercel.app/#features)

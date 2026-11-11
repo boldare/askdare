@@ -1,0 +1,26 @@
+{
+  "name": "askdare starter",
+  "description": "A Next.js app with an askdare chat: one bot, one route and one script tag.",
+  "keywords": ["nextjs", "openai", "chatbot", "askdare"],
+  "website": "https://askdare.vercel.app",
+  "repository": "https://github.com/boldare/askdare",
+  "success_url": "/",
+  "env": {
+    "OPENAI_API_KEY": {
+      "description": "A key from a dedicated OpenAI project with a hard spend limit.",
+      "required": true
+    },
+    "CHAT_SECRET": {
+      "description": "Signs visitor sessions. Generated for you; keep it different from your other environments.",
+      "generator": "secret"
+    },
+    "ASKDARE_MODEL": {
+      "description": "A current OpenAI model your project may use. The build fails without it.",
+      "value": "gpt-6.1-terra"
+    }
+  },
+  "buildpacks": [{ "url": "heroku/nodejs" }],
+  "formation": {
+    "web": { "quantity": 1 }
+  }
+}
