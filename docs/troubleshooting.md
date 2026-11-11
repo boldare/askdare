@@ -67,7 +67,7 @@ The same check reports every invalid setting as `Invalid bot "<id>": <setting> <
 
 | Message | Fix |
 | --- | --- |
-| `security.allowedOrigins.0 must be an https origin like https://www.example.com (no path or wildcard; http only for localhost)` | Use the scheme and host only, such as `https://www.example.com`, with no trailing slash |
+| `security.allowedOrigins.0 must be an https origin like https://www.example.com (no path or wildcard; http only for localhost)` | Use the scheme and host only, such as `https://www.example.com`, with no trailing slash. With the `init` config, check each entry in `ASKDARE_ALLOWED_ORIGINS` |
 | `id use 1-48 lowercase letters, digits or dashes` | Rename the bot, and update `?bot=` in the script tag |
 | `knowledge.vectorStoreId must be a vector store ID like vs_…` | Set `KB_VECTOR_STORE_ID` to the ID that `kb sync` printed |
 | `voice.model is required` | Set a transcription model in `voice` |

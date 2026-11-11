@@ -30,7 +30,7 @@ The button copies this starter into a new repository on your Git account and dep
 
 | File | What it does |
 | --- | --- |
-| `askdare.config.ts` | The bot: model, instructions, the sites that may embed it, its look. |
+| `askdare.config.ts` | The bot: model, instructions, the sites that may embed it, its look. `ASKDARE_INSTRUCTIONS` and `ASKDARE_GREETING` win over its defaults where they are set, as after a one-click deploy. |
 | `app/api/chat/[...path]/route.ts` | The chat's API, script and iframe. `maxDuration` must stay a literal in this file. |
 | `app/layout.tsx` | Loads the chat on every page with `next/script`. |
 | `AGENTS.md` | Points AI coding agents to the askdare docs that match the installed version. |
