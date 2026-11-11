@@ -397,6 +397,8 @@ The library doesn't read these. `npx @boldare/askdare init`, the starter and the
 | Variable | Used for | Notes |
 | --- | --- | --- |
 | `ASKDARE_MODEL` | `model: process.env.ASKDARE_MODEL ?? ''` | `init` writes it to `.env.local` (from `--model`). Set it in every environment that builds or runs the app; on Vercel, in Production and Preview. |
+| `ASKDARE_INSTRUCTIONS` | `instructions` | Optional. The `init` template uses it in place of its default instructions and keeps the sentence about the reply language. |
+| `ASKDARE_GREETING` | `widget.greeting` | Optional. |
 | `ASKDARE_TRANSCRIBE_MODEL` | `voice.model` | |
 | `ASKDARE_ALLOWED_ORIGINS` | `security.allowedOrigins` | Comma-separated, as in the [example](#example). |
 | `KB_VECTOR_STORE_ID` | `knowledge.vectorStoreId` | The first `npx @boldare/askdare kb sync` creates the store and prints its ID. |

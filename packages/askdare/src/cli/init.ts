@@ -30,24 +30,28 @@ const BOT_ID = /^[a-z0-9][a-z0-9-]{0,47}$/;
 function configTemplate(botId: string): string {
   return `import { defineBot } from '@boldare/askdare';
 
+// Other sites that may embed the chat, comma-separated, e.g. https://www.example.com.
+const allowedOrigins = (process.env.ASKDARE_ALLOWED_ORIGINS ?? '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 export const bots = [
   defineBot({
     id: '${botId}',
     // Required: a current OpenAI model your project may use. Set ASKDARE_MODEL in .env.local.
     model: process.env.ASKDARE_MODEL ?? '',
+    // ASKDARE_INSTRUCTIONS and ASKDARE_GREETING are optional and replace the defaults below.
     instructions: ({ locale }) =>
       [
-        'You are the assistant on our website. Answer briefly and politely.',
-        'If you do not know something, say so.',
+        process.env.ASKDARE_INSTRUCTIONS ||
+          'You are the assistant on our website. Answer briefly and politely. If you do not know something, say so.',
         \`Reply in the language of the visitor's message; default to \${locale}.\`,
       ].join(' '),
-    security: {
-      // Other sites that may embed the chat, e.g. ['https://www.example.com'].
-      allowedOrigins: [],
-    },
+    security: { allowedOrigins },
     widget: {
       locale: 'auto',
-      greeting: 'Hi! How can I help?',
+      greeting: process.env.ASKDARE_GREETING || 'Hi! How can I help?',
       theme: 'aura', // aura, halo, sage or care
     },
     // Knowledge base, tools, attachments, voice and limits: see node_modules/@boldare/askdare/docs.
