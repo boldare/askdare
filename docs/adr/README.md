@@ -16,6 +16,7 @@ Short records of decisions that are expensive to reverse. One decision per file,
 | [0010](0010-docs-website.md) | Docs website rendered from docs/*.md | Accepted |
 | [0011](0011-react-api-and-inline-chat.md) | Headless React API and the chat inside a page | Accepted |
 | [0012](0012-server-hooks-and-telemetry.md) | Server hooks for usage and feedback, and an OpenTelemetry add-on | Accepted |
+| [0013](0013-browser-events.md) | Chat events in the browser, metadata only | Accepted |
 
 ## Template
 

@@ -31,7 +31,8 @@ A library runs inside its users' apps, so every supported combination of version
   - `defineBot`, `defineTool`, `createChatHandler` (and `defineTheme`);
   - `getChatConfig`, and everything `@boldare/askdare/react` exports: `Root`, `DefaultChat`, `Theme`, the hooks and the primitives (ADR-0011);
   - the `data-askdare-root` attribute of the theme root;
-  - the script tag's `data-*` attributes and the `askdare()` JS API, `identify` included;
+  - the script tag's `data-*` attributes and the `askdare()` JS API, `identify`, `on` and `off` included;
+  - the chat event catalog and `Root`'s `onEvent` (ADR-0013);
   - the identity token's claims, `IDENTITY_SECRET` and `context.identity` (ADR-0009);
   - `--ask-*` tokens, `data-ask-part` names and dictionary keys;
   - the shadow parts on the host page (`launcher`, `panel`, `unavailable`) and the host element's `data-askdare` attribute;
