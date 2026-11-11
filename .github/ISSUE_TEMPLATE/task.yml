@@ -1,0 +1,70 @@
+name: Task (maintainers)
+description: A piece of roadmap work, written so that a person or an agent can do it from this issue alone.
+labels: [task]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue is the whole brief: whoever picks it up reads this and the linked ADRs, nothing else. See [ROADMAP.md](https://github.com/boldare/askdare/blob/main/ROADMAP.md#how-we-track-work).
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: One or two sentences, what is true when this is done, for the user of askdare.
+    validations:
+      required: true
+  - type: input
+    id: adrs
+    attributes:
+      label: Decisions to read first
+      description: ADRs and docs pages, for example "ADR-0004, ADR-0015, docs/protocol.md".
+  - type: textarea
+    id: scope
+    attributes:
+      label: Files and area
+      description: Where the change goes. Name existing functions to reuse.
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Don't touch
+      description: Files that other tasks own right now, and work that belongs to another task.
+  - type: dropdown
+    id: hot-files
+    attributes:
+      label: Touches hot files
+      description: Protocol, chat state and store, defineBot, texts, react/headless, the loader, the API snapshot. Such tasks run one at a time.
+      options:
+        - "No"
+        - "Yes"
+    validations:
+      required: true
+  - type: dropdown
+    id: api
+    attributes:
+      label: Changes the public API or the protocol
+      options:
+        - "No"
+        - "Yes: API snapshot, ADR-0006 and a minor changeset"
+        - "Yes: protocol, additive within v1 (docs/protocol.md)"
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Definition of Done
+      description: Tests, docs pages, changeset, e2e, reviews. `pnpm check` passes in every case.
+      value: |
+        - [ ] Unit tests for the new behavior
+        - [ ] Docs updated
+        - [ ] Changeset (published packages only)
+        - [ ] `pnpm check` passes
+        - [ ] `/security-review` and `/code-review` (security-relevant changes)
+    validations:
+      required: true
+  - type: textarea
+    id: depends
+    attributes:
+      label: Depends on
+      description: Issues that must be done first. Also set them as "blocked by" in the Project.
