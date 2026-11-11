@@ -65,6 +65,35 @@ test('chats in the page with the default look, and keeps the conversation', asyn
   expect(errors).toEqual([]);
 });
 
+test('lists the chat’s events beside it, without what anyone wrote', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto(`${APP}/inline`);
+  const panel = page.getByRole('complementary', { name: 'Chat events' });
+  const events = panel.getByRole('list', { name: 'Events, newest first' }).getByRole('listitem');
+  await expect(events).toHaveCount(1);
+  await expect(events.first()).toHaveAttribute('data-type', 'ready');
+
+  const question = 'Is my secret plan safe?';
+  await send(page.locator(ROOT), question);
+  await expect(events).toHaveCount(3);
+  for (const [index, type] of ['message.received', 'message.sent', 'ready'].entries()) {
+    await expect(events.nth(index)).toHaveAttribute('data-type', type);
+  }
+  const field = (type: string, name: string): Locator =>
+    panel
+      .locator(`li[data-type="${type}"] div`, { has: page.locator('dt', { hasText: name }) })
+      .locator('dd');
+  await expect(field('message.sent', 'length')).toHaveText(String(question.length));
+  await expect(field('message.sent', 'source')).toHaveText('"typed"');
+  await expect(field('message.received', 'outcome')).toHaveText('"completed"');
+  // Metadata only: neither the question nor the answer reached the page's listener.
+  await expect(panel).not.toContainText('secret');
+
+  await panel.getByRole('button', { name: 'Clear' }).click();
+  await expect(events).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
 test('attaches a file dropped into the field’s picker', async ({ page }) => {
   await page.goto(`${APP}/inline`);
   const chat = page.locator(ROOT);
