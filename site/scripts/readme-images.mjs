@@ -30,7 +30,7 @@ const context = {
 
 /**
  * One state of the chat from the gallery, as a PNG data URI. `part` or `clip` takes a piece of it,
- * on a transparent background (the page's glow is the body's).
+ * on a transparent background (the glow is the body's and the panel's).
  */
 async function chat({
   bot = 'support',
@@ -55,9 +55,10 @@ async function chat({
   }
   // The embed's CSP allows no inline <style>; CSSOM changes are fine.
   if (part || clip) {
-    await page.evaluate(() =>
-      document.body.style.setProperty('background', 'transparent', 'important'),
-    );
+    await page.evaluate(() => {
+      for (const element of [document.body, document.querySelector('[data-ask-part="panel"]')])
+        element?.style.setProperty('background', 'transparent', 'important');
+    });
   }
   await page.waitForTimeout(400);
   let png;
@@ -140,6 +141,23 @@ const shots = {
       return { x: 0, y: top, width: Math.min(400, right), height: bottom - top };
     },
   }),
+  // The last answer rated 👎, with the comment field open.
+  rating: await chat({
+    state: 'feedback',
+    preset: 'aura',
+    height: 900,
+    clip: () => {
+      const answer = [
+        ...document.querySelectorAll('[data-ask-part="message"][data-role="assistant"]'),
+      ].pop();
+      const parts = [...answer.querySelectorAll('[data-ask-part]')].map((element) =>
+        element.getBoundingClientRect(),
+      );
+      const box = answer.getBoundingClientRect();
+      const right = Math.max(...parts.map((part) => part.right)) + 6;
+      return { x: 0, y: box.top - 4, width: Math.min(400, right), height: box.height + 8 };
+    },
+  }),
   recorder: await chat({
     state: 'listening',
     preset: 'aura',
@@ -186,6 +204,20 @@ const toolCode = await code(
 })`,
   'ts',
 );
+const reactCode = await code(
+  `<Root config={config}>
+  <DefaultChat />
+</Root>`,
+  'tsx',
+);
+const usageCode = await code(
+  `createChatHandler({
+  bots,
+  onUsage: otelUsage(),
+})`,
+  'ts',
+);
+const eventsCode = await code(`askdare('on', '*', track)`, 'js');
 
 // ---------- The look: the site's Aura theme ----------
 
@@ -342,26 +374,43 @@ const how = () => `
   </div>`;
 
 const check = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" /></svg>';
+const isNew = '<span class="new">New</span>';
 const features = () => `
   <style>
-    .features { width: 1280px; height: 840px; padding: 56px 64px; }
+    .features { width: 1280px; height: 1180px; padding: 56px 64px; }
     .features h2 { font-size: 44px; }
     .grid {
       display: grid; grid-template-columns: 372px 1fr 1fr; grid-template-rows: 1fr 1fr;
       gap: 20px; height: 546px; margin-top: 34px;
     }
+    .grid.added { grid-template-columns: repeat(4, 1fr); grid-template-rows: 1fr; height: 300px; margin-top: 20px; }
     .tile { position: relative; overflow: hidden; padding: 24px 26px; }
-    .tile h3 { font-size: 20px; font-weight: 800; letter-spacing: -0.015em; }
+    .tile h3 { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; letter-spacing: -0.015em; }
     .tile p { margin-top: 6px; color: #5f5a68; font-size: 14.5px; line-height: 1.5; }
+    .added .tile { padding: 22px 22px; }
+    .added .tile h3 { font-size: 18px; }
+    .added .tile p { font-size: 14px; }
+    .new {
+      padding: 3px 9px; border-radius: 999px; background: linear-gradient(115deg, #c2386f, #6b52e0);
+      color: #fff; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+    }
     .kb { grid-row: span 2; }
     .kb img { position: absolute; left: 18px; bottom: 20px; width: 334px; }
-    .tools .shiki {
+    .tile .shiki {
       margin-top: 16px; padding: 14px 16px; border-radius: 14px; background: #1e1b26 !important;
       font-size: 12.5px;
+    }
+    .added .shiki { position: absolute; right: 22px; bottom: 22px; left: 22px; padding: 12px 14px; font-size: 12.5px; }
+    .added .events .shiki { bottom: 84px; }
+    .names { position: absolute; right: 22px; bottom: 22px; left: 22px; display: flex; flex-wrap: wrap; gap: 6px; list-style: none; }
+    .names li {
+      padding: 3px 9px; border: 1px solid #2424241a; border-radius: 8px; background: #ffffffb8;
+      color: #5f5a68; font: 500 11.5px/1.5 "SF Mono", ui-monospace, Menlo, monospace;
     }
     .pic { position: absolute; left: 22px; bottom: 22px; }
     .files .pic { width: 300px; }
     .voice .pic { width: 318px; }
+    .ratings .pic { left: 12px; bottom: 16px; width: 236px; }
     .secure ul { display: grid; gap: 9px; margin-top: 14px; list-style: none; font-size: 14.5px; font-weight: 600; }
     .secure li { display: flex; align-items: center; gap: 10px; }
     .secure svg {
@@ -394,6 +443,18 @@ const features = () => `
           <li>${check}Only the sites you allow can embed it</li>
           <li>${check}Visitors never pick the model or tools</li>
         </ul></div>
+    </div>
+    <div class="grid added">
+      <div class="tile card inline"><h3>In your own page ${isNew}</h3>
+        <p>React components from @boldare/askdare/react put the chat in a page of your Next.js app.</p>${reactCode}</div>
+      <div class="tile card ratings"><h3>Answer ratings ${isNew}</h3>
+        <p>👍 or 👎 on every answer, sent to your onFeedback.</p>
+        <img class="pic" src="${shots.rating}" alt=""></div>
+      <div class="tile card usage"><h3>Observability ${isNew}</h3>
+        <p>Tokens, timings and tool calls of every turn, as OpenTelemetry spans with askdare-otel.</p>${usageCode}</div>
+      <div class="tile card events"><h3>Chat events ${isNew}</h3>
+        <p>Feed GA4 or GTM from the page. Metadata only, never what anyone wrote.</p>${eventsCode}
+        <ul class="names"><li>ready</li><li>open</li><li>message.sent</li><li>message.received</li><li>feedback</li></ul></div>
     </div>
     <div class="strip"><strong>No database.</strong><ul class="tags">
       <li>Conversations live in OpenAI</li><li>Vercel or Heroku</li><li>Next.js 16</li><li>TypeScript</li><li>English and Polish</li>
@@ -440,7 +501,7 @@ async function render(html, { width, height, path, scale = 2 }) {
 
 await mkdir(assets, { recursive: true });
 await render(hero(), { width: 1280, height: 640, path: join(assets, 'askdare-hero.png') });
-await render(features(), { width: 1280, height: 840, path: join(assets, 'askdare-features.png') });
+await render(features(), { width: 1280, height: 1180, path: join(assets, 'askdare-features.png') });
 await render(how(), { width: 1280, height: 640, path: join(assets, 'askdare-how-it-works.png') });
 await render(themes(), { width: 1280, height: 640, path: join(assets, 'askdare-themes.png') });
 // The link preview: square corners, at the size it is shown.
