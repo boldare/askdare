@@ -1,6 +1,6 @@
 # ADR-0014: Changing the chat's language at runtime
 
-- **Status:** Proposed. Amends the `configure` allowlist of [ADR-0008](0008-ui-customization-and-themes.md).
+- **Status:** Accepted. Amends the `configure` allowlist of [ADR-0008](0008-ui-customization-and-themes.md).
 - **Date:** 2026-11-11
 
 ## Context

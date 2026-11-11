@@ -17,9 +17,9 @@ Short records of decisions that are expensive to reverse. One decision per file,
 | [0011](0011-react-api-and-inline-chat.md) | Headless React API and the chat inside a page | Accepted |
 | [0012](0012-server-hooks-and-telemetry.md) | Server hooks for usage and feedback, and an OpenTelemetry add-on | Accepted |
 | [0013](0013-browser-events.md) | Chat events in the browser, metadata only | Accepted |
-| [0014](0014-runtime-language.md) | Changing the chat's language at runtime | Proposed |
-| [0015](0015-reply-options.md) | Reply options and tool UI payloads | Proposed |
-| [0016](0016-admin.md) | Admin: a console first, then an add-on with storage | Proposed |
+| [0014](0014-runtime-language.md) | Changing the chat's language at runtime | Accepted |
+| [0015](0015-reply-options.md) | Reply options and tool UI payloads | Accepted |
+| [0016](0016-admin.md) | Admin: a console first, then an add-on with storage | Accepted |
 
 ## Template
 
