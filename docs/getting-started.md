@@ -6,7 +6,7 @@ No Next.js app yet? Create one with the [Next.js installation guide](https://nex
 
 Just want to see it running first? Deploy the starter app in one click, then come back to add askdare to your own app:
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fboldare%2Faskdare%2Ftree%2Fmain%2Fexamples%2Fstarter&project-name=askdare-chat&repository-name=askdare-chat&env=OPENAI_API_KEY%2CCHAT_SECRET%2CASKDARE_MODEL&envDefaults=%7B%22ASKDARE_MODEL%22%3A%22gpt-6.1-terra%22%7D&envDescription=OPENAI_API_KEY%3A%20a%20key%20from%20a%20dedicated%20OpenAI%20project%20with%20a%20hard%20spend%20limit.%20CHAT_SECRET%3A%20at%20least%2032%20random%20characters%2C%20for%20example%20from%20node%20-e%20%22console.log%28require%28%27node%3Acrypto%27%29.randomBytes%2832%29.toString%28%27base64url%27%29%29%22.%20ASKDARE_MODEL%3A%20a%20current%20OpenAI%20model%20your%20project%20may%20use.&envLink=https%3A%2F%2Faskdare.vercel.app%2Fdocs%2Fdeployment%23one-click-deploy)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fboldare%2Faskdare%2Ftree%2Fmain%2Fexamples%2Fstarter&project-name=askdare-chat&repository-name=askdare-chat&env=OPENAI_API_KEY%2CCHAT_SECRET%2CASKDARE_MODEL%2CASKDARE_INSTRUCTIONS%2CASKDARE_GREETING&envDefaults=%7B%22ASKDARE_MODEL%22%3A%22gpt-6.1-terra%22%2C%22ASKDARE_INSTRUCTIONS%22%3A%22You%20are%20the%20assistant%20on%20our%20website.%20Answer%20briefly%20and%20politely.%20If%20you%20do%20not%20know%20something%2C%20say%20so.%22%2C%22ASKDARE_GREETING%22%3A%22Hi%21%20How%20can%20I%20help%3F%22%7D&envDescription=OPENAI_API_KEY%3A%20a%20key%20from%20a%20dedicated%20OpenAI%20project%20with%20a%20hard%20spend%20limit.%20CHAT_SECRET%3A%20at%20least%2032%20random%20characters%2C%20for%20example%20from%20node%20-e%20%22console.log%28require%28%27node%3Acrypto%27%29.randomBytes%2832%29.toString%28%27base64url%27%29%29%22.%20ASKDARE_MODEL%3A%20a%20current%20OpenAI%20model%20your%20project%20may%20use.%20ASKDARE_INSTRUCTIONS%3A%20what%20the%20bot%20does%20and%20how%20it%20answers.%20ASKDARE_GREETING%3A%20the%20first%20message%20in%20the%20chat.&envLink=https%3A%2F%2Faskdare.vercel.app%2Fdocs%2Fdeployment%23one-click-deploy)
 
 [Deployment](deployment.md#one-click-deploy) covers what to fill in, Heroku, and how to check the live app with `doctor`.
 
@@ -93,7 +93,7 @@ Every check and option is in [Command line](cli.md#doctor).
 
 The chat can live on any site, not only on your Next.js app:
 
-1. Add the site to `security.allowedOrigins` in `askdare.config.ts`, for example `['https://www.example.com']`.
+1. Add the site to `ASKDARE_ALLOWED_ORIGINS` in `.env.local`, for example `ASKDARE_ALLOWED_ORIGINS=https://www.example.com`. The `init` config reads it into `security.allowedOrigins`; separate several sites with commas. Restart `npm run dev`.
 2. Paste one tag into that site's HTML:
 
    ```html
@@ -102,7 +102,7 @@ The chat can live on any site, not only on your Next.js app:
 
 Browsers refuse to show the chat on sites that aren't on the list. Check a site with `npx @boldare/askdare doctor --origin https://www.example.com`.
 
-Staging and production usually embed the chat on different sites. Read the list from an environment variable, such as `ASKDARE_ALLOWED_ORIGINS`. [Embedding](embedding.md#staging-and-production) shows how, along with the script's options and your site's Content Security Policy.
+Staging and production usually embed the chat on different sites, so set `ASKDARE_ALLOWED_ORIGINS` in each environment. [Embedding](embedding.md#staging-and-production) has more, along with the script's options and your site's Content Security Policy.
 
 ## Working with an AI coding agent
 

@@ -62,6 +62,12 @@ describe('askdare init', () => {
     const config = await readFile(join(root, 'askdare.config.ts'), 'utf8');
     expect(config).toContain("id: 'support'");
     expect(config).toContain('process.env.ASKDARE_MODEL');
+    // The starter is what init writes; one-click deploys fill in these variables.
+    const starter = new URL('../../../../examples/starter/askdare.config.ts', import.meta.url);
+    expect(config).toBe(await readFile(starter, 'utf8'));
+    for (const name of ['ASKDARE_INSTRUCTIONS', 'ASKDARE_GREETING', 'ASKDARE_ALLOWED_ORIGINS']) {
+      expect(config).toContain(`process.env.${name}`);
+    }
 
     const env = parseEnv(await readFile(join(root, '.env.local'), 'utf8'));
     expect(env['OPENAI_API_KEY']).toBe('');

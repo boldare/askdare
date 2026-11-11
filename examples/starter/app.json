@@ -17,10 +17,31 @@
     "ASKDARE_MODEL": {
       "description": "A current OpenAI model your project may use. The build fails without it.",
       "value": "gpt-6.1-terra"
+    },
+    "ASKDARE_INSTRUCTIONS": {
+      "description": "What the bot does and how it answers. The reply language follows the visitor's.",
+      "value": "You are the assistant on our website. Answer briefly and politely. If you do not know something, say so.",
+      "required": false
+    },
+    "ASKDARE_GREETING": {
+      "description": "The first message in the chat.",
+      "value": "Hi! How can I help?",
+      "required": false
+    },
+    "ASKDARE_ALLOWED_ORIGINS": {
+      "description": "Other sites that may embed the chat, comma-separated, e.g. https://www.example.com. Empty: only this app.",
+      "value": "",
+      "required": false
     }
   },
-  "buildpacks": [{ "url": "heroku/nodejs" }],
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
   "formation": {
-    "web": { "quantity": 1 }
+    "web": {
+      "quantity": 1
+    }
   }
 }
