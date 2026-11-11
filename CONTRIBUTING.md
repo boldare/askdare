@@ -50,6 +50,15 @@ The repository ships configuration for Claude Code:
 
 Review AI-generated changes like any other contribution.
 
+### Working with agents
+
+Roadmap work is planned so that several agents, or people, can work at once without stepping on each other:
+- **[ROADMAP.md](ROADMAP.md)** says what each release contains and how work is tracked.
+- **Each task due in the next two releases is an issue** of type Task, made from the "Task" template; later work waits as a draft on the Project board. It is a complete brief: goal, ADRs to read, files, what not to touch, Definition of Done and dependencies. Start from the issue alone; if it isn't enough, improve the issue rather than passing context around.
+- **One task, one branch, one pull request,** in its own worktree.
+- **Hot files** (listed in the roadmap) are changed by one task at a time. Tasks that don't touch them can run side by side.
+- **Status lives in the GitHub Project**, not in commits or chat. Move the card when you start, open a pull request and merge.
+
 ## Development
 
 **Prerequisites:**
