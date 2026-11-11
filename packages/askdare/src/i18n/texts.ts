@@ -188,15 +188,8 @@ const PL: Partial<Record<TextKey | `${string}.${'few' | 'many'}`, string>> = {
     'Dyktowanie jest niedostępne do końca dnia. Wiadomość możesz nadal wpisać.',
 };
 
-/** The canonical form of a BCP 47 tag that Intl accepts (plural rules need it), else undefined. */
-export function canonicalLocale(tag: string): string | undefined {
-  if (tag.length > 35) return undefined;
-  try {
-    return Intl.getCanonicalLocales(tag)[0];
-  } catch {
-    return undefined;
-  }
-}
+// Its own module, so the loader can check a language without the dictionaries.
+export { canonicalLocale } from './locale';
 
 /** Languages with a built-in dictionary; any other locale shows English texts. */
 export const TEXT_LOCALES = ['en', 'pl'] as const;

@@ -1,4 +1,10 @@
-/** What a page may set with askdare('configure') or the props of `Root`, checked again here. */
+import { canonicalLocale } from '../i18n/locale';
+
+/**
+ * What a page may set with askdare('configure') or the props of `Root`, checked again here. The
+ * language isn't among them: it comes with the chat's address (`?lang=`, or `getChatConfig` in
+ * React), so switching it reloads the chat (ADR-0014).
+ */
 export interface PageOptions {
   readonly greeting?: string;
   readonly starters?: readonly string[];
@@ -18,6 +24,14 @@ export function identityToken(value: unknown): string | null | undefined {
   if (value.length <= 4096 && JWT.test(value)) return value;
   console.warn("[askdare] askdare('identify') got something that isn't a JWT; signing out.");
   return null;
+}
+
+/**
+ * The canonical form of the language a page asks for, with askdare('configure', { locale }) or
+ * its `<html lang>`, else undefined. Only a hint: the server checks it against the bot again.
+ */
+export function pageLocale(value: unknown): string | undefined {
+  return typeof value === 'string' ? canonicalLocale(value) : undefined;
 }
 
 /** Keeps only the allowed fields, trimmed and within their limits. */

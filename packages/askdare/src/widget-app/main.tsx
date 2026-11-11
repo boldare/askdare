@@ -23,7 +23,10 @@ if (root) {
   const store = fixture ? createFixtureStore(config, fixture) : createChatStore(config);
   const bridge = connectToHost(config.allowedOrigins);
   // Started before the first render, so a stored conversation shows as loading from the start.
-  bindBridge(store, bridge);
+  const unbind = bindBridge(store, bridge);
+  // The loader reloads the chat to switch its language (ADR-0014): an answer under way ends
+  // there, and the page hears it as stopped. Not when the page is only kept for going back.
+  addEventListener('pagehide', (event) => event.persisted || unbind());
   createRoot(root).render(
     <App
       store={store}

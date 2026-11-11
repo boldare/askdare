@@ -26,7 +26,8 @@ export type ChatEvent =
     }
   /**
    * The answer ended: in full, with an error, or stopped because the chat was taken down
-   * mid-answer (a React `Root` unmounting). Closing the widget's panel doesn't stop an answer.
+   * mid-answer (a React `Root` unmounting, or the widget reloading in another language). Closing
+   * the widget's panel doesn't stop an answer.
    */
   | {
       readonly type: 'message.received';

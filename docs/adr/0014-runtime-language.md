@@ -30,6 +30,12 @@ Only bots with `locale: 'auto'` switch. A bot with a fixed locale ignores a swit
   3. If the iframe exists, it reloads it. The chat restores the conversation from the resume token as after any reload, and the earlier `configure()` call is sent again over the new port, as now.
 - **An answer that is still streaming is cut off in the browser.** The chat reports `message.received` with `outcome: 'stopped'` ([ADR-0013](0013-browser-events.md)) before the reload. The server finishes the turn and settles its cost as for any disconnect ([ADR-0004](0004-threat-model.md)), so the answer is stored in the conversation; a history loaded before the turn ends may not show it yet.
 - **React** keeps re-creating the store when `getChatConfig` is called with another locale, because `Root` keys it by locale. That already works; step 1 only documents it, together with the same `stopped` event.
+- **Details settled while building it:**
+  - `locale` is applied on its own: a `configure` call with only `locale` keeps the greeting, starters and context of the previous call.
+  - The loader reloads the iframe with `location.replace()`, so a switch adds no entry to the page's history and Back still leaves the page.
+  - The chat reports the stopped answer from its `pagehide` handler (not when the page is kept in the back-forward cache), so the bridge needs no new message.
+  - The same language again (after canonicalization) does nothing; a tag that isn't valid is dropped with a console warning. `data-follow-lang` acts only when the `lang` attribute's value changes.
+  - A loader without the bot's look (`data-bot` without `?bot=`) can't tell a fixed locale: it reloads, and the server keeps the bot's locale.
 
 ### Step 2 (0.4): switch in place
 

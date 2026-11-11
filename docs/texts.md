@@ -45,6 +45,17 @@ A page can still set its own greeting with `askdare('configure', { greeting })`;
 
 With `'auto'`, the launcher on your page follows the same order. Your `instructions` function receives the chosen tag as `context.locale`, so you can tell the model which language to answer in.
 
+### Switching the language on the page
+
+A site that switches its language without a page load, such as a single-page app with a language menu, can switch the chat too:
+
+- **`data-follow-lang`** on the script tag makes the chat follow the page's `<html lang>` whenever it changes.
+- **`askdare('configure', { locale: 'pl' })`** switches it from your own code. It wins over `data-follow-lang` until the page's `lang` changes again.
+
+The launcher's texts change at once, and the chat reloads in the new language. The visitor keeps their conversation: earlier answers stay in the language they were written in, and new answers and the interface follow the switch. Your `instructions` function gets the new tag as `context.locale` from the next message on. The reload loads the conversation again, which takes about as long as opening the chat. An answer still streaming disappears from view, and the page hears `message.received` with `outcome: 'stopped'` ([Chat events](events.md)); the server still finishes and stores it.
+
+Only a bot with `locale: 'auto'` switches. A bot with a fixed locale keeps its language, and the console says once that it ignored the change. The value is a BCP 47 tag; anything else is ignored with a console warning. In React, pass the new language to `getChatConfig`; see [React](react.md#good-to-know).
+
 ## Plurals
 
 A text with a number has one key per plural category: `zero`, `one`, `two`, `few`, `many` and `other`, the categories `Intl.PluralRules` uses. `message.attachments` is such a text: after a page reload, the chat shows it under each message that had files.

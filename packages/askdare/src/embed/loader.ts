@@ -6,12 +6,13 @@
  */
 
 import { eventListeners } from '../chat/events';
-import type { LauncherLook } from '../protocol/launcher';
+import { pageLocale } from '../chat/page-options';
+import type { LauncherLook, LauncherTexts } from '../protocol/launcher';
 import { type HostEvent, type HostEventListener, hostEvent } from './host-events';
 
 type Command = 'open' | 'close' | 'toggle';
 
-/** What a page may change at runtime (ADR-0008): texts and its own context, nothing else. */
+/** What a page may change at runtime (ADR-0008, ADR-0014): texts, its context and the language. */
 interface ConfigureOptions {
   /** Greeting on the welcome screen, for example per page. */
   readonly greeting?: string;
@@ -19,6 +20,12 @@ interface ConfigureOptions {
   readonly starters?: readonly string[];
   /** Describes the page to the assistant; passed on as untrusted data, at most 1000 characters. */
   readonly context?: string;
+  /**
+   * The chat's language, a BCP 47 tag such as 'pl', for a bot set to `locale: 'auto'`
+   * (ADR-0014). The chat reloads in it and keeps the conversation. A call with only `locale`
+   * keeps the greeting, starters and context set before.
+   */
+  readonly locale?: string;
 }
 
 interface AskdareGlobal {
@@ -190,28 +197,35 @@ function boot(): void {
     if (target && !container) console.warn(`[askdare] No element matches ${target}.`);
     const inline = container !== null;
     const withLauncher = !inline && script.dataset['launcher'] !== 'none';
-    // The page's language, for bots set to `auto`, and the mode, for the chat's own controls.
-    const hostLang = document.documentElement.lang;
-    const query = new URLSearchParams({
-      ...(hostLang ? { lang: hostLang } : {}),
-      ...(inline ? { mode: 'inline' } : {}),
-    });
-    const search = query.toString();
-    const embedUrl = `${appOrigin}${basePath}/embed/${encodeURIComponent(botId)}${
-      search ? `?${search}` : ''
-    }`;
+    /** The page's `<html lang>` as last seen, for data-follow-lang. */
+    let pageLang = document.documentElement.lang;
+    /** The chat's language for bots set to `auto`: the page's, until it switches (ADR-0014). */
+    let lang = pageLocale(pageLang);
+    // The language, and the mode, for the chat's own controls.
+    const embedUrl = (): string => {
+      const search = new URLSearchParams({
+        ...(lang ? { lang } : {}),
+        ...(inline ? { mode: 'inline' } : {}),
+      }).toString();
+      return `${appOrigin}${basePath}/embed/${encodeURIComponent(botId)}${search ? `?${search}` : ''}`;
+    };
 
     const look = looks()[botId];
-    // `lang` is '' on pages without one: then the visitor's browser decides.
-    const language = (look?.locale || hostLang || navigator.language).toLowerCase().split('-')[0];
-    const texts = look?.texts[language ?? 'en'] ??
-      look?.texts['en'] ?? {
-        label: 'Ask us',
-        open: 'Open chat',
-        close: 'Close chat',
-        unavailable: 'The chat couldn’t load. Please try again later.',
-        title: 'Chat',
-      };
+    const textsFor = (): LauncherTexts => {
+      // No language on the page: then the visitor's browser decides.
+      const language = (look?.locale || lang || navigator.language).toLowerCase().split('-')[0];
+      return (
+        look?.texts[language ?? 'en'] ??
+        look?.texts['en'] ?? {
+          label: 'Ask us',
+          open: 'Open chat',
+          close: 'Close chat',
+          unavailable: 'The chat couldn’t load. Please try again later.',
+          title: 'Chat',
+        }
+      );
+    };
+    let texts: LauncherTexts;
     const host = document.createElement('div');
     host.dataset['askdare'] = botId;
     host.dataset['askdareScheme'] = look?.scheme ?? 'auto';
@@ -244,12 +258,6 @@ function boot(): void {
     launcher.type = 'button';
     launcher.className = look?.style ?? 'circle';
     launcher.setAttribute('part', 'launcher');
-    // A visible label starts the button's name, as WCAG's "label in name" asks; the action follows.
-    const closedName =
-      look?.style === 'pill' || look?.style === 'orb'
-        ? `${texts.label}, ${texts.open}`
-        : texts.open;
-    launcher.setAttribute('aria-label', closedName);
     launcher.setAttribute('aria-expanded', 'false');
     const icon = document.createElement('span');
     icon.style.display = 'contents';
@@ -257,6 +265,7 @@ function boot(): void {
       icon.innerHTML = open ? CLOSE_ICON : look?.style === 'circle' || !look ? CHAT_ICON : '';
     };
     showIcon(false);
+    const label = document.createElement('span');
     if (look?.style === 'pill' || look?.style === 'orb') {
       // The pill shows the bot's picture or initials; the orb launcher, the orb.
       const avatar = document.createElement('span');
@@ -269,18 +278,15 @@ function boot(): void {
         // Blocked by the site's CSP or missing: keep the initials.
         image.onload = () => avatar.replaceChildren(image);
       }
-      const label = document.createElement('span');
       label.className = 'lb';
       // A part, so a site can hide it on small screens: the button keeps its aria-label.
       label.setAttribute('part', 'launcher-label');
-      label.textContent = texts.label;
       launcher.append(avatar, label);
     }
     launcher.append(icon);
     const panel = document.createElement('div');
     panel.setAttribute('part', 'panel');
     panel.setAttribute('role', 'dialog');
-    panel.setAttribute('aria-label', texts.title);
     panel.hidden = true;
     if (inline) panel.className = 'inline';
     else if (!withLauncher) panel.className = 'solo';
@@ -319,6 +325,45 @@ function boot(): void {
     /** Hides the panel once its closing animation has played; cleared when it opens again. */
     let closing: ReturnType<typeof setTimeout> | undefined;
     const isOpen = (): boolean => !panel.hidden && closing === undefined;
+    /** The button's name while the chat is closed. */
+    let closedName = '';
+    /** Puts the launcher's texts in the chat's language: on load, and on every switch. */
+    const applyTexts = (): void => {
+      texts = textsFor();
+      // A visible label starts the button's name, as WCAG's "label in name" asks; the action follows.
+      closedName =
+        look?.style === 'pill' || look?.style === 'orb'
+          ? `${texts.label}, ${texts.open}`
+          : texts.open;
+      launcher.setAttribute('aria-label', isOpen() ? texts.close : closedName);
+      label.textContent = texts.label;
+      panel.setAttribute('aria-label', texts.title);
+      if (notice) notice.textContent = texts.unavailable;
+    };
+    applyTexts();
+    let warned = false;
+    /**
+     * Switches the chat to another language (ADR-0014): new launcher texts, and the chat reloads
+     * with the new `?lang=`. It restores the conversation, and the handshake sends the latest
+     * configure() and identify() again. A bot with a fixed locale keeps it.
+     */
+    const switchTo = (tag: string | undefined): void => {
+      if (!tag) return;
+      if (look?.locale) {
+        if (!warned) {
+          console.warn(
+            `[askdare] The bot "${botId}" has a fixed locale; it ignores a language change.`,
+          );
+        }
+        warned = true;
+        return;
+      }
+      if (tag === lang) return;
+      lang = tag;
+      applyTexts();
+      // replace(), not a new src: a reload mustn't add an entry to the page's history.
+      iframe?.contentWindow?.location.replace(embedUrl());
+    };
     const turnIcon = (open: boolean): void => {
       launcher.dataset['turned'] = '';
       showIcon(open);
@@ -367,7 +412,7 @@ function boot(): void {
       if (!iframe) {
         iframe = document.createElement('iframe');
         iframe.title = 'Chat';
-        iframe.src = embedUrl;
+        iframe.src = embedUrl();
         iframe.referrerPolicy = 'strict-origin';
         // The iframe's own Permissions-Policy turns the microphone off unless the bot has voice input.
         iframe.allow = 'clipboard-write; microphone';
@@ -433,12 +478,35 @@ function boot(): void {
         identity = typeof options === 'string' ? options : null;
         port?.postMessage({ v: 1, type: 'identify', token: identity });
       } else if (command === 'configure') {
-        configured = configureMessage(options);
-        port?.postMessage(configured);
+        const { locale, ...page } = ((typeof options === 'object' && options) || {}) as Record<
+          string,
+          unknown
+        >;
+        if (locale !== undefined) {
+          const tag = pageLocale(locale);
+          if (!tag) {
+            console.warn("[askdare] askdare('configure') got a locale that isn't a language tag.");
+          }
+          switchTo(tag);
+        }
+        // Only the language: the greeting, starters and context set before stay.
+        if (locale === undefined || Object.keys(page).length > 0) {
+          configured = configureMessage(page);
+          port?.postMessage(configured);
+        }
       }
     }) as AskdareGlobal;
     Object.defineProperty(api, 'loaded', { value: true });
     window.askdare = api;
+    // data-follow-lang: the chat follows the page's <html lang>, for sites that switch it in place.
+    if (script.dataset['followLang'] !== undefined) {
+      new MutationObserver(() => {
+        const now = document.documentElement.lang;
+        if (now === pageLang) return;
+        pageLang = now;
+        switchTo(pageLocale(now));
+      }).observe(document.documentElement, { attributeFilter: ['lang'] });
+    }
     for (const args of queued) (api as (...call: unknown[]) => void)(...args);
   }
 }

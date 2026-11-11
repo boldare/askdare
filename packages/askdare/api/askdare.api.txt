@@ -381,7 +381,11 @@ interface FeedbackHandle {
   /** Stable for the answer across reloads, so the client can remember its rating. Hex. */
   readonly key: string;
 }
-/** What a page may set with askdare('configure') or the props of `Root`, checked again here. */
+/**
+ * What a page may set with askdare('configure') or the props of `Root`, checked again here. The
+ * language isn't among them: it comes with the chat's address (`?lang=`, or `getChatConfig` in
+ * React), so switching it reloads the chat (ADR-0014).
+ */
 interface PageOptions {
   readonly greeting?: string;
   readonly starters?: readonly string[];
