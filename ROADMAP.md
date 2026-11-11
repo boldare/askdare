@@ -2,7 +2,7 @@
 
 Where askdare is going, release by release. This file holds the direction only:
 - **Decisions** that are expensive to reverse are [Architecture Decision Records](docs/adr/README.md).
-- **Tasks and their status** live in the [GitHub Project](#how-we-track-work).
+- **Tasks and their status** live in the [GitHub Project](https://github.com/orgs/boldare/projects/20).
 
 A change to what a release contains comes as a pull request to this file.
 
@@ -61,7 +61,7 @@ The order of these is decided on the Project board:
   - the Definition of Done;
   - the tasks it depends on.
 - **The issue is the whole brief** for whoever picks it up, person or agent.
-- **The GitHub Project "askdare roadmap"** holds every task. Its fields:
+- **The GitHub Project [askdare roadmap](https://github.com/orgs/boldare/projects/20)** holds every task, each a sub-issue of its epic. Its fields:
   - `Status`;
   - `Release`;
   - `Track`;
