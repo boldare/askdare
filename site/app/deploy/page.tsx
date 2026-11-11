@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { DEMO_BOTS } from '@/askdare.config';
 import { ChatScript } from '../chat-script';
 import { PREVIEW } from '../preview';
-import { SiteFooter, SiteHeader } from '../site-chrome';
+import { SiteFooter, SiteHeader, VercelIcon } from '../site-chrome';
 import { ChatSecret } from './chat-secret';
 import { HEROKU_DOCS, VERCEL_DEPLOY_URL } from './clone-url';
 import './deploy.css';
@@ -32,15 +32,6 @@ const AFTER = [
     text: 'Your app shows the script tag to paste. Add your site to ASKDARE_ALLOWED_ORIGINS.',
   },
 ] as const;
-
-/** The Vercel triangle, as in Vercel's own deploy button. */
-function VercelIcon() {
-  return (
-    <svg className="vercel-icon" viewBox="0 0 76 65" aria-hidden="true" focusable="false">
-      <path d="M37.53 0 75.06 65H0z" fill="currentColor" />
-    </svg>
-  );
-}
 
 /** The one-click deploy, step by step: an OpenAI key, a secret made here, the Vercel button. */
 export default function Deploy() {

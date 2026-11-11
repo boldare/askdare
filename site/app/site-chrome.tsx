@@ -49,3 +49,12 @@ export function SiteFooter() {
     </footer>
   );
 }
+
+/** The Vercel triangle, as in Vercel's own deploy button. */
+export function VercelIcon() {
+  return (
+    <svg className="vercel-icon" viewBox="0 0 76 65" aria-hidden="true" focusable="false">
+      <path d="M37.53 0 75.06 65H0z" fill="currentColor" />
+    </svg>
+  );
+}

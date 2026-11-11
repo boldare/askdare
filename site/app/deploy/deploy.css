@@ -75,17 +75,6 @@
   opacity: 0.6;
 }
 
-.demo .deploy-button {
-  gap: 10px;
-  padding: 16px 28px;
-  font-size: 1.05rem;
-}
-
-.vercel-icon {
-  width: 16px;
-  height: 14px;
-}
-
 /* The secret, in the home page's terminal colors. */
 .secret {
   display: grid;

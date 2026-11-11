@@ -1,10 +1,10 @@
-import Image from 'next/image';
 import { DEMO_BOTS } from '@/askdare.config';
 import { HeroShape } from './_shape/hero-shape';
 import { ChatScript } from './chat-script';
-import { NavMenu } from './nav-menu';
-import { GITHUB_URL, NPM_URL, ProjectLinks } from './project-links';
+import { VERCEL_DEPLOY_URL } from './deploy/clone-url';
+import { ProjectLinks } from './project-links';
 import { ShapeIcon } from './shape-icon';
+import { SiteFooter, SiteHeader, VercelIcon } from './site-chrome';
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 
@@ -123,31 +123,15 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
 
   return (
     <div className="demo" data-theme={theme} data-mode={mode}>
-      <header className="nav">
-        <a className="brand" href="https://www.boldare.com" aria-label="Boldare">
-          <Image
-            src="/boldare-logo.svg"
-            alt="Boldare"
-            width={133}
-            height={16}
-            priority
-            unoptimized
-          />
-        </a>
-        <span className="product">
-          askdare
-          <small>Dare to ask.</small>
-        </span>
-        <NavMenu
-          links={[
-            { href: '#features', label: 'Features' },
-            { href: '#how', label: 'How it works' },
-            { href: '#themes', label: 'Themes' },
-            { href: '/docs', label: 'Docs' },
-          ]}
-          action={{ href: '/docs/getting-started', label: 'Get started' }}
-        />
-      </header>
+      <SiteHeader
+        links={[
+          { href: '#features', label: 'Features' },
+          { href: '#how', label: 'How it works' },
+          { href: '#themes', label: 'Themes' },
+          { href: '/docs', label: 'Docs' },
+        ]}
+        action={{ href: '/docs/getting-started', label: 'Get started' }}
+      />
 
       <main>
         <section className="hero" aria-labelledby="headline">
@@ -161,11 +145,11 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
               from your documents, calls your tools and fits your brand, with security built in.
             </p>
             <div className="actions">
-              <a className="button" href="/docs/getting-started">
-                Get started
+              <a className="button" href="/deploy">
+                Your chatbot in 5 minutes
               </a>
-              <a className="link-button" href="/docs">
-                Read the docs
+              <a className="link-button" href="/docs/getting-started">
+                Add it to your app
               </a>
             </div>
             <ProjectLinks className="hero-project" label="Project" />
@@ -263,6 +247,29 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
           </div>
         </section>
 
+        <section className="section deploy-band" aria-labelledby="deploy-title">
+          <div className="deploy-band-inner">
+            <div>
+              <h2 id="deploy-title">
+                <span>No app yet?</span> <strong>Your own chatbot, online in five minutes</strong>
+              </h2>
+              <p>
+                Deploy the starter to Vercel in one click: your repository, your OpenAI key, no
+                database and no code to write. Make it yours later.
+              </p>
+            </div>
+            <div className="actions">
+              <a className="button deploy-button" href={VERCEL_DEPLOY_URL}>
+                <VercelIcon />
+                Deploy to Vercel
+              </a>
+              <a className="link-button" href="/deploy">
+                Step by step
+              </a>
+            </div>
+          </div>
+        </section>
+
         <section id="themes" className="section" aria-labelledby="themes-title">
           <h2 id="themes-title">
             <span>Four themes,</span> <strong>light and dark</strong>
@@ -322,21 +329,7 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
         </section>
       </main>
 
-      <footer className="footer">
-        <Image src="/boldare-logo.svg" alt="Boldare" width={100} height={12} unoptimized />
-        <p>
-          askdare is an open-source project by <a href="https://www.boldare.com">Boldare</a>. MIT
-          licensed.
-        </p>
-        <nav className="footer-links" aria-label="Docs and project">
-          <a href="/docs">Docs</a>
-          <a href="/docs/getting-started">Getting started</a>
-          <a href="/docs/configuration">Configuration</a>
-          <a href="/docs/troubleshooting">Troubleshooting</a>
-          <a href={GITHUB_URL}>GitHub</a>
-          <a href={NPM_URL}>npm</a>
-        </nav>
-      </footer>
+      <SiteFooter />
 
       {/* The theme and mode switches, docked at the bottom of the window while you scroll. */}
       <div className="dock">
