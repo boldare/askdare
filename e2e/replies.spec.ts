@@ -62,9 +62,11 @@ for (const [where, url, scope] of [
       'Talk to a person',
     );
 
-    // The click went out exactly like typed text.
+    // The click went out exactly like typed text, in the conversation the first message started.
     expect(sent.map((body) => body['text'])).toEqual(['Is there a free plan?', 'Talk to a person']);
-    expect(Object.keys(sent[1] ?? {}).sort()).toEqual(Object.keys(sent[0] ?? {}).sort());
+    expect(Object.keys(sent[1] ?? {}).sort()).toEqual(
+      [...Object.keys(sent[0] ?? {}), 'resumeToken'].sort(),
+    );
   });
 }
 
