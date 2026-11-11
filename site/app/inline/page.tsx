@@ -1,7 +1,7 @@
 import './inline.css';
 import { getChatConfig } from '@boldare/askdare/next';
-import * as Chat from '@boldare/askdare/react';
 import { bots } from '@/askdare.config';
+import { EventsDemo } from './events-demo';
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 
@@ -13,15 +13,16 @@ const RESETS: Readonly<Record<string, string>> = {
 
 /**
  * The chat inside the page, without an iframe: the default look from @boldare/askdare/react
- * (ADR-0011). A Server Component reads the bot's public configuration and renders the client
- * components directly. The end-to-end tests run against this page.
+ * (ADR-0011). A Server Component reads the bot's public configuration and hands it to the client
+ * components, with the chat's events listed beside them (ADR-0013). The end-to-end tests run
+ * against this page.
  */
 export default async function InlinePage({ searchParams }: { readonly searchParams: Search }) {
   const params = await searchParams;
   const reset = typeof params.reset === 'string' ? RESETS[params.reset] : undefined;
   const config = getChatConfig({ bots, bot: 'support', locale: 'en' });
   return (
-    <main className="inline-page">
+    <main className="inline-page with-events">
       {/* Before the chat, as a site's own stylesheet would be. */}
       {reset && <link rel="stylesheet" href={reset} precedence="site" />}
       <h1>The chat inside a page</h1>
@@ -35,9 +36,7 @@ export default async function InlinePage({ searchParams }: { readonly searchPara
         <a href="/inline?reset=v4">With a Tailwind 4 reset</a>
         <button type="button">A button of the page</button>
       </nav>
-      <Chat.Root config={config}>
-        <Chat.DefaultChat className="inline-chat" />
-      </Chat.Root>
+      <EventsDemo config={config} />
     </main>
   );
 }

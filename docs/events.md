@@ -173,6 +173,8 @@ const off = askdare('on', '*', (event) => console.log('[askdare]', event.type, e
 
 Open the chat, ask something, rate the answer, start over and close it. The console shows each event as it happens. `off()` stops it. You only see `ready` if you add the listener before the first open, because the chat loads when it first opens.
 
+To see them without a console, open [the chat inside a page](https://askdare.vercel.app/inline) on the askdare website: a panel beside it lists every event `onEvent` receives, with all of its fields.
+
 ## Troubleshooting
 
 - **`askdare is not defined`.** The console is in the chat's frame, or the page hasn't defined the queue and the script hasn't loaded yet. Switch the console to **top**, or define the queue as in [the first example](#with-the-script-tag).
