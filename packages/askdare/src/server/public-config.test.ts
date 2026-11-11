@@ -24,6 +24,7 @@ const bot = defineBot({
   widget: {
     locale: 'auto',
     greeting: 'Public greeting',
+    replies: 'suggest',
     css: ':root { --ask-color-accent: #0f766e; } [data-ask-part="bubble"] { border-radius: 6px; }',
   },
 });
@@ -42,6 +43,8 @@ describe('publicConfig', () => {
       // The bot's own CSS travels as a stylesheet, and its allowlist is the iframe's business.
       expect(json).not.toContain('0f766e');
       expect(json).not.toContain('partner.example');
+      // Options arrive as events; the browser doesn't need to know where they come from.
+      expect(json).not.toContain('"suggest"');
     }
   });
 });

@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { defineBot } from '../bot/define-bot';
 import type { ProtocolEvent } from '../protocol/events';
 import { defineTool } from '../tools/define-tool';
+import { readSuggestedReplies } from '../tools/suggest-replies';
 import { createOpenAIGateway } from './gateway';
 
 const apiKey = process.env['OPENAI_API_KEY'];
@@ -104,6 +105,52 @@ describe.skipIf(!apiKey || !model)('OpenAI gateway (live)', () => {
       await gateway.deleteConversation(conversationId);
     }
   }, 90_000);
+
+  it('suggest_replies: offers options, keeps the answer visible and the next turn working', async () => {
+    const gateway = createOpenAIGateway({ apiKey: apiKey ?? '', maxRetries: 1 });
+    const bot = defineBot({
+      id: 'smoke',
+      model: model ?? '',
+      instructions:
+        'You help visitors choose between the Basic plan ($5) and the Pro plan ($15). Answer in one sentence.',
+      limits: { maxOutputTokens: 512 },
+      widget: { replies: 'suggest' },
+    });
+    const conversationId = await gateway.createConversation({ botId: bot.id, visitorId: 'smoke' });
+    const ask = async (text: string) => {
+      const steps: unknown[] = [];
+      const result = await gateway.runTurn({
+        bot,
+        conversationId,
+        text,
+        context: { locale: 'en' },
+        safetyIdentifier: 'askdare-smoke',
+        visitorId: `v_${'0f'.repeat(16)}`,
+        messageId: 'msg_smoke',
+        signal: AbortSignal.timeout(60_000),
+        emit: () => {},
+        onStep: (step) => steps.push(step),
+      });
+      return { result, steps: steps.length };
+    };
+    try {
+      const first = await ask('Which plan should I pick? Offer me a choice.');
+      // Which path the model took: 1 step = options after the answer, 2 = one more step.
+      console.info(
+        `[smoke] suggest_replies: ${first.steps} step(s), ${first.result.replies?.length ?? 0} options`,
+      );
+      expect(first.result.reason).toBe('completed');
+      expect(first.result.answerItemId).toBeDefined();
+      const history = await gateway.listMessages(conversationId, undefined, readSuggestedReplies);
+      expect(history.at(-1)?.role).toBe('assistant');
+      expect(history.at(-1)?.text).not.toBe('');
+      // The call was answered: the next turn doesn't need a repair.
+      const second = await ask(first.result.replies?.[0] ?? 'Pro, please.');
+      expect(second.result.reason).toBe('completed');
+    } finally {
+      await gateway.deleteConversation(conversationId);
+    }
+  }, 120_000);
 
   it.skipIf(!vectorStoreId)(
     'searches the knowledge base on the last step and cites the source page',
