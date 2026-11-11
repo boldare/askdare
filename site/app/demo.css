@@ -151,11 +151,12 @@ body {
   --orb: radial-gradient(circle at 35% 30%, #fff7c2 0%, #f2da3a 50%, #c4ac12 100%);
 }
 
-.demo a {
+/* The page's element rules stop at the chat inside it, which brings its own look. */
+.demo a:where(:not([data-askdare-root] *)) {
   color: inherit;
 }
 
-.demo :focus-visible {
+.demo :focus-visible:where(:not([data-askdare-root] *)) {
   outline: 2px solid var(--ink);
   outline-offset: 3px;
 }
@@ -451,24 +452,24 @@ body {
   padding: clamp(24px, 4vw, 48px) var(--gutter) 104px;
 }
 
-.demo h1,
-.demo h2 {
+.demo h1:where(:not([data-askdare-root] *)),
+.demo h2:where(:not([data-askdare-root] *)) {
   margin: 0;
   letter-spacing: -0.04em;
   text-wrap: balance;
 }
 
-.demo h1 {
+.demo h1:where(:not([data-askdare-root] *)) {
   font-size: clamp(2.5rem, 5.4vw, 4.4rem);
   line-height: 1.03;
 }
 
-.demo :is(h1, h2) span {
+.demo :is(h1, h2) span:where(:not([data-askdare-root] *)) {
   color: var(--soft);
   font-weight: var(--soft-weight);
 }
 
-.demo :is(h1, h2) strong {
+.demo :is(h1, h2) strong:where(:not([data-askdare-root] *)) {
   font-weight: var(--strong-weight);
 }
 
@@ -838,19 +839,19 @@ body {
   padding: clamp(48px, 7vw, 88px) var(--gutter);
 }
 
-.demo h2 {
+.demo h2:where(:not([data-askdare-root] *)) {
   max-width: 22em;
   margin-bottom: clamp(24px, 3vw, 40px);
   font-size: clamp(1.7rem, 3.4vw, 2.8rem);
   line-height: 1.1;
 }
 
-.demo h3 {
+.demo h3:where(:not([data-askdare-root] *)) {
   font-size: 1.08rem;
   letter-spacing: -0.01em;
 }
 
-.demo li p {
+.demo li p:where(:not([data-askdare-root] *)) {
   margin: 0;
   color: var(--muted);
   line-height: 1.55;
@@ -864,7 +865,7 @@ body {
   backdrop-filter: blur(14px);
 }
 
-.demo code {
+.demo code:where(:not([data-askdare-root] *)) {
   font:
     0.82rem / 1.5 ui-monospace,
     "SF Mono",
@@ -1197,19 +1198,19 @@ body {
 
 /* ---------- BLDR: boldare.com's sharp, heavy, yellow-and-ink look ---------- */
 
-.demo[data-theme="bldr"] h1 {
+.demo[data-theme="bldr"] h1:where(:not([data-askdare-root] *)) {
   line-height: 1.14;
 }
 
 /* The highlight leaves room above, so it never covers the descenders of the line before. */
-.demo[data-theme="bldr"] :is(h1, h2) strong {
+.demo[data-theme="bldr"] :is(h1, h2) strong:where(:not([data-askdare-root] *)) {
   padding: 0 0.12em;
   background: linear-gradient(transparent 14%, #f2da3a 14%);
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
 
-.demo[data-theme="bldr"] h2::after {
+.demo[data-theme="bldr"] h2:where(:not([data-askdare-root] *, .events *))::after {
   content: "";
   display: block;
   width: 40px;
@@ -1734,4 +1735,94 @@ body:has(.demo[data-theme="bldr"]) [data-askdare]::part(launcher) {
   .theme-card p {
     font-size: 0.88rem;
   }
+}
+
+/* ---------- Clickable answers: the chat with its events beside it ---------- */
+
+.replies-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0 clamp(32px, 5vw, 72px);
+  margin-bottom: clamp(24px, 3vw, 36px);
+}
+
+.replies-intro h2,
+.replies-intro .section-docs {
+  grid-column: 1;
+}
+
+.replies-intro .section-docs {
+  margin: 0;
+}
+
+.demo .replies-config {
+  display: grid;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: end;
+  gap: 6px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: #0f1220;
+  color: #e7e9f3;
+  white-space: nowrap;
+}
+
+.replies-config-label {
+  color: #8a90a8;
+  font-size: 0.72rem;
+}
+
+.replies-demo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  align-items: start;
+  gap: 24px;
+}
+
+.replies-chat {
+  height: 600px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #ffffff;
+  box-shadow: 0 40px 80px -48px color-mix(in srgb, var(--ink) 60%, transparent);
+}
+
+.demo .replies .events {
+  max-height: 600px;
+  border-color: var(--line);
+  border-radius: var(--radius);
+}
+
+.demo .replies .events h2 {
+  max-width: none;
+  margin: 0;
+  font-size: 1.125rem;
+  letter-spacing: normal;
+}
+
+@media (max-width: 899px) {
+  .replies-intro,
+  .replies-demo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .demo .replies-config {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+    margin-top: 20px;
+  }
+
+  .replies-chat {
+    height: 560px;
+  }
+}
+
+.demo[data-theme="bldr"] :is(.replies-chat, .replies .events) {
+  border: 2px solid #242424;
+  border-radius: 0;
+  box-shadow: -6px 6px 0 #242424;
 }

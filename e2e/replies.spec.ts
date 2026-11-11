@@ -85,3 +85,39 @@ test('brings the options of the latest answer back after a reload', async ({ pag
     latest.getByRole('group', { name: 'Suggested replies' }).getByRole('button'),
   ).toHaveText(OPTIONS);
 });
+
+test('shows a clicked option on the home page as message.sent with source reply', async ({
+  page,
+}) => {
+  await page.goto(`${APP}/`);
+  const section = page.getByRole('region', {
+    name: 'Answers your visitors click instead of typing',
+  });
+  const chat = section.locator('[data-askdare-root]');
+  // Lower down the page, the chat starts only when it scrolls near: a visit opens no session for it.
+  await expect(chat).toHaveCount(0);
+  await section.scrollIntoViewIfNeeded();
+  await expect(chat.getByRole('button', { name: 'Help me choose a plan' })).toBeVisible();
+
+  const panel = section.getByRole('complementary', { name: 'Chat events' });
+  const events = panel.getByRole('list', { name: 'Events, newest first' }).getByRole('listitem');
+  const reply = await ask(chat, 'Which plan fits a team of 12? [options]');
+  await reply
+    .getByRole('group', { name: 'Suggested replies' })
+    .getByRole('button', { name: 'Talk to a person' })
+    .click();
+  await expect(
+    chat.locator('[data-ask-part="message"][data-role="assistant"]').last(),
+  ).toContainText('You said: Talk to a person');
+
+  const sent = events.and(page.locator('[data-type="message.sent"]'));
+  await expect(sent).toHaveCount(2);
+  const field = (item: Locator, name: string): Locator =>
+    item.locator('div', { has: page.locator('dt', { hasText: name }) }).locator('dd');
+  await expect(sent.first()).toHaveAttribute('data-source', 'reply');
+  await expect(field(sent.first(), 'source')).toHaveText('"reply"');
+  await expect(field(sent.first(), 'length')).toHaveText(String('Talk to a person'.length));
+  await expect(field(sent.last(), 'source')).toHaveText('"typed"');
+  // Metadata only: neither the option nor the answer reached the page's listener.
+  await expect(panel).not.toContainText('Talk to a person');
+});

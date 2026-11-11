@@ -1,7 +1,7 @@
 import './inline.css';
 import { getChatConfig } from '@boldare/askdare/next';
 import { bots } from '@/askdare.config';
-import { EventsDemo } from './events-demo';
+import { EventsDemo } from '../events-demo';
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 
@@ -36,7 +36,7 @@ export default async function InlinePage({ searchParams }: { readonly searchPara
         <a href="/inline?reset=v4">With a Tailwind 4 reset</a>
         <button type="button">A button of the page</button>
       </nav>
-      <EventsDemo config={config} />
+      <EventsDemo config={config} chatClassName="inline-chat" />
     </main>
   );
 }

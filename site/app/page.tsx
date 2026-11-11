@@ -1,7 +1,9 @@
+import { getChatConfig } from '@boldare/askdare/next';
 import Image from 'next/image';
-import { DEMO_BOTS } from '@/askdare.config';
+import { bots, DEMO_BOTS } from '@/askdare.config';
 import { HeroShape } from './_shape/hero-shape';
 import { ChatScript } from './chat-script';
+import { EventsDemo } from './events-demo';
 import { NavMenu } from './nav-menu';
 import { GITHUB_URL, NPM_URL, ProjectLinks } from './project-links';
 import { ShapeIcon } from './shape-icon';
@@ -106,6 +108,13 @@ const STEPS = [
   },
 ] as const;
 
+/** Questions with a few clear next steps, which is when the model offers options. */
+const REPLY_STARTERS = [
+  'Help me choose a plan',
+  'How do I get my team started?',
+  'Can I try Brightloop for free?',
+];
+
 const pick = <T extends string>(value: unknown, options: readonly { readonly id: T }[]): T =>
   options.find((option) => option.id === value)?.id ?? (options[0] as { id: T }).id;
 
@@ -120,6 +129,8 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
   const href = (change: { theme?: Theme; mode?: Mode }) =>
     `/?${new URLSearchParams({ theme, mode, ...change })}`;
   const inline = mode === 'inline';
+  // The support bot is the one that lets the model suggest replies (askdare.config.ts).
+  const replies = getChatConfig({ bots, bot: 'support', locale: 'en' });
 
   return (
     <div className="demo" data-theme={theme} data-mode={mode}>
@@ -214,6 +225,33 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
               </li>
             ))}
           </ul>
+        </section>
+
+        <section id="replies" className="section replies" aria-labelledby="replies-title">
+          <div className="replies-intro">
+            <h2 id="replies-title">
+              <span>Answers your visitors</span> <strong>click instead of typing</strong>
+            </h2>
+            <p className="section-docs">
+              The assistant offers a few next steps under its answer. A click sends one as the
+              visitor's message, and your page hears it as <code>message.sent</code> with{' '}
+              <code>source: 'reply'</code>, never the text. Try it below, then read about{' '}
+              <a href="/docs/configuration#widget">reply options</a> and{' '}
+              <a href="/docs/events">chat events</a>.
+            </p>
+            <code className="replies-config">
+              <span className="replies-config-label">askdare.config.ts</span>
+              {"widget: { replies: 'suggest' }"}
+            </code>
+          </div>
+          <EventsDemo
+            config={replies}
+            className="replies-demo"
+            chatClassName="replies-chat"
+            greeting="Let's find the **right plan** for your team"
+            starters={REPLY_STARTERS}
+            lazy
+          />
         </section>
 
         <section id="how" className="section how" aria-labelledby="how-title">
