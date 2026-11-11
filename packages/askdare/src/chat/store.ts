@@ -334,15 +334,16 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
   const actions: ChatActions = {
     async send(picked) {
       const text = (picked ?? state.draft).trim();
-      const uploading = state.files.some((file) => file.status === 'uploading');
       if (
         picked === undefined
           ? !canSend(state)
-          : state.phase !== 'ready' || state.busy || uploading || text === ''
+          : state.phase !== 'ready' || state.busy || text === ''
       ) {
         return;
       }
-      const ready = state.files.filter((file) => file.status === 'ready');
+      // A picked text goes on its own: the files and the draft wait for the visitor's own message.
+      const ready =
+        picked === undefined ? state.files.filter((file) => file.status === 'ready') : [];
       const files: SentFile[] = ready.flatMap(({ name, kind, previewUrl }) =>
         kind ? [{ name, kind, previewUrl }] : [],
       );
@@ -354,10 +355,10 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
           : latest?.role === 'assistant' && latest.replies?.includes(text)
             ? 'reply'
             : 'starter';
-      revokePreviews(state.files.filter((file) => file.status !== 'ready'));
+      if (picked === undefined)
+        revokePreviews(state.files.filter((file) => file.status !== 'ready'));
       set({
-        files: [],
-        ...(picked === undefined ? { draft: '' } : {}),
+        ...(picked === undefined ? { files: [], draft: '' } : {}),
         error: undefined,
         busy: true,
         messages: [

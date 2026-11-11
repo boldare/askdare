@@ -227,6 +227,26 @@ describe('createChatStore', () => {
     expect(store.getSnapshot().files).toHaveLength(1);
   });
 
+  it('sends a picked text on its own, keeping the files and the draft for later', async () => {
+    const server = fakeServer();
+    const store = createChatStore(testConfig({ attachments: attachments() }), {
+      client: testClient(server),
+    });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    store.actions.setDraft('About this invoice');
+    store.actions.addFiles([pdf('invoice.pdf')]);
+    await until(store, (state) => state.files.every((file) => file.status === 'ready'));
+
+    await store.actions.send('Show prices');
+    const sent = server.requests.filter((request) => request.path === '/messages');
+    expect(sent.at(-1)?.body['text']).toBe('Show prices');
+    expect(sent.at(-1)?.body['attachments'] ?? []).toEqual([]);
+    expect(store.getSnapshot().messages[0]).toMatchObject({ text: 'Show prices', attachments: 0 });
+    expect(store.getSnapshot().files.map((file) => file.status)).toEqual(['ready']);
+    expect(store.getSnapshot().draft).toBe('About this invoice');
+  });
+
   it('dictates into the draft and turns the microphone off when hidden', async () => {
     const recorder = fakeRecorder();
     const server = fakeServer({ transcript: 'from the microphone' });

@@ -21,9 +21,10 @@ export function QuickReplies(props: QuickRepliesProps): ReactElement | null {
   return (
     // biome-ignore lint/a11y/useSemanticElements: a group of buttons that send, not a form's fieldset
     <div data-ask-part="replies" role="group" aria-label={t('message.replies')} {...props}>
-      {replies.map((reply) => (
+      {replies.map((reply, index) => (
         <button
-          key={reply}
+          // biome-ignore lint/suspicious/noArrayIndexKey: options never move, and may repeat in custom state
+          key={index}
           type="button"
           data-ask-part="reply"
           disabled={disabled}

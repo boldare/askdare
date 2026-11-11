@@ -12,13 +12,13 @@ import { MessageProvider, useChatState, useMessage, useStore } from './context';
 import { Markdown, safeUrl } from './markdown';
 import { useMergedRef } from './refs';
 
-/** False for an answer that ended (or failed) before any text, sources or options. */
+/** False for an answer that ended (or failed) before any text or sources, or options to show. */
 const hasContent = (message: ChatMessage): boolean =>
   message.role === 'user' ||
   message.status === 'streaming' ||
   message.text !== '' ||
   message.citations.length > 0 ||
-  (message.replies?.length ?? 0) > 0;
+  (message.status === 'done' && (message.replies?.length ?? 0) > 0);
 
 export type MessagesProps = ComponentProps<'div'>;
 
