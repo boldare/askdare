@@ -980,7 +980,14 @@ interface ToolContext {
   /** Aborted when the visitor leaves, the turn deadline passes or the tool times out. */
   readonly signal: AbortSignal;
 }
-interface ToolDefinition<Input extends z.ZodObject> {
+/**
+ * A value as `JSON.parse(JSON.stringify(value))` returns it: `toJSON()` applied (a `Date` becomes
+ * a string), functions, symbols and `undefined` fields gone.
+ */
+type Jsonified<T> = T extends {
+  toJSON(): infer R;
+} ? Jsonified<R> : T extends bigint | symbol | ((...args: never[]) => unknown) | undefined ? never : T extends readonly (infer Item)[] ? Jsonified<Item>[] : T extends object ? { [Key in keyof T as Jsonified<T[Key]> extends never ? never : Key]: Jsonified<T[Key]>; } : T;
+interface ToolDefinition<Input extends z.ZodObject, Output = unknown> {
   /** Name the model calls, 1–64 letters, digits, `_` or `-`. */
   readonly name: string;
   /** Tells the model when and how to use the tool. */
@@ -991,9 +998,18 @@ interface ToolDefinition<Input extends z.ZodObject> {
    */
   readonly input: Input;
   /** Runs on the server with validated arguments. The result is sent back to the model as JSON. */
-  readonly execute: (input: z.infer<Input>, context: ToolContext) => unknown;
+  readonly execute: (input: z.infer<Input>, context: ToolContext) => Output | PromiseLike<Output>;
   /** Default 10 s. */
   readonly timeoutMs?: number;
+  /**
+   * Options the visitor can click under the answer, derived from a successful result (ADR-0015).
+   * It gets the result as the model received it, parsed back from JSON (a `Date` is a string), so
+   * the options come back the same after a reload. A call that failed defines none. At most 4 of
+   * up to 80 characters are shown, plain text without links; the others are dropped. The visitor
+   * sends a clicked option as their own message. Only the latest answer shows options; when
+   * several calls of a turn define them, the last one wins.
+   */
+  readonly replies?: (output: Jsonified<Output>) => readonly string[] | undefined;
 }
 interface Tool {
   readonly name: string;
@@ -1001,12 +1017,13 @@ interface Tool {
   readonly input: z.ZodObject;
   readonly execute: (input: unknown, context: ToolContext) => unknown;
   readonly timeoutMs: number;
+  readonly replies?: ((output: unknown) => readonly string[] | undefined) | undefined;
 }
 /**
  * Declares a server-side function the model may call. Arguments are validated with the schema
  * before `execute` runs; failures are reported to the model, never to the visitor.
  */
-declare function defineTool<Input extends z.ZodObject>(definition: ToolDefinition<Input>): Tool;
+declare function defineTool<Input extends z.ZodObject, Output = unknown>(definition: ToolDefinition<Input, Output>): Tool;
 /** Per-request context available when building instructions. */
 interface BotContext {
   /** Validated BCP 47 tag chosen by the widget. */

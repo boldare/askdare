@@ -94,6 +94,8 @@ export async function runTurn(client: OpenAI, request: TurnRequest): Promise<Tur
   let usage: TokenUsage = ZERO_USAGE;
   let input: ResponseInputItem[] = [userInput(request)];
   let repairs = 0;
+  // Options the bot's tools defined in this turn; a later call's replace an earlier one's.
+  let toolReplies: readonly string[] | undefined;
   // Model calls the budget holds. A step may call tools only when the call after it is held too.
   let covered = 1;
   const covers = async (call: number): Promise<boolean> => {
@@ -132,9 +134,12 @@ export async function runTurn(client: OpenAI, request: TurnRequest): Promise<Tur
           reason: endReason(outcome),
           usage,
           ...(outcome.answerItemId ? { answerItemId: outcome.answerItemId } : {}),
+          ...(toolReplies ? { replies: toolReplies } : {}),
         };
       }
-      input = await executeCalls(outcome.functionCalls, request);
+      input = await executeCalls(outcome.functionCalls, request, (items) => {
+        toolReplies = items;
+      });
     }
     return { reason: 'max_steps', usage };
   } catch (error) {

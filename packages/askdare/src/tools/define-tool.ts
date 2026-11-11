@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { normalizeReplies } from '../protocol/replies';
 import type { VisitorIdentity } from '../security/identity';
 
 /** What a tool may know about the request. Identity here is verified, never chosen by the model. */
@@ -16,7 +17,21 @@ export interface ToolContext {
   readonly signal: AbortSignal;
 }
 
-export interface ToolDefinition<Input extends z.ZodObject> {
+/**
+ * A value as `JSON.parse(JSON.stringify(value))` returns it: `toJSON()` applied (a `Date` becomes
+ * a string), functions, symbols and `undefined` fields gone.
+ */
+export type Jsonified<T> = T extends { toJSON(): infer R }
+  ? Jsonified<R>
+  : T extends bigint | symbol | ((...args: never[]) => unknown) | undefined
+    ? never
+    : T extends readonly (infer Item)[]
+      ? Jsonified<Item>[]
+      : T extends object
+        ? { [Key in keyof T as Jsonified<T[Key]> extends never ? never : Key]: Jsonified<T[Key]> }
+        : T;
+
+export interface ToolDefinition<Input extends z.ZodObject, Output = unknown> {
   /** Name the model calls, 1–64 letters, digits, `_` or `-`. */
   readonly name: string;
   /** Tells the model when and how to use the tool. */
@@ -27,9 +42,18 @@ export interface ToolDefinition<Input extends z.ZodObject> {
    */
   readonly input: Input;
   /** Runs on the server with validated arguments. The result is sent back to the model as JSON. */
-  readonly execute: (input: z.infer<Input>, context: ToolContext) => unknown;
+  readonly execute: (input: z.infer<Input>, context: ToolContext) => Output | PromiseLike<Output>;
   /** Default 10 s. */
   readonly timeoutMs?: number;
+  /**
+   * Options the visitor can click under the answer, derived from a successful result (ADR-0015).
+   * It gets the result as the model received it, parsed back from JSON (a `Date` is a string), so
+   * the options come back the same after a reload. A call that failed defines none. At most 4 of
+   * up to 80 characters are shown, plain text without links; the others are dropped. The visitor
+   * sends a clicked option as their own message. Only the latest answer shows options; when
+   * several calls of a turn define them, the last one wins.
+   */
+  readonly replies?: (output: Jsonified<Output>) => readonly string[] | undefined;
 }
 
 export interface Tool {
@@ -38,6 +62,7 @@ export interface Tool {
   readonly input: z.ZodObject;
   readonly execute: (input: unknown, context: ToolContext) => unknown;
   readonly timeoutMs: number;
+  readonly replies?: ((output: unknown) => readonly string[] | undefined) | undefined;
 }
 
 const TOOL_NAME = /^[a-zA-Z0-9_-]{1,64}$/;
@@ -63,7 +88,9 @@ function strictModeProblems(schema: z.ZodType, path: string): string[] {
  * Declares a server-side function the model may call. Arguments are validated with the schema
  * before `execute` runs; failures are reported to the model, never to the visitor.
  */
-export function defineTool<Input extends z.ZodObject>(definition: ToolDefinition<Input>): Tool {
+export function defineTool<Input extends z.ZodObject, Output = unknown>(
+  definition: ToolDefinition<Input, Output>,
+): Tool {
   const problems: string[] = [];
   if (!TOOL_NAME.test(definition.name)) {
     problems.push('name must be 1-64 letters, digits, "_" or "-"');
@@ -75,6 +102,9 @@ export function defineTool<Input extends z.ZodObject>(definition: ToolDefinition
   if (!Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 120_000) {
     problems.push('timeoutMs must be an integer between 100 and 120000');
   }
+  if (definition.replies !== undefined && typeof definition.replies !== 'function') {
+    problems.push('replies must be a function of the result');
+  }
   if (problems.length > 0) {
     throw new TypeError(`[askdare] Invalid tool "${definition.name}": ${problems.join('; ')}`);
   }
@@ -84,5 +114,43 @@ export function defineTool<Input extends z.ZodObject>(definition: ToolDefinition
     input: definition.input,
     execute: definition.execute as (input: unknown, context: ToolContext) => unknown,
     timeoutMs,
+    ...(definition.replies
+      ? { replies: definition.replies as (output: unknown) => readonly string[] | undefined }
+      : {}),
   });
+}
+
+/** A function call as stored: arguments and output in JSON, no output if it failed or wasn't answered. */
+export interface StoredToolCall {
+  readonly name: string;
+  readonly arguments: string;
+  readonly output: string | undefined;
+}
+
+/**
+ * The options a turn's calls define, oldest call first (ADR-0015): the last call that
+ * defines any wins. The live turn and the history both pick them here, from the stored JSON, so a
+ * reload shows what the turn showed. Arguments that don't fit the tool's schema mean the call
+ * failed, and a tool the bot no longer has defines nothing. A `replies` function that throws
+ * defines none; `onError` hears about it.
+ */
+export function readToolReplies(
+  tools: readonly Tool[],
+  calls: readonly StoredToolCall[],
+  onError?: (tool: Tool, error: unknown) => void,
+): readonly string[] | undefined {
+  let replies: readonly string[] | undefined;
+  for (const call of calls) {
+    const tool = tools.find((candidate) => candidate.name === call.name);
+    if (!tool?.replies || call.output === undefined) continue;
+    try {
+      if (!tool.input.safeParse(JSON.parse(call.arguments)).success) continue;
+      const items = tool.replies(JSON.parse(call.output));
+      const offered = Array.isArray(items) ? normalizeReplies(items) : undefined;
+      if (offered) replies = offered;
+    } catch (error) {
+      onError?.(tool, error);
+    }
+  }
+  return replies;
 }

@@ -5,6 +5,7 @@ import type { HistoryCitation, HistoryMessage } from '../protocol/history';
 import { normalizeReplies } from '../protocol/replies';
 import { addSources, citationSource, type KnowledgeSources } from './citations';
 import { PAGE_CONTEXT_MARKER } from './page-context';
+import { isFailedOutput } from './tools';
 
 /** Most recent items fetched per history request; older ones are not shown. */
 const ITEM_LIMIT = 100;
@@ -67,7 +68,8 @@ export function toHistoryMessage(
 
 /**
  * The function calls of the latest turn, oldest first, with their outputs: what came after the
- * visitor's last message. Older turns aren't read (ADR-0015).
+ * visitor's last message. Older turns aren't read (ADR-0015). A call that failed while running has
+ * no output, as in the live turn, where only successful calls define options.
  */
 function latestTurnCalls(newestFirst: readonly ConversationItem[]): StoredCall[] {
   const outputs = new Map<string, string>();
@@ -75,7 +77,7 @@ function latestTurnCalls(newestFirst: readonly ConversationItem[]): StoredCall[]
   for (const item of newestFirst) {
     if (item.type === 'message' && item.role === 'user') break;
     if (item.type === 'function_call_output' && item.call_id && typeof item.output === 'string') {
-      outputs.set(item.call_id, item.output);
+      if (!isFailedOutput(item.output)) outputs.set(item.call_id, item.output);
     } else if (item.type === 'function_call') {
       calls.push({ name: item.name, arguments: item.arguments, callId: item.call_id });
     }

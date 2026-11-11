@@ -107,7 +107,10 @@ export interface TurnResult {
   readonly replies?: readonly string[] | undefined;
 }
 
-/** A function call of a stored turn, with its output when it was answered. */
+/**
+ * A function call of a stored turn, with its output when it was answered and didn't fail while
+ * running.
+ */
 export interface StoredCall {
   readonly name: string;
   /** JSON, as the model wrote it. */

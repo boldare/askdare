@@ -49,6 +49,7 @@ Both sources produce the same thing and share everything after it.
   - `execute` returning `{ result, replies }`, where only `result` goes to the model.
 
   The implementation picks one (or both); the protocol, the limits and the UI don't depend on it. The second shape is ambiguous for a tool whose real result has those keys, which favors the first.
+  - **Chosen** (during implementation, #47): only `replies: (output) => string[] | undefined`. One option is a smaller public surface than two, and it leaves `execute`'s return value meaning one thing. `replies` gets the output as stored, parsed back from JSON, so a live turn and a reload derive the same options; it runs only for a successful call, and when several calls of a turn define options, the last one wins.
 - **The tool's result still never reaches the client.** Only the replies do, after the same limits.
 - **This is the first slice of tool UI payloads.** `toolRenderers` will follow the same path: the tool's code turns its result into a small, typed, size-capped payload; the server validates it and sends it as its own protocol event; the client renders it with known components, never with HTML from the server or the model. Each new payload kind gets its own event schema and limits.
 
@@ -58,7 +59,7 @@ Both sources produce the same thing and share everything after it.
   - the `replies` protocol event and the `replies` field in the history response (additive in protocol version 1);
   - `QuickReplies` and the `replies` and `reply` parts, and the theme variant `replies` (`answer` or `composer`);
   - `widget.replies` and the reserved tool name `suggest_replies`;
-  - the `replies` option of `defineTool` (or the `{ result, replies }` shape);
+  - the `replies` option of `defineTool` (the `{ result, replies }` shape was not taken, #47);
   - `source: 'reply'` in the event catalog.
 - **Security holds without new rules.** A reply is model or tool output shown as text and sent back as the visitor's own words. A prompt injection (for instance in a knowledge-base document) can at worst suggest misleading text the visitor then chooses to send, which they could also have typed.
 - **The visitor's message is the reply's text,** so the transcript, `onUsage` and analytics stay simple.

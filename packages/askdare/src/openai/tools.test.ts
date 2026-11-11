@@ -1,6 +1,6 @@
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { z } from 'zod';
 import { type Bot, defineBot } from '../bot/define-bot';
 import type { ModelGateway, StepRecord, ToolCallRecord, TurnRequest } from '../gateway';
@@ -14,6 +14,7 @@ import {
   sseStream,
   textTurnEvents,
 } from './testing/msw';
+import { isFailedOutput } from './tools';
 
 const server = setupServer();
 let gateway: ModelGateway;
@@ -83,6 +84,7 @@ function makeBot(tools: Tool[], maxSteps = 5): Bot {
 async function run(bot: Bot): Promise<{
   events: ProtocolEvent[];
   reason: string;
+  replies: readonly string[] | undefined;
   modelCalls: StepRecord[];
   calls: ToolCallRecord[];
 }> {
@@ -103,7 +105,7 @@ async function run(bot: Bot): Promise<{
     onToolCall: (call) => calls.push(call),
   };
   const result = await gateway.runTurn(request);
-  return { events, reason: result.reason, modelCalls, calls };
+  return { events, reason: result.reason, replies: result.replies, modelCalls, calls };
 }
 
 const outputsOf = (body: Record<string, unknown> | undefined) =>
@@ -144,6 +146,15 @@ describe('defineTool', () => {
         execute: () => 1,
       }),
     ).toThrow(/list\[\]\.b is optional/);
+    expect(() =>
+      defineTool({
+        name: 'x',
+        description: 'd',
+        input: z.object({}),
+        execute: () => 1,
+        replies: ['Yes'] as unknown as () => string[],
+      }),
+    ).toThrow(/replies must be a function/);
   });
 
   it('rejects duplicate tool names on a bot', () => {
@@ -240,6 +251,15 @@ describe('tool loop', () => {
     expect(
       events.filter((event) => event.type === 'tool.status' && event.state === 'error'),
     ).toHaveLength(5);
+    // History recognizes the failures of a running tool by their output; the others by their
+    // arguments or name, so a failed call never defines options after a reload either.
+    expect(outputs.map((item) => isFailedOutput(JSON.stringify(item.output)))).toEqual([
+      false,
+      false,
+      true,
+      true,
+      false,
+    ]);
     consoleError.mockRestore();
   });
 
@@ -274,6 +294,7 @@ describe('tool loop', () => {
     expect(outputsOf(bodies[1])).toEqual([
       { call_id: 'b', output: { error: 'The tool returned too much data.' } },
     ]);
+    expect(isFailedOutput(JSON.stringify(outputsOf(bodies[1])[0]?.output))).toBe(true);
   });
 
   it('forces a text answer on the last step', async () => {
@@ -310,5 +331,178 @@ describe('tool loop', () => {
       },
       { role: 'user', content: 'Hi' },
     ]);
+  });
+});
+
+describe('reply options from tools', () => {
+  const order = defineTool({
+    name: 'order_status',
+    description: 'Status of an order.',
+    input: z.object({ orderNumber: z.string() }),
+    execute: async ({ orderNumber }) => ({
+      orderNumber,
+      status: orderNumber === '1' ? 'shipped' : 'unknown',
+      shippedAt: new Date('2026-11-10T12:00:00Z'),
+    }),
+    // Typed from `execute`; the date arrives as the model saw it, a string.
+    replies: (result) => {
+      expectTypeOf(result).toEqualTypeOf<{
+        orderNumber: string;
+        status: string;
+        shippedAt: string;
+      }>();
+      return result.status === 'shipped'
+        ? ['Track the parcel', 'Cancel the order', 'Talk to a person']
+        : undefined;
+    },
+  });
+
+  it('turns a successful result into options for the answer, never into model input', async () => {
+    const seen = vi.fn();
+    const spy = defineTool({
+      name: 'spy',
+      description: 'd',
+      input: z.object({}),
+      execute: () => ({ at: new Date('2026-11-10T12:00:00Z') }),
+      replies: (result) => {
+        seen(result);
+        return undefined;
+      },
+    });
+    const bodies = steps(
+      callStep([
+        { id: 'o', name: 'order_status', args: '{"orderNumber":"1"}' },
+        { id: 's', name: 'spy', args: '{}' },
+      ]),
+      textTurnEvents(['It shipped.']),
+    );
+    const { replies, reason } = await run(makeBot([order, spy]));
+    expect(reason).toBe('completed');
+    expect(replies).toEqual(['Track the parcel', 'Cancel the order', 'Talk to a person']);
+    expect(outputsOf(bodies[1])[0]?.output).toEqual({
+      orderNumber: '1',
+      status: 'shipped',
+      shippedAt: '2026-11-10T12:00:00.000Z',
+    });
+    expect(JSON.stringify(bodies)).not.toContain('Track the parcel');
+    expect(seen).toHaveBeenCalledWith({ at: '2026-11-10T12:00:00.000Z' });
+  });
+
+  it('offers nothing when the tool defines none for its result, or has no replies', async () => {
+    steps(
+      callStep([
+        { id: 'o', name: 'order_status', args: '{"orderNumber":"2"}' },
+        { id: 'e', name: 'echo', args: '{"word":"a","times":null}' },
+      ]),
+      textTurnEvents(['No idea.']),
+    );
+    expect((await run(makeBot([order, echo]))).replies).toBeUndefined();
+  });
+
+  it('keeps at most 4 short, plain, distinct options and drops the rest', async () => {
+    const noisy = defineTool({
+      name: 'noisy',
+      description: 'd',
+      input: z.object({}),
+      execute: () => null,
+      replies: () => [
+        '  Book   9:00 ',
+        'Book 9:00',
+        'See https://evil.example',
+        'Open www.example.com',
+        'x'.repeat(81),
+        '',
+        42 as unknown as string,
+        'Line\nbreak',
+        'Book 11:00',
+        'Book 13:00',
+        'Book 15:00',
+        'Book 17:00',
+      ],
+    });
+    steps(callStep([{ id: 'n', name: 'noisy', args: '{}' }]), textTurnEvents(['Pick one.']));
+    expect((await run(makeBot([noisy]))).replies).toEqual([
+      'Book 9:00',
+      'Line break',
+      'Book 11:00',
+      'Book 13:00',
+    ]);
+  });
+
+  it('offers nothing when every option is invalid, replies throws, or the call failed', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const links = defineTool({
+      name: 'links',
+      description: 'd',
+      input: z.object({}),
+      execute: () => null,
+      replies: () => ['https://evil.example', 'x'.repeat(81)],
+    });
+    const throws = defineTool({
+      name: 'throws',
+      description: 'd',
+      input: z.object({}),
+      execute: () => null,
+      replies: () => {
+        throw new Error('bad shape');
+      },
+    });
+    const notArray = defineTool({
+      name: 'not_array',
+      description: 'd',
+      input: z.object({}),
+      execute: () => null,
+      replies: () => 'Yes' as unknown as string[],
+    });
+    const replies = vi.fn(() => ['Try again']);
+    const fails = defineTool({
+      name: 'fails',
+      description: 'd',
+      input: z.object({}),
+      execute: () => {
+        throw new Error('down');
+      },
+      replies,
+    });
+    steps(
+      callStep([
+        { id: 'l', name: 'links', args: '{}' },
+        { id: 't', name: 'throws', args: '{}' },
+        { id: 'a', name: 'not_array', args: '{}' },
+        { id: 'f', name: 'fails', args: '{}' },
+        { id: 'i', name: 'order_status', args: '{"orderNumber":1}' },
+      ]),
+      textTurnEvents(['Sorry.']),
+    );
+    const result = await run(makeBot([links, throws, notArray, fails, order]));
+    expect(result.reason).toBe('completed');
+    expect(result.replies).toBeUndefined();
+    expect(replies).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalledWith(
+      '[askdare] replies of tool "throws" failed:',
+      expect.any(Error),
+    );
+    consoleError.mockRestore();
+  });
+
+  it('takes the options of the last call that defined any, across parallel calls and steps', async () => {
+    const pick = (name: string, items: readonly string[] | undefined) =>
+      defineTool({
+        name,
+        description: 'd',
+        input: z.object({}),
+        execute: () => null,
+        replies: () => items,
+      });
+    steps(
+      callStep([{ id: 'a', name: 'first', args: '{}' }]),
+      callStep([
+        { id: 'b', name: 'second', args: '{}' },
+        { id: 'c', name: 'none', args: '{}' },
+      ]),
+      textTurnEvents(['Done.']),
+    );
+    const bot = makeBot([pick('first', ['One']), pick('second', ['Two']), pick('none', undefined)]);
+    expect((await run(bot)).replies).toEqual(['Two']);
   });
 });

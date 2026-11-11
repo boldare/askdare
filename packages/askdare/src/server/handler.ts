@@ -17,6 +17,7 @@ import type { IdentityFailure, IdentityVerifier, VerifiedIdentity } from '../sec
 import { newVisitorId, type ResumeGrant, type TokenService } from '../security/tokens';
 import { PRESET_NAMES, type PresetName } from '../theme/presets';
 import { type ColorScheme, type ResolvedTheme, resolveTheme } from '../theme/theme';
+import { readToolReplies } from '../tools/define-tool';
 import { detectAudio, languageHints, maxAudioBytes, worstCaseSeconds } from '../voice/audio';
 import {
   type EmbedAssets,
@@ -793,7 +794,15 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
 
   const readHistory = async (request: Request): Promise<Response> => {
     const { bot, conversationId, tokens, owner } = await ownedConversation(request);
-    let messages = await config.gateway().listMessages(conversationId, request.signal);
+    let messages = await config
+      .gateway()
+      .listMessages(
+        conversationId,
+        request.signal,
+        bot.tools.some((tool) => tool.replies)
+          ? (calls) => readToolReplies(bot.tools, calls)
+          : undefined,
+      );
     if (feedbackOn(bot)) {
       messages = await Promise.all(
         messages.map(async (message) =>

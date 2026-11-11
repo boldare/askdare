@@ -8,7 +8,7 @@ import type {
 import { z } from 'zod';
 import type { Bot } from '../bot/define-bot';
 import type { ToolCallRecord, TurnRequest } from '../gateway';
-import type { Tool } from '../tools/define-tool';
+import { readToolReplies, type StoredToolCall, type Tool } from '../tools/define-tool';
 import type { FunctionCall } from './stream-mapper';
 
 /** Larger tool results are replaced by an error so one call can't flood the context. */
@@ -84,6 +84,25 @@ async function withTimeout<T>(
 
 type CallOutcome = ToolCallRecord['outcome'];
 
+/** What the model gets when a call fails after its arguments were valid. */
+const FAILURES = {
+  timeout: { error: 'The tool timed out.' },
+  failed: { error: 'The tool failed.' },
+  tooLarge: { error: 'The tool returned too much data.' },
+} as const;
+
+const FAILED_OUTPUTS: ReadonlySet<string> = new Set(
+  Object.values(FAILURES).map((failure) => JSON.stringify(failure)),
+);
+
+/**
+ * Whether a stored output is one askdare wrote for a call that failed while running. Calls with
+ * invalid arguments are recognized by their arguments instead (`readToolReplies`).
+ */
+export function isFailedOutput(output: string): boolean {
+  return FAILED_OUTPUTS.has(output);
+}
+
 async function invoke(
   tool: Tool | undefined,
   call: FunctionCall,
@@ -119,22 +138,24 @@ async function invoke(
     return { output: output ?? null, outcome: 'ok' };
   } catch (error) {
     if (error instanceof ToolTimeoutError) {
-      return { output: { error: 'The tool timed out.' }, outcome: 'timeout' };
+      return { output: FAILURES.timeout, outcome: 'timeout' };
     }
     if (request.signal.aborted) throw request.signal.reason;
     // The developer needs the details; the model and the visitor only learn that it failed.
     console.error(`[askdare] tool "${tool.name}" failed:`, error);
-    return { output: { error: 'The tool failed.' }, outcome: 'error' };
+    return { output: FAILURES.failed, outcome: 'error' };
   }
 }
 
 /**
  * Runs every function call of a step in parallel and returns the outputs to send back. Every call
  * gets an output, even on failure: a call left without one breaks the conversation (spike S1, E5).
+ * When a successful call's tool defines reply options, the last such call's go to `onReplies`.
  */
 export async function executeCalls(
   calls: readonly FunctionCall[],
   request: TurnRequest,
+  onReplies?: (replies: readonly string[]) => void,
 ): Promise<ResponseInputItem[]> {
   const tools = new Map(request.bot.tools.map((tool) => [tool.name, tool]));
   for (const call of calls) {
@@ -146,14 +167,15 @@ export async function executeCalls(
       state: 'running',
     });
   }
-  return Promise.all(
-    calls.map(async (call) => {
+  const succeeded: (StoredToolCall | undefined)[] = [];
+  const outputs = await Promise.all(
+    calls.map(async (call, index) => {
       const startedAt = Date.now();
       const result = await invoke(tools.get(call.name), call, request);
       let output = JSON.stringify(result.output);
       let outcome = result.outcome;
       if (output.length > MAX_OUTPUT_CHARS) {
-        output = JSON.stringify({ error: 'The tool returned too much data.' });
+        output = JSON.stringify(FAILURES.tooLarge);
         outcome = 'error';
       }
       request.onToolCall?.({
@@ -169,9 +191,19 @@ export async function executeCalls(
         name: call.name.slice(0, 64),
         state: outcome === 'ok' ? 'done' : 'error',
       });
+      if (outcome === 'ok')
+        succeeded[index] = { name: call.name, arguments: call.arguments, output };
       return { type: 'function_call_output', call_id: call.callId, output } as const;
     }),
   );
+  // Picked from the outputs as stored, as the history does after a reload (openai/history.ts).
+  const replies = readToolReplies(
+    request.bot.tools,
+    succeeded.filter((call) => call !== undefined),
+    (tool, error) => console.error(`[askdare] replies of tool "${tool.name}" failed:`, error),
+  );
+  if (replies) onReplies?.(replies);
+  return outputs;
 }
 
 const DANGLING_CALL = /No tool output found for function call ([A-Za-z0-9_-]+)/;
