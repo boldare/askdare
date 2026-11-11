@@ -84,6 +84,7 @@ const variantsSchema = z
     surface: z.enum(['solid', 'glass']),
     density: z.enum(['comfortable', 'compact']),
     composer: z.enum(['outline', 'gradient']),
+    replies: z.enum(['answer', 'composer']),
   })
   .partial()
   .strict();

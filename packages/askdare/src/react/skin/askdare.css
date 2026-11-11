@@ -703,6 +703,35 @@
     cursor: default;
   }
 
+  /* Above the message field (variant replies: composer): one row that scrolls sideways. */
+  [data-ask-part="replies"][data-placement="composer"]:where([data-ask-skin] *) {
+    flex-wrap: nowrap;
+    margin: 0;
+    /* In line with the message field; the edges fade where options scroll out of view. */
+    padding: var(--ask-space) calc(var(--ask-space) * 1.5) 2px;
+    scroll-padding-inline: calc(var(--ask-space) * 1.5);
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      #000 calc(var(--ask-space) * 1.5),
+      #000 calc(100% - var(--ask-space) * 1.5),
+      transparent
+    );
+    overflow-x: auto;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+
+  [data-ask-part="replies"][data-placement="composer"]::-webkit-scrollbar:where([data-ask-skin] *) {
+    display: none;
+  }
+
+  [data-ask-part="replies"][data-placement="composer"]
+    [data-ask-part="reply"]:where([data-ask-skin] *) {
+    flex: none;
+    white-space: nowrap;
+  }
+
   /* ---------- Welcome ---------- */
 
   [data-ask-part="welcome"]:where([data-ask-skin] *) {

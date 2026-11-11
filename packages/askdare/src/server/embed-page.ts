@@ -42,6 +42,7 @@ export const GALLERY_STATES = [
   'listening',
   'feedback',
   'replies',
+  'replies-composer',
 ] as const;
 export type GalleryState = (typeof GALLERY_STATES)[number];
 

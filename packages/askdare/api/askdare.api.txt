@@ -274,6 +274,8 @@ interface ThemeVariants {
   readonly surface: "solid" | "glass";
   readonly density: "comfortable" | "compact";
   readonly composer: "outline" | "gradient";
+  /** Where the latest answer's options show: under it, or in one row above the message field. */
+  readonly replies: "answer" | "composer";
 }
 /** What a visitor may attach, as the bot allows it. */
 interface ChatAttachments {
@@ -760,8 +762,9 @@ type QuickRepliesProps = ComponentProps<"div">;
 /**
  * The options the latest answer offers (ADR-0015): a group (`replies`) of buttons (`reply`), each
  * showing its option as plain text, never Markdown. A click sends the option as the visitor's own
- * message, exactly as if they had typed it. Renders nothing for any other message, so the options
- * go away as soon as the visitor sends anything.
+ * message, exactly as if they had typed it. Inside `MessageList` it renders under the latest
+ * answer only; anywhere else, such as above the message field, it shows the latest answer's
+ * options. Either way the options go away as soon as the visitor sends anything.
  */
 export declare function QuickReplies(props: QuickRepliesProps): ReactElement | null;
 interface RootProps {
@@ -938,6 +941,8 @@ interface ThemeVariants {
   readonly surface: "solid" | "glass";
   readonly density: "comfortable" | "compact";
   readonly composer: "outline" | "gradient";
+  /** Where the latest answer's options show: under it, or in one row above the message field. */
+  readonly replies: "answer" | "composer";
 }
 type ColorScheme = "auto" | "light" | "dark";
 /** A theme built on a preset. Create it with {@link defineTheme} to share it between bots. */

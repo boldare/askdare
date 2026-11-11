@@ -13,6 +13,7 @@ const STATES = [
   'listening',
   'feedback',
   'replies',
+  'replies-composer',
 ];
 
 async function render(page: Page, query: Record<string, string>): Promise<void> {

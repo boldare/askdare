@@ -43,6 +43,8 @@ export interface ThemeVariants {
   readonly surface: 'solid' | 'glass';
   readonly density: 'comfortable' | 'compact';
   readonly composer: 'outline' | 'gradient';
+  /** Where the latest answer's options show: under it, or in one row above the message field. */
+  readonly replies: 'answer' | 'composer';
 }
 
 export interface Preset {
@@ -109,6 +111,7 @@ export const PRESETS: Readonly<Record<PresetName, Preset>> = {
       surface: 'glass',
       density: 'comfortable',
       composer: 'outline',
+      replies: 'answer',
     },
   },
 
@@ -165,6 +168,7 @@ export const PRESETS: Readonly<Record<PresetName, Preset>> = {
       surface: 'glass',
       density: 'comfortable',
       composer: 'gradient',
+      replies: 'answer',
     },
   },
 
@@ -218,6 +222,7 @@ export const PRESETS: Readonly<Record<PresetName, Preset>> = {
       surface: 'solid',
       density: 'comfortable',
       composer: 'outline',
+      replies: 'answer',
     },
   },
 
@@ -269,6 +274,7 @@ export const PRESETS: Readonly<Record<PresetName, Preset>> = {
       surface: 'solid',
       density: 'comfortable',
       composer: 'outline',
+      replies: 'answer',
     },
   },
 };

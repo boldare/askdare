@@ -82,6 +82,7 @@ The launcher's short variables on your page (`--a`, `--o` and the like) are inte
 | `attachment` | `data-kind` | `image`, `pdf`; absent until the chat has recognized the file |
 | `recorder` | `data-state` | `recording`, `transcribing` |
 | `feedback-button` | `data-rating` | `up`, `down`; `aria-pressed="true"` on the visitor's rating |
+| `replies` | `data-placement` | `composer` on the row above the message field (variant `replies: 'composer'`); absent under an answer |
 | `avatar` | `data-kind` | `orb`, `icon`, `initials`, `image` |
 | `avatar` | `data-size` | `small` in the header, next to the assistant's messages and in the `intro` welcome; `large` in the `hero` and `persona` welcome |
 | `welcome` | `data-layout` | `hero`, `persona`, `intro` |

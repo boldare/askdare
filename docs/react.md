@@ -176,7 +176,7 @@ Without `Theme` and `DefaultChat`, no stylesheet of the chat loads: the look is 
 | `Citations` | `ol` | The answer's sources. |
 | `MessageFiles` | `ul` or `p` | The files sent with a message. |
 | `FeedbackButton` | `button` | Rates the answer; takes `rating="up"` or `"down"`. See [Answer ratings](feedback.md). |
-| `QuickReplies` | `div` | The options the latest answer offers, as a group of buttons (`reply`) that show their text as plain text. A click sends the option as the visitor's message. Renders nothing under older messages, so the options go away once the visitor sends anything. |
+| `QuickReplies` | `div` | The options the latest answer offers, as a group of buttons (`reply`) that show their text as plain text. A click sends the option as the visitor's message. Inside `MessageList` it renders under the latest answer only; placed anywhere else, such as above the `Composer`, it shows the latest answer's options there. Either way they go away once the visitor sends anything. The default look follows the theme's `replies` variant ([Themes](themes.md#variants)). |
 | `Composer` | `form` | Submitting it sends the draft, Enter in the `Input` included. An `onSubmit` of yours that calls `event.preventDefault()` takes the message over. |
 | `Input` | `textarea` | The message field: Enter sends, Shift+Enter starts a new line, pasted files are attached. Your `onKeyDown` or `onPaste` can prevent either. |
 | `Send` | `button` | Sends; disabled until there is something to send. |

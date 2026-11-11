@@ -480,6 +480,77 @@ describe('primitives', () => {
     expect(send).toHaveBeenCalledWith('**Plans**');
   });
 
+  it("show the latest answer's options outside a message too, such as above the field", () => {
+    const offered = (id: string, replies: readonly string[]) => ({
+      id,
+      role: 'assistant' as const,
+      text: 'Pick one.',
+      citations: [],
+      attachments: 0,
+      status: 'done' as const,
+      replies,
+    });
+    const view = render(
+      <ChatProvider
+        store={createFixtureStore(testConfig(), {
+          messages: [offered('a1', ['Old option']), offered('a2', ['Yes', 'No'])],
+        })}
+      >
+        <QuickReplies />
+      </ChatProvider>,
+    );
+    expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual([
+      'Yes',
+      'No',
+    ]);
+    view.unmount();
+    // Nothing once the visitor has written, or while an answer streams.
+    for (const messages of [
+      [offered('a2', ['Yes']), { ...offered('u3', []), role: 'user' as const }],
+      [{ ...offered('a2', ['Yes']), status: 'streaming' as const }],
+    ]) {
+      const { container, unmount } = render(
+        <ChatProvider store={createFixtureStore(testConfig(), { messages })}>
+          <QuickReplies />
+        </ChatProvider>,
+      );
+      expect(container.innerHTML).toBe('');
+      unmount();
+    }
+  });
+
+  it('put the options above the message field when the theme says so', () => {
+    const config = testConfig();
+    const chat = createFixtureStore(
+      {
+        ...config,
+        widget: { ...config.widget, variants: { ...config.widget.variants, replies: 'composer' } },
+      },
+      {
+        messages: [
+          {
+            id: 'a1',
+            role: 'assistant',
+            text: 'Pick one.',
+            citations: [],
+            attachments: 0,
+            status: 'done',
+            replies: ['Yes', 'No'],
+          },
+        ],
+      },
+    );
+    render(
+      <ChatProvider store={chat}>
+        <DefaultPanel />
+      </ChatProvider>,
+    );
+    const groups = screen.getAllByRole('group', { name: 'Suggested replies' });
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.getAttribute('data-placement')).toBe('composer');
+    expect(groups[0]?.closest('[data-ask-part="message"]')).toBeNull();
+  });
+
   it('take the options away once the visitor sends anything, and send a click as text', async () => {
     const server = fakeServer({
       // Options with the first answer only.
