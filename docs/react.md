@@ -132,6 +132,7 @@ function Bubble() {
       <Chat.Citations />
       <Chat.FeedbackButton rating="up">👍</Chat.FeedbackButton>
       <Chat.FeedbackButton rating="down">👎</Chat.FeedbackButton>
+      <Chat.QuickReplies />
     </Chat.Message>
   );
 }
@@ -175,6 +176,7 @@ Without `Theme` and `DefaultChat`, no stylesheet of the chat loads: the look is 
 | `Citations` | `ol` | The answer's sources. |
 | `MessageFiles` | `ul` or `p` | The files sent with a message. |
 | `FeedbackButton` | `button` | Rates the answer; takes `rating="up"` or `"down"`. See [Answer ratings](feedback.md). |
+| `QuickReplies` | `div` | The options the latest answer offers, as a group of buttons (`reply`) that show their text as plain text. A click sends the option as the visitor's message. Inside `MessageList` it renders under the latest answer only; placed anywhere else, such as above the `Composer`, it shows the latest answer's options there. Either way they go away once the visitor sends anything. The default look follows the theme's `replies` variant ([Themes](themes.md#variants)). |
 | `Composer` | `form` | Submitting it sends the draft, Enter in the `Input` included. An `onSubmit` of yours that calls `event.preventDefault()` takes the message over. |
 | `Input` | `textarea` | The message field: Enter sends, Shift+Enter starts a new line, pasted files are attached. Your `onKeyDown` or `onPaste` can prevent either. |
 | `Send` | `button` | Sends; disabled until there is something to send. |
@@ -199,7 +201,7 @@ Primitives that have nothing to show render nothing, so you can place them witho
 | --- | --- |
 | `phase` | `'starting'` on the server and until the chat knows the visitor, `'loading'` while a stored conversation loads, then `'ready'`. |
 | `busy` | A turn is under way. |
-| `messages` | Each with `id`, `role`, `text`, `status` (`'streaming'`, `'done'`, `'error'`), `citations`, `files` and `feedback`. |
+| `messages` | Each with `id`, `role`, `text`, `status` (`'streaming'`, `'done'`, `'error'`), `citations`, `files`, `feedback` and `replies` (the options the answer offers, plain text). |
 | `draft`, `files` | The message field's text and the files picked for the next message. |
 | `error`, `activity` | The latest problem, and what the assistant is doing before it writes. |
 | `dictation`, `elapsed`, `canDictate` | The dictation: `'idle'`, `'recording'` or `'transcribing'`, its seconds, and whether this browser can record. |
@@ -207,7 +209,7 @@ Primitives that have nothing to show render nothing, so you can place them witho
 
 | `actions` | Meaning |
 | --- | --- |
-| `send(text?)` | Sends the draft, or `text` on its own (a suggested question). |
+| `send(text?)` | Sends the draft, or `text` on its own (a suggested question, or one of the latest answer's `replies`). |
 | `setDraft(text)` | Sets the message field. |
 | `addFiles(files)`, `removeFile(key)` | Files for the next message. |
 | `startDictation()`, `finishDictation()`, `cancelDictation()` | Dictation; finishing puts the transcript into the draft. |

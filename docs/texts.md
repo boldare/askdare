@@ -112,6 +112,7 @@ The table is generated from the library's dictionaries with `pnpm --filter @bold
 | `status.tool` | Using {name}… | Korzystam z narzędzia {name}… |
 | `status.typing` | The assistant is typing | Asystent pisze |
 | `message.sources` | Sources | Źródła |
+| `message.replies` | Suggested replies | Proponowane odpowiedzi |
 | `feedback.label` | Rate this answer | Oceń tę odpowiedź |
 | `feedback.up` | Helpful | Pomocna |
 | `feedback.down` | Not helpful | Niepomocna |

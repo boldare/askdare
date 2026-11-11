@@ -18,7 +18,10 @@ import { browserStorage } from './storage';
 
 /** What visitors can do in the chat; the same for every UI on top of the store. */
 export interface ChatActions {
-  /** Sends the draft with the files that are ready, or `text` (a starter) on its own. */
+  /**
+   * Sends the draft with the files that are ready, or `text` (a starter, or one of the latest
+   * answer's `replies`) on its own.
+   */
   send(text?: string): Promise<void>;
   setDraft(text: string): void;
   /** Uploads files for the next message, as many as the bot allows. */
@@ -331,23 +334,31 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
   const actions: ChatActions = {
     async send(picked) {
       const text = (picked ?? state.draft).trim();
-      const uploading = state.files.some((file) => file.status === 'uploading');
       if (
         picked === undefined
           ? !canSend(state)
-          : state.phase !== 'ready' || state.busy || uploading || text === ''
+          : state.phase !== 'ready' || state.busy || text === ''
       ) {
         return;
       }
-      const ready = state.files.filter((file) => file.status === 'ready');
+      // A picked text goes on its own: the files and the draft wait for the visitor's own message.
+      const ready =
+        picked === undefined ? state.files.filter((file) => file.status === 'ready') : [];
       const files: SentFile[] = ready.flatMap(({ name, kind, previewUrl }) =>
         kind ? [{ name, kind, previewUrl }] : [],
       );
       const handles = ready.flatMap((file) => (file.handle ? [file.handle] : []));
-      revokePreviews(state.files.filter((file) => file.status !== 'ready'));
+      const latest = state.messages.at(-1);
+      const source =
+        picked === undefined
+          ? 'typed'
+          : latest?.role === 'assistant' && latest.replies?.includes(text)
+            ? 'reply'
+            : 'starter';
+      if (picked === undefined)
+        revokePreviews(state.files.filter((file) => file.status !== 'ready'));
       set({
-        files: [],
-        ...(picked === undefined ? { draft: '' } : {}),
+        ...(picked === undefined ? { files: [], draft: '' } : {}),
         error: undefined,
         busy: true,
         messages: [
@@ -368,7 +379,7 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
         bot,
         length: [...text].length,
         attachments: files.length,
-        source: picked === undefined ? 'typed' : 'starter',
+        source,
       });
       const context = config.pageContext ? state.page.context : undefined;
       const controller = new AbortController();

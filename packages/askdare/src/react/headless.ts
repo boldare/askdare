@@ -52,6 +52,8 @@ export type { ErrorMessageProps, StatusProps } from './notices';
 export { ErrorMessage, Status } from './notices';
 export type { PanelProps } from './panel';
 export { Panel } from './panel';
+export type { QuickRepliesProps } from './replies';
+export { QuickReplies } from './replies';
 export type { RootProps } from './root';
 export { Root } from './root';
 export type { ThemeProps } from './theme';

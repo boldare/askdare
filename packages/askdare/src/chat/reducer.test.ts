@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { textsFor } from '../i18n/texts';
-import { activityFor, applyEvent, failStreaming, translator } from './reducer';
+import { activityFor, applyEvent, failStreaming, fromHistory, translator } from './reducer';
 import type { ChatMessage } from './state';
 
 const t = translator(textsFor('en'));
@@ -29,6 +29,29 @@ describe('applyEvent', () => {
         status: 'done',
       },
     ]);
+  });
+
+  it('keeps the options offered with an answer, live and from history', () => {
+    let messages = applyEvent([], { type: 'message.start', messageId: 'm' });
+    messages = applyEvent(messages, { type: 'replies', messageId: 'm', items: ['Yes', 'No'] });
+    messages = applyEvent(messages, { type: 'message.end', messageId: 'm', reason: 'completed' });
+    expect(messages[0]).toMatchObject({ status: 'done', replies: ['Yes', 'No'] });
+    expect(applyEvent(messages, { type: 'replies', messageId: 'other', items: ['Maybe'] })).toEqual(
+      messages,
+    );
+    const restored = fromHistory({
+      id: 'm',
+      role: 'assistant',
+      text: 'Hi',
+      citations: [],
+      attachments: 0,
+      replies: ['Yes'],
+    });
+    expect(restored.replies).toEqual(['Yes']);
+    expect(
+      'replies' in
+        fromHistory({ id: 'u', role: 'user', text: 'Hi', citations: [], attachments: 0 }),
+    ).toBe(false);
   });
 
   it('ignores events of other messages and unknown types', () => {

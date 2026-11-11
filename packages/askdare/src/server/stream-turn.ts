@@ -7,6 +7,7 @@ import type {
   MessageEndReason,
   ProtocolEvent,
 } from '../protocol/events';
+import { normalizeReplies } from '../protocol/replies';
 import { encodeComment, encodeEvent } from '../protocol/sse';
 import { PROTOCOL_HEADER, PROTOCOL_VERSION } from '../protocol/version';
 import { addUsage, ZERO_USAGE } from '../usage';
@@ -190,6 +191,8 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
                 .issueFeedback(conversationId, result.answerItemId)
                 .catch(() => undefined)
             : undefined;
+        const replies = result.replies && normalizeReplies(result.replies);
+        if (replies) emit({ type: 'replies', messageId, items: replies });
         emit({
           type: 'message.end',
           messageId,

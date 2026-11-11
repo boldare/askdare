@@ -27,6 +27,7 @@ Both sources produce the same thing and share everything after it.
 - **Limits, enforced on the server and checked again in the client:** at most 4 items of at most 80 characters, trimmed, non-empty and without duplicates. An item that contains a URL is dropped. If nothing is left, no event is sent.
 - **State:** `ChatMessage.replies?: readonly string[]` in the browser core, set by the reducer.
 - **UI:** a headless primitive `QuickReplies` with the parts `replies` (the group) and `reply` (each button), plus the default look in the skin. It is shown only under the **latest** assistant answer, and disappears once the visitor sends anything.
+  - **Placement** (added during implementation, #41): the theme variant `replies` puts the options under the answer (`answer`, the default) or in one row above the message field (`composer`). Placed outside `MessageList`, `QuickReplies` shows the latest answer's options. Every other rule here holds in both places.
 - **Rendering:** each item is rendered as plain text, never as Markdown, so a reply can't carry links, images or formatting.
 - **A click is a visitor message.** It calls `actions.send(text)` with the item's text, exactly as if the visitor had typed it. The server can't tell the difference and doesn't need to: the message goes through the same limits and budgets as any other, and no tool, flow or instruction is selected by the click.
 - **Events (ADR-0013, additive):** `message.sent` gets `source: 'reply'`.
@@ -55,7 +56,7 @@ Both sources produce the same thing and share everything after it.
 
 - **New public API ([ADR-0006](0006-support-matrix-and-versioning.md)):**
   - the `replies` protocol event and the `replies` field in the history response (additive in protocol version 1);
-  - `QuickReplies` and the `replies` and `reply` parts;
+  - `QuickReplies` and the `replies` and `reply` parts, and the theme variant `replies` (`answer` or `composer`);
   - `widget.replies` and the reserved tool name `suggest_replies`;
   - the `replies` option of `defineTool` (or the `{ result, replies }` shape);
   - `source: 'reply'` in the event catalog.

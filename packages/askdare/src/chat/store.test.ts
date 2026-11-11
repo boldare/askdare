@@ -227,6 +227,26 @@ describe('createChatStore', () => {
     expect(store.getSnapshot().files).toHaveLength(1);
   });
 
+  it('sends a picked text on its own, keeping the files and the draft for later', async () => {
+    const server = fakeServer();
+    const store = createChatStore(testConfig({ attachments: attachments() }), {
+      client: testClient(server),
+    });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    store.actions.setDraft('About this invoice');
+    store.actions.addFiles([pdf('invoice.pdf')]);
+    await until(store, (state) => state.files.every((file) => file.status === 'ready'));
+
+    await store.actions.send('Show prices');
+    const sent = server.requests.filter((request) => request.path === '/messages');
+    expect(sent.at(-1)?.body['text']).toBe('Show prices');
+    expect(sent.at(-1)?.body['attachments'] ?? []).toEqual([]);
+    expect(store.getSnapshot().messages[0]).toMatchObject({ text: 'Show prices', attachments: 0 });
+    expect(store.getSnapshot().files.map((file) => file.status)).toEqual(['ready']);
+    expect(store.getSnapshot().draft).toBe('About this invoice');
+  });
+
   it('dictates into the draft and turns the microphone off when hidden', async () => {
     const recorder = fakeRecorder();
     const server = fakeServer({ transcript: 'from the microphone' });
@@ -564,6 +584,49 @@ describe('chat events', () => {
     for (const secret of ['secret', 'Secret', 'Pricing', 'handle-1', 'a1b2c3', 'msg_']) {
       expect(serialized).not.toContain(secret);
     }
+  });
+
+  it("sends a reply option as the visitor's own text, reported as a reply", async () => {
+    let turn = 0;
+    const server = fakeServer({
+      answer: (text) => {
+        turn += 1;
+        const messageId = `msg_${turn}`;
+        return [
+          { type: 'message.start', messageId },
+          { type: 'text.delta', messageId, delta: `You said: ${text}` },
+          { type: 'replies', messageId, items: ['Show prices', 'Talk to a person'] },
+          { type: 'message.end', messageId, reason: 'completed' },
+        ];
+      },
+    });
+    const store = createChatStore(testConfig(), { client: testClient(server) });
+    const events: ChatEvent[] = [];
+    store.onEvent((event) => events.push(event));
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+
+    await store.actions.send('A starter');
+    expect(store.getSnapshot().messages.at(-1)?.replies).toEqual([
+      'Show prices',
+      'Talk to a person',
+    ]);
+    await store.actions.send('Show prices');
+    // Typing an option's text into the field is still typing.
+    store.actions.setDraft('Talk to a person');
+    await store.actions.send();
+
+    const sent = events.filter((event) => event.type === 'message.sent');
+    expect(sent.map((event) => event.source)).toEqual(['starter', 'reply', 'typed']);
+    const messages = server.requests.filter((request) => request.path === '/messages');
+    expect(messages.map((request) => request.body['text'])).toEqual([
+      'A starter',
+      'Show prices',
+      'Talk to a person',
+    ]);
+    expect(Object.keys(messages[1]?.body ?? {}).sort()).toEqual(
+      Object.keys(messages[0]?.body ?? {}).sort(),
+    );
   });
 
   it('reports a failed turn with its code', async () => {

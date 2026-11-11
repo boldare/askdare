@@ -274,6 +274,8 @@ interface ThemeVariants {
   readonly surface: "solid" | "glass";
   readonly density: "comfortable" | "compact";
   readonly composer: "outline" | "gradient";
+  /** Where the latest answer's options show: under it, or in one row above the message field. */
+  readonly replies: "answer" | "composer";
 }
 /** What a visitor may attach, as the bot allows it. */
 interface ChatAttachments {
@@ -408,6 +410,11 @@ interface ChatMessage {
   readonly status: "streaming" | "done" | "error";
   /** On answers the visitor may rate: `key` is where `ChatState.ratings` keeps their rating. */
   readonly feedback?: FeedbackHandle | undefined;
+  /**
+   * Options the visitor can click instead of typing (ADR-0015); plain text. Shown only while this
+   * is the latest message; a click sends the option as the visitor's own message.
+   */
+  readonly replies?: readonly string[] | undefined;
 }
 type Rating = "up" | "down";
 /** A file picked for the next message. */
@@ -461,7 +468,7 @@ type ChatEvent = {
   readonly bot: string;
   readonly length: number;
   readonly attachments: number;
-  readonly source: "typed" | "starter";
+  readonly source: "typed" | "starter" | "reply";
 } | {
   readonly type: "message.received";
   readonly bot: string;
@@ -508,6 +515,7 @@ declare const EN: {
   readonly "status.tool": "Using {name}…";
   readonly "status.typing": "The assistant is typing";
   readonly "message.sources": "Sources";
+  readonly "message.replies": "Suggested replies";
   readonly "feedback.label": "Rate this answer";
   readonly "feedback.up": "Helpful";
   readonly "feedback.down": "Not helpful";
@@ -578,7 +586,10 @@ type TextKey = keyof typeof EN | `${(typeof PLURAL_BASES)[number]}.${(typeof PLU
 type Translate = (key: TextKey, params?: Readonly<Record<string, string | number>>) => string;
 /** What visitors can do in the chat; the same for every UI on top of the store. */
 interface ChatActions {
-  /** Sends the draft with the files that are ready, or `text` (a starter) on its own. */
+  /**
+   * Sends the draft with the files that are ready, or `text` (a starter, or one of the latest
+   * answer's `replies`) on its own.
+   */
   send(text?: string): Promise<void>;
   setDraft(text: string): void;
   /** Uploads files for the next message, as many as the bot allows. */
@@ -747,6 +758,15 @@ interface PanelProps extends ComponentProps<"section"> {
  * on it are attached (`data-dragging` while they are over it).
  */
 export declare function Panel({ landmark, onDragOver, onDragLeave, onDrop, ...props }: PanelProps): ReactElement;
+type QuickRepliesProps = ComponentProps<"div">;
+/**
+ * The options the latest answer offers (ADR-0015): a group (`replies`) of buttons (`reply`), each
+ * showing its option as plain text, never Markdown. A click sends the option as the visitor's own
+ * message, exactly as if they had typed it. Inside `MessageList` it renders under the latest
+ * answer only; anywhere else, such as above the message field, it shows the latest answer's
+ * options. Either way the options go away as soon as the visitor sends anything.
+ */
+export declare function QuickReplies(props: QuickRepliesProps): ReactElement | null;
 interface RootProps {
   /** From `getChatConfig()` in a Server Component. */
   readonly config: ChatConfig;
@@ -773,7 +793,7 @@ interface RootProps {
  * take what `askdare('identify')` and `askdare('configure')` take, checked the same way.
  */
 export declare function Root({ config, identity, context, greeting, starters, onEvent, children }: RootProps): ReactElement;
-export type { AttachButtonProps, Chat, ChatActions, ChatAttachments, ChatBot, ChatConfig, ChatEvent, ChatEventListener, ChatEventType, ChatMessage, ChatPhase, ChatState, ChatStyles, ChatWidget, Citation, CitationsProps, ComposerProps, DefaultChatComponents, DefaultChatProps, DictateButtonProps, Dictation, ErrorMessageProps, FeedbackButtonProps, FilesProps, InputProps, MarkdownProps, MessageFilesProps, MessageListProps, MessageProps, MessageTextProps, MessagesProps, PanelProps, PendingFile, Rating, RecorderProps, RootProps, SendProps, SentFile, StatusProps, ThemeProps, Translate };
+export type { AttachButtonProps, Chat, ChatActions, ChatAttachments, ChatBot, ChatConfig, ChatEvent, ChatEventListener, ChatEventType, ChatMessage, ChatPhase, ChatState, ChatStyles, ChatWidget, Citation, CitationsProps, ComposerProps, DefaultChatComponents, DefaultChatProps, DictateButtonProps, Dictation, ErrorMessageProps, FeedbackButtonProps, FilesProps, InputProps, MarkdownProps, MessageFilesProps, MessageListProps, MessageProps, MessageTextProps, MessagesProps, PanelProps, PendingFile, QuickRepliesProps, Rating, RecorderProps, RootProps, SendProps, SentFile, StatusProps, ThemeProps, Translate };
 
 // ==== store.d.ts ====
 import { z } from "zod";
@@ -802,6 +822,7 @@ declare const EN: {
   readonly "status.tool": "Using {name}…";
   readonly "status.typing": "The assistant is typing";
   readonly "message.sources": "Sources";
+  readonly "message.replies": "Suggested replies";
   readonly "feedback.label": "Rate this answer";
   readonly "feedback.up": "Helpful";
   readonly "feedback.down": "Not helpful";
@@ -920,6 +941,8 @@ interface ThemeVariants {
   readonly surface: "solid" | "glass";
   readonly density: "comfortable" | "compact";
   readonly composer: "outline" | "gradient";
+  /** Where the latest answer's options show: under it, or in one row above the message field. */
+  readonly replies: "answer" | "composer";
 }
 type ColorScheme = "auto" | "light" | "dark";
 /** A theme built on a preset. Create it with {@link defineTheme} to share it between bots. */
