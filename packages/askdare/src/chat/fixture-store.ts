@@ -74,5 +74,6 @@ export function createFixtureStore(config: ChatConfig, fixture: Fixture): ChatSt
     hide: () => {},
     level: () => undefined,
     onFocus,
+    onEvent: () => () => {},
   };
 }

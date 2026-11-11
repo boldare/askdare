@@ -37,6 +37,15 @@ const VARIANTS = {
   tall: `<div style="height: 2000px">Content above the chat</div>
     <div id="chat" style="width: 380px; height: 600px"></div>
     <script src="${SRC}" data-mode="inline" data-target="#chat" async></script>`,
+  // Records the chat's events, registered through the stub before the script loads (ADR-0013).
+  events: `<script>
+      window.askdare = window.askdare || function () {
+        (window.askdare.q = window.askdare.q || []).push(arguments);
+      };
+      window.events = [];
+      window.askdare('on', '*', (event) => window.events.push(event));
+    </script>
+    <script src="${SRC}" async></script>`,
   configure: `<script id="loader" src="${SRC}" async></script>
     <script>
       document.getElementById('loader').addEventListener('load', () => {

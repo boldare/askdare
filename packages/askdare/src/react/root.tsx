@@ -1,6 +1,14 @@
-import { type ReactElement, type ReactNode, useEffect, useState } from 'react';
+import {
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { isBasePath } from '../base-path';
 import type { ChatConfig } from '../chat/config';
+import type { ChatEventListener } from '../chat/events';
 import { identityToken, type PageOptions, pageOptions } from '../chat/page-options';
 import { createChatStore } from '../chat/store';
 import { ChatProvider } from './context';
@@ -19,6 +27,11 @@ export interface RootProps {
   readonly greeting?: string | undefined;
   /** This page's suggested questions, up to 4. */
   readonly starters?: readonly string[] | undefined;
+  /**
+   * Called with what happens in the chat, for analytics: a message sent, an answer received, a
+   * rating (ADR-0013). Metadata only, never the text. A new function doesn't restart the chat.
+   */
+  readonly onEvent?: ChatEventListener | undefined;
   readonly children?: ReactNode;
 }
 
@@ -32,6 +45,7 @@ export function Root({
   context,
   greeting,
   starters,
+  onEvent,
   children,
 }: RootProps): ReactElement {
   if (!isBasePath(config.basePath)) {
@@ -55,6 +69,13 @@ export function Root({
     setHeld({ id, store });
   }
 
+  // The latest function, so a new one per render doesn't resubscribe. A layout effect, so it is
+  // current before any event that follows the render.
+  const listener = useRef(onEvent);
+  useLayoutEffect(() => {
+    listener.current = onEvent;
+  }, [onEvent]);
+
   // Before start(), so the first request already carries the identity.
   useEffect(() => {
     if (identity === undefined) return;
@@ -63,8 +84,14 @@ export function Root({
   }, [identity, store]);
 
   useEffect(() => {
+    // Listening before start(), so it hears `ready`, and until after stop(), so it hears how an
+    // answer under way ended.
+    const stopEvents = store.onEvent((event) => listener.current?.(event));
     store.start();
-    return () => store.stop();
+    return () => {
+      store.stop();
+      stopEvents();
+    };
   }, [store]);
 
   const key = JSON.stringify(page);

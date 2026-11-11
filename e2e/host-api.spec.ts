@@ -146,3 +146,34 @@ test.describe('in a Polish browser', () => {
     await expect(page.getByRole('button', { name: 'Otwórz czat' })).toBeVisible();
   });
 });
+
+test('the page hears what happens in the chat, without its text', async ({ page }) => {
+  await page.goto(`${HOST}?variant=events`);
+  await page.locator('[part="launcher"]').click();
+  const chat = page.frameLocator('iframe[title="Chat"]');
+  await chat.getByRole('textbox').fill('A private question');
+  await chat.getByRole('textbox').press('Enter');
+  await expect(
+    chat.locator('[data-ask-part="message"][data-role="assistant"]').last(),
+  ).toContainText('You said: A private question');
+  await chat.getByRole('button', { name: 'Close chat' }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (window as unknown as { events: { type: string }[] }).events.map((event) => event.type),
+      ),
+    )
+    .toEqual(['open', 'ready', 'message.sent', 'message.received', 'close']);
+  const events = await page.evaluate(() => (window as unknown as { events: unknown[] }).events);
+  expect(events).toContainEqual({
+    type: 'message.sent',
+    bot: 'support',
+    length: 18,
+    attachments: 0,
+    source: 'typed',
+  });
+  expect(events).toContainEqual(
+    expect.objectContaining({ type: 'message.received', bot: 'support', outcome: 'completed' }),
+  );
+  expect(JSON.stringify(events)).not.toContain('private');
+});

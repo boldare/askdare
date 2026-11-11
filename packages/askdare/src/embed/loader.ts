@@ -5,7 +5,9 @@
  * (`data-bot="support"` on the tag works too; `?bot=` also brings the bot's launcher look.)
  */
 
+import { eventListeners } from '../chat/events';
 import type { LauncherLook } from '../protocol/launcher';
+import { type HostEvent, type HostEventListener, hostEvent } from './host-events';
 
 type Command = 'open' | 'close' | 'toggle';
 
@@ -24,6 +26,12 @@ interface AskdareGlobal {
   (command: 'configure', options: ConfigureOptions): void;
   /** A JWT from the site's backend for the signed-in user, or null on sign-out (ADR-0009). */
   (command: 'identify', token: string | null): void;
+  /**
+   * Calls the listener with each chat event of this type, or of every type with '*' (ADR-0013).
+   * Returns a function that removes it; through the stub, before the script loads, use 'off'.
+   */
+  (command: 'on', type: string, listener: HostEventListener): () => void;
+  (command: 'off', type: string, listener: HostEventListener): void;
   readonly loaded: true;
 }
 
@@ -281,6 +289,8 @@ function boot(): void {
 
     let iframe: HTMLIFrameElement | undefined;
     let port: MessagePort | undefined;
+    /** The page's askdare('on') listeners. */
+    const events = eventListeners<HostEvent>();
     /** The chat said it is up. Until then, a timer watches for a chat that never loads. */
     let ready = false;
     let notice: HTMLElement | undefined;
@@ -318,9 +328,13 @@ function boot(): void {
       port?.close();
       const channel = new MessageChannel();
       port = channel.port1;
-      port.onmessage = (event: MessageEvent<{ v?: number; type?: string }>) => {
+      port.onmessage = (event: MessageEvent<{ v?: number; type?: string; event?: unknown }>) => {
         if (event.data?.v !== 1) return;
         if (event.data.type === 'close') close();
+        if (event.data.type === 'event') {
+          const passed = hostEvent(event.data.event, botId);
+          if (passed) events.emit(passed);
+        }
         // The chat has its own close button now, so phones can hide the launcher behind it.
         if (event.data.type === 'ready') {
           ready = true;
@@ -339,8 +353,9 @@ function boot(): void {
     };
 
     const open = (focus = true): void => {
+      const opening = !inline && !isOpen();
       // Opening again while the panel closes takes it back without hiding it.
-      if (!inline && !isOpen()) turnIcon(true);
+      if (opening) turnIcon(true);
       if (!inline && panel.hidden) {
         // Our own launcher shows up as the host element; the page's own trigger as itself.
         const active = document.activeElement;
@@ -364,6 +379,7 @@ function boot(): void {
       launcher.setAttribute('aria-expanded', 'true');
       launcher.setAttribute('aria-label', texts.close);
       if (focus) iframe.focus();
+      if (opening) events.emit({ type: 'open', bot: botId });
     };
 
     function close(): void {
@@ -391,6 +407,7 @@ function boot(): void {
         window.focus();
         target.focus();
       }
+      events.emit({ type: 'close', bot: botId });
     }
 
     launcher.addEventListener('click', () => (isOpen() ? close() : open()));
@@ -398,8 +415,14 @@ function boot(): void {
     // An inline chat is part of the page: it must not take focus or scroll the page on load.
     if (inline) open(false);
 
-    const api = ((command: Command | 'configure' | 'identify', options?: unknown) => {
-      if (command === 'open') open();
+    const api = ((
+      command: Command | 'configure' | 'identify' | 'on' | 'off',
+      options?: unknown,
+      listener?: HostEventListener,
+    ) => {
+      if (command === 'on') return events.on(options as string, listener as HostEventListener);
+      if (command === 'off') events.off(options as string, listener as HostEventListener);
+      else if (command === 'open') open();
       else if (command === 'close') close();
       else if (command === 'toggle') (isOpen() ? close : open)();
       else if (command === 'identify') {

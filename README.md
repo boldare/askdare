@@ -52,7 +52,7 @@ export const bots = [
 
 [![What it does: answers from your documents with citations, your own tools, images and PDFs, voice input, secure by default, and no database.](.github/assets/askdare-features.png)](https://askdare.vercel.app/#features)
 
-[Knowledge base](docs/knowledge-base.md) · [Tools](docs/tools.md) · [Attachments](docs/attachments.md) · [Voice input](docs/voice-input.md) · [The chat inside your page (React)](docs/react.md) · [Answer ratings](docs/feedback.md) · [Observability](docs/observability.md) · [Security](THREAT_MODEL.md)
+[Knowledge base](docs/knowledge-base.md) · [Tools](docs/tools.md) · [Attachments](docs/attachments.md) · [Voice input](docs/voice-input.md) · [The chat inside your page (React)](docs/react.md) · [Answer ratings](docs/feedback.md) · [Observability](docs/observability.md) · [Chat events](docs/events.md) · [Security](THREAT_MODEL.md)
 
 ## Themes
 
@@ -67,7 +67,7 @@ The guides are on [askdare.vercel.app/docs](https://askdare.vercel.app/docs), wi
 - **Start:** [Getting started](docs/getting-started.md) · [Embedding the chat](docs/embedding.md) · [Command line](docs/cli.md)
 - **Features:** [Knowledge base](docs/knowledge-base.md) · [Tools](docs/tools.md) · [Attachments](docs/attachments.md) · [Voice input](docs/voice-input.md) · [Signed-in visitors](docs/identity.md)
 - **Look and language:** [Themes](docs/themes.md) · [Styling](docs/styling.md) · [Texts](docs/texts.md) · [The chat inside your page (React)](docs/react.md)
-- **Going live:** [Deployment](docs/deployment.md) · [Going-public checklist](docs/going-public.md) · [Costs](docs/costs.md) · [Observability](docs/observability.md) · [Answer ratings](docs/feedback.md) · [Privacy](docs/privacy.md)
+- **Going live:** [Deployment](docs/deployment.md) · [Going-public checklist](docs/going-public.md) · [Costs](docs/costs.md) · [Observability](docs/observability.md) · [Chat events](docs/events.md) · [Answer ratings](docs/feedback.md) · [Privacy](docs/privacy.md)
 - **Reference:** [Configuration](docs/configuration.md) · [Troubleshooting](docs/troubleshooting.md) · [Support matrix](docs/support.md) · [Wire protocol](docs/protocol.md) · [Custom rate-limit store](docs/custom-store.md)
 - **Under the hood:** [Threat model](THREAT_MODEL.md) · [Design decisions](docs/adr/README.md)
 - **AI coding agents:** [`llms.txt`](llms.txt) and the [`askdare` skill](skills/askdare/SKILL.md), both in the package ([how to use them](docs/getting-started.md#working-with-an-ai-coding-agent))

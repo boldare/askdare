@@ -151,6 +151,7 @@ Every preset sets both font tokens, so set both. You can also set them as the `f
 | `askdare('open')`, `askdare('close')`, `askdare('toggle')` | Shows or hides the chat. Closing returns focus to whatever opened it. |
 | `askdare('identify', token)` | Signs the visitor in with a token from your backend, or out with `null`; see [Signed-in visitors](identity.md). |
 | `askdare('configure', { greeting, starters, context })` | Per-page greeting and suggestions, and `context`: a short description of the page (up to 1000 characters) for the assistant. |
+| `askdare('on', type, listener)`, `askdare('off', type, listener)` | Listens to what happens in the chat, such as a message sent or an answer rated, for analytics. Metadata only; see [Chat events](events.md). |
 
 `configure` accepts only those three fields: never the model, instructions or tools. The context is off unless the bot opts in with `pageContext: true` in `defineBot`. It then travels with the visitor's message, as a marked part of their own turn: anyone can set it from their browser, so it gets no more trust than what the visitor types, and it never becomes part of the bot's instructions. It is sent again only when it changes, and the visitor's history doesn't show it. Define the small queue first, then call it any time:
 

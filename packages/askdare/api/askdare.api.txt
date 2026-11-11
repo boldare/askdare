@@ -369,6 +369,120 @@ interface DefaultChatProps extends DefaultPanelProps {
  * It loads its stylesheets from the chat route, so there is nothing to import or configure.
  */
 export declare function DefaultChat({ className, colorScheme, ...panel }: DefaultChatProps): ReactElement;
+/** Stable error codes sent to clients. The accompanying message never contains internals. */
+declare const ERROR_CODES: readonly ["invalid_input", "unauthorized", "session_expired", "not_found", "rate_limited", "budget_exceeded", "bot_unavailable", "content_blocked", "timeout", "upstream_error", "internal_error"];
+type ErrorCode = (typeof ERROR_CODES)[number];
+/** What the client needs to rate one answer (ADR-0012). */
+interface FeedbackHandle {
+  /** Opaque; sent back to `POST /feedback`. */
+  readonly handle: string;
+  /** Stable for the answer across reloads, so the client can remember its rating. Hex. */
+  readonly key: string;
+}
+/** What a page may set with askdare('configure') or the props of `Root`, checked again here. */
+interface PageOptions {
+  readonly greeting?: string;
+  readonly starters?: readonly string[];
+  readonly context?: string;
+}
+interface Citation {
+  readonly index: number;
+  readonly title: string;
+  readonly url?: string | undefined;
+}
+interface SentFile {
+  readonly name: string;
+  readonly kind: "image" | "pdf";
+  /** Local preview of an image sent in this session; history only knows how many files there were. */
+  readonly previewUrl?: string | undefined;
+}
+interface ChatMessage {
+  readonly id: string;
+  readonly role: "user" | "assistant";
+  readonly text: string;
+  readonly citations: readonly Citation[];
+  /** Number of files, from history. */
+  readonly attachments: number;
+  /** Files sent in this session. */
+  readonly files?: readonly SentFile[];
+  readonly status: "streaming" | "done" | "error";
+  /** On answers the visitor may rate: `key` is where `ChatState.ratings` keeps their rating. */
+  readonly feedback?: FeedbackHandle | undefined;
+}
+type Rating = "up" | "down";
+/** A file picked for the next message. */
+interface PendingFile {
+  readonly key: string;
+  readonly name: string;
+  readonly kind?: "image" | "pdf" | undefined;
+  readonly previewUrl?: string | undefined;
+  readonly status: "uploading" | "ready" | "error";
+  readonly handle?: string | undefined;
+  readonly error?: string | undefined;
+}
+/**
+ * `starting` until the chat knows who the visitor is (and on the server), `loading` while a stored
+ * conversation loads, then `ready`.
+ */
+type ChatPhase = "starting" | "loading" | "ready";
+type Dictation = "idle" | "recording" | "transcribing";
+interface ChatState {
+  readonly phase: ChatPhase;
+  /** A turn, or deleting the conversation, is under way. */
+  readonly busy: boolean;
+  readonly messages: readonly ChatMessage[];
+  readonly draft: string;
+  readonly error: string | undefined;
+  /** What the assistant is doing while no text streams, such as searching documents. */
+  readonly activity: string | null;
+  readonly files: readonly PendingFile[];
+  readonly dictation: Dictation;
+  /** Seconds of the current dictation. */
+  readonly elapsed: number;
+  /** Whether this browser can record (and the bot has voice input). False on the server. */
+  readonly canDictate: boolean;
+  /** Greeting, starters and context set by the page. */
+  readonly page: PageOptions;
+  /** The visitor's own ratings of answers, by `ChatMessage.feedback.key`; kept in this browser. */
+  readonly ratings: Readonly<Record<string, Rating>>;
+  /** The id of the answer just rated 👎, while the chat asks what went wrong. */
+  readonly commenting: string | undefined;
+}
+/**
+ * What happened in the chat, for the page's analytics and reactions (ADR-0013). Metadata only:
+ * never message text, comments, file names, IDs or tokens, because analytics scripts on the page
+ * are third parties. New types and fields may come in a minor release; listeners ignore the rest.
+ */
+type ChatEvent = {
+  readonly type: "ready";
+  readonly bot: string;
+} | {
+  readonly type: "message.sent";
+  readonly bot: string;
+  readonly length: number;
+  readonly attachments: number;
+  readonly source: "typed" | "starter";
+} | {
+  readonly type: "message.received";
+  readonly bot: string;
+  readonly outcome: "completed" | "stopped" | "failed";
+  readonly durationMs: number;
+  readonly citations: number;
+} | {
+  readonly type: "feedback";
+  readonly bot: string;
+  readonly rating: Rating | null;
+  readonly commented: boolean;
+} | {
+  readonly type: "error";
+  readonly bot: string;
+  readonly code: ErrorCode;
+} | {
+  readonly type: "conversation.reset";
+  readonly bot: string;
+};
+type ChatEventType = ChatEvent["type"];
+type ChatEventListener = (event: ChatEvent) => void;
 /**
  * Every text the widget shows. The keys are public API (ADR-0008): override any of them with
  * `widget.texts`. Plural keys end in a CLDR category (`zero`, `one`, `two`, `few`, `many`, `other`).
@@ -460,82 +574,6 @@ declare const EN: {
 declare const PLURAL_BASES: readonly ["message.attachments"];
 declare const PLURAL_FORMS: readonly ["zero", "one", "two", "few", "many", "other"];
 type TextKey = keyof typeof EN | `${(typeof PLURAL_BASES)[number]}.${(typeof PLURAL_FORMS)[number]}`;
-/** What the client needs to rate one answer (ADR-0012). */
-interface FeedbackHandle {
-  /** Opaque; sent back to `POST /feedback`. */
-  readonly handle: string;
-  /** Stable for the answer across reloads, so the client can remember its rating. Hex. */
-  readonly key: string;
-}
-/** What a page may set with askdare('configure') or the props of `Root`, checked again here. */
-interface PageOptions {
-  readonly greeting?: string;
-  readonly starters?: readonly string[];
-  readonly context?: string;
-}
-interface Citation {
-  readonly index: number;
-  readonly title: string;
-  readonly url?: string | undefined;
-}
-interface SentFile {
-  readonly name: string;
-  readonly kind: "image" | "pdf";
-  /** Local preview of an image sent in this session; history only knows how many files there were. */
-  readonly previewUrl?: string | undefined;
-}
-interface ChatMessage {
-  readonly id: string;
-  readonly role: "user" | "assistant";
-  readonly text: string;
-  readonly citations: readonly Citation[];
-  /** Number of files, from history. */
-  readonly attachments: number;
-  /** Files sent in this session. */
-  readonly files?: readonly SentFile[];
-  readonly status: "streaming" | "done" | "error";
-  /** On answers the visitor may rate: `key` is where `ChatState.ratings` keeps their rating. */
-  readonly feedback?: FeedbackHandle | undefined;
-}
-type Rating = "up" | "down";
-/** A file picked for the next message. */
-interface PendingFile {
-  readonly key: string;
-  readonly name: string;
-  readonly kind?: "image" | "pdf" | undefined;
-  readonly previewUrl?: string | undefined;
-  readonly status: "uploading" | "ready" | "error";
-  readonly handle?: string | undefined;
-  readonly error?: string | undefined;
-}
-/**
- * `starting` until the chat knows who the visitor is (and on the server), `loading` while a stored
- * conversation loads, then `ready`.
- */
-type ChatPhase = "starting" | "loading" | "ready";
-type Dictation = "idle" | "recording" | "transcribing";
-interface ChatState {
-  readonly phase: ChatPhase;
-  /** A turn, or deleting the conversation, is under way. */
-  readonly busy: boolean;
-  readonly messages: readonly ChatMessage[];
-  readonly draft: string;
-  readonly error: string | undefined;
-  /** What the assistant is doing while no text streams, such as searching documents. */
-  readonly activity: string | null;
-  readonly files: readonly PendingFile[];
-  readonly dictation: Dictation;
-  /** Seconds of the current dictation. */
-  readonly elapsed: number;
-  /** Whether this browser can record (and the bot has voice input). False on the server. */
-  readonly canDictate: boolean;
-  /** Greeting, starters and context set by the page. */
-  readonly page: PageOptions;
-  /** The visitor's own ratings of answers, by `ChatMessage.feedback.key`; kept in this browser. */
-  readonly ratings: Readonly<Record<string, Rating>>;
-  /** The id of the answer just rated 👎, while the chat asks what went wrong. */
-  readonly commenting: string | undefined;
-}
 /** A text in the visitor's language, with `{name}` placeholders filled. */
 type Translate = (key: TextKey, params?: Readonly<Record<string, string | number>>) => string;
 /** What visitors can do in the chat; the same for every UI on top of the store. */
@@ -723,14 +761,19 @@ interface RootProps {
   readonly greeting?: string | undefined;
   /** This page's suggested questions, up to 4. */
   readonly starters?: readonly string[] | undefined;
+  /**
+   * Called with what happens in the chat, for analytics: a message sent, an answer received, a
+   * rating (ADR-0013). Metadata only, never the text. A new function doesn't restart the chat.
+   */
+  readonly onEvent?: ChatEventListener | undefined;
   readonly children?: ReactNode;
 }
 /**
  * Runs one bot's chat for the components inside it, without rendering any element. Its props
  * take what `askdare('identify')` and `askdare('configure')` take, checked the same way.
  */
-export declare function Root({ config, identity, context, greeting, starters, children }: RootProps): ReactElement;
-export type { AttachButtonProps, Chat, ChatActions, ChatAttachments, ChatBot, ChatConfig, ChatMessage, ChatPhase, ChatState, ChatStyles, ChatWidget, Citation, CitationsProps, ComposerProps, DefaultChatComponents, DefaultChatProps, DictateButtonProps, Dictation, ErrorMessageProps, FeedbackButtonProps, FilesProps, InputProps, MarkdownProps, MessageFilesProps, MessageListProps, MessageProps, MessageTextProps, MessagesProps, PanelProps, PendingFile, Rating, RecorderProps, RootProps, SendProps, SentFile, StatusProps, ThemeProps, Translate };
+export declare function Root({ config, identity, context, greeting, starters, onEvent, children }: RootProps): ReactElement;
+export type { AttachButtonProps, Chat, ChatActions, ChatAttachments, ChatBot, ChatConfig, ChatEvent, ChatEventListener, ChatEventType, ChatMessage, ChatPhase, ChatState, ChatStyles, ChatWidget, Citation, CitationsProps, ComposerProps, DefaultChatComponents, DefaultChatProps, DictateButtonProps, Dictation, ErrorMessageProps, FeedbackButtonProps, FilesProps, InputProps, MarkdownProps, MessageFilesProps, MessageListProps, MessageProps, MessageTextProps, MessagesProps, PanelProps, PendingFile, Rating, RecorderProps, RootProps, SendProps, SentFile, StatusProps, ThemeProps, Translate };
 
 // ==== store.d.ts ====
 import { z } from "zod";

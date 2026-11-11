@@ -18,6 +18,7 @@ This page lists what data the chat handles, where it goes and how long it stays,
 | Error reports | Your server log, or your `onError` function | Your hosting's log retention |
 | Turn reports: token counts, timings, tool names, pseudonyms | Your `onUsage` function, if you set one | Wherever you keep them |
 | Ratings of answers and the comments visitors write | Your `onFeedback` function, if you set one | Wherever you keep them |
+| Chat events: counts, durations, outcomes, ratings (no text) | Your page's `askdare('on')` or `onEvent` listeners ([Chat events](events.md)), if you add any | Wherever your analytics keeps them |
 
 ## In the visitor's browser
 

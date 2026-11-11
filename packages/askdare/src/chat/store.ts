@@ -1,6 +1,7 @@
 import type { TextKey } from '../i18n/texts';
 import { ChatClient, SessionRefused } from './chat-client';
 import type { ChatConfig } from './config';
+import { type ChatEvent, type ChatEventListener, eventListeners } from './events';
 import type { PageOptions } from './page-options';
 import { prepareFile } from './prepare-file';
 import { canRecord, MicrophoneError, type Recording, startRecording } from './recorder';
@@ -72,6 +73,8 @@ export interface ChatStore {
    * it could; a request nobody could take yet goes to the next listener. Returns an unsubscribe.
    */
   onFocus(target: FocusTarget, listener: FocusListener): () => void;
+  /** Calls the listener with each chat event (ADR-0013); returns an unsubscribe. */
+  onEvent(listener: ChatEventListener): () => void;
 }
 
 export interface Recorder {
@@ -185,6 +188,15 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
     state = { ...state, ...change };
     for (const listener of listeners) listener();
   };
+  const events = eventListeners<ChatEvent>();
+  const bot = config.botId;
+  /** `ready` fires once per chat, not again when a sign-in reloads the conversation. */
+  let announced = false;
+  const announce = (): void => {
+    if (announced) return;
+    announced = true;
+    events.emit({ type: 'ready', bot });
+  };
   const { focus, onFocus } = focusRequests();
 
   let localId = 0;
@@ -200,6 +212,8 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
   let history: AbortController | undefined;
   /** The turn being answered, aborted when the chat stops. */
   let turn: AbortController | undefined;
+  /** Reports how the turn being answered ended; stop() calls it before anyone stops listening. */
+  let endTurn: ((outcome: 'completed' | 'stopped' | 'failed') => void) | undefined;
   /**
    * Per rating key: what the server confirmed, and the latest request. Ratings of one answer go out
    * one at a time, so the server ends with the latest that succeeded and a failure rolls back to it.
@@ -234,6 +248,7 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
       history = undefined;
       loaded = true;
       set({ phase: 'ready' });
+      announce();
       return;
     }
     const controller = new AbortController();
@@ -256,6 +271,8 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
         if (history !== controller) return;
         history = undefined;
         set({ phase: 'ready' });
+        // Not when loading failed: a refused session can't take messages.
+        if (loaded) announce();
       });
   };
 
@@ -346,15 +363,41 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
           },
         ],
       });
+      events.emit({
+        type: 'message.sent',
+        bot,
+        length: [...text].length,
+        attachments: files.length,
+        source: picked === undefined ? 'typed' : 'starter',
+      });
       const context = config.pageContext ? state.page.context : undefined;
       const controller = new AbortController();
       turn = controller;
+      const begun = Date.now();
+      let failed = false;
+      let answer: string | undefined;
+      const end = (outcome: 'completed' | 'stopped' | 'failed'): void => {
+        if (endTurn !== end) return;
+        endTurn = undefined;
+        const received = state.messages.find((message) => message.id === answer);
+        events.emit({
+          type: 'message.received',
+          bot,
+          outcome,
+          durationMs: Date.now() - begun,
+          citations: received?.citations.length ?? 0,
+        });
+      };
+      endTurn = end;
       await client.send(
         { text, attachments: handles, context },
         (event) => {
           const next = activityFor(event, t);
           if (next !== undefined) set({ activity: next });
+          if (event.type === 'message.start') answer = event.messageId;
           if (event.type === 'error') {
+            failed = true;
+            events.emit({ type: 'error', bot, code: event.code });
             set({ error: event.message, messages: failStreaming(state.messages) });
             return;
           }
@@ -363,6 +406,7 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
         controller.signal,
       );
       if (turn === controller) turn = undefined;
+      end(failed ? 'failed' : controller.signal.aborted ? 'stopped' : 'completed');
       if (controller.signal.aborted) {
         // The chat stopped mid-answer: nothing streams into it any more.
         set({ activity: null, busy: false, messages: failStreaming(state.messages) });
@@ -460,6 +504,7 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
       cancelUploads(uploads.keys());
       revokePreviews(state.files);
       set({ files: [], messages: [], error: undefined, busy: false, commenting: undefined });
+      events.emit({ type: 'conversation.reset', bot });
       focus('input');
     },
 
@@ -493,6 +538,7 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
       if (!problem) {
         entry.confirmed = rating ?? undefined;
         client.rememberRating(key, rating);
+        events.emit({ type: 'feedback', bot, rating, commented });
       }
       // A later rating of the same answer decides what the chat shows.
       if (entry.latest !== request) return;
@@ -552,7 +598,10 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
           if (run !== current) return;
           identityReady = true;
           if (!loaded) loadHistory();
-          else if (state.phase !== 'ready') set({ phase: 'ready' });
+          else {
+            if (state.phase !== 'ready') set({ phase: 'ready' });
+            announce();
+          }
         });
     },
 
@@ -562,6 +611,7 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
       document.removeEventListener('visibilitychange', onVisibility);
       history?.abort();
       history = undefined;
+      endTurn?.('stopped');
       turn?.abort();
       turn = undefined;
       discardRecording();
@@ -593,5 +643,7 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
     level: () => recording?.level(),
 
     onFocus,
+
+    onEvent: (listener: ChatEventListener) => events.on('*', listener),
   };
 }
