@@ -203,6 +203,7 @@ body {
 /* The name and its slogan, the slogan in the theme's button colors. */
 .demo .product {
   font-size: 1.12rem;
+  text-decoration: none;
 }
 
 .demo .product small {
