@@ -14,6 +14,31 @@ askdare runs wherever Next.js runs on Node.js. It needs no database: conversatio
 
 Set them in your host's settings, never in files you commit.
 
+## One-click deploy
+
+To see askdare running on a host before you add it to your own app, deploy the [starter](https://github.com/boldare/askdare/tree/main/examples/starter): the app that `npx @boldare/askdare init` makes of a fresh `create-next-app`, with one bot.
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fboldare%2Faskdare%2Ftree%2Fmain%2Fexamples%2Fstarter&project-name=askdare-chat&repository-name=askdare-chat&env=OPENAI_API_KEY%2CCHAT_SECRET%2CASKDARE_MODEL&envDefaults=%7B%22ASKDARE_MODEL%22%3A%22gpt-6.1-terra%22%7D&envDescription=OPENAI_API_KEY%3A%20a%20key%20from%20a%20dedicated%20OpenAI%20project%20with%20a%20hard%20spend%20limit.%20CHAT_SECRET%3A%20at%20least%2032%20random%20characters%2C%20for%20example%20from%20node%20-e%20%22console.log%28require%28%27node%3Acrypto%27%29.randomBytes%2832%29.toString%28%27base64url%27%29%29%22.%20ASKDARE_MODEL%3A%20a%20current%20OpenAI%20model%20your%20project%20may%20use.&envLink=https%3A%2F%2Faskdare.vercel.app%2Fdocs%2Fdeployment%23one-click-deploy)
+
+- **Vercel:** the button copies the starter into a new repository on your Git account, then asks for the variables. Enter your `OPENAI_API_KEY` and a new `CHAT_SECRET` of at least 32 characters, for example from `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"`. `ASKDARE_MODEL` comes filled in with the starter's model; change it to one your project may use.
+- **Heroku:** a Heroku button only deploys an app at the root of a repository, so it works from your own copy of the starter. Create one with `npx create-next-app --example https://github.com/boldare/askdare/tree/main/examples/starter my-chat`, push it to GitHub, then open `https://www.heroku.com/deploy?template=https://github.com/<you>/<repo>`. The starter's `app.json` asks for `OPENAI_API_KEY`, generates `CHAT_SECRET`, fills in `ASKDARE_MODEL` and runs one web dyno with the `Procfile` from [Heroku](#heroku).
+
+Then check the live app from a local copy of that repository, with the production values in `.env.production.local`:
+
+```bash
+vercel env pull .env.production.local --environment=production
+```
+
+```bash
+heroku config --shell --app <your app> > .env.production.local
+```
+
+```bash
+npx @boldare/askdare doctor --url https://<your app> --env-file .env.production.local
+```
+
+A variable marked **Sensitive** on Vercel comes back empty from `vercel env pull`; paste its value into the file yourself. The starter keeps limits per instance, so before the chat is public, share them with Upstash (step 3 under [Vercel](#vercel)) and work through the [going-public checklist](going-public.md).
+
 ## Vercel
 
 1. Import the repository in Vercel. The defaults for Next.js are right.
