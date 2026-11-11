@@ -4,7 +4,7 @@
 
 **Dare to ask.** An AI chatbot for any website, served by your Next.js app on the official OpenAI SDK. One route, one script tag, no database.
 
-**[Live demo](https://askdare.vercel.app)** · **[Documentation](https://askdare.vercel.app/docs)** · [GitHub](https://github.com/boldare/askdare) · [Changelog](https://github.com/boldare/askdare/blob/main/packages/askdare/CHANGELOG.md)
+**[Live demo](https://askdare.vercel.app)** · **[Deploy in 5 minutes](https://askdare.vercel.app/deploy)** · **[Documentation](https://askdare.vercel.app/docs)** · [GitHub](https://github.com/boldare/askdare) · [Changelog](https://github.com/boldare/askdare/blob/main/packages/askdare/CHANGELOG.md)
 
 ## Three steps
 
