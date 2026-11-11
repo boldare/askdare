@@ -54,6 +54,7 @@ The order of these is decided on the Project board:
 
 ## How we track work
 
+- **Issues are for current work only.** Epics and the tasks of the next two releases are issues of type **Task**, so they never read as bug reports. Anything further out, ideas included, is a draft item on the Project board. A draft becomes an issue when it moves to Ready.
 - **Each task is an issue** made from the [agent-ready task template](.github/ISSUE_TEMPLATE/task.yml). Its fields are:
   - the goal;
   - the ADRs to read;
