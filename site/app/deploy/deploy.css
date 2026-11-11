@@ -1,0 +1,130 @@
+/* The /deploy page: the home page's look (demo.css), with three numbered cards in a row. */
+
+.deploy-intro {
+  padding-bottom: clamp(24px, 3vw, 40px);
+}
+
+.deploy-intro h1 {
+  max-width: 13em;
+}
+
+.deploy-intro .lead {
+  margin-bottom: 0;
+}
+
+.deploy-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  list-style: none;
+  counter-reset: none;
+}
+
+.deploy-steps li {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 14px;
+}
+
+.deploy-steps .step {
+  grid-row: auto;
+}
+
+.demo .deploy-steps h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  letter-spacing: -0.02em;
+}
+
+.deploy-steps p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.deploy-steps p strong {
+  color: var(--ink);
+}
+
+/* Buttons as <button>: the link styles without the browser's own. */
+.deploy button {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.deploy button.button {
+  background: var(--button);
+  color: var(--on-button);
+  font-weight: 600;
+}
+
+/* An action in place, not a way out: no arrow. */
+.deploy button.link-button::after {
+  content: none;
+}
+
+.deploy button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* The secret, in the home page's terminal colors. */
+.secret {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+
+.secret-value {
+  display: block;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #0f1220;
+  color: #e7e9f3;
+  font:
+    0.86rem / 1.5 ui-monospace,
+    "SF Mono",
+    Menlo,
+    monospace;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.secret-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+}
+
+.demo .secret-note {
+  font-size: 0.86rem;
+}
+
+.deploy-after {
+  padding-top: clamp(32px, 4vw, 56px);
+}
+
+.deploy-after .features-list {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 32px;
+}
+
+/* No dock on this page: the footer needs no room for it. */
+.deploy .footer {
+  padding-bottom: 48px;
+}
+
+@media (max-width: 900px) {
+  .deploy-steps,
+  .deploy-after .features-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
