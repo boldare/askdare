@@ -39,7 +39,7 @@ export const SUGGEST_REPLIES_PARAMETERS: Record<string, unknown> = {
  * again, and it keeps the model from listing the options in its answer.
  */
 export const SUGGEST_REPLIES_OUTPUT: string = JSON.stringify(
-  'The visitor sees these replies under your answer. Do not list them in your answer.',
+  'The visitor sees these replies under your answer. Do not list them, and do not repeat anything you have already written.',
 );
 
 const args = z.object({ items: z.array(z.unknown()) });
@@ -59,10 +59,15 @@ export function suggestedReplies(json: string): readonly string[] | undefined {
   }
 }
 
-/** Finds the latest answer's suggested options in its turn's calls, for the history. */
+/**
+ * Finds the latest answer's suggested options in its turn's calls, for the history. Only an
+ * answered call counts, as only a turn that went on after it sent its options.
+ */
 export const readSuggestedReplies = (
   calls: readonly StoredToolCall[],
 ): readonly string[] | undefined => {
-  const call = calls.findLast((stored) => stored.name === SUGGEST_REPLIES);
+  const call = calls.findLast(
+    (stored) => stored.name === SUGGEST_REPLIES && stored.output !== undefined,
+  );
   return call && suggestedReplies(call.arguments);
 };

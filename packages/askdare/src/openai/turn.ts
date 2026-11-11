@@ -73,7 +73,8 @@ async function storeOutputs(
       { signal: request.signal },
     );
   } catch (error) {
-    if (request.signal.aborted) throw error;
+    // The answer is complete: only a visitor who left ends the turn here, not the deadline.
+    if (request.signal.aborted && !isDeadline(request.signal)) throw error;
     console.error('[askdare] could not store the answer to suggest_replies; the next turn will.');
   }
 }
@@ -140,7 +141,8 @@ export async function runTurn(client: OpenAI, request: TurnRequest): Promise<Tur
   };
   try {
     for (let step = 1; step <= bot.limits.maxSteps; step += 1) {
-      const suggest = replies === undefined;
+      // The model suggests once, and not after a tool defined options, which win anyway.
+      const suggest = replies === undefined && toolReplies === undefined;
       const last =
         step === bot.limits.maxSteps || (callsFunctions(bot, suggest) && !(await covers(step + 1)));
       let outcome: StepOutcome;
@@ -182,7 +184,7 @@ export async function runTurn(client: OpenAI, request: TurnRequest): Promise<Tur
           usage,
           ...(outcome.answerItemId ? { answerItemId: outcome.answerItemId } : {}),
           // A tool's own options win over the model's suggestion (ADR-0015).
-          ...(offered && offered.length > 0 ? { replies: offered } : {}),
+          ...(offered ? { replies: offered } : {}),
         };
       }
       input = [

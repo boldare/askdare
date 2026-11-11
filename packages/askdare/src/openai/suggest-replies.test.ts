@@ -326,6 +326,27 @@ describe('suggest_replies', () => {
     expect(result.replies).toEqual(['Book 9:00']);
   });
 
+  it('stops offering the tool once a tool has defined options', async () => {
+    const slots = defineTool({
+      name: 'find_slots',
+      description: 'Free slots.',
+      input: z.object({}),
+      execute: () => ({ slots: ['9:00'] }),
+      replies: (result) => result.slots.map((slot) => `Book ${slot}`),
+    });
+    const served = serve([
+      callStep(functionCall('c1', 'find_slots', '{}', 0)),
+      textTurnEvents(['9:00 is free.']),
+    ]);
+    await run(suggesting({ tools: [slots] }));
+    expect(served.bodies[0]?.['tool_choice']).toBe('auto');
+    expect(served.bodies[1]?.['tool_choice']).toEqual({
+      type: 'allowed_tools',
+      mode: 'auto',
+      tools: [{ type: 'function', name: 'find_slots' }],
+    });
+  });
+
   it('keeps the options of a turn that ends in max_output_tokens, and drops unusable arguments', async () => {
     serve([
       textTurnEvents(['Partial'], {
@@ -344,7 +365,8 @@ describe('suggest_replies', () => {
         textTurnEvents(['Answer.'], { extra: [functionCall('c1', SUGGEST_REPLIES, args)] }),
       ]);
       const { result } = await run(suggesting());
-      expect(result.replies).toBeUndefined();
+      // Nothing usable: the server sends no event for an empty list.
+      expect(result.replies ?? []).toEqual([]);
       // The call is still answered.
       expect(served.stored).toHaveLength(1);
     }
@@ -376,6 +398,25 @@ describe('suggest_replies', () => {
     expect(served.bodies[0]?.['tool_choice']).toBe('none');
   });
 
+  it('ends a finished answer normally when the deadline passes while its call is stored', async () => {
+    const deadline = new AbortController();
+    const served = serve(
+      [textTurnEvents(['Answer.'], { extra: [functionCall('c1', SUGGEST_REPLIES, OPTIONS)] })],
+      () => {
+        deadline.abort(new DOMException('The deadline passed.', 'TimeoutError'));
+        return HttpResponse.json({ error: { message: 'aborted' } }, { status: 500 });
+      },
+    );
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { result } = await run(suggesting(), { signal: deadline.signal });
+    consoleError.mockRestore();
+    expect(served.stored).toHaveLength(1);
+    expect(result).toMatchObject({
+      reason: 'completed',
+      replies: ['Show prices', 'Talk to a person'],
+    });
+  });
+
   it('still ends the turn when storing the answer to the call fails', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     const served = serve(
@@ -392,16 +433,18 @@ describe('suggest_replies', () => {
 });
 
 describe('readSuggestedReplies', () => {
-  it("reads the latest call's options and ignores other tools and bad arguments", () => {
+  it("reads the latest answered call's options and ignores other tools and bad arguments", () => {
     expect(
       readSuggestedReplies([
-        { name: SUGGEST_REPLIES, arguments: '{"items":["Old"]}', output: undefined },
+        { name: SUGGEST_REPLIES, arguments: '{"items":["Old"]}', output: '"shown"' },
         { name: 'echo', arguments: '{"items":["Not mine"]}', output: '"x"' },
         { name: SUGGEST_REPLIES, arguments: '{"items":["Yes",3,"No"]}', output: '"shown"' },
+        // Never answered: the turn didn't go on after it, so it sent no options.
+        { name: SUGGEST_REPLIES, arguments: '{"items":["Unsent"]}', output: undefined },
       ]),
     ).toEqual(['Yes', 'No']);
     expect(
-      readSuggestedReplies([{ name: SUGGEST_REPLIES, arguments: 'nope', output: undefined }]),
+      readSuggestedReplies([{ name: SUGGEST_REPLIES, arguments: 'nope', output: '"shown"' }]),
     ).toBeUndefined();
     expect(readSuggestedReplies([])).toBeUndefined();
   });
