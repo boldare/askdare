@@ -1,5 +1,18 @@
 # @boldare/askdare
 
+## 0.2.0-rc.2
+
+### Minor Changes
+
+- ac878e6: The page can now hear what happens in the chat, for analytics such as GA4 or a GTM `dataLayer`: `askdare('on', type, listener)` with the script tag, or `onEvent` on `Root` in React. Events cover the chat opening and closing, messages sent, answers received, ratings, errors and starting over. They carry metadata only, such as counts, durations and outcomes, and never message text. See the "Chat events" guide (ADR-0013).
+- d789913: The config that `npx @boldare/askdare init` writes now reads three optional environment variables. `ASKDARE_INSTRUCTIONS` and `ASKDARE_GREETING` replace the bot's default instructions and greeting, and `ASKDARE_ALLOWED_ORIGINS` lists the other sites that may embed the chat, comma-separated. Blank values fall back to the defaults, and trailing slashes are dropped from origins. Without the variables the bot behaves as before. The starter's Vercel button asks for the instructions and greeting, and its Heroku `app.json` offers all three.
+
+### Patch Changes
+
+- 9540d46: The README's "What you get" picture now shows what 0.2 adds: the chat inside your own page with React, ratings of answers, observability with OpenTelemetry, and chat events for analytics.
+- 8608d69: Starting a new conversation now shows that it is working: the question stays open while the old conversation is deleted, with its icon turning and its buttons waiting. Before, nothing visible happened until the server answered.
+- 8d81c46: The floating chat opens with a livelier animation and now animates out when it closes; the launcher icon turns between chat and close, and phones slide the full-screen chat up. Reduced motion still turns all of it off.
+
 ## 0.2.0-rc.1
 
 ### Patch Changes
