@@ -37,7 +37,28 @@ const json = (response, status, body) => {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function streamResponse(response, text, itemId = 'msg') {
+/**
+ * Reply options for a message with "[options]" (after the answer, in the same response) or
+ * "[options-first]" (before it, so the answer takes a second request); only when the request offers
+ * `suggest_replies` and lets the model call it.
+ */
+const OPTIONS = ['**Show** prices', 'Talk to a person', 'See www.example.com'];
+const suggests = (body, text) =>
+  body.tool_choice === 'auto' &&
+  Boolean(body.tools?.some((tool) => tool.name === 'suggest_replies')) &&
+  /\[options(-first)?\]/.test(text);
+
+/** A function call no output answers yet, which the live API refuses to continue (spike S1). */
+const danglingCall = (items, input) => {
+  const answered = new Set(
+    [...items, ...input]
+      .filter((item) => item.type === 'function_call_output')
+      .map((item) => item.call_id),
+  );
+  return items.find((item) => item.type === 'function_call' && !answered.has(item.call_id));
+};
+
+async function streamResponse(response, text, itemId = 'msg', call = undefined) {
   const reply = { text, outcome: 'streaming' };
   replies.push(reply);
   response.on('close', () => {
@@ -53,12 +74,14 @@ async function streamResponse(response, text, itemId = 'msg') {
     );
   send({ type: 'response.created', response: { id: 'resp_mock', status: 'in_progress' } });
   // The answer's item, announced before its text as the live API does: ratings refer to its id.
-  send({
-    type: 'response.output_item.added',
-    output_index: 0,
-    item: { id: itemId, type: 'message', role: 'assistant', status: 'in_progress', content: [] },
-  });
-  for (const word of text.split(/(?<= )/)) {
+  if (text) {
+    send({
+      type: 'response.output_item.added',
+      output_index: 0,
+      item: { id: itemId, type: 'message', role: 'assistant', status: 'in_progress', content: [] },
+    });
+  }
+  for (const word of text ? text.split(/(?<= )/) : []) {
     await sleep(pause);
     send({
       type: 'response.output_text.delta',
@@ -69,6 +92,7 @@ async function streamResponse(response, text, itemId = 'msg') {
       logprobs: [],
     });
   }
+  if (call) send({ type: 'response.output_item.done', output_index: 1, item: call });
   send({
     type: 'response.completed',
     response: {
@@ -126,7 +150,33 @@ createServer(async (request, response) => {
     requests.push({ instructions: body.instructions ?? '', input: JSON.stringify(body.input) });
     const items = conversations.get(body.conversation);
     if (!items) return notFound(response, body.conversation);
-    const content = body.input?.[0]?.content ?? '';
+    const input = body.input ?? [];
+    const dangling = danglingCall(items, input);
+    if (dangling) {
+      return json(response, 400, {
+        error: {
+          message: `No tool output found for function call ${dangling.call_id}.`,
+          type: 'invalid_request_error',
+          code: null,
+        },
+      });
+    }
+    // The step after "[options-first]": the call's output, then the answer to the visitor's message.
+    if (input[0]?.type === 'function_call_output') {
+      items.push(...input.map((item, index) => ({ id: `out_${items.length + index}`, ...item })));
+      const asked = items.findLast((item) => item.type === 'message' && item.role === 'user');
+      const text = asked?.content.find((part) => part.type === 'input_text')?.text ?? '';
+      const reply = `You said: ${text} (in ${body.conversation})`;
+      items.push({
+        id: `msg_${items.length}`,
+        type: 'message',
+        role: 'assistant',
+        status: 'completed',
+        content: [{ type: 'output_text', text: reply, annotations: [], logprobs: [] }],
+      });
+      return streamResponse(response, reply, items.at(-1).id);
+    }
+    const content = input[0]?.content ?? '';
     const parts = typeof content === 'string' ? [{ type: 'input_text', text: content }] : content;
     // The visitor's own text, not the page context part that may precede it.
     const userText =
@@ -135,25 +185,54 @@ createServer(async (request, response) => {
       )?.text ?? '';
     const attached = parts.filter((part) => part.file_id).length;
     const reply = `You said: ${userText} (in ${body.conversation})${attached ? ` [${attached} files]` : ''}`;
-    items.push(
-      {
-        id: `msg_${items.length}`,
-        type: 'message',
-        role: 'user',
-        status: 'completed',
-        content: parts,
-      },
-      {
-        id: `msg_${items.length + 1}`,
-        type: 'message',
-        role: 'assistant',
-        status: 'completed',
-        content: [{ type: 'output_text', text: reply, annotations: [], logprobs: [] }],
-      },
+    items.push({
+      id: `msg_${items.length}`,
+      type: 'message',
+      role: 'user',
+      status: 'completed',
+      content: parts,
+    });
+    const call = suggests(body, userText)
+      ? {
+          id: `fc_${items.length}`,
+          type: 'function_call',
+          call_id: `call_${items.length}`,
+          name: 'suggest_replies',
+          arguments: JSON.stringify({ items: OPTIONS }),
+          status: 'completed',
+        }
+      : undefined;
+    if (call && userText.includes('[options-first]')) {
+      items.push(call);
+      return streamResponse(response, '', undefined, call);
+    }
+    items.push({
+      id: `msg_${items.length}`,
+      type: 'message',
+      role: 'assistant',
+      status: 'completed',
+      content: [{ type: 'output_text', text: reply, annotations: [], logprobs: [] }],
+    });
+    if (call) items.push(call);
+    return streamResponse(
+      response,
+      reply,
+      items.findLast((item) => item.type === 'message').id,
+      call,
     );
-    return streamResponse(response, reply, items.at(-1).id);
   }
   const itemsPath = /^\/v1\/conversations\/([^/]+)\/items$/.exec(pathname);
+  // Items added outside a model call: the answer to a `suggest_replies` call that followed the answer.
+  if (request.method === 'POST' && itemsPath) {
+    const items = conversations.get(itemsPath[1]);
+    if (!items) return notFound(response, itemsPath[1]);
+    const added = (await readJson(request)).items.map((item, index) => ({
+      id: `item_${items.length + index}`,
+      ...item,
+    }));
+    items.push(...added);
+    return json(response, 200, { object: 'list', data: added, has_more: false });
+  }
   if (request.method === 'GET' && itemsPath) {
     const items = conversations.get(itemsPath[1]);
     if (!items) return notFound(response, itemsPath[1]);

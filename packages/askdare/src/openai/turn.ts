@@ -2,11 +2,24 @@ import type OpenAI from 'openai';
 import type { ResponseInputContent, ResponseInputItem } from 'openai/resources/responses/responses';
 import type { TokenUsage, TurnRequest, TurnResult } from '../gateway';
 import type { MessageEndReason } from '../protocol/events';
+import { SUGGEST_REPLIES, suggestedReplies } from '../tools/suggest-replies';
 import { addUsage, ZERO_USAGE } from '../usage';
 import { fromOpenAIError } from './errors';
 import { pageContextPart } from './page-context';
-import { CitationRegistry, ResponseStreamMapper, type StepOutcome } from './stream-mapper';
-import { danglingCallId, executeCalls, responseTools, toolChoice } from './tools';
+import {
+  CitationRegistry,
+  type FunctionCall,
+  ResponseStreamMapper,
+  type StepOutcome,
+} from './stream-mapper';
+import {
+  answerSuggestions,
+  callsFunctions,
+  danglingCallId,
+  executeCalls,
+  responseTools,
+  toolChoice,
+} from './tools';
 
 /** Calls left without output by an earlier, aborted turn that one turn will repair. */
 const MAX_REPAIRS = 3;
@@ -44,12 +57,33 @@ function userInput(request: TurnRequest): ResponseInputItem {
   return { role: 'user', content };
 }
 
+/**
+ * Stores the answer to a `suggest_replies` call that came after the answer, without another model
+ * call (ADR-0015). Best effort: if it fails, the next turn answers the call before it starts.
+ */
+async function storeOutputs(
+  client: OpenAI,
+  request: TurnRequest,
+  items: ResponseInputItem[],
+): Promise<void> {
+  try {
+    await client.conversations.items.create(
+      request.conversationId,
+      { items },
+      { signal: request.signal },
+    );
+  } catch (error) {
+    if (request.signal.aborted) throw error;
+    console.error('[askdare] could not store the answer to suggest_replies; the next turn will.');
+  }
+}
+
 async function runStep(
   client: OpenAI,
   request: TurnRequest,
   input: ResponseInputItem[],
   citations: CitationRegistry,
-  lastStep: boolean,
+  choice: ReturnType<typeof toolChoice>,
 ): Promise<StepOutcome> {
   const { bot } = request;
   const tools = responseTools(bot);
@@ -68,9 +102,7 @@ async function runStep(
       truncation: 'auto',
       safety_identifier: request.safetyIdentifier,
       prompt_cache_key: `askdare:${bot.id}`,
-      ...(tools.length > 0
-        ? { tools, tool_choice: toolChoice(bot, lastStep), parallel_tool_calls: true }
-        : {}),
+      ...(tools.length > 0 ? { tools, tool_choice: choice, parallel_tool_calls: true } : {}),
       // Search results carry the titles and URLs that file citations link to.
       ...(bot.knowledge ? { include: ['file_search_call.results' as const] } : {}),
     },
@@ -96,6 +128,8 @@ export async function runTurn(client: OpenAI, request: TurnRequest): Promise<Tur
   let repairs = 0;
   // Options the bot's tools defined in this turn; a later call's replace an earlier one's.
   let toolReplies: readonly string[] | undefined;
+  // Options the model suggested in this turn; it may do so once (ADR-0015).
+  let replies: readonly string[] | undefined;
   // Model calls the budget holds. A step may call tools only when the call after it is held too.
   let covered = 1;
   const covers = async (call: number): Promise<boolean> => {
@@ -106,11 +140,12 @@ export async function runTurn(client: OpenAI, request: TurnRequest): Promise<Tur
   };
   try {
     for (let step = 1; step <= bot.limits.maxSteps; step += 1) {
+      const suggest = replies === undefined;
       const last =
-        step === bot.limits.maxSteps || (bot.tools.length > 0 && !(await covers(step + 1)));
+        step === bot.limits.maxSteps || (callsFunctions(bot, suggest) && !(await covers(step + 1)));
       let outcome: StepOutcome;
       try {
-        outcome = await runStep(client, request, input, citations, last);
+        outcome = await runStep(client, request, input, citations, toolChoice(bot, last, suggest));
       } catch (error) {
         const callId = danglingCallId(error);
         if (!callId || repairs >= MAX_REPAIRS) throw error;
@@ -129,17 +164,35 @@ export async function runTurn(client: OpenAI, request: TurnRequest): Promise<Tur
       }
       usage = addUsage(usage, outcome.usage);
       request.onStep?.({ model: outcome.model, usage: outcome.usage });
-      if (outcome.functionCalls.length === 0) {
+      const suggestions: FunctionCall[] = [];
+      const calls: FunctionCall[] = [];
+      for (const call of outcome.functionCalls) {
+        (call.name === SUGGEST_REPLIES ? suggestions : calls).push(call);
+      }
+      const latest = suggestions.at(-1);
+      if (latest) replies = suggestedReplies(latest.arguments) ?? [];
+      const answered = answerSuggestions(suggestions);
+      // Options after a visible answer end the turn: their call is answered without the model.
+      // A call before the answer, or text the model marked as commentary, takes one more step.
+      if (calls.length === 0 && (answered.length === 0 || outcome.answerItemId)) {
+        if (answered.length > 0) await storeOutputs(client, request, answered);
+        const offered = toolReplies ?? replies;
         return {
           reason: endReason(outcome),
           usage,
           ...(outcome.answerItemId ? { answerItemId: outcome.answerItemId } : {}),
-          ...(toolReplies ? { replies: toolReplies } : {}),
+          // A tool's own options win over the model's suggestion (ADR-0015).
+          ...(offered && offered.length > 0 ? { replies: offered } : {}),
         };
       }
-      input = await executeCalls(outcome.functionCalls, request, (items) => {
-        toolReplies = items;
-      });
+      input = [
+        ...answered,
+        ...(calls.length > 0
+          ? await executeCalls(calls, request, (items) => {
+              toolReplies = items;
+            })
+          : []),
+      ];
     }
     return { reason: 'max_steps', usage };
   } catch (error) {

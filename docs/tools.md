@@ -69,5 +69,6 @@ export const orderStatus = defineTool({
 - **Read-only, for now.** Tools that change data (place an order, send an email) need the visitor's confirmation, which askdare doesn't offer yet. Keep tools to lookups.
 - **Keep results small.** Return the fields the model needs. Large results cost input tokens on every later message.
 - **Keep it under about 20 tools per bot.** More tools make the model slower and less accurate.
+- **Reserved names.** `file_search` (the knowledge base) and `suggest_replies` (reply options, `widget.replies: 'suggest'`) are built in; `defineBot` refuses a tool with either name. `suggest_replies` runs none of your code and shows no status to the visitor.
 
 The demo site has two working examples in [`site/tools.ts`](../site/tools.ts).

@@ -1139,6 +1139,12 @@ interface WidgetConfig {
    * `createChatHandler` has `onFeedback`; `false` hides them for this bot. Default `true`.
    */
   readonly feedback?: boolean;
+  /**
+   * `suggest`: the model may offer 2–4 replies under an answer, which visitors click instead of
+   * typing. It adds a built-in tool, `suggest_replies`, so every model call costs a little more
+   * input, and a turn sometimes takes one more call (docs/costs.md). Default `off`.
+   */
+  readonly replies?: "suggest" | "off";
   /** The assistant's picture: a path on your app such as `/avatar.png`, or a small data: image. */
   readonly avatar?: string;
   /** Text on the pill launcher; shortcut for `texts['launcher.label']`. */
@@ -1160,6 +1166,8 @@ interface BotWidget {
   readonly starters: readonly string[];
   /** Whether this bot lets visitors rate answers, when the handler has `onFeedback`. */
   readonly feedback: boolean;
+  /** Whether the model suggests reply options. Only the server reads it. */
+  readonly replies: "suggest" | "off";
   readonly avatar: string | undefined;
   readonly launcherLabel: string;
   /** Text overrides, including the title, greeting, placeholder and launcher label shortcuts. */

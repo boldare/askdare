@@ -144,6 +144,8 @@ export const bots = [
       // **Bold** words get the heavier weight of Aura's two-weight headline.
       greeting: 'Ask me about **Brightloop plans**, support or **security**',
       starters,
+      // The model may offer a few replies under an answer, which visitors click instead of typing.
+      replies: 'suggest',
       // aura, halo, sage or care; the home page switches between the bots below.
       theme: 'aura',
     },
