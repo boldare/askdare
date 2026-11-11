@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ERROR_CODES, MESSAGE_END_REASONS, type ProtocolEvent } from './events';
 import type { HistoryResponse } from './history';
+import { isReplyList } from './replies';
 
 const feedback = z
   .object({ handle: z.string().min(1).max(4096), key: z.string().regex(/^[0-9a-f]{16,64}$/) })
@@ -12,6 +13,11 @@ const feedback = z
  */
 
 const messageId = z.string().min(1).max(128);
+
+/** Reply options (ADR-0015); the rules live in ./replies.ts, shared with the browser. */
+const replies = z
+  .array(z.string())
+  .refine(isReplyList, 'one to four distinct options of up to 80 characters, without links');
 
 /** Every protocol event, as the server promises it. */
 export const protocolEventSchema: z.ZodType<ProtocolEvent> = z.discriminatedUnion('type', [
@@ -41,6 +47,7 @@ export const protocolEventSchema: z.ZodType<ProtocolEvent> = z.discriminatedUnio
     name: z.string().min(1).max(64),
     state: z.enum(['running', 'done', 'error']),
   }),
+  z.object({ type: z.literal('replies'), messageId, items: replies }),
   z.object({
     type: z.literal('message.end'),
     messageId,
@@ -74,6 +81,7 @@ export const historyResponseSchema: z.ZodType<HistoryResponse> = z.object({
       ),
       attachments: z.number().int().min(0),
       feedback,
+      replies: replies.optional(),
     }),
   ),
 });

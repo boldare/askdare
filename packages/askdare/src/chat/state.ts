@@ -26,6 +26,11 @@ export interface ChatMessage {
   readonly status: 'streaming' | 'done' | 'error';
   /** On answers the visitor may rate: `key` is where `ChatState.ratings` keeps their rating. */
   readonly feedback?: FeedbackHandle | undefined;
+  /**
+   * Options the visitor can click instead of typing (ADR-0015); plain text. Shown only while this
+   * is the latest message; a click sends the option as the visitor's own message.
+   */
+  readonly replies?: readonly string[] | undefined;
 }
 
 export type Rating = 'up' | 'down';

@@ -18,7 +18,10 @@ import { browserStorage } from './storage';
 
 /** What visitors can do in the chat; the same for every UI on top of the store. */
 export interface ChatActions {
-  /** Sends the draft with the files that are ready, or `text` (a starter) on its own. */
+  /**
+   * Sends the draft with the files that are ready, or `text` (a starter, or one of the latest
+   * answer's `replies`) on its own.
+   */
   send(text?: string): Promise<void>;
   setDraft(text: string): void;
   /** Uploads files for the next message, as many as the bot allows. */
@@ -344,6 +347,13 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
         kind ? [{ name, kind, previewUrl }] : [],
       );
       const handles = ready.flatMap((file) => (file.handle ? [file.handle] : []));
+      const latest = state.messages.at(-1);
+      const source =
+        picked === undefined
+          ? 'typed'
+          : latest?.role === 'assistant' && latest.replies?.includes(text)
+            ? 'reply'
+            : 'starter';
       revokePreviews(state.files.filter((file) => file.status !== 'ready'));
       set({
         files: [],
@@ -368,7 +378,7 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
         bot,
         length: [...text].length,
         attachments: files.length,
-        source: picked === undefined ? 'typed' : 'starter',
+        source,
       });
       const context = config.pageContext ? state.page.context : undefined;
       const controller = new AbortController();

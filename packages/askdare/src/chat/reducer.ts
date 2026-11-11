@@ -23,6 +23,7 @@ export const fromHistory = (message: HistoryMessage): ChatMessage => ({
   attachments: message.attachments,
   status: 'done',
   ...(message.feedback ? { feedback: message.feedback } : {}),
+  ...(message.replies ? { replies: message.replies } : {}),
 });
 
 /** The messages after one protocol event of a streamed answer. */
@@ -61,6 +62,8 @@ export function applyEvent(
           { index: event.index, title: event.title, url: event.url },
         ],
       }));
+    case 'replies':
+      return update(event.messageId, (message) => ({ ...message, replies: event.items }));
     case 'message.end':
       return update(event.messageId, (message) => ({
         ...message,

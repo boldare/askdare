@@ -10,6 +10,8 @@ export interface HistoryMessage {
   readonly attachments: number;
   /** On answers, when visitors may rate this bot's answers. */
   readonly feedback?: FeedbackHandle | undefined;
+  /** On the latest answer only: the options it offered, as in the `replies` event (ADR-0015). */
+  readonly replies?: readonly string[] | undefined;
 }
 
 export interface HistoryCitation {

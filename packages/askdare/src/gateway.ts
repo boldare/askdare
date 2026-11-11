@@ -100,7 +100,26 @@ export interface TurnResult {
   readonly usage: TokenUsage;
   /** The provider's ID of the answer visitors see, for rating it; absent if there was none. */
   readonly answerItemId?: string | undefined;
+  /**
+   * Options proposed for the visitor's next message (ADR-0015), as the source gave them; the
+   * server cleans them up before sending.
+   */
+  readonly replies?: readonly string[] | undefined;
 }
+
+/** A function call of a stored turn, with its output when it was answered. */
+export interface StoredCall {
+  readonly name: string;
+  /** JSON, as the model wrote it. */
+  readonly arguments: string;
+  readonly output: string | undefined;
+}
+
+/**
+ * Finds the options the latest answer offered among its turn's calls, oldest first, so they come
+ * back after a reload (ADR-0015). The server cleans them up as it does for a live turn.
+ */
+export type RepliesReader = (calls: readonly StoredCall[]) => readonly string[] | undefined;
 
 /** What `askdare doctor` checks for one bot: the features it uses, with the server's key. */
 export interface DiagnoseRequest {
@@ -125,8 +144,12 @@ export interface ModelGateway {
   uploadFile(upload: UploadRequest): Promise<string>;
   /** Turns recorded speech into text. Nothing is stored. */
   transcribe(request: TranscriptionRequest): Promise<TranscriptionResult>;
-  /** Visible messages of a conversation, oldest first. */
-  listMessages(conversationId: string, signal?: AbortSignal): Promise<readonly HistoryMessage[]>;
+  /** Visible messages of a conversation, oldest first; the latest answer with its options. */
+  listMessages(
+    conversationId: string,
+    signal?: AbortSignal,
+    replies?: RepliesReader,
+  ): Promise<readonly HistoryMessage[]>;
   runTurn(request: TurnRequest): Promise<TurnResult>;
   /** Small live requests that show whether the key, model and stores work (`askdare doctor`). */
   diagnose(request: DiagnoseRequest): Promise<readonly DoctorCheck[]>;

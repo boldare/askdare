@@ -14,6 +14,7 @@ import {
   MessageList,
   Messages,
   MessageText,
+  QuickReplies,
   Root,
   Send,
   useChat,
@@ -442,6 +443,83 @@ describe('primitives', () => {
     expect(button.textContent).toBe('Draft · Brightloop assistant · Send');
     await act(async () => fireEvent.click(button));
     expect(button.textContent).toBe('Changed · Brightloop assistant · Send');
+  });
+
+  it('offer the options of the latest answer only, as plain text', () => {
+    const answer = (id: string, replies: readonly string[]) => ({
+      id,
+      role: 'assistant' as const,
+      text: 'Pick one.',
+      citations: [],
+      attachments: 0,
+      status: 'done' as const,
+      replies,
+    });
+    const chat = createFixtureStore(testConfig(), {
+      messages: [answer('a1', ['Old option']), answer('a2', ['**Plans**', '<b>Prices</b>'])],
+    });
+    const send = vi.spyOn(chat.actions, 'send');
+    render(
+      <ChatProvider store={chat}>
+        <MessageList>
+          <Message>
+            <QuickReplies className="mine" />
+          </Message>
+        </MessageList>
+      </ChatProvider>,
+    );
+    const group = screen.getByRole('group', { name: 'Suggested replies' });
+    expect(group.getAttribute('data-ask-part')).toBe('replies');
+    expect(group.className).toBe('mine');
+    expect(screen.queryByRole('button', { name: 'Old option' })).toBeNull();
+    const buttons = screen.getAllByRole('button');
+    expect(buttons.map((button) => button.textContent)).toEqual(['**Plans**', '<b>Prices</b>']);
+    expect(buttons.every((button) => button.getAttribute('data-ask-part') === 'reply')).toBe(true);
+    expect(group.querySelector('strong, b, a')).toBeNull();
+    fireEvent.click(buttons[0] as HTMLElement);
+    expect(send).toHaveBeenCalledWith('**Plans**');
+  });
+
+  it('take the options away once the visitor sends anything, and send a click as text', async () => {
+    const server = fakeServer({
+      // Options with the first answer only.
+      answer: (text) =>
+        text === 'Hello'
+          ? [
+              ...echo(text).slice(0, -1),
+              { type: 'replies', messageId: 'msg_1', items: ['Show prices'] },
+              ...echo(text).slice(-1),
+            ]
+          : echo(text).map((event) =>
+              'messageId' in event ? { ...event, messageId: 'msg_2' } : event,
+            ),
+      holdAnswer: true,
+    });
+    vi.stubGlobal('fetch', server.fetch);
+    render(
+      <Root config={testConfig()}>
+        <DefaultPanel />
+      </Root>,
+    );
+    const field = screen.getByRole('textbox');
+    fireEvent.change(field, { target: { value: 'Hello' } });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Send' }).hasAttribute('disabled')).toBe(false),
+    );
+    fireEvent.keyDown(field, { key: 'Enter' });
+    // Not while the answer is still streaming: the turn is under way.
+    const reply = await screen.findByRole('button', { name: 'Show prices' });
+    expect(reply.hasAttribute('disabled')).toBe(true);
+    act(() => server.release());
+    await waitFor(() => expect(reply.hasAttribute('disabled')).toBe(false));
+    expect(reply.closest('[data-role="assistant"]')).toBeTruthy();
+
+    fireEvent.click(reply);
+    await screen.findByText('You said: Show prices');
+    expect(screen.queryByRole('group', { name: 'Suggested replies' })).toBeNull();
+    expect(screen.getByText('Show prices').closest('[data-role="user"]')).toBeTruthy();
+    const sent = server.requests.filter((request) => request.path === '/messages');
+    expect(sent.at(-1)?.body['text']).toBe('Show prices');
   });
 
   it('say clearly when they are outside Root', () => {

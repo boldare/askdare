@@ -32,7 +32,7 @@ export default defineConfig({
     // (`pnpm e2e:browsers`).
     {
       name: 'firefox',
-      testMatch: /(embed|host-api|a11y|inline|feedback)\.spec\.ts/,
+      testMatch: /(embed|host-api|a11y|inline|feedback|replies)\.spec\.ts/,
       use: {
         ...devices['Desktop Firefox'],
         // A fake microphone without a prompt, like Chromium's flags above.
@@ -46,7 +46,7 @@ export default defineConfig({
     },
     {
       name: 'webkit',
-      testMatch: /(embed|host-api|a11y|inline|feedback)\.spec\.ts/,
+      testMatch: /(embed|host-api|a11y|inline|feedback|replies)\.spec\.ts/,
       use: { ...devices['Desktop Safari'] },
     },
     {

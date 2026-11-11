@@ -7,6 +7,7 @@ import {
   type ProtocolEvent,
 } from './events';
 import type { HistoryCitation, HistoryMessage, HistoryResponse } from './history';
+import { isReplyList } from './replies';
 
 /*
  * The browser's protocol check: the rules of ./schemas.ts (zod, for the server and tests), at a
@@ -110,6 +111,10 @@ export function parseEvent(value: unknown): ProtocolEvent | undefined {
             state: value['state'],
           }
         : undefined;
+    case 'replies':
+      return messageId(id) && isReplyList(value['items'])
+        ? { type: 'replies', messageId: id, items: [...value['items']] }
+        : undefined;
     case 'message.end': {
       const { resumeToken } = value;
       if (!messageId(id) || !oneOf<MessageEndReason>(value['reason'], MESSAGE_END_REASONS)) {
@@ -162,6 +167,8 @@ function historyMessageOf(value: unknown): HistoryMessage | undefined {
   if (citations.some((citation) => citation === undefined)) return undefined;
   const feedback = value['feedback'] === undefined ? undefined : feedbackOf(value['feedback']);
   if (value['feedback'] !== undefined && !feedback) return undefined;
+  const { replies } = value;
+  if (replies !== undefined && !isReplyList(replies)) return undefined;
   return {
     id: value['id'],
     role: value['role'],
@@ -169,6 +176,7 @@ function historyMessageOf(value: unknown): HistoryMessage | undefined {
     citations: citations as HistoryCitation[],
     attachments: value['attachments'],
     ...(feedback ? { feedback } : {}),
+    ...(replies === undefined ? {} : { replies: [...replies] }),
   };
 }
 

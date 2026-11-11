@@ -1,6 +1,6 @@
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { ModelGateway } from '../gateway';
 import { createOpenAIGateway } from './gateway';
 import { OPENAI_TEST_BASE_URL } from './testing/msw';
@@ -185,6 +185,93 @@ describe('listMessages', () => {
       { index: 1, title: 'Pricing', url: 'https://example.com/pricing' },
       { index: 2, title: 'Notes', url: undefined },
     ]);
+  });
+
+  describe('reply options of the latest answer (ADR-0015)', () => {
+    const message = (id: string, role: 'user' | 'assistant', text: string) => ({
+      id,
+      type: 'message',
+      role,
+      status: 'completed',
+      content: [
+        role === 'user'
+          ? { type: 'input_text', text }
+          : { type: 'output_text', text, annotations: [], logprobs: [] },
+      ],
+    });
+    const call = (id: string, name: string, args: string) => ({
+      id,
+      type: 'function_call',
+      call_id: `call_${id}`,
+      name,
+      arguments: args,
+      status: 'completed',
+    });
+    const output = (id: string, text: string) => ({
+      id: `out_${id}`,
+      type: 'function_call_output',
+      call_id: `call_${id}`,
+      output: text,
+      status: 'completed',
+    });
+    const serve = (conversation: string, data: readonly unknown[]) =>
+      server.use(
+        http.get(`${OPENAI_TEST_BASE_URL}/conversations/${conversation}/items`, () =>
+          HttpResponse.json({
+            object: 'list',
+            data,
+            first_id: null,
+            last_id: null,
+            has_more: false,
+          }),
+        ),
+      );
+    // Newest first: the latest turn called a tool and suggested replies; an older one did too.
+    const TURNS = [
+      call('fc_4', 'suggest', '{"items":["Later"]}'),
+      message('msg_4', 'assistant', 'Two slots are free.'),
+      output('fc_3', '{"slots":["9:00","11:00"]}'),
+      call('fc_3', 'find_slots', '{}'),
+      message('msg_3', 'user', 'Book a call'),
+      call('fc_2', 'suggest', '{"items":["Old"]}'),
+      message('msg_2', 'assistant', 'Hi!'),
+      message('msg_1', 'user', 'Hello'),
+    ];
+
+    it("hands the reader only the latest turn's calls, oldest first, with their outputs", async () => {
+      serve('conv_r', TURNS);
+      const reader = vi.fn(() => [' Book 9:00 ', 'Book 9:00', 'Book 11:00', 'See www.example.com']);
+      const messages = await gateway.listMessages('conv_r', undefined, reader);
+      expect(reader).toHaveBeenCalledOnce();
+      expect(reader).toHaveBeenCalledWith([
+        { name: 'find_slots', arguments: '{}', output: '{"slots":["9:00","11:00"]}' },
+        { name: 'suggest', arguments: '{"items":["Later"]}', output: undefined },
+      ]);
+      expect(messages.map((item) => item.replies)).toEqual([
+        undefined,
+        undefined,
+        undefined,
+        ['Book 9:00', 'Book 11:00'],
+      ]);
+    });
+
+    it('offers nothing once the visitor has replied, without a reader, or when it fails', async () => {
+      serve('conv_replied', [message('msg_5', 'user', 'Thanks'), ...TURNS]);
+      const reader = vi.fn(() => ['Yes']);
+      const replied = await gateway.listMessages('conv_replied', undefined, reader);
+      expect(reader).not.toHaveBeenCalled();
+      expect(replied.some((item) => item.replies)).toBe(false);
+
+      serve('conv_r', TURNS);
+      expect((await gateway.listMessages('conv_r')).some((item) => item.replies)).toBe(false);
+      const failing = await gateway.listMessages('conv_r', undefined, () => {
+        throw new Error('bad arguments');
+      });
+      expect(failing.at(-1)?.text).toBe('Two slots are free.');
+      expect(failing.some((item) => item.replies)).toBe(false);
+      const empty = await gateway.listMessages('conv_r', undefined, () => ['https://x.example']);
+      expect(empty.some((item) => item.replies)).toBe(false);
+    });
   });
 
   it('reports a deleted conversation as not_found', async () => {
