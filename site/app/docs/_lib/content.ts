@@ -41,6 +41,7 @@ export const NAV: readonly { readonly title: string; readonly pages: readonly st
       'going-public',
       'costs',
       'observability',
+      'events',
       'feedback',
       'privacy',
       'custom-store',

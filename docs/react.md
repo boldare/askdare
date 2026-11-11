@@ -63,7 +63,7 @@ That is all: the components are client components already, and the chat loads it
 | `identity` | The signed-in visitor: a token from your backend, as for `askdare('identify')`. See [below](#signed-in-visitors). |
 | `greeting`, `starters` | This page's greeting and up to 4 suggested questions, instead of the bot's. |
 | `context` | A short description of the page for the assistant, up to 1,000 characters. Only for a bot with `pageContext: true`. |
-| `onEvent` | Called with what happens in the chat, such as a message sent or an answer rated, for analytics. Metadata only. A new function doesn't restart the chat. See [Events in the browser](observability.md#events-in-the-browser). |
+| `onEvent` | Called with what happens in the chat, such as a message sent or an answer rated, for analytics. Metadata only. A new function doesn't restart the chat. See [Chat events](events.md). |
 
 `greeting`, `starters` and `context` are the same as in `askdare('configure')` and are checked the same way ([Styling](styling.md#3-page-javascript)).
 

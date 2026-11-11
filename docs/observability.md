@@ -11,7 +11,7 @@ Both may be async. askdare calls them after the answer has streamed, keeps the f
 
 Visitors' ratings of answers reach a third hook, `onFeedback`: see [Answer ratings](feedback.md).
 
-For analytics on the page itself, such as GA4 or a GTM `dataLayer`, listen to the chat's [events in the browser](#events-in-the-browser).
+For analytics on the page itself, such as GA4 or a GTM `dataLayer`, listen to the chat's [events in the browser](events.md).
 
 ## Costs per turn
 
@@ -79,36 +79,4 @@ A turn that breaks off mid-answer reports the usage askdare received, which can 
 
 ## Events in the browser
 
-The page can hear what happens in the chat: when it opens, when a message is sent, when an answer arrives, when a visitor rates an answer ([ADR-0013](adr/0013-browser-events.md)). With the script tag:
-
-```html
-<script>
-  window.askdare = window.askdare || function () { (askdare.q = askdare.q || []).push(arguments) };
-  askdare('on', '*', function (event) {
-    window.dataLayer = window.dataLayer || [];
-    window.dataLayer.push({ event: 'askdare.' + event.type, askdare: event });
-  });
-</script>
-```
-
-`askdare('on', type, listener)` takes one event type or `'*'` for all, and returns a function that removes the listener. Through the stub, before the script has loaded, nothing is returned: remove it with `askdare('off', type, listener)`.
-
-In a chat inside your page, pass `onEvent` to [`Root`](react.md#root):
-
-```tsx
-<Root config={config} onEvent={(event) => track(`chat_${event.type}`, event)}>
-```
-
-Every event has `type` and `bot`:
-
-| `type` | Other fields | When |
-| --- | --- | --- |
-| `ready` | | Once, when the chat can take messages. Not if loading the stored conversation fails. |
-| `open`, `close` | | The panel opened or closed. Script tag only. |
-| `message.sent` | `length` (characters), `attachments`, `source`: `typed` or `starter` | The visitor sent a message |
-| `message.received` | `outcome`: `completed`, `failed`, or `stopped` when a `Root` unmounts mid-answer; `durationMs`; `citations` | An answer ended. Closing the widget doesn't stop an answer, so this still comes. |
-| `feedback` | `rating`: `up`, `down` or `null`; `commented` | The server took a rating. A 👎 with a comment fires twice. |
-| `error` | `code` | A turn failed |
-| `conversation.reset` | | The visitor started over |
-
-Events carry metadata only: never the text of messages or comments, file names, sources, IDs or tokens, because analytics scripts on your page are often third parties. New types and fields may come in a minor release, so ignore the ones you don't know. A listener that throws is logged in one line, and the chat goes on.
+The page itself can hear what happens in the chat (opened, message sent, answer received, answer rated) for analytics such as GA4 or a GTM `dataLayer`: `askdare('on', type, listener)` with the script tag, or `onEvent` on `Root` in React. The events carry metadata only. See [Chat events](events.md).
