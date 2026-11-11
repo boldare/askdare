@@ -1,4 +1,11 @@
-import { type ReactElement, type ReactNode, useEffect, useRef, useState } from 'react';
+import {
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { isBasePath } from '../base-path';
 import type { ChatConfig } from '../chat/config';
 import type { ChatEventListener } from '../chat/events';
@@ -62,13 +69,12 @@ export function Root({
     setHeld({ id, store });
   }
 
-  // The latest function, so a new one per render doesn't resubscribe.
+  // The latest function, so a new one per render doesn't resubscribe. A layout effect, so it is
+  // current before any event that follows the render.
   const listener = useRef(onEvent);
-  useEffect(() => {
+  useLayoutEffect(() => {
     listener.current = onEvent;
   }, [onEvent]);
-  // Before start(), so the listener hears `ready`.
-  useEffect(() => store.onEvent((event) => listener.current?.(event)), [store]);
 
   // Before start(), so the first request already carries the identity.
   useEffect(() => {
@@ -78,8 +84,14 @@ export function Root({
   }, [identity, store]);
 
   useEffect(() => {
+    // Listening before start(), so it hears `ready`, and until after stop(), so it hears how an
+    // answer under way ended.
+    const stopEvents = store.onEvent((event) => listener.current?.(event));
     store.start();
-    return () => store.stop();
+    return () => {
+      store.stop();
+      stopEvents();
+    };
   }, [store]);
 
   const key = JSON.stringify(page);

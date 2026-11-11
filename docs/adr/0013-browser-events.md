@@ -21,10 +21,10 @@ The browser chat emits these events, each with `type` and `bot`:
 
 | type | fields |
 |---|---|
-| `ready` | none. Fires once per chat, when it can take messages. |
+| `ready` | none. Fires once per chat, when it can take messages: not while loading the stored conversation fails. |
 | `open`, `close` | none. Script tag only: the visitor or the page opened or closed the panel. |
-| `message.sent` | `length` (characters), `attachments` (count), `source`: `typed` or `starter`. |
-| `message.received` | `outcome`: `completed`, `stopped` or `failed`; `durationMs`; `citations` (count). |
+| `message.sent` | `length` (characters, as code points), `attachments` (count), `source`: `typed` or `starter`. |
+| `message.received` | `outcome`: `completed`, `failed`, or `stopped` when the chat is taken down mid-answer (a `Root` unmounting; closing the widget's panel doesn't stop an answer); `durationMs`; `citations` (count). The chat reports `stopped` before its listeners go. |
 | `feedback` | `rating`: `up`, `down` or `null`; `commented`. Fires once the server took the rating, so a 👎 and its comment fire twice. |
 | `error` | `code`, an `ErrorCode`. |
 | `conversation.reset` | none. |
@@ -46,7 +46,7 @@ An event never carries message text, comments, file names, citation titles, Open
 
 ### Listeners never break the chat
 
-A listener that throws is logged in one line that names the event type, with no details, and the other listeners still run.
+The store and the loader share one small emitter. It freezes each event, so one listener can't change what the next one gets. A listener that throws is logged in one line that names the event type, with no details, and the other listeners still run.
 
 ## Consequences
 

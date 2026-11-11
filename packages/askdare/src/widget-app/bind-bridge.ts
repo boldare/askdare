@@ -23,8 +23,9 @@ export function bindBridge(store: ChatStore, bridge: HostBridge): () => void {
     active = false;
     stopConfigure();
     stopHidden();
-    stopEvents();
     stopIdentify();
+    // Stopped first, so the page still hears how an answer under way ended.
     store.stop();
+    stopEvents();
   };
 }

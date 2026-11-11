@@ -5,8 +5,9 @@
  * (`data-bot="support"` on the tag works too; `?bot=` also brings the bot's launcher look.)
  */
 
+import { eventListeners } from '../chat/events';
 import type { LauncherLook } from '../protocol/launcher';
-import { type HostEventListener, hostEvent, hostListeners } from './host-events';
+import { type HostEvent, type HostEventListener, hostEvent } from './host-events';
 
 type Command = 'open' | 'close' | 'toggle';
 
@@ -289,7 +290,7 @@ function boot(): void {
     let iframe: HTMLIFrameElement | undefined;
     let port: MessagePort | undefined;
     /** The page's askdare('on') listeners. */
-    const events = hostListeners();
+    const events = eventListeners<HostEvent>();
     /** The chat said it is up. Until then, a timer watches for a chat that never loads. */
     let ready = false;
     let notice: HTMLElement | undefined;

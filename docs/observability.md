@@ -103,10 +103,10 @@ Every event has `type` and `bot`:
 
 | `type` | Other fields | When |
 | --- | --- | --- |
-| `ready` | | Once, when the chat can take messages |
+| `ready` | | Once, when the chat can take messages. Not if loading the stored conversation fails. |
 | `open`, `close` | | The panel opened or closed. Script tag only. |
-| `message.sent` | `length`, `attachments`, `source`: `typed` or `starter` | The visitor sent a message |
-| `message.received` | `outcome`: `completed`, `stopped` or `failed`; `durationMs`; `citations` | An answer ended |
+| `message.sent` | `length` (characters), `attachments`, `source`: `typed` or `starter` | The visitor sent a message |
+| `message.received` | `outcome`: `completed`, `failed`, or `stopped` when a `Root` unmounts mid-answer; `durationMs`; `citations` | An answer ended. Closing the widget doesn't stop an answer, so this still comes. |
 | `feedback` | `rating`: `up`, `down` or `null`; `commented` | The server took a rating. A 👎 with a comment fires twice. |
 | `error` | `code` | A turn failed |
 | `conversation.reset` | | The visitor started over |

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { hostEvent, hostListeners } from './host-events';
+import { eventListeners } from '../chat/events';
+import { type HostEvent, hostEvent } from './host-events';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -47,9 +48,9 @@ describe('hostEvent', () => {
   });
 });
 
-describe('hostListeners', () => {
+describe('eventListeners', () => {
   it('calls listeners of the type and of every type, until removed', () => {
-    const events = hostListeners();
+    const events = eventListeners<HostEvent>();
     const opened = vi.fn();
     const all = vi.fn();
     const stop = events.on('open', opened);
@@ -68,7 +69,7 @@ describe('hostListeners', () => {
 
   it("keeps going when a listener throws, and doesn't let one change the event", () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const events = hostListeners();
+    const events = eventListeners<HostEvent>();
     events.on('open', (event) => {
       (event as { bot: string }).bot = 'changed';
     });

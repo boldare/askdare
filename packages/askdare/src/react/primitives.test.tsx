@@ -4,7 +4,7 @@ import { createRef } from 'react';
 import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFixtureStore } from '../chat/fixture-store';
-import { fakeServer, testConfig } from '../chat/testing/fake-server';
+import { echo, fakeServer, testConfig } from '../chat/testing/fake-server';
 import { ChatProvider } from './context';
 import {
   Citations,
@@ -137,6 +137,28 @@ describe('Root and the default look', () => {
     });
     expect(first).toHaveBeenCalledTimes(1);
     expect(second.mock.calls.some(([event]) => event.type === 'ready')).toBe(false);
+  });
+
+  it('tells onEvent how an answer under way ended when it unmounts', async () => {
+    const server = fakeServer({ holdAnswer: true, answer: (text) => echo(text).slice(0, 3) });
+    vi.stubGlobal('fetch', server.fetch);
+    const onEvent = vi.fn();
+    const view = render(
+      <Root config={testConfig()} onEvent={onEvent}>
+        <DefaultPanel />
+      </Root>,
+    );
+    const field = screen.getByRole('textbox');
+    fireEvent.change(field, { target: { value: 'Hello' } });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Send' }).hasAttribute('disabled')).toBe(false),
+    );
+    fireEvent.keyDown(field, { key: 'Enter' });
+    await screen.findByText('You said: Hello');
+    view.unmount();
+    expect(onEvent).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: 'message.received', outcome: 'stopped' }),
+    );
   });
 
   it('starts another chat when the config changes', async () => {

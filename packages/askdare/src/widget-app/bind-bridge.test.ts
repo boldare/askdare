@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ChatEvent } from '../chat/events';
 import type { PageOptions } from '../chat/page-options';
 import { createChatStore } from '../chat/store';
-import { fakeServer, testClient, testConfig } from '../chat/testing/fake-server';
+import { echo, fakeServer, testClient, testConfig } from '../chat/testing/fake-server';
 import { bindBridge } from './bind-bridge';
 import type { HostBridge } from './host-bridge';
 
@@ -88,6 +88,23 @@ describe('bindBridge', () => {
     unbind();
     await store.actions.newConversation();
     expect(host.emitted).toHaveLength(1);
+  });
+
+  it('tells the page how an answer under way ended when unbound', async () => {
+    const server = fakeServer({ holdAnswer: true, answer: (text) => echo(text).slice(0, 3) });
+    const store = createChatStore(testConfig(), { client: testClient(server) });
+    const host = fakeBridge(null);
+    const unbind = bindBridge(store, host.bridge);
+    host.connect();
+    for (let attempt = 0; attempt < 50 && store.getSnapshot().phase !== 'ready'; attempt += 1) {
+      await settled();
+    }
+    void store.actions.send('Hello');
+    for (let attempt = 0; attempt < 50 && !store.getSnapshot().busy; attempt += 1) {
+      await settled();
+    }
+    unbind();
+    expect(host.emitted.at(-1)).toMatchObject({ type: 'message.received', outcome: 'stopped' });
   });
 
   it('passes the page options on and stops when unbound', () => {

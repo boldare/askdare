@@ -599,6 +599,52 @@ describe('chat events', () => {
     expect(events.at(-1)).toMatchObject({ type: 'message.received', outcome: 'stopped' });
   });
 
+  it('reports an answer under way to a listener as the chat stops', async () => {
+    const server = fakeServer({ holdAnswer: true, answer: (text) => echo(text).slice(0, 3) });
+    const store = createChatStore(testConfig(), { client: testClient(server) });
+    const events: ChatEvent[] = [];
+    const stopListening = store.onEvent((event) => events.push(event));
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    const sending = store.actions.send('Hello');
+    await until(store, (state) => state.messages.at(-1)?.status === 'streaming');
+    // As Root and the widget do: stop the chat, then stop listening.
+    store.stop();
+    stopListening();
+    expect(events.at(-1)).toMatchObject({ type: 'message.received', outcome: 'stopped' });
+    await sending;
+    expect(events.filter((event) => event.type === 'message.received')).toHaveLength(1);
+  });
+
+  it("isn't ready while loading the stored conversation fails", async () => {
+    const storage = memoryStorage();
+    storage.set('askdare:support:resume', 'resume-1');
+    const server = fakeServer();
+    const failing: typeof fetch = (input, init) =>
+      String(input).includes('/history')
+        ? Promise.resolve(new Response('{}', { status: 500 }))
+        : server.fetch(input, init);
+    const store = createChatStore(testConfig(), {
+      client: testClient({ ...server, fetch: failing }, storage),
+    });
+    const events: ChatEvent[] = [];
+    store.onEvent((event) => events.push(event));
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    expect(store.getSnapshot().error).toBeDefined();
+    expect(events).toEqual([]);
+  });
+
+  it('counts characters, not UTF-16 units', async () => {
+    const store = createChatStore(testConfig(), { client: testClient(fakeServer()) });
+    const events: ChatEvent[] = [];
+    store.onEvent((event) => events.push(event));
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.send('Hi 👋');
+    expect(events).toContainEqual(expect.objectContaining({ type: 'message.sent', length: 4 }));
+  });
+
   it('reports a rating only once the server took it', async () => {
     const store = createChatStore(testConfig(), {
       client: testClient(fakeServer({ refuseFeedback: true })),
