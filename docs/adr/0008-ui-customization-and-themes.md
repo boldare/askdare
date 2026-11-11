@@ -1,6 +1,6 @@
 # ADR-0008: UI customization layers and built-in themes
 
-- **Status:** Accepted
+- **Status:** Accepted. Amended by [ADR-0014](0014-runtime-language.md): `configure` also accepts the locale.
 - **Date:** 2026-10-29
 
 ## Context
