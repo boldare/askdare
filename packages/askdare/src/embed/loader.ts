@@ -134,7 +134,8 @@ iframe { display: block; width: 100%; height: 100%; border: 0; }
   [aria-expanded=true][data-ready] { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  [part=launcher], [part=panel], [part=panel][data-closing], svg { transition: none; animation: none; }
+  [part=launcher], [part=panel], [part=panel][data-closing], svg, [data-turned] svg {
+    transition: none; animation: none; }
 }
 `;
 
