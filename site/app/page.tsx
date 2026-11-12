@@ -111,7 +111,7 @@ const STEPS = [
 /** Questions with a few clear next steps, which is when the model offers options. */
 const REPLY_STARTERS = [
   'Help me choose a plan',
-  'How do I get my team started?',
+  'Which plan fits a team of 12?',
   'Can I try Brightloop for free?',
 ];
 

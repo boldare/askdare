@@ -132,6 +132,9 @@ export const bots = [
   defineBot({
     ...assistant,
     id: 'support',
+    // Models often leave the options out, even after asking the visitor to choose: ask for them.
+    instructions: (context: BotContext) =>
+      `${assistant.instructions(context)} After an answer about Brightloop, suggest replies: the likely answers when you asked the visitor something, otherwise the follow-up questions they would most likely ask next.`,
     widget: {
       // The language of the page that embeds the chat; English and Polish texts are built in.
       locale: 'auto',
