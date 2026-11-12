@@ -150,6 +150,7 @@ Options are stored with the conversation as the result was, so they come back in
 The server cleans every option, from the model and from tools alike, and the chat checks them again:
 
 - **At most 4 options, each at most 80 characters,** trimmed and on one line. Extra, empty and repeated ones are dropped.
+- **Only what the visitor can read.** An option with invisible characters (zero-width or tag characters, direction marks, private-use code points) is dropped, because a click sends exactly that text as the visitor's message.
 - **No links.** An option with a URL, `www.`, an IP address or anything that looks like a domain (`example.com`) is dropped. Put links in the answer, where the chat renders them safely.
 - **Plain text.** Options are never rendered as Markdown or HTML, so `**bold**` shows as typed.
 - **If nothing is left, no options show.** If your `replies` function throws, the answer comes without options and the error is logged.

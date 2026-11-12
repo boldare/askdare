@@ -14,8 +14,14 @@ export const MAX_REPLY_LENGTH = 80;
 const LINK =
   /[a-z][a-z\d+.-]*:\/\/|\b(?:mailto|tel|sms|javascript|vbscript|data|file):|\bwww\.|\b\d{1,3}(?:\.\d{1,3}){3}\b|[\p{L}\d-]\.[a-z]{2,}(?![\p{L}\d])/iu;
 
-/** Line breaks, other control characters and bidirectional overrides that reorder text. */
-const CONTROL = /[\p{Cc}\u2028\u2029\u202a-\u202e\u2066-\u2069]/u;
+/**
+ * Characters the visitor can't see or read: line breaks and other control characters, format
+ * characters (bidirectional overrides that reorder text, zero-width characters, tag characters
+ * that can spell hidden words), private-use and unassigned code points. A click sends the option
+ * as the visitor's own message, so it must say exactly what they read. The zero-width joiner stays
+ * for emoji built from several, such as "woman technologist".
+ */
+const CONTROL = /[\p{Cc}\p{Co}\p{Cn}\u2028\u2029]|(?!\u200d)\p{Cf}/u;
 
 /** One option as it goes over the wire: trimmed, 1 to 80 characters, one line, no links. */
 export function isReplyText(value: unknown): value is string {

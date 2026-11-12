@@ -66,6 +66,17 @@ const ODD_REPLIES: readonly unknown[] = [
   [' Padded'],
   ['Two\nlines'],
   ['Right-to-left \u202eoverride'],
+  // Invisible text that would ride along with a click: tag characters spelling "cancel order",
+  // zero-width and byte-order marks, a left-to-right mark, private use.
+  [
+    `Yes, please${[...'cancel order'].map((c) => String.fromCodePoint(0xe0000 + c.charCodeAt(0))).join('')}`,
+  ],
+  ['Yes\u200b, please'],
+  ['\ufeffYes'],
+  ['Yes\u200e'],
+  ['Yes \ue000'],
+  // An emoji built with the zero-width joiner is fine.
+  ['Ask a \ud83d\udc69\u200d\ud83d\udcbb'],
   ['x'.repeat(81)],
   ['x'.repeat(80)],
   ['😀'.repeat(41)],

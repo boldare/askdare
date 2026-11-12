@@ -58,7 +58,7 @@ export const orderStatus = defineTool({
 - `replies` gets the result of a successful call, typed from `execute`. It's the result as the model received it, parsed back from JSON (a `Date` is a string by then), so the options come back the same after a reload. A call that failed, timed out or returned too much data defines none.
 - A click sends the option's text as the visitor's own message, exactly as if they had typed it. It doesn't run the tool or anything else by itself: the model reads the message and decides, as always. So write options the visitor would say ("Track the parcel"), not commands.
 - The model never sees the options, and the visitor never sees the result: only the options reach the browser.
-- askdare keeps at most 4 options of up to 80 characters, one line of plain text each, and drops the rest: empty, repeated or too long ones, and any that contain a link or something that looks like one (`example.com`). Return `undefined` or `[]` to offer none. If `replies` throws, the answer comes without options and the error is logged.
+- askdare keeps at most 4 options of up to 80 characters, one line of plain text each, and drops the rest: empty, repeated or too long ones, any with invisible characters, and any that contain a link or something that looks like one (`example.com`). Return `undefined` or `[]` to offer none. If `replies` throws, the answer comes without options and the error is logged.
 - Only the latest answer shows options, and they disappear once the visitor sends anything. When several calls in one answer define options, the last call's win.
 
 [Reply options](reply-options.md) has more flows, options in several languages, and when to let the model suggest options instead.
