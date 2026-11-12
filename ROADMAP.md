@@ -21,8 +21,9 @@ A change to what a release contains comes as a pull request to this file.
 | Deploy buttons | One click from the starter to a running chat on Vercel or Heroku, in about five minutes. A `/deploy` page on the website walks through it, and the home page hero and the README lead there. | No ADR: the site and docs only |
 | Reply options | Clickable answers under the latest reply. The model can suggest them, or a tool can define them. They're the first slice of `toolRenderers`. | ADR-0015 |
 | Runtime language, step 1 | The page switches the chat's language (`askdare('configure', { locale })`, or following `<html lang>`). The iframe reloads, and the conversation stays. | ADR-0014 |
-| Compaction | Cheaper long conversations, after spike S5b | [ADR-0003](docs/adr/0003-conversation-state.md) |
-| `embedPath`, `toolRenderers` | A custom UI inside the iframe, and React components for tool results | [ADR-0008](docs/adr/0008-ui-customization-and-themes.md) |
+| Compaction | Cheaper long conversations. It joins a later release candidate if spike S5b shows it is safe, otherwise 0.4. | [ADR-0003](docs/adr/0003-conversation-state.md) |
+
+0.3.0-rc.0 ships the first four. `embedPath` and `toolRenderers` moved to 0.4, so that reply options, their first slice, get feedback first.
 
 ## 0.4: settle in
 
@@ -30,6 +31,7 @@ A change to what a release contains comes as a pull request to this file.
 |---|---|---|
 | Runtime language, step 2 | Switch the language in place, with texts per language in `defineBot` | ADR-0014 |
 | Admin, stage 1 | A dev console with no database: bot configuration, `doctor`, a playground, test questions | ADR-0016 |
+| `embedPath`, `toolRenderers` | A custom UI inside the iframe, and React components for tool results | [ADR-0008](docs/adr/0008-ui-customization-and-themes.md) |
 
 ## Later
 
@@ -39,7 +41,7 @@ The order of these is decided on the Project board:
 - **Forms in the chat.** Collecting leads into `onLead`, with validated fields.
 - **Remote MCP tools and an `httpTool` preset.** Connect existing systems without code.
 - **`askdare eval`.** Regression tests for answers, run in CI.
-- **Smaller additions:** a proactive greeting, an unread badge, business hours, copying and exporting a conversation, prompt variants with A/B tests.
+- **Smaller additions:** a proactive greeting, an unread badge, business hours, copying and exporting a conversation, prompt variants with A/B tests. The greeting and the badge live in the loader, which is at 4,963 of its 5,120 bytes (gzipped) after 0.3. Neither fits until the loader gets smaller or more of it moves into the iframe.
 - **Languages:** more built-in languages, and right-to-left layouts.
 - **Deferred in ADRs:** Turnstile ([ADR-0004](docs/adr/0004-threat-model.md)), and a `CustomEvent` for GTM ([ADR-0013](docs/adr/0013-browser-events.md)).
 
