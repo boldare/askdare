@@ -46,6 +46,12 @@ const conversation: readonly ChatMessage[] = [
   ),
 ];
 
+const offering: readonly ChatMessage[] = conversation.map((item) =>
+  item.id === 'a2'
+    ? { ...item, replies: ['Start the free trial', 'Compare the plans', 'Talk to sales'] }
+    : item,
+);
+
 /** Every state a theme has to look right in. */
 export const FIXTURES: Readonly<Record<GalleryState, Fixture>> = {
   welcome: { messages: [] },
@@ -102,4 +108,7 @@ export const FIXTURES: Readonly<Record<GalleryState, Fixture>> = {
     ratings: { a1: 'up', a2: 'down' },
     commenting: 'a2',
   },
+  // Options under the latest answer only (ADR-0015), and in one row above the message field.
+  replies: { messages: offering },
+  'replies-composer': { messages: offering, variants: { replies: 'composer' } },
 };

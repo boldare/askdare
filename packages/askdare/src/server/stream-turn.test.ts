@@ -113,6 +113,39 @@ describe('streamTurn', () => {
     expect(onUsage).toHaveBeenCalledWith(COMPLETED.usage, 'conv_new');
   });
 
+  it('sends the cleaned-up reply options before the end of the answer, or none', async () => {
+    const offering = (replies: readonly string[]) =>
+      fakeGateway(async () => ({ ...COMPLETED, replies }));
+    const { events } = await collect(
+      streamTurn(
+        options({
+          gateway: offering([
+            '  Yes,\n book it ',
+            'Yes, book it',
+            'See https://example.com',
+            'x'.repeat(81),
+            'Show prices',
+            'Talk to a person',
+            'Something else',
+            'One too many',
+          ]),
+        }),
+      ),
+    );
+    expect(events.slice(-2)).toEqual([
+      {
+        type: 'replies',
+        messageId: 'id_2',
+        items: ['Yes, book it', 'Show prices', 'Talk to a person', 'Something else'],
+      },
+      { type: 'message.end', messageId: 'id_2', reason: 'completed' },
+    ]);
+    const none = await collect(
+      streamTurn(options({ gateway: offering(['www.example.com', ' ']) })),
+    );
+    expect(none.events.map((event) => event.type)).not.toContain('replies');
+  });
+
   it('continues an existing conversation without creating a new one', async () => {
     const gateway = fakeGateway(async () => COMPLETED);
     const { events } = await collect(streamTurn(options({ gateway, conversationId: 'conv_old' })));

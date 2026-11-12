@@ -1,5 +1,6 @@
 // Serves the same third-party page on two origins: one in the bot's allowlist, one not.
-// ?variant= shows the host-page JavaScript API: custom (own button), inline, configure.
+// ?variant= shows the host-page JavaScript API: custom (own button), inline, configure,
+// follow-lang (the chat follows the page's language).
 // ?lang= sets the page language, which a bot with locale 'auto' follows.
 import { createHmac } from 'node:crypto';
 import { createServer } from 'node:http';
@@ -46,6 +47,15 @@ const VARIANTS = {
       window.askdare('on', '*', (event) => window.events.push(event));
     </script>
     <script src="${SRC}" async></script>`,
+  // Follows <html lang> and records the chat's events, for switching the language (ADR-0014).
+  'follow-lang': `<script>
+      window.askdare = window.askdare || function () {
+        (window.askdare.q = window.askdare.q || []).push(arguments);
+      };
+      window.events = [];
+      window.askdare('on', '*', (event) => window.events.push(event));
+    </script>
+    <script src="${SRC}" data-follow-lang async></script>`,
   configure: `<script id="loader" src="${SRC}" async></script>
     <script>
       document.getElementById('loader').addEventListener('load', () => {

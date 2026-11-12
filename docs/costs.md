@@ -168,6 +168,15 @@ OpenAI caches the beginning of prompts automatically on supported models, and ca
 
 askdare's budgets count cached tokens in full, so they overestimate the cost when caching works. OpenAI's [prompt caching guide](https://developers.openai.com/api/docs/guides/prompt-caching) lists the minimum prompt length that can be cached.
 
+## Reply options
+
+With `widget.replies: 'suggest'`, the model can offer clickable replies under an answer ([Reply options](reply-options.md)). That costs tokens in two ways:
+
+- **The tool's definition is input on every model call:** about 250 tokens, estimated from its length. It sits in the stable part of the prompt, so on models with prompt caching it is mostly billed as cached input after the first message.
+- **Sometimes one more model call.** When the model suggests replies after writing its answer, the server answers the call itself and the message ends: no extra call. When it suggests them before answering (or marks its text as an intermediate update, as GPT-5.4 and later can before a tool call), the message takes one more call. That call reads the whole conversation again (mostly cached input) and adds the latency of one request. The options themselves are a few dozen output tokens.
+
+The extra call counts against `maxSteps` and the budgets like a tool round: askdare reserves it before each call that may suggest replies, and when a budget can't hold it, or on a bot with `maxSteps: 1`, the model answers without options. Compare `steps` and the tokens in [`onUsage`](configuration.md#onusage) with and without the setting to see what it costs with your model and traffic.
+
 ## Knowledge base
 
 - `knowledge.maxResults` (default 5) is how many chunks the model reads per search. askdare reserves 800 tokens per chunk, 4,000 per message by default.

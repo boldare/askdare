@@ -72,8 +72,8 @@ Every event has `type` and `bot`, the bot's ID. The other fields depend on the t
 | --- | --- | --- |
 | `length` | number | The message's length in characters. |
 | `attachments` | number | How many images and PDFs it carried. |
-| `source` | `'typed'` or `'starter'` | Typed or dictated into the field, or picked from the suggested questions. |
-| `outcome` | `'completed'`, `'failed'` or `'stopped'` | `stopped` when the chat was taken down mid-answer, as when a React `Root` unmounts. |
+| `source` | `'typed'`, `'starter'` or `'reply'` | Typed or dictated into the field, picked from the suggested questions before the conversation, or picked from the [options](reply-options.md) under the latest answer. |
+| `outcome` | `'completed'`, `'failed'` or `'stopped'` | `stopped` when the chat was taken down mid-answer, as when a React `Root` unmounts or the chat reloads in another language. |
 | `durationMs` | number | From sending the message to the end of the answer. |
 | `citations` | number | How many sources the answer cites. |
 | `rating` | `'up'`, `'down'` or `null` | `null` when the visitor took their rating back. |

@@ -66,7 +66,7 @@ A full example is the demo site's BLDR theme, in Boldare's style: `defineTheme` 
 
 The launcher's short variables on your page (`--a`, `--o` and the like) are internal too.
 
-**Parts** (`[data-ask-part="…"]`, public API): `panel`, `header`, `identity`, `identity-text`, `title`, `subtitle`, `actions`, `new-conversation`, `close`, `avatar`, `orb`, `messages`, `welcome`, `greeting`, `starters`, `starter`, `persona`, `persona-name`, `presence`, `intro`, `intro-card`, `message`, `message-body`, `bubble`, `image-alt`, `typing`, `citations`, `citation`, `attachments-note`, the rating of an answer: `feedback`, `feedback-button`, `feedback-comment`, `feedback-comment-input`, `feedback-comment-actions`, `feedback-skip`, `feedback-send`, then `status`, `error`, `composer`, `composer-box`, `input`, `attach`, `voice`, `send`, `attachments`, `message-attachments`, `attachment`, `attachment-preview`, `attachment-badge`, `attachment-name`, `attachment-status`, `attachment-remove`, `recorder`, `recorder-level`, `recorder-label`, `recorder-time`, `recorder-cancel`, `recorder-done`, `send-label` (shown by Aura), `disclosure`, and the question before a new conversation: `confirm-backdrop`, `confirm`, `confirm-icon`, `confirm-text`, `confirm-actions`, `confirm-cancel`, `confirm-accept`.
+**Parts** (`[data-ask-part="…"]`, public API): `panel`, `header`, `identity`, `identity-text`, `title`, `subtitle`, `actions`, `new-conversation`, `close`, `avatar`, `orb`, `messages`, `welcome`, `greeting`, `starters`, `starter`, `persona`, `persona-name`, `presence`, `intro`, `intro-card`, `message`, `message-body`, `bubble`, `image-alt`, `typing`, `citations`, `citation`, `attachments-note`, the rating of an answer: `feedback`, `feedback-button`, `feedback-comment`, `feedback-comment-input`, `feedback-comment-actions`, `feedback-skip`, `feedback-send`, the options under the latest answer: `replies`, `reply`, then `status`, `error`, `composer`, `composer-box`, `input`, `attach`, `voice`, `send`, `attachments`, `message-attachments`, `attachment`, `attachment-preview`, `attachment-badge`, `attachment-name`, `attachment-status`, `attachment-remove`, `recorder`, `recorder-level`, `recorder-label`, `recorder-time`, `recorder-cancel`, `recorder-done`, `send-label` (shown by Aura), `disclosure`, and the question before a new conversation: `confirm-backdrop`, `confirm`, `confirm-icon`, `confirm-text`, `confirm-actions`, `confirm-cancel`, `confirm-accept`.
 
 `identity-text` holds the title and subtitle in the header. `image-alt` stands in for an image in a reply: the chat never loads images that the model writes, so it shows their alt text in brackets.
 
@@ -82,6 +82,7 @@ The launcher's short variables on your page (`--a`, `--o` and the like) are inte
 | `attachment` | `data-kind` | `image`, `pdf`; absent until the chat has recognized the file |
 | `recorder` | `data-state` | `recording`, `transcribing` |
 | `feedback-button` | `data-rating` | `up`, `down`; `aria-pressed="true"` on the visitor's rating |
+| `replies` | `data-placement` | `composer` on the row above the message field (variant `replies: 'composer'`); absent under an answer |
 | `avatar` | `data-kind` | `orb`, `icon`, `initials`, `image` |
 | `avatar` | `data-size` | `small` in the header, next to the assistant's messages and in the `intro` welcome; `large` in the `hero` and `persona` welcome |
 | `welcome` | `data-layout` | `hero`, `persona`, `intro` |
@@ -150,10 +151,10 @@ Every preset sets both font tokens, so set both. You can also set them as the `f
 | --- | --- |
 | `askdare('open')`, `askdare('close')`, `askdare('toggle')` | Shows or hides the chat. Closing returns focus to whatever opened it. |
 | `askdare('identify', token)` | Signs the visitor in with a token from your backend, or out with `null`; see [Signed-in visitors](identity.md). |
-| `askdare('configure', { greeting, starters, context })` | Per-page greeting and suggestions, and `context`: a short description of the page (up to 1000 characters) for the assistant. |
+| `askdare('configure', { greeting, starters, context, locale })` | Per-page greeting and suggestions, `context`: a short description of the page (up to 1000 characters) for the assistant, and `locale`: the chat's language, for a bot with `locale: 'auto'`. |
 | `askdare('on', type, listener)`, `askdare('off', type, listener)` | Listens to what happens in the chat, such as a message sent or an answer rated, for analytics. Metadata only; see [Chat events](events.md). |
 
-`configure` accepts only those three fields: never the model, instructions or tools. The context is off unless the bot opts in with `pageContext: true` in `defineBot`. It then travels with the visitor's message, as a marked part of their own turn: anyone can set it from their browser, so it gets no more trust than what the visitor types, and it never becomes part of the bot's instructions. It is sent again only when it changes, and the visitor's history doesn't show it. Define the small queue first, then call it any time:
+`configure` accepts only those four fields: never the model, instructions or tools. The context is off unless the bot opts in with `pageContext: true` in `defineBot`. It then travels with the visitor's message, as a marked part of their own turn: anyone can set it from their browser, so it gets no more trust than what the visitor types, and it never becomes part of the bot's instructions. It is sent again only when it changes, and the visitor's history doesn't show it. Define the small queue first, then call it any time:
 
 ```html
 <script>
@@ -169,6 +170,8 @@ Every preset sets both font tokens, so set both. You can also set them as the `f
 </script>
 <script src="https://app.example.com/api/chat/widget.js?bot=support" async></script>
 ```
+
+`locale` is a BCP 47 tag, such as `'pl'`, and the server checks it against the bot like any language. It reloads the chat in that language and keeps the conversation; a call with only `locale` leaves the greeting, suggestions and context as they were. To follow your page's `<html lang>` instead, add `data-follow-lang` to the script tag. See [Texts](texts.md#switching-the-language-on-the-page).
 
 An inline chat loads with the page without taking focus or scrolling to itself.
 

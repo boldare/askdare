@@ -1,3 +1,4 @@
+import type { ThemeVariants } from '../theme/presets';
 import type { ChatConfig } from './config';
 import { translator } from './reducer';
 import type { ChatMessage, ChatState, PendingFile, Rating } from './state';
@@ -15,12 +16,18 @@ export interface Fixture {
   readonly elapsed?: number;
   readonly ratings?: Readonly<Record<string, Rating>>;
   readonly commenting?: string;
+  /** Theme variants this state shows instead of the bot's, such as where options go. */
+  readonly variants?: Partial<ThemeVariants>;
 }
 
 const nothing = async (): Promise<void> => {};
 
 /** A store that shows one fixture and talks to no server. Only the draft and focus can change. */
-export function createFixtureStore(config: ChatConfig, fixture: Fixture): ChatStore {
+export function createFixtureStore(botConfig: ChatConfig, fixture: Fixture): ChatStore {
+  const { widget } = botConfig;
+  const config: ChatConfig = fixture.variants
+    ? { ...botConfig, widget: { ...widget, variants: { ...widget.variants, ...fixture.variants } } }
+    : botConfig;
   let state: ChatState = {
     phase: 'ready',
     busy: fixture.busy ?? false,

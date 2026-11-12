@@ -3,7 +3,13 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { defineBot } from '../bot/define-bot';
 import { AskdareError } from '../errors';
-import type { DiagnoseRequest, ModelGateway, TranscriptionRequest, TurnRequest } from '../gateway';
+import type {
+  DiagnoseRequest,
+  ModelGateway,
+  RepliesReader,
+  TranscriptionRequest,
+  TurnRequest,
+} from '../gateway';
 import { createLimits } from '../limits/limits';
 import { memoryStore } from '../limits/store';
 import { doctorReportSchema } from '../protocol/doctor';
@@ -103,6 +109,7 @@ const docsBot = defineBot({
   model: 'test-model',
   instructions: 'Read the documents.',
   attachments: { images: false, maxPdfPages: 3 },
+  widget: { replies: 'suggest' },
 });
 
 let tokens: TokenService;
@@ -113,6 +120,7 @@ const uploads: { filename: string; mime: string; size: number }[] = [];
 const transcriptions: TranscriptionRequest[] = [];
 let failTranscriptions = false;
 const diagnoses: DiagnoseRequest[] = [];
+const repliesReaders: (RepliesReader | undefined)[] = [];
 
 const gateway: ModelGateway = {
   createConversation: async () => 'conv_1',
@@ -128,9 +136,10 @@ const gateway: ModelGateway = {
     uploads.push({ filename, mime, size: bytes.byteLength });
     return `file-${uploads.length}`;
   },
-  listMessages: async (id) => [
-    { id: 'm1', role: 'user', text: `history of ${id}`, citations: [], attachments: 0 },
-  ],
+  listMessages: async (id, _signal, replies) => {
+    repliesReaders.push(replies);
+    return [{ id: 'm1', role: 'user', text: `history of ${id}`, citations: [], attachments: 0 }];
+  },
   diagnose: async (request) => {
     diagnoses.push(request);
     return [{ status: 'ok', title: `Model ${request.model} is available.` }];
@@ -865,6 +874,121 @@ describe('conversation history and deletion', () => {
         { id: 'm1', role: 'user', text: 'history of conv_hist', citations: [], attachments: 0 },
       ],
     });
+  });
+
+  it("rebuilds the latest answer's options from the bot's tools", async () => {
+    const booking = defineBot({
+      id: 'support',
+      model: 'test-model',
+      instructions: 'x',
+      tools: [
+        defineTool({
+          name: 'find_slots',
+          description: 'd',
+          input: z.object({}),
+          execute: () => ({ slots: ['9:00'] }),
+          replies: (result) => result.slots.map((slot) => `Book ${slot}`),
+        }),
+      ],
+    });
+    const withReplies = createRequestHandler({
+      bots: [booking],
+      basePath: '/api/chat',
+      assets,
+      gateway: () => ({
+        ...gateway,
+        listMessages: async (_id, _signal, replies) => {
+          const offered = replies?.([
+            { name: 'find_slots', arguments: '{}', output: '{"slots":["9:00","11:00"]}' },
+          ]);
+          return [
+            {
+              id: 'msg_a',
+              role: 'assistant',
+              text: 'Two slots.',
+              citations: [],
+              attachments: 0,
+              ...(offered ? { replies: offered } : {}),
+            },
+          ];
+        },
+      }),
+      tokens: async () => tokens,
+      limits: createLimits({ store: memoryStore() }),
+      clientIp: () => 'test',
+      onError: () => {},
+    });
+    const { resumeToken, auth } = await grant(OWNER);
+    const response = await withReplies(post('/history', { botId: 'support', resumeToken }, auth));
+    const { messages } = (await response.json()) as { messages: { replies?: string[] }[] };
+    expect(messages[0]?.replies).toEqual(['Book 9:00', 'Book 11:00']);
+  });
+
+  it("prefers a tool's options to the model's suggestion after a reload", async () => {
+    const both = defineBot({
+      id: 'support',
+      model: 'test-model',
+      instructions: 'x',
+      widget: { replies: 'suggest' },
+      tools: [
+        defineTool({
+          name: 'find_slots',
+          description: 'd',
+          input: z.object({}),
+          execute: () => ({ slots: ['9:00'] }),
+          replies: (result) => result.slots.map((slot) => `Book ${slot}`),
+        }),
+      ],
+    });
+    const readers: (RepliesReader | undefined)[] = [];
+    const withBoth = createRequestHandler({
+      bots: [both],
+      basePath: '/api/chat',
+      assets,
+      gateway: () => ({
+        ...gateway,
+        listMessages: async (_id, _signal, replies) => {
+          readers.push(replies);
+          return [];
+        },
+      }),
+      tokens: async () => tokens,
+      limits: createLimits({ store: memoryStore() }),
+      clientIp: () => 'test',
+      onError: () => {},
+    });
+    const { resumeToken, auth } = await grant(OWNER);
+    await withBoth(post('/history', { botId: 'support', resumeToken }, auth));
+    const suggested = { name: 'suggest_replies', arguments: '{"items":["Later"]}', output: '"x"' };
+    const found = { name: 'find_slots', arguments: '{}', output: '{"slots":["9:00"]}' };
+    expect(readers[0]?.([found, suggested])).toEqual(['Book 9:00']);
+    expect(readers[0]?.([suggested])).toEqual(['Later']);
+  });
+
+  it('reads the suggested options of the latest answer only for bots that offer them', async () => {
+    const { resumeToken, auth } = await grant(OWNER);
+    repliesReaders.length = 0;
+    await handler(post('/history', { botId: 'support', resumeToken }, auth));
+    const docsResume = await tokens.issueResume('docs', {
+      visitorId: OWNER,
+      conversationId: 'conv_docs',
+    });
+    const docsAccess = (await tokens.issueAccess('docs', OWNER)).token;
+    const docs = await handler(
+      post(
+        '/history',
+        { botId: 'docs', resumeToken: docsResume.token },
+        { authorization: `Bearer ${docsAccess}` },
+      ),
+    );
+    expect(docs.status).toBe(200);
+    const [support, docsReader] = repliesReaders;
+    expect(support).toBeUndefined();
+    expect(
+      docsReader?.([
+        { name: 'suggest_replies', arguments: '{"items":["Show prices"]}', output: '"shown"' },
+      ]),
+    ).toEqual(['Show prices']);
   });
 
   it("answers 404 for another visitor's conversation", async () => {

@@ -1,7 +1,9 @@
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 import type { ModelGateway } from '../gateway';
+import { defineTool, readToolReplies } from '../tools/define-tool';
 import { createOpenAIGateway } from './gateway';
 import { OPENAI_TEST_BASE_URL } from './testing/msw';
 
@@ -185,6 +187,174 @@ describe('listMessages', () => {
       { index: 1, title: 'Pricing', url: 'https://example.com/pricing' },
       { index: 2, title: 'Notes', url: undefined },
     ]);
+  });
+
+  describe('reply options of the latest answer (ADR-0015)', () => {
+    const message = (id: string, role: 'user' | 'assistant', text: string) => ({
+      id,
+      type: 'message',
+      role,
+      status: 'completed',
+      content: [
+        role === 'user'
+          ? { type: 'input_text', text }
+          : { type: 'output_text', text, annotations: [], logprobs: [] },
+      ],
+    });
+    const call = (id: string, name: string, args: string) => ({
+      id,
+      type: 'function_call',
+      call_id: `call_${id}`,
+      name,
+      arguments: args,
+      status: 'completed',
+    });
+    const output = (id: string, text: string) => ({
+      id: `out_${id}`,
+      type: 'function_call_output',
+      call_id: `call_${id}`,
+      output: text,
+      status: 'completed',
+    });
+    const serve = (conversation: string, data: readonly unknown[]) =>
+      server.use(
+        http.get(`${OPENAI_TEST_BASE_URL}/conversations/${conversation}/items`, () =>
+          HttpResponse.json({
+            object: 'list',
+            data,
+            first_id: null,
+            last_id: null,
+            has_more: false,
+          }),
+        ),
+      );
+    // Newest first: the latest turn called a tool and suggested replies; an older one did too.
+    const TURNS = [
+      call('fc_4', 'suggest', '{"items":["Later"]}'),
+      message('msg_4', 'assistant', 'Two slots are free.'),
+      output('fc_3', '{"slots":["9:00","11:00"]}'),
+      call('fc_3', 'find_slots', '{}'),
+      message('msg_3', 'user', 'Book a call'),
+      call('fc_2', 'suggest', '{"items":["Old"]}'),
+      message('msg_2', 'assistant', 'Hi!'),
+      message('msg_1', 'user', 'Hello'),
+    ];
+
+    it("hands the reader only the latest turn's calls, oldest first, with their outputs", async () => {
+      serve('conv_r', TURNS);
+      const reader = vi.fn(() => [' Book 9:00 ', 'Book 9:00', 'Book 11:00', 'See www.example.com']);
+      const messages = await gateway.listMessages('conv_r', undefined, reader);
+      expect(reader).toHaveBeenCalledOnce();
+      expect(reader).toHaveBeenCalledWith([
+        { name: 'find_slots', arguments: '{}', output: '{"slots":["9:00","11:00"]}' },
+        { name: 'suggest', arguments: '{"items":["Later"]}', output: undefined },
+      ]);
+      expect(messages.map((item) => item.replies)).toEqual([
+        undefined,
+        undefined,
+        undefined,
+        ['Book 9:00', 'Book 11:00'],
+      ]);
+    });
+
+    it('offers nothing once the visitor has replied, without a reader, or when it fails', async () => {
+      serve('conv_replied', [message('msg_5', 'user', 'Thanks'), ...TURNS]);
+      const reader = vi.fn(() => ['Yes']);
+      const replied = await gateway.listMessages('conv_replied', undefined, reader);
+      expect(reader).not.toHaveBeenCalled();
+      expect(replied.some((item) => item.replies)).toBe(false);
+
+      serve('conv_r', TURNS);
+      expect((await gateway.listMessages('conv_r')).some((item) => item.replies)).toBe(false);
+      const failing = await gateway.listMessages('conv_r', undefined, () => {
+        throw new Error('bad arguments');
+      });
+      expect(failing.at(-1)?.text).toBe('Two slots are free.');
+      expect(failing.some((item) => item.replies)).toBe(false);
+      const empty = await gateway.listMessages('conv_r', undefined, () => ['https://x.example']);
+      expect(empty.some((item) => item.replies)).toBe(false);
+    });
+
+    describe('defined by tools', () => {
+      const slots = defineTool({
+        name: 'find_slots',
+        description: 'd',
+        input: z.object({ day: z.string() }),
+        execute: () => ({ slots: ['9:00'] }),
+        replies: (result) => result.slots.map((slot) => `Book ${slot}`),
+      });
+      const fallback = defineTool({
+        name: 'fallback',
+        description: 'd',
+        input: z.object({}),
+        execute: () => null,
+        replies: () => ['Talk to a person'],
+      });
+      const reader = (calls: Parameters<typeof readToolReplies>[1]) =>
+        readToolReplies([slots, fallback], calls);
+      const turn = (...calls: readonly unknown[]) => [
+        message('msg_9', 'assistant', 'Here you go.'),
+        ...calls,
+        message('msg_8', 'user', 'Book a call'),
+      ];
+      const latestReplies = async (conversation: string, items: readonly unknown[]) => {
+        serve(conversation, items);
+        return (await gateway.listMessages(conversation, undefined, reader)).at(-1)?.replies;
+      };
+
+      it("rebuilds the options from the tool's stored output, as the live turn did", async () => {
+        const items = turn(
+          output('fc_7', '{"slots":["9:00","11:00"]}'),
+          call('fc_7', 'find_slots', '{"day":"mon"}'),
+        );
+        expect(await latestReplies('conv_t', items)).toEqual(['Book 9:00', 'Book 11:00']);
+      });
+
+      it('takes the last call that defined any', async () => {
+        const items = turn(
+          output('fc_c', '{"slots":[]}'),
+          output('fc_b', '{"slots":["9:00"]}'),
+          output('fc_a', 'null'),
+          call('fc_c', 'find_slots', '{"day":"mon"}'),
+          call('fc_b', 'find_slots', '{"day":"tue"}'),
+          call('fc_a', 'fallback', '{}'),
+        );
+        expect(await latestReplies('conv_last', items)).toEqual(['Book 9:00']);
+      });
+
+      it('offers nothing for failed, unanswered or unknown calls', async () => {
+        const failures = [
+          '{"error":"The tool failed."}',
+          '{"error":"The tool timed out."}',
+          '{"error":"The tool returned too much data."}',
+        ];
+        for (const [index, failure] of failures.entries()) {
+          const items = turn(output('fc_f', failure), call('fc_f', 'fallback', '{}'));
+          expect(await latestReplies(`conv_f${index}`, items)).toBeUndefined();
+        }
+        // Arguments the schema refused never reached the tool, whatever the output says.
+        for (const [index, args] of ['{"day":3}', 'not json'].entries()) {
+          const items = turn(
+            output('fc_a', '{"slots":["9:00"]}'),
+            call('fc_a', 'find_slots', args),
+          );
+          expect(await latestReplies(`conv_a${index}`, items)).toBeUndefined();
+        }
+        expect(await latestReplies('conv_u', turn(call('fc_u', 'fallback', '{}')))).toBeUndefined();
+        const unknown = turn(output('fc_x', 'null'), call('fc_x', 'removed_tool', '{}'));
+        expect(await latestReplies('conv_x', unknown)).toBeUndefined();
+      });
+
+      it('still offers options for a result that only looks like an error', async () => {
+        for (const [index, result] of [
+          '{"error":"No such order."}',
+          '{"error":"Invalid arguments: the order number has 7 digits"}',
+        ].entries()) {
+          const items = turn(output('fc_e', result), call('fc_e', 'fallback', '{}'));
+          expect(await latestReplies(`conv_e${index}`, items)).toEqual(['Talk to a person']);
+        }
+      });
+    });
   });
 
   it('reports a deleted conversation as not_found', async () => {

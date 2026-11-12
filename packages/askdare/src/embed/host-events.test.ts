@@ -27,6 +27,15 @@ describe('hostEvent', () => {
       attachments: 1,
       source: 'typed',
     });
+    expect(
+      hostEvent({ type: 'message.sent', length: 11, attachments: 0, source: 'reply' }, 'support'),
+    ).toEqual({
+      type: 'message.sent',
+      bot: 'support',
+      length: 11,
+      attachments: 0,
+      source: 'reply',
+    });
     expect(hostEvent({ type: 'feedback', rating: null, commented: false }, 'support')).toEqual({
       type: 'feedback',
       bot: 'support',

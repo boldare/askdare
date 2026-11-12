@@ -40,6 +40,29 @@ defineBot({
 
 A bot makes at most `limits.maxSteps` model calls per message (default 5); the last one must answer in words.
 
+## Reply options
+
+A tool can turn its result into options the visitor clicks instead of typing, shown as buttons under the answer. You decide them in code, so they are the same every time the result is:
+
+```ts
+export const orderStatus = defineTool({
+  name: 'get_order_status',
+  // … description, input and execute as above
+  replies: (order) =>
+    order.status === 'shipped'
+      ? ['Track the parcel', 'Cancel the order', 'Talk to a person']
+      : undefined,
+});
+```
+
+- `replies` gets the result of a successful call, typed from `execute`. It's the result as the model received it, parsed back from JSON (a `Date` is a string by then), so the options come back the same after a reload. A call that failed, timed out or returned too much data defines none.
+- A click sends the option's text as the visitor's own message, exactly as if they had typed it. It doesn't run the tool or anything else by itself: the model reads the message and decides, as always. So write options the visitor would say ("Track the parcel"), not commands.
+- The model never sees the options, and the visitor never sees the result: only the options reach the browser.
+- askdare keeps at most 4 options of up to 80 characters, one line of plain text each, and drops the rest: empty, repeated or too long ones, any with invisible characters, and any that contain a link or something that looks like one (`example.com`). Return `undefined` or `[]` to offer none. If `replies` throws, the answer comes without options and the error is logged.
+- Only the latest answer shows options, and they disappear once the visitor sends anything. When several calls in one answer define options, the last call's win.
+
+[Reply options](reply-options.md) has more flows, options in several languages, and when to let the model suggest options instead.
+
 ## Rules
 
 - **Every field is required.** OpenAI's strict mode demands it: use `.nullable()` instead of `.optional()`. `defineTool` fails at startup otherwise.
@@ -48,5 +71,6 @@ A bot makes at most `limits.maxSteps` model calls per message (default 5); the l
 - **Read-only, for now.** Tools that change data (place an order, send an email) need the visitor's confirmation, which askdare doesn't offer yet. Keep tools to lookups.
 - **Keep results small.** Return the fields the model needs. Large results cost input tokens on every later message.
 - **Keep it under about 20 tools per bot.** More tools make the model slower and less accurate.
+- **Reserved names.** `file_search` (the knowledge base) and `suggest_replies` (reply options, `widget.replies: 'suggest'`) are built in; `defineBot` refuses a tool with either name. `suggest_replies` runs none of your code and shows no status to the visitor.
 
 The demo site has two working examples in [`site/tools.ts`](../site/tools.ts).

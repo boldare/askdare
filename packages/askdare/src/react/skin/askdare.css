@@ -666,6 +666,72 @@
     cursor: default;
   }
 
+  /* ---------- Reply options under the latest answer ---------- */
+
+  [data-ask-part="replies"]:where([data-ask-skin] *) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: calc(var(--ask-space) * 0.75);
+    margin-top: calc(var(--ask-space) * 0.25);
+  }
+
+  [data-ask-part="reply"]:where([data-ask-skin] *) {
+    max-width: 100%;
+    padding: calc(var(--ask-space) * 0.75) calc(var(--ask-space) * 1.5);
+    border: 1px solid color-mix(in srgb, var(--ask-color-accent) 45%, var(--ask-color-border));
+    border-radius: 999px;
+    background: var(--ask-color-background);
+    color: var(--ask-color-text);
+    font: inherit;
+    font-size: 0.88rem;
+    line-height: 1.3;
+    text-align: left;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+    transition:
+      background-color 150ms var(--ask-ease),
+      border-color 150ms var(--ask-ease);
+  }
+
+  [data-ask-part="reply"]:hover:not(:disabled):where([data-ask-skin] *) {
+    border-color: var(--ask-color-accent);
+    background: color-mix(in srgb, var(--ask-color-accent) 10%, var(--ask-color-background));
+  }
+
+  [data-ask-part="reply"]:disabled:where([data-ask-skin] *) {
+    opacity: 0.55;
+    cursor: default;
+  }
+
+  /* Above the message field (variant replies: composer): one row that scrolls sideways. */
+  [data-ask-part="replies"][data-placement="composer"]:where([data-ask-skin] *) {
+    flex-wrap: nowrap;
+    margin: 0;
+    /* In line with the message field; the edges fade where options scroll out of view. */
+    padding: var(--ask-space) calc(var(--ask-space) * 1.5) 2px;
+    scroll-padding-inline: calc(var(--ask-space) * 1.5);
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      #000 calc(var(--ask-space) * 1.5),
+      #000 calc(100% - var(--ask-space) * 1.5),
+      transparent
+    );
+    overflow-x: auto;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+
+  [data-ask-part="replies"][data-placement="composer"]::-webkit-scrollbar:where([data-ask-skin] *) {
+    display: none;
+  }
+
+  [data-ask-part="replies"][data-placement="composer"]
+    [data-ask-part="reply"]:where([data-ask-skin] *) {
+    flex: none;
+    white-space: nowrap;
+  }
+
   /* ---------- Welcome ---------- */
 
   [data-ask-part="welcome"]:where([data-ask-skin] *) {

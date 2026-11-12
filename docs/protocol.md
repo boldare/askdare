@@ -24,7 +24,7 @@ Every path sits under the route's base path: `/api/chat` by default, or `basePat
 | `POST /doctor` | Doctor token | Checks the setup for `askdare doctor` ([Diagnostics](#diagnostics)) |
 
 - **`POST /messages`** takes `{ "botId", "text", "resumeToken"?, "attachments"?, "context"?, "locale"? }`. Without `resumeToken`, the server starts a new conversation and sends `conversation.created`. `locale` is the visitor's language tag, passed to the bot's instructions.
-- **`POST /history`** takes `{ "botId", "resumeToken" }` and answers `{ "messages": [{ "id", "role", "text", "citations", "attachments", "feedback"? }] }`, where `attachments` is a count and `feedback` is the answer's rating handle (see [Feedback](#feedback)).
+- **`POST /history`** takes `{ "botId", "resumeToken" }` and answers `{ "messages": [{ "id", "role", "text", "citations", "attachments", "feedback"?, "replies"? }] }`, where `attachments` is a count, `feedback` is the answer's rating handle (see [Feedback](#feedback)) and `replies` are the options of the latest answer (see [Reply options](#reply-options)).
 - **`DELETE /conversation`** takes the same body and answers `204` with no body.
 - **Same origin only.** Every `POST` and `DELETE` except `/doctor` refuses cross-site requests with `401`. The API serves the chat's own iframe, which runs on the same origin.
 
@@ -52,6 +52,7 @@ Every path sits under the route's base path: `/api/chat` by default, or `basePat
 | `text.delta` | `messageId`, `delta` | Append text to the reply (markdown) |
 | `citation` | `messageId`, `index`, `title`, `url?` | Source for marker `[index]`; `url` is http(s) only |
 | `tool.status` | `messageId`, `callId`, `name`, `state: running \| done \| error` | A tool ran; arguments and results stay on the server. `name: file_search` is the knowledge base search |
+| `replies` | `messageId`, `items` | Options the visitor can click instead of typing ([Reply options](#reply-options)); at most once, before `message.end` |
 | `message.end` | `messageId`, `reason`, `resumeToken?`, `feedback?` | The reply finished. A resumed conversation gets a fresh `resumeToken`, so it stays reachable 30 days after its last message. `feedback` is the answer's rating handle, when answers can be rated. Reasons: `completed`, `max_steps`, `max_output_tokens`, `timeout`, `content_filter`, `aborted` |
 | `error` | `code`, `message`, `retryAfterMs?`, `key?`, `params?` | The turn failed; `message` is safe to show ([keys and parameters](#error-keys-and-parameters)) |
 
@@ -76,6 +77,17 @@ When the app sets `onFeedback` and the bot allows it, every answer comes with a 
 - `key` is a hex string that stays the same for the answer across reloads, so a client can remember the visitor's own rating.
 
 `POST /feedback` takes `{ "botId", "feedback", "rating", "comment"? }` with the `Bearer` token, where `feedback` is the `handle`, `rating` is `"up"`, `"down"` or `null` to take a rating back, and `comment` holds at most 500 characters. It answers `204` with no body. A handle of another visitor, another bot or a forged one answers `404`, as does a bot whose answers can't be rated. Ratings are limited per visitor (`429`).
+
+## Reply options
+
+An answer can offer a few options the visitor clicks instead of typing ("Yes, book it", "Show prices"). With `widget.replies: 'suggest'`, the model suggests them through the built-in tool `suggest_replies`, and the server answers that call itself. They come in a `replies` event, `{ "messageId", "items": ["…"] }`, sent at most once per answer, before its `message.end`. After a reload, `POST /history` returns them as `replies` on the latest answer, as long as the visitor hasn't written since ([ADR-0015](adr/0015-reply-options.md)). How to use them in a bot: [Reply options](reply-options.md).
+
+- **Limits.** One to four items, each trimmed, on one line, 1 to 80 characters (UTF-16 code units), all different, with nothing the visitor can't see (control, format, private-use or unassigned characters; the zero-width joiner in emoji is fine), and without links: no scheme such as `https://` or `mailto:`, no `www.`, no IP address and no domain name such as `example.com`. The server drops items that break these rules and sends no event when none is left; clients refuse an event that breaks them.
+- **Plain text.** Show each item as text, never as Markdown or HTML.
+- **Only under the latest answer.** Hide the options as soon as the visitor sends anything.
+- **A click is a message.** Send the item's text through `POST /messages` like typed text. The server can't tell the difference, and nothing else travels with it.
+
+Older clients ignore the event, so it is additive in protocol version 1.
 
 ## Identity
 

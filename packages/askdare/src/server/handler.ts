@@ -8,7 +8,7 @@ import {
 } from '../attachments/files';
 import type { Bot } from '../bot/define-bot';
 import { AskdareError, type AskdareErrorOptions, toAskdareError } from '../errors';
-import type { ModelGateway, TurnAttachment } from '../gateway';
+import type { ModelGateway, RepliesReader, TurnAttachment } from '../gateway';
 import { canonicalLocale } from '../i18n/texts';
 import type { Limits } from '../limits/limits';
 import type { DoctorReport } from '../protocol/doctor';
@@ -17,6 +17,8 @@ import type { IdentityFailure, IdentityVerifier, VerifiedIdentity } from '../sec
 import { newVisitorId, type ResumeGrant, type TokenService } from '../security/tokens';
 import { PRESET_NAMES, type PresetName } from '../theme/presets';
 import { type ColorScheme, type ResolvedTheme, resolveTheme } from '../theme/theme';
+import { readToolReplies } from '../tools/define-tool';
+import { readSuggestedReplies } from '../tools/suggest-replies';
 import { detectAudio, languageHints, maxAudioBytes, worstCaseSeconds } from '../voice/audio';
 import {
   type EmbedAssets,
@@ -281,6 +283,19 @@ async function verifyAttachments(
     attachmentTokens += grant.tokens;
   }
   return { attachments: [...files.values()], attachmentTokens };
+}
+
+/**
+ * Reads the latest answer's options back from its turn's calls: those a tool defined win over
+ * those the model suggested, as in a live turn (ADR-0015). None for a bot that has neither.
+ */
+function repliesReader(bot: Bot): RepliesReader | undefined {
+  const defined = bot.tools.some((tool) => tool.replies);
+  const suggested = bot.widget.replies === 'suggest';
+  if (!defined && !suggested) return undefined;
+  return (calls) =>
+    (defined ? readToolReplies(bot.tools, calls) : undefined) ??
+    (suggested ? readSuggestedReplies(calls) : undefined);
 }
 
 /**
@@ -793,7 +808,9 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
 
   const readHistory = async (request: Request): Promise<Response> => {
     const { bot, conversationId, tokens, owner } = await ownedConversation(request);
-    let messages = await config.gateway().listMessages(conversationId, request.signal);
+    let messages = await config
+      .gateway()
+      .listMessages(conversationId, request.signal, repliesReader(bot));
     if (feedbackOn(bot)) {
       messages = await Promise.all(
         messages.map(async (message) =>

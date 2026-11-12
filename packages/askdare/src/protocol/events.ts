@@ -34,6 +34,7 @@ export const PROTOCOL_EVENT_TYPES = [
   'text.delta',
   'citation',
   'tool.status',
+  'replies',
   'message.end',
   'error',
 ] as const;
@@ -85,6 +86,17 @@ export interface ToolStatusEvent {
   readonly state: 'running' | 'done' | 'error';
 }
 
+/**
+ * Options the visitor can click under this answer instead of typing (ADR-0015). Sent at most
+ * once, before `message.end`: one to four distinct, trimmed, one-line texts of up to 80
+ * characters, without links. A client shows them as plain text, never as Markdown.
+ */
+export interface RepliesEvent {
+  readonly type: 'replies';
+  readonly messageId: string;
+  readonly items: readonly string[];
+}
+
 /** What the client needs to rate one answer (ADR-0012). */
 export interface FeedbackHandle {
   /** Opaque; sent back to `POST /feedback`. */
@@ -125,5 +137,6 @@ export type ProtocolEvent =
   | TextDeltaEvent
   | CitationEvent
   | ToolStatusEvent
+  | RepliesEvent
   | MessageEndEvent
   | ErrorEvent;

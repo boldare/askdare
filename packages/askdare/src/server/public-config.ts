@@ -19,7 +19,7 @@ export interface PublicView {
  * (ADR-0008); a test checks that.
  */
 export function publicConfig(bot: Bot, basePath: string, view: PublicView = {}): ChatConfig {
-  const { theme, css: _css, texts: overrides, feedback, ...widget } = bot.widget;
+  const { theme, css: _css, texts: overrides, feedback, replies: _replies, ...widget } = bot.widget;
   const resolved = view.theme ?? theme;
   const locale = view.locale ?? (widget.locale === 'auto' ? 'en' : widget.locale);
   const texts = textsFor(locale, overrides);

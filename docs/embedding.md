@@ -18,11 +18,11 @@ The site must be in the bot's `security.allowedOrigins`. Pages of the app itself
 
 Load it as a plain script. Don't add `type="module"`, `crossorigin` or `integrity`: the loader finds its settings through its own `<script>` tag, and `widget.js` is served without CORS headers.
 
-The loader passes the `lang` of the page's `<html>` to the chat. A bot with `locale: 'auto'` follows it; see [Styling](styling.md#1-configuration).
+The loader passes the `lang` of the page's `<html>` to the chat. A bot with `locale: 'auto'` follows it; see [Styling](styling.md#1-configuration). To follow later changes of `lang` too, add `data-follow-lang`.
 
 ## Script tag attributes
 
-The loader reads these four attributes from its own `<script>` tag, and no others:
+The loader reads these five attributes from its own `<script>` tag, and no others:
 
 | Attribute | Value | Effect |
 | --- | --- | --- |
@@ -30,6 +30,7 @@ The loader reads these four attributes from its own `<script>` tag, and no other
 | `data-mode` | `inline` | The chat fills the element that `data-target` names instead of floating over the page. Any other value is ignored. |
 | `data-target` | A CSS selector, such as `#chat` | The element for an inline chat. Read only with `data-mode="inline"`. |
 | `data-launcher` | `none` | No chat button. Open the chat from your own button with `askdare('open')`. Ignored for an inline chat. |
+| `data-follow-lang` | No value | The chat follows the page's `<html lang>` when it changes, for a site that switches language without a page load. Only for a bot with `locale: 'auto'`; see [Texts](texts.md#switching-the-language-on-the-page). |
 
 An inline chat waits until the page has parsed its target element, so the script can sit in `<head>`. When no element matches the selector, the console says `[askdare] No element matches #chat.` and the chat floats instead. Without `data-target`, it floats too.
 
@@ -257,4 +258,4 @@ ASKDARE_ALLOWED_ORIGINS=http://127.0.0.1:4000
 
 ## Page JavaScript
 
-The page can open and close the chat, sign the visitor in, and set a greeting, suggestions and page context per page: `askdare('open')`, `askdare('close')`, `askdare('toggle')`, `askdare('identify', token)` and `askdare('configure', { … })`. See [Styling](styling.md#3-page-javascript) and [Signed-in visitors](identity.md). To hear what happens in the chat, for analytics, use `askdare('on', type, listener)`: see [Chat events](events.md).
+The page can open and close the chat, sign the visitor in, and set a greeting, suggestions, page context and the language per page: `askdare('open')`, `askdare('close')`, `askdare('toggle')`, `askdare('identify', token)` and `askdare('configure', { … })`. See [Styling](styling.md#3-page-javascript) and [Signed-in visitors](identity.md). To hear what happens in the chat, for analytics, use `askdare('on', type, listener)`: see [Chat events](events.md).

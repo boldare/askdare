@@ -274,6 +274,8 @@ interface ThemeVariants {
   readonly surface: "solid" | "glass";
   readonly density: "comfortable" | "compact";
   readonly composer: "outline" | "gradient";
+  /** Where the latest answer's options show: under it, or in one row above the message field. */
+  readonly replies: "answer" | "composer";
 }
 /** What a visitor may attach, as the bot allows it. */
 interface ChatAttachments {
@@ -379,7 +381,11 @@ interface FeedbackHandle {
   /** Stable for the answer across reloads, so the client can remember its rating. Hex. */
   readonly key: string;
 }
-/** What a page may set with askdare('configure') or the props of `Root`, checked again here. */
+/**
+ * What a page may set with askdare('configure') or the props of `Root`, checked again here. The
+ * language isn't among them: it comes with the chat's address (`?lang=`, or `getChatConfig` in
+ * React), so switching it reloads the chat (ADR-0014).
+ */
 interface PageOptions {
   readonly greeting?: string;
   readonly starters?: readonly string[];
@@ -408,6 +414,11 @@ interface ChatMessage {
   readonly status: "streaming" | "done" | "error";
   /** On answers the visitor may rate: `key` is where `ChatState.ratings` keeps their rating. */
   readonly feedback?: FeedbackHandle | undefined;
+  /**
+   * Options the visitor can click instead of typing (ADR-0015); plain text. Shown only while this
+   * is the latest message; a click sends the option as the visitor's own message.
+   */
+  readonly replies?: readonly string[] | undefined;
 }
 type Rating = "up" | "down";
 /** A file picked for the next message. */
@@ -461,7 +472,7 @@ type ChatEvent = {
   readonly bot: string;
   readonly length: number;
   readonly attachments: number;
-  readonly source: "typed" | "starter";
+  readonly source: "typed" | "starter" | "reply";
 } | {
   readonly type: "message.received";
   readonly bot: string;
@@ -508,6 +519,7 @@ declare const EN: {
   readonly "status.tool": "Using {name}…";
   readonly "status.typing": "The assistant is typing";
   readonly "message.sources": "Sources";
+  readonly "message.replies": "Suggested replies";
   readonly "feedback.label": "Rate this answer";
   readonly "feedback.up": "Helpful";
   readonly "feedback.down": "Not helpful";
@@ -578,7 +590,10 @@ type TextKey = keyof typeof EN | `${(typeof PLURAL_BASES)[number]}.${(typeof PLU
 type Translate = (key: TextKey, params?: Readonly<Record<string, string | number>>) => string;
 /** What visitors can do in the chat; the same for every UI on top of the store. */
 interface ChatActions {
-  /** Sends the draft with the files that are ready, or `text` (a starter) on its own. */
+  /**
+   * Sends the draft with the files that are ready, or `text` (a starter, or one of the latest
+   * answer's `replies`) on its own.
+   */
   send(text?: string): Promise<void>;
   setDraft(text: string): void;
   /** Uploads files for the next message, as many as the bot allows. */
@@ -747,6 +762,15 @@ interface PanelProps extends ComponentProps<"section"> {
  * on it are attached (`data-dragging` while they are over it).
  */
 export declare function Panel({ landmark, onDragOver, onDragLeave, onDrop, ...props }: PanelProps): ReactElement;
+type QuickRepliesProps = ComponentProps<"div">;
+/**
+ * The options the latest answer offers (ADR-0015): a group (`replies`) of buttons (`reply`), each
+ * showing its option as plain text, never Markdown. A click sends the option as the visitor's own
+ * message, exactly as if they had typed it. Inside `MessageList` it renders under the latest
+ * answer only; anywhere else, such as above the message field, it shows the latest answer's
+ * options. Either way the options go away as soon as the visitor sends anything.
+ */
+export declare function QuickReplies(props: QuickRepliesProps): ReactElement | null;
 interface RootProps {
   /** From `getChatConfig()` in a Server Component. */
   readonly config: ChatConfig;
@@ -773,7 +797,7 @@ interface RootProps {
  * take what `askdare('identify')` and `askdare('configure')` take, checked the same way.
  */
 export declare function Root({ config, identity, context, greeting, starters, onEvent, children }: RootProps): ReactElement;
-export type { AttachButtonProps, Chat, ChatActions, ChatAttachments, ChatBot, ChatConfig, ChatEvent, ChatEventListener, ChatEventType, ChatMessage, ChatPhase, ChatState, ChatStyles, ChatWidget, Citation, CitationsProps, ComposerProps, DefaultChatComponents, DefaultChatProps, DictateButtonProps, Dictation, ErrorMessageProps, FeedbackButtonProps, FilesProps, InputProps, MarkdownProps, MessageFilesProps, MessageListProps, MessageProps, MessageTextProps, MessagesProps, PanelProps, PendingFile, Rating, RecorderProps, RootProps, SendProps, SentFile, StatusProps, ThemeProps, Translate };
+export type { AttachButtonProps, Chat, ChatActions, ChatAttachments, ChatBot, ChatConfig, ChatEvent, ChatEventListener, ChatEventType, ChatMessage, ChatPhase, ChatState, ChatStyles, ChatWidget, Citation, CitationsProps, ComposerProps, DefaultChatComponents, DefaultChatProps, DictateButtonProps, Dictation, ErrorMessageProps, FeedbackButtonProps, FilesProps, InputProps, MarkdownProps, MessageFilesProps, MessageListProps, MessageProps, MessageTextProps, MessagesProps, PanelProps, PendingFile, QuickRepliesProps, Rating, RecorderProps, RootProps, SendProps, SentFile, StatusProps, ThemeProps, Translate };
 
 // ==== store.d.ts ====
 import { z } from "zod";
@@ -802,6 +826,7 @@ declare const EN: {
   readonly "status.tool": "Using {name}…";
   readonly "status.typing": "The assistant is typing";
   readonly "message.sources": "Sources";
+  readonly "message.replies": "Suggested replies";
   readonly "feedback.label": "Rate this answer";
   readonly "feedback.up": "Helpful";
   readonly "feedback.down": "Not helpful";
@@ -920,6 +945,8 @@ interface ThemeVariants {
   readonly surface: "solid" | "glass";
   readonly density: "comfortable" | "compact";
   readonly composer: "outline" | "gradient";
+  /** Where the latest answer's options show: under it, or in one row above the message field. */
+  readonly replies: "answer" | "composer";
 }
 type ColorScheme = "auto" | "light" | "dark";
 /** A theme built on a preset. Create it with {@link defineTheme} to share it between bots. */
@@ -957,7 +984,14 @@ interface ToolContext {
   /** Aborted when the visitor leaves, the turn deadline passes or the tool times out. */
   readonly signal: AbortSignal;
 }
-interface ToolDefinition<Input extends z.ZodObject> {
+/**
+ * A value as `JSON.parse(JSON.stringify(value))` returns it: `toJSON()` applied (a `Date` becomes
+ * a string), functions, symbols and `undefined` fields gone.
+ */
+type Jsonified<T> = T extends {
+  toJSON(): infer R;
+} ? Jsonified<R> : T extends bigint | symbol | ((...args: never[]) => unknown) | undefined ? never : T extends readonly (infer Item)[] ? Jsonified<Item>[] : T extends object ? { [Key in keyof T as Jsonified<T[Key]> extends never ? never : Key]: Jsonified<T[Key]>; } : T;
+interface ToolDefinition<Input extends z.ZodObject, Output = unknown> {
   /** Name the model calls, 1–64 letters, digits, `_` or `-`. */
   readonly name: string;
   /** Tells the model when and how to use the tool. */
@@ -968,9 +1002,18 @@ interface ToolDefinition<Input extends z.ZodObject> {
    */
   readonly input: Input;
   /** Runs on the server with validated arguments. The result is sent back to the model as JSON. */
-  readonly execute: (input: z.infer<Input>, context: ToolContext) => unknown;
+  readonly execute: (input: z.infer<Input>, context: ToolContext) => Output | PromiseLike<Output>;
   /** Default 10 s. */
   readonly timeoutMs?: number;
+  /**
+   * Options the visitor can click under the answer, derived from a successful result (ADR-0015).
+   * It gets the result as the model received it, parsed back from JSON (a `Date` is a string), so
+   * the options come back the same after a reload. A call that failed defines none. At most 4 of
+   * up to 80 characters are shown, plain text without links; the others are dropped. The visitor
+   * sends a clicked option as their own message. Only the latest answer shows options; when
+   * several calls of a turn define them, the last one wins.
+   */
+  readonly replies?: (output: Jsonified<Output>) => readonly string[] | undefined;
 }
 interface Tool {
   readonly name: string;
@@ -978,12 +1021,13 @@ interface Tool {
   readonly input: z.ZodObject;
   readonly execute: (input: unknown, context: ToolContext) => unknown;
   readonly timeoutMs: number;
+  readonly replies?: ((output: unknown) => readonly string[] | undefined) | undefined;
 }
 /**
  * Declares a server-side function the model may call. Arguments are validated with the schema
  * before `execute` runs; failures are reported to the model, never to the visitor.
  */
-declare function defineTool<Input extends z.ZodObject>(definition: ToolDefinition<Input>): Tool;
+declare function defineTool<Input extends z.ZodObject, Output = unknown>(definition: ToolDefinition<Input, Output>): Tool;
 /** Per-request context available when building instructions. */
 interface BotContext {
   /** Validated BCP 47 tag chosen by the widget. */
@@ -1099,6 +1143,12 @@ interface WidgetConfig {
    * `createChatHandler` has `onFeedback`; `false` hides them for this bot. Default `true`.
    */
   readonly feedback?: boolean;
+  /**
+   * `suggest`: the model may offer 2–4 replies under an answer, which visitors click instead of
+   * typing. It adds a built-in tool, `suggest_replies`, so every model call costs a little more
+   * input, and a turn sometimes takes one more call (docs/costs.md). Default `off`.
+   */
+  readonly replies?: "suggest" | "off";
   /** The assistant's picture: a path on your app such as `/avatar.png`, or a small data: image. */
   readonly avatar?: string;
   /** Text on the pill launcher; shortcut for `texts['launcher.label']`. */
@@ -1120,6 +1170,8 @@ interface BotWidget {
   readonly starters: readonly string[];
   /** Whether this bot lets visitors rate answers, when the handler has `onFeedback`. */
   readonly feedback: boolean;
+  /** Whether the model suggests reply options. Only the server reads it. */
+  readonly replies: "suggest" | "off";
   readonly avatar: string | undefined;
   readonly launcherLabel: string;
   /** Text overrides, including the title, greeting, placeholder and launcher label shortcuts. */

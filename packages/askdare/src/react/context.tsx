@@ -122,6 +122,11 @@ export function MessageProvider({
   return <MessageContext.Provider value={message}>{children}</MessageContext.Provider>;
 }
 
+/** The message being rendered, or null outside `MessageList`. */
+export function useOptionalMessage(): ChatMessage | null {
+  return useContext(MessageContext);
+}
+
 /** The message being rendered, inside `MessageList`. */
 export function useMessage(): ChatMessage {
   const message = useContext(MessageContext);

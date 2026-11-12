@@ -31,7 +31,7 @@ export const NAV: readonly { readonly title: string; readonly pages: readonly st
   },
   {
     title: 'Features',
-    pages: ['knowledge-base', 'tools', 'attachments', 'voice-input', 'identity'],
+    pages: ['knowledge-base', 'tools', 'reply-options', 'attachments', 'voice-input', 'identity'],
   },
   { title: 'Look and feel', pages: ['styling', 'themes', 'texts', 'react'] },
   {

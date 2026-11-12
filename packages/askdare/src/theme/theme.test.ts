@@ -19,7 +19,7 @@ describe('resolveTheme', () => {
         accent: '#f5c518',
         tokens: { radius: '8px' },
         dark: { background: '#000000' },
-        variants: { launcher: 'circle' },
+        variants: { launcher: 'circle', replies: 'composer' },
       }),
       'auto',
     );
@@ -30,7 +30,11 @@ describe('resolveTheme', () => {
       radius: '8px',
     });
     expect(theme.dark).toMatchObject({ accent: '#f5c518', background: '#000000', radius: '8px' });
-    expect(theme.variants).toMatchObject({ welcome: 'persona', launcher: 'circle' });
+    expect(theme.variants).toMatchObject({
+      welcome: 'persona',
+      launcher: 'circle',
+      replies: 'composer',
+    });
   });
 
   it('warns about pairs a customized theme makes hard to read', () => {

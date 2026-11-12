@@ -1,7 +1,9 @@
-import { DEMO_BOTS } from '@/askdare.config';
+import { getChatConfig } from '@boldare/askdare/next';
+import { bots, DEMO_BOTS } from '@/askdare.config';
 import { HeroShape } from './_shape/hero-shape';
 import { ChatScript } from './chat-script';
 import { VERCEL_DEPLOY_URL } from './deploy/clone-url';
+import { EventsDemo } from './events-demo';
 import { ProjectLinks } from './project-links';
 import { ShapeIcon } from './shape-icon';
 import { SiteFooter, SiteHeader, VercelIcon } from './site-chrome';
@@ -106,6 +108,20 @@ const STEPS = [
   },
 ] as const;
 
+/** Questions with a few clear next steps, which is when the model offers options. */
+const REPLY_STARTERS = [
+  'Help me choose a plan',
+  'Which plan fits a team of 12?',
+  'Can I try Brightloop for free?',
+];
+
+/** The options come with the end of the answer, not before: say so, or the demo looks broken. */
+const REPLY_STEPS = [
+  'Pick a question in the chat',
+  'Options appear a moment after the answer ends',
+  'Click one and watch the events',
+];
+
 const pick = <T extends string>(value: unknown, options: readonly { readonly id: T }[]): T =>
   options.find((option) => option.id === value)?.id ?? (options[0] as { id: T }).id;
 
@@ -120,6 +136,8 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
   const href = (change: { theme?: Theme; mode?: Mode }) =>
     `/?${new URLSearchParams({ theme, mode, ...change })}`;
   const inline = mode === 'inline';
+  // The support bot is the one that lets the model suggest replies (askdare.config.ts).
+  const replies = getChatConfig({ bots, bot: 'support', locale: 'en' });
 
   return (
     <div className="demo" data-theme={theme} data-mode={mode}>
@@ -268,6 +286,41 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
               </a>
             </div>
           </div>
+        </section>
+
+        <section id="replies" className="section replies" aria-labelledby="replies-title">
+          <div className="replies-intro">
+            <h2 id="replies-title">
+              <span>Answers your visitors</span> <strong>click instead of typing</strong>
+            </h2>
+            <p className="section-docs">
+              The assistant offers a few next steps under its answer. A click sends one as the
+              visitor's message, and your page hears it as <code>message.sent</code> with{' '}
+              <code>source: 'reply'</code>, never the text. More about{' '}
+              <a href="/docs/configuration#widget">reply options</a> and{' '}
+              <a href="/docs/events">chat events</a> in the docs.
+            </p>
+            <code className="replies-config">
+              <span className="replies-config-label">askdare.config.ts</span>
+              {"widget: { replies: 'suggest' }"}
+            </code>
+          </div>
+          <ol className="replies-steps" aria-label="Try it">
+            {REPLY_STEPS.map((step, index) => (
+              <li key={step}>
+                <span className="step">{index + 1}</span>
+                {step}
+              </li>
+            ))}
+          </ol>
+          <EventsDemo
+            config={replies}
+            className="replies-demo"
+            chatClassName="replies-chat"
+            greeting="Pick a question, then **click a reply** under my answer"
+            starters={REPLY_STARTERS}
+            lazy
+          />
         </section>
 
         <section id="themes" className="section" aria-labelledby="themes-title">

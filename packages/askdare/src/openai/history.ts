@@ -1,8 +1,11 @@
 import type OpenAI from 'openai';
 import type { ConversationItem } from 'openai/resources/conversations/items';
+import type { RepliesReader, StoredCall } from '../gateway';
 import type { HistoryCitation, HistoryMessage } from '../protocol/history';
+import { normalizeReplies } from '../protocol/replies';
 import { addSources, citationSource, type KnowledgeSources } from './citations';
 import { PAGE_CONTEXT_MARKER } from './page-context';
+import { isFailedOutput } from './tools';
 
 /** Most recent items fetched per history request; older ones are not shown. */
 const ITEM_LIMIT = 100;
@@ -64,6 +67,27 @@ export function toHistoryMessage(
 }
 
 /**
+ * The function calls of the latest turn, oldest first, with their outputs: what came after the
+ * visitor's last message. Older turns aren't read (ADR-0015). A call that failed while running has
+ * no output, as in the live turn, where only successful calls define options.
+ */
+function latestTurnCalls(newestFirst: readonly ConversationItem[]): StoredCall[] {
+  const outputs = new Map<string, string>();
+  const calls: { name: string; arguments: string; callId: string }[] = [];
+  for (const item of newestFirst) {
+    if (item.type === 'message' && item.role === 'user') break;
+    if (item.type === 'function_call_output' && item.call_id && typeof item.output === 'string') {
+      if (!isFailedOutput(item.output)) outputs.set(item.call_id, item.output);
+    } else if (item.type === 'function_call') {
+      calls.push({ name: item.name, arguments: item.arguments, callId: item.call_id });
+    }
+  }
+  return calls
+    .toReversed()
+    .map(({ callId, ...call }) => ({ ...call, output: outputs.get(callId) }));
+}
+
+/**
  * Reads the visible part of a conversation, oldest first. Spike S1 measured about 2 s per call,
  * so clients load it once when the widget opens, not on every turn.
  */
@@ -71,6 +95,7 @@ export async function listHistory(
   client: OpenAI,
   conversationId: string,
   signal?: AbortSignal,
+  replies?: RepliesReader,
 ): Promise<HistoryMessage[]> {
   const page = await client.conversations.items.list(
     conversationId,
@@ -83,5 +108,19 @@ export async function listHistory(
   for (const item of page.data.toReversed()) {
     if (item.type === 'file_search_call') addSources(item, sources);
   }
-  return page.data.flatMap((item) => toHistoryMessage(item, sources) ?? []).reverse();
+  const messages = page.data.flatMap((item) => toHistoryMessage(item, sources) ?? []);
+  // Only the latest answer offers options, and only while the visitor hasn't replied yet.
+  const [latest] = messages;
+  if (replies && latest?.role === 'assistant') {
+    let items: readonly string[] | undefined;
+    try {
+      items = replies(latestTurnCalls(page.data));
+    } catch {
+      // A source that can't read its call loses the options, never the conversation.
+      items = undefined;
+    }
+    const offered = items && normalizeReplies(items);
+    if (offered) messages[0] = { ...latest, replies: offered };
+  }
+  return messages.reverse();
 }

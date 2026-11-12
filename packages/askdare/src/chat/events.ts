@@ -14,18 +14,20 @@ export type ChatEvent =
   | { readonly type: 'ready'; readonly bot: string }
   /**
    * The visitor sent a message. `length` counts its characters (code points); `source` says
-   * whether it was typed (or dictated) into the field or picked from the suggested questions.
+   * whether it was typed (or dictated) into the field, picked from the suggested questions before
+   * the conversation, or picked from the options under the latest answer.
    */
   | {
       readonly type: 'message.sent';
       readonly bot: string;
       readonly length: number;
       readonly attachments: number;
-      readonly source: 'typed' | 'starter';
+      readonly source: 'typed' | 'starter' | 'reply';
     }
   /**
    * The answer ended: in full, with an error, or stopped because the chat was taken down
-   * mid-answer (a React `Root` unmounting). Closing the widget's panel doesn't stop an answer.
+   * mid-answer (a React `Root` unmounting, or the widget reloading in another language). Closing
+   * the widget's panel doesn't stop an answer.
    */
   | {
       readonly type: 'message.received';
