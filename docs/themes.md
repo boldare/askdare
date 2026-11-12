@@ -79,7 +79,7 @@ CSS values (`backdrop`, `orb`) may not contain `url()`, braces, semicolons or ba
 | `surface` | `solid`, `glass` |
 | `density` | `comfortable`, `compact` |
 | `composer` | `outline`, `gradient` |
-| `replies` | `answer` (default): the latest answer's [reply options](protocol.md#reply-options) under it; `composer`: in one row above the message field that scrolls sideways |
+| `replies` | `answer` (default): the latest answer's [reply options](reply-options.md) under it; `composer`: in one row above the message field that scrolls sideways |
 
 Variants are set as attributes on the iframe document (`data-ask-welcome="persona"` and so on), so your own CSS can target them too.
 

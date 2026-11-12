@@ -80,7 +80,7 @@ When the app sets `onFeedback` and the bot allows it, every answer comes with a 
 
 ## Reply options
 
-An answer can offer a few options the visitor clicks instead of typing ("Yes, book it", "Show prices"). With `widget.replies: 'suggest'`, the model suggests them through the built-in tool `suggest_replies`, and the server answers that call itself. They come in a `replies` event, `{ "messageId", "items": ["…"] }`, sent at most once per answer, before its `message.end`. After a reload, `POST /history` returns them as `replies` on the latest answer, as long as the visitor hasn't written since ([ADR-0015](adr/0015-reply-options.md)).
+An answer can offer a few options the visitor clicks instead of typing ("Yes, book it", "Show prices"). With `widget.replies: 'suggest'`, the model suggests them through the built-in tool `suggest_replies`, and the server answers that call itself. They come in a `replies` event, `{ "messageId", "items": ["…"] }`, sent at most once per answer, before its `message.end`. After a reload, `POST /history` returns them as `replies` on the latest answer, as long as the visitor hasn't written since ([ADR-0015](adr/0015-reply-options.md)). How to use them in a bot: [Reply options](reply-options.md).
 
 - **Limits.** One to four items, each trimmed, on one line, 1 to 80 characters (UTF-16 code units), all different, and without links: no scheme such as `https://` or `mailto:`, no `www.`, no IP address and no domain name such as `example.com`. The server drops items that break these rules and sends no event when none is left; clients refuse an event that breaks them.
 - **Plain text.** Show each item as text, never as Markdown or HTML.

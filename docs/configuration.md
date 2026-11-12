@@ -208,7 +208,7 @@ Everything in `widget` is sent to browsers. Never put secrets in it. [Styling](s
 | `disclosure` | `false \| { privacyUrl?: string }` | shown, no link | The note that visitors talk to an AI. `privacyUrl` is an `https://` URL or a path on your app, such as `/privacy`. `false` hides the note. |
 | `starters` | `string[]` | `[]` | Suggested questions on the welcome screen. Up to 4, 1–80 characters each. |
 | `feedback` | `boolean` | `true` | 👍/👎 under each answer, with an optional comment after 👎. They show only when `createChatHandler` has [`onFeedback`](#onfeedback); `false` hides them for this bot. |
-| `replies` | `'suggest' \| 'off'` | `'off'` | `'suggest'` lets the model offer 2–4 replies under an answer, which visitors click instead of typing ([Reply options](protocol.md#reply-options)). It adds the built-in tool `suggest_replies`, so it costs tokens ([Costs](costs.md#reply-options)). Only the server reads it. |
+| `replies` | `'suggest' \| 'off'` | `'off'` | `'suggest'` lets the model offer 2–4 replies under an answer, which visitors click instead of typing ([Reply options](reply-options.md)). It adds the built-in tool `suggest_replies`, so it costs tokens ([Costs](costs.md#reply-options)). Only the server reads it. |
 | `avatar` | `string` | none | A path on your app, such as `/avatar.png`, or a PNG, JPEG, WebP or GIF `data:` URL of up to 90,000 base64 characters. |
 | `theme` | `PresetName \| ThemeDefinition` | `'aura'` | `'halo'`, `'aura'`, `'sage'`, `'care'`, or a theme from `defineTheme`. |
 | `colorScheme` | `'auto' \| 'light' \| 'dark'` | `'auto'` | `'auto'` follows the visitor's system setting. |
