@@ -87,18 +87,40 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
+/** The languages the chat was switched to: asked over its port, or reloaded from the page. */
+const switches = (): (string | null)[] => [
+  ...handshakes
+    .flat()
+    .filter((message) => (message as { type: string }).type === 'locale')
+    .map((message) => (message as { locale: string }).locale),
+  ...reloads.map((url) => new URL(url).searchParams.get('lang')),
+];
+
 describe('askdare("configure", { locale }) (ADR-0014)', () => {
-  it('switches the launcher and reloads the chat in the new language', () => {
+  it('switches the launcher and asks the chat to reload in the new language', () => {
     const api = load();
     expect(launcher().getAttribute('aria-label')).toBe('Ask us, Open chat');
     openChat(api);
     expect(frame.src).toBe(`${APP}/api/chat/embed/support?lang=en`);
 
     api('configure', { locale: 'pl-pl' });
-    expect(reloads).toEqual([`${APP}/api/chat/embed/support?lang=pl-PL`]);
+    expect(handshakes.at(-1)?.at(-1)).toEqual({ v: 1, type: 'locale', locale: 'pl-PL' });
+    expect(reloads).toEqual([]);
     expect(launcher().getAttribute('aria-label')).toBe('Zamknij czat');
     api('close');
     expect(launcher().getAttribute('aria-label')).toMatch(/, Otwórz czat$/);
+  });
+
+  it('reloads a chat that hasn’t connected yet from the page', () => {
+    const api = load();
+    api('open');
+    api('configure', { locale: 'pl' });
+    expect(reloads).toEqual([`${APP}/api/chat/embed/support?lang=pl`]);
+    // A switch before the reloaded chat connects, too.
+    frame.dispatchEvent(new Event('load'));
+    api('configure', { locale: 'de' });
+    api('configure', { locale: 'en' });
+    expect(switches()).toEqual(['de', 'pl', 'en']);
   });
 
   it('opens a chat that isn’t loaded yet in the new language, without a reload', () => {
@@ -121,7 +143,10 @@ describe('askdare("configure", { locale }) (ADR-0014)', () => {
       { v: 1, type: 'configure', greeting: 'Hello from pricing' },
     ]);
     // The locale is the loader's: it never reaches the chat as a page option.
-    expect(JSON.stringify(handshakes)).not.toContain('locale');
+    const configures = handshakes
+      .flat()
+      .filter((message) => JSON.stringify(message).includes('configure'));
+    expect(JSON.stringify(configures)).not.toContain('locale');
   });
 
   it('shows the launcher on phones again until the reloaded chat is up', () => {
@@ -140,7 +165,7 @@ describe('askdare("configure", { locale }) (ADR-0014)', () => {
     const api = load();
     openChat(api);
     api('configure', { locale: 'EN' });
-    expect(reloads).toEqual([]);
+    expect(switches()).toEqual([]);
   });
 
   it('ignores a value that isn’t a language tag, with a warning', () => {
@@ -149,7 +174,7 @@ describe('askdare("configure", { locale }) (ADR-0014)', () => {
     openChat(api);
     api('configure', { locale: 'not a language!' });
     api('configure', { locale: 42 });
-    expect(reloads).toEqual([]);
+    expect(switches()).toEqual([]);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("isn't a language tag"));
   });
 
@@ -159,7 +184,7 @@ describe('askdare("configure", { locale }) (ADR-0014)', () => {
     openChat(api);
     api('configure', { locale: 'pl' });
     api('configure', { locale: 'de' });
-    expect(reloads).toEqual([]);
+    expect(switches()).toEqual([]);
     expect(launcher().getAttribute('aria-label')).toBe('Close chat');
     expect(warn).toHaveBeenCalledOnce();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('"support" has a fixed locale'));
@@ -171,15 +196,16 @@ describe('data-follow-lang', () => {
     const api = load(auto, { 'data-follow-lang': '' });
     openChat(api);
     document.documentElement.lang = 'pl';
-    await vi.waitFor(() => expect(reloads).toEqual([`${APP}/api/chat/embed/support?lang=pl`]));
+    await vi.waitFor(() => expect(switches()).toEqual(['pl']));
     expect(launcher().getAttribute('aria-label')).toBe('Zamknij czat');
 
+    frame.dispatchEvent(new Event('load'));
     api('configure', { locale: 'en' });
+    expect(switches()).toEqual(['pl', 'en']);
     // The same lang again isn't a change: the page's explicit choice stays.
     document.documentElement.lang = 'pl';
     document.documentElement.lang = 'de';
-    await vi.waitFor(() => expect(reloads).toHaveLength(3));
-    expect(reloads.at(-1)).toBe(`${APP}/api/chat/embed/support?lang=de`);
+    await vi.waitFor(() => expect(switches()).toEqual(['pl', 'en', 'de']));
   });
 
   it('is off without the attribute', async () => {
@@ -187,6 +213,6 @@ describe('data-follow-lang', () => {
     openChat(api);
     document.documentElement.lang = 'pl';
     await new Promise((resolve) => setTimeout(resolve, 10));
-    expect(reloads).toEqual([]);
+    expect(switches()).toEqual([]);
   });
 });

@@ -32,8 +32,8 @@ Only bots with `locale: 'auto'` switch. A bot with a fixed locale ignores a swit
 - **React** keeps re-creating the store when `getChatConfig` is called with another locale, because `Root` keys it by locale. That already works; step 1 only documents it, together with the same `stopped` event.
 - **Details settled while building it:**
   - `locale` is applied on its own: a `configure` call with only `locale` keeps the greeting, starters and context of the previous call.
-  - The loader reloads the iframe with `location.replace()`, so a switch adds no entry to the page's history and Back still leaves the page.
-  - The chat reports the stopped answer from its `pagehide` handler (not when the page is kept in the back-forward cache), so the bridge needs no new message.
+  - A connected chat gets a `locale` message over the bridge: it stops the answer under way (so the `stopped` event goes out before Firefox and Safari cut the stream off as a failure), then reloads itself with the new `?lang=`. A chat that hasn't connected yet has nothing under way, and the loader reloads it. Both use `location.replace()`, so a switch adds no entry to the page's history. Step 2 handles the same message in place.
+  - Until the reloaded chat says it's ready, the launcher shows on phones again and the loader watches for a chat that doesn't come back, as on first load.
   - The same language again (after canonicalization) does nothing; a tag that isn't valid is dropped with a console warning. `data-follow-lang` acts only when the `lang` attribute's value changes.
   - A loader without the bot's look (`data-bot` without `?bot=`) can't tell a fixed locale: it reloads, and the server keeps the bot's locale.
 

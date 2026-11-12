@@ -41,6 +41,7 @@ function fakeBridge(identity: string | null) {
       listener(identity);
       return () => identify.delete(listener);
     },
+    onLocale: () => () => {},
   };
   return {
     bridge,

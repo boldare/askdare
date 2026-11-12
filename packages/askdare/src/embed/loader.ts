@@ -363,8 +363,13 @@ function boot(): void {
       ready = false;
       delete launcher.dataset['ready'];
       setTimeout(unavailable, 8000);
-      // replace(), not a new src: a reload mustn't add an entry to the page's history.
-      iframe.contentWindow?.location.replace(embedUrl());
+      // A connected chat stops the answer under way, so the page hears how it ended, and reloads
+      // itself. Not connected yet, nothing is under way: reload it from here, with replace(), so
+      // the page's history gets no entry.
+      if (port) port.postMessage({ v: 1, type: 'locale', locale: tag });
+      else iframe.contentWindow?.location.replace(embedUrl());
+      // Until the reloaded chat connects: a switch meanwhile reloads it from here.
+      port = undefined;
     };
     const turnIcon = (open: boolean): void => {
       launcher.dataset['turned'] = '';
@@ -373,7 +378,7 @@ function boot(): void {
 
     const connect = (frame: HTMLIFrameElement): void => {
       // The previous port stays open: the chat's last words before a reload (an answer stopped
-      // on pagehide) may still be queued on it, and its page is gone, so nothing more comes.
+      // for a language switch) may still be queued on it, and its page is gone.
       const channel = new MessageChannel();
       port = channel.port1;
       port.onmessage = (event: MessageEvent<{ v?: number; type?: string; event?: unknown }>) => {

@@ -24,9 +24,15 @@ if (root) {
   const bridge = connectToHost(config.allowedOrigins);
   // Started before the first render, so a stored conversation shows as loading from the start.
   const unbind = bindBridge(store, bridge);
-  // The loader reloads the chat to switch its language (ADR-0014): an answer under way ends
-  // there, and the page hears it as stopped. Not when the page is only kept for going back.
-  addEventListener('pagehide', (event) => event.persisted || unbind());
+  // The page switched the chat's language (ADR-0014, step 1). The answer under way ends here, so
+  // the page hears it as stopped before the reload cuts it off, and the chat reloads in that
+  // language; it restores the conversation, and the loader connects again.
+  bridge.onLocale((locale) => {
+    unbind();
+    const url = new URL(location.href);
+    url.searchParams.set('lang', locale);
+    location.replace(url);
+  });
   createRoot(root).render(
     <App
       store={store}
