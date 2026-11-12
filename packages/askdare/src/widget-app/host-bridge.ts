@@ -1,5 +1,5 @@
 import type { ChatEvent } from '../chat/events';
-import { identityToken, type PageOptions, pageOptions } from '../chat/page-options';
+import { identityToken, type PageOptions, pageLocale, pageOptions } from '../chat/page-options';
 
 /** Messages exchanged with the loader over a dedicated MessagePort. Versioned; unknown ones are ignored. */
 export type HostMessage =
@@ -9,6 +9,8 @@ export type HostMessage =
   | { readonly v: 1; readonly type: 'ready' }
   | { readonly v: 1; readonly type: 'close' }
   | { readonly v: 1; readonly type: 'hidden' }
+  /** The page switched the chat's language: a BCP 47 tag (ADR-0014). */
+  | { readonly v: 1; readonly type: 'locale'; readonly locale: string }
   /** A chat event for the page's askdare('on') listeners (ADR-0013). */
   | { readonly v: 1; readonly type: 'event'; readonly event: ChatEvent }
   | ({ readonly v: 1; readonly type: 'configure' } & PageOptions);
@@ -34,6 +36,8 @@ export interface HostBridge {
   readonly handshake: Promise<void>;
   /** Called with each askdare('identify') (a token, or null to sign out); replays the latest. */
   onIdentify(listener: (token: string | null) => void): () => void;
+  /** Called with each language the page switches the chat to; returns an unsubscribe function. */
+  onLocale(listener: (locale: string) => void): () => void;
 }
 
 /**
@@ -47,6 +51,7 @@ export function connectToHost(allowedOrigins: readonly string[]): HostBridge {
   const configureListeners = new Set<(options: PageOptions) => void>();
   let latest: PageOptions | undefined;
   const identifyListeners = new Set<(token: string | null) => void>();
+  const localeListeners = new Set<(locale: string) => void>();
   let identity: string | null | undefined;
   const setIdentity = (token: string | null | undefined): void => {
     if (token === undefined) return;
@@ -75,6 +80,9 @@ export function connectToHost(allowedOrigins: readonly string[]): HostBridge {
         for (const listener of configureListeners) listener(latest);
       } else if (portEvent.data['type'] === 'identify') {
         setIdentity(identityToken(portEvent.data['token']));
+      } else if (portEvent.data['type'] === 'locale') {
+        const locale = pageLocale(portEvent.data['locale']);
+        if (locale) for (const listener of localeListeners) listener(locale);
       }
     };
     port.start();
@@ -107,6 +115,10 @@ export function connectToHost(allowedOrigins: readonly string[]): HostBridge {
       identifyListeners.add(listener);
       if (identity !== undefined) listener(identity);
       return () => identifyListeners.delete(listener);
+    },
+    onLocale(listener) {
+      localeListeners.add(listener);
+      return () => localeListeners.delete(listener);
     },
   };
 }

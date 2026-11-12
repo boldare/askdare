@@ -121,6 +121,62 @@ test('a bot set to auto speaks the language of the page', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Zamknij czat' })).toBeVisible();
 });
 
+test('the chat follows the page into another language and keeps the conversation', async ({
+  page,
+  request,
+}) => {
+  await page.goto(`${HOST}?variant=follow-lang`);
+  await page.getByRole('button', { name: 'Open chat' }).click();
+  const chat = page.frameLocator('iframe[title="Chat"]');
+  const answers = chat.locator('[data-ask-part="message"][data-role="assistant"]');
+  await chat.getByRole('textbox').fill('Before the switch');
+  await chat.getByRole('textbox').press('Enter');
+  await expect(answers.last()).toContainText('You said: Before the switch');
+  const entries = await page.evaluate(() => history.length);
+
+  // The page switches its language in place, as a single-page app's language menu does.
+  await page.evaluate(() => {
+    document.documentElement.lang = 'pl';
+  });
+  await expect(page.getByRole('button', { name: 'Zamknij czat' })).toBeVisible();
+  await expect(chat.getByRole('textbox')).toHaveAttribute('placeholder', 'Napisz wiadomość…');
+  await expect(answers.first()).toContainText('You said: Before the switch');
+  // The reload replaces the chat's page: the visitor's Back button still leaves the page.
+  expect(await page.evaluate(() => history.length)).toBe(entries);
+
+  await chat.getByRole('textbox').fill('Po zmianie języka');
+  await chat.getByRole('textbox').press('Enter');
+  await expect(answers.last()).toContainText('You said: Po zmianie języka');
+  const all = (await (await request.get(`${MOCK_OPENAI}/debug/requests`)).json()) as {
+    instructions: string;
+    input: string;
+  }[];
+  const before = all.find((sent) => sent.input.includes('Before the switch'));
+  const after = all.find((sent) => sent.input.includes('Po zmianie języka'));
+  expect(before?.instructions).toContain('default to en');
+  expect(after?.instructions).toContain('default to pl');
+});
+
+test('a switch mid-answer tells the page the answer stopped', async ({ page }) => {
+  await page.goto(`${HOST}?variant=follow-lang`);
+  await page.getByRole('button', { name: 'Open chat' }).click();
+  const chat = page.frameLocator('iframe[title="Chat"]');
+  await chat.getByRole('textbox').fill('[slow] cut off by a switch');
+  await chat.getByRole('textbox').press('Enter');
+  await expect(
+    chat.locator('[data-ask-part="message"][data-role="assistant"]').last(),
+  ).toContainText('You said:');
+  await page.evaluate(() =>
+    (window as unknown as { askdare: (...call: unknown[]) => void }).askdare('configure', {
+      locale: 'pl',
+    }),
+  );
+  await expect(chat.getByRole('textbox')).toHaveAttribute('placeholder', 'Napisz wiadomość…');
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { events: unknown[] }).events))
+    .toContainEqual(expect.objectContaining({ type: 'message.received', outcome: 'stopped' }));
+});
+
 test('calls made before the script loads are queued and run', async ({ page }) => {
   await page.goto(`${HOST}?variant=queued`);
   await page.locator('[part="launcher"]').click();

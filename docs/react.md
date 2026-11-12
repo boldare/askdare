@@ -283,4 +283,5 @@ The copy imports only `@boldare/askdare/react`, so `Root`, the hooks and the pri
 - **Server rendering.** The chat renders on the server in its starting state, with the greeting and suggestions, and connects after hydration. A stored conversation appears then.
 - **Several chats on a page** work, each in its own `Root`, also for different bots with different themes.
 - **One conversation per bot and browser**, shared by every page that shows that bot, and by the widget on the same origin.
+- **Switching the language.** Call `getChatConfig` with the new `locale` and pass the result to `Root`: it starts the chat again in that language, and the conversation stays. The texts, starters and greeting change with it. An answer still streaming disappears from view, `onEvent` gets `message.received` with `outcome: 'stopped'`, and the server still finishes and stores it. Only a bot with `locale: 'auto'` switches; see [Texts](texts.md#switching-the-language-on-the-page).
 - **Sizes** (gzipped, in your bundle): about 28 KB for everything, about 8 KB when you use only `Root` and the hooks. The Markdown renderer is loaded only if you render `MessageText` or `Markdown`.
