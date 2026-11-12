@@ -61,6 +61,8 @@ export const orderStatus = defineTool({
 - askdare keeps at most 4 options of up to 80 characters, one line of plain text each, and drops the rest: empty, repeated or too long ones, and any that contain a link or something that looks like one (`example.com`). Return `undefined` or `[]` to offer none. If `replies` throws, the answer comes without options and the error is logged.
 - Only the latest answer shows options, and they disappear once the visitor sends anything. When several calls in one answer define options, the last call's win.
 
+[Reply options](reply-options.md) has more flows, options in several languages, and when to let the model suggest options instead.
+
 ## Rules
 
 - **Every field is required.** OpenAI's strict mode demands it: use `.nullable()` instead of `.optional()`. `defineTool` fails at startup otherwise.

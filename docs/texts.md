@@ -54,7 +54,92 @@ A site that switches its language without a page load, such as a single-page app
 
 The launcher's texts change at once, and the chat reloads in the new language. The visitor keeps their conversation: earlier answers stay in the language they were written in, and new answers and the interface follow the switch. Your `instructions` function gets the new tag as `context.locale` from the next message on. The reload loads the conversation again, which takes about as long as opening the chat. An answer still streaming disappears from view, and the page hears `message.received` with `outcome: 'stopped'` ([Chat events](events.md)); the server still finishes and stores it.
 
-Only a bot with `locale: 'auto'` switches. A bot with a fixed locale keeps its language, and the console says once that it ignored the change. The value is a BCP 47 tag; anything else is ignored with a console warning. In React, pass the new language to `getChatConfig`; see [React](react.md#good-to-know).
+Only a bot with `locale: 'auto'` switches. A bot with a fixed locale keeps its language, and the console says once that it ignored the change. The value is a BCP 47 tag; anything else is ignored with a console warning.
+
+**Follow the page's language.** If your i18n library sets `<html lang>` when the visitor switches, add `data-follow-lang` and you're done:
+
+```html
+<script src="https://app.example.com/api/chat/widget.js?bot=support" data-follow-lang async></script>
+```
+
+```js
+// Your language menu, or your i18n library, changes the attribute:
+document.documentElement.lang = 'pl';
+// The launcher turns Polish at once, and the chat reloads in Polish.
+```
+
+Setting the same language again does nothing.
+
+**Switch from your own code.** Without `data-follow-lang`, or when the page's `lang` doesn't say what the chat should speak, call `configure` from your language menu:
+
+```html
+<select id="language" aria-label="Language">
+  <option value="en">English</option>
+  <option value="pl">Polski</option>
+</select>
+
+<script>
+  window.askdare = window.askdare || function () {
+    (window.askdare.q = window.askdare.q || []).push(arguments);
+  };
+  document.getElementById('language').addEventListener('change', function (event) {
+    askdare('configure', { locale: event.target.value });
+  });
+</script>
+```
+
+A call with only `locale` keeps the greeting, starters and page context of earlier `configure` calls. Next to `data-follow-lang`, your call wins until the page's `lang` changes again.
+
+**In React.** `Root` starts the chat again when the `locale` of its config changes, and the conversation stays ([React](react.md#good-to-know)). Read the language in a Server Component, for example from a `[lang]` segment:
+
+```tsx
+// app/[lang]/help/page.tsx
+import { getChatConfig } from '@boldare/askdare/next';
+import { DefaultChat, Root } from '@boldare/askdare/react';
+import { bots } from '@/askdare.config';
+
+export default async function HelpPage({ params }: { params: Promise<{ lang: string }> }) {
+  const { lang } = await params;
+  const config = getChatConfig({ bots, bot: 'support', locale: lang });
+  return (
+    <Root config={config}>
+      <DefaultChat className="help-chat" />
+    </Root>
+  );
+}
+```
+
+A link from `/en/help` to `/pl/help` renders the chat in Polish with the same conversation. If the page keeps the language in client state instead, read the config for each language you offer on the server, pass them down, and give `Root` the one that matches:
+
+```tsx
+'use client';
+import { useState } from 'react';
+import { type ChatConfig, DefaultChat, Root } from '@boldare/askdare/react';
+
+export function HelpChat({ configs }: { configs: Record<'en' | 'pl', ChatConfig> }) {
+  const [lang, setLang] = useState<'en' | 'pl'>('en');
+  return (
+    <>
+      <button type="button" onClick={() => setLang(lang === 'en' ? 'pl' : 'en')}>
+        {lang === 'en' ? 'Polski' : 'English'}
+      </button>
+      <Root config={configs[lang]}>
+        <DefaultChat className="help-chat" />
+      </Root>
+    </>
+  );
+}
+```
+
+```tsx
+// In the Server Component that renders it:
+<HelpChat
+  configs={{
+    en: getChatConfig({ bots, bot: 'support', locale: 'en' }),
+    pl: getChatConfig({ bots, bot: 'support', locale: 'pl' }),
+  }}
+/>
+```
 
 ## Plurals
 
