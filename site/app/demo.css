@@ -204,6 +204,7 @@ body {
 /* The name and its slogan, the slogan in the theme's button colors. */
 .demo .product {
   font-size: 1.12rem;
+  text-decoration: none;
 }
 
 .demo .product small {
@@ -1054,6 +1055,64 @@ body {
   color: #7dd8d0;
 }
 
+/* The one-click deploy: a band after How it works, and its button on /deploy too. */
+.demo .deploy-button {
+  gap: 10px;
+  padding: 16px 28px;
+  font-size: 1.05rem;
+}
+
+.vercel-icon {
+  width: 16px;
+  height: 14px;
+}
+
+.deploy-band {
+  padding-top: 0;
+}
+
+.deploy-band-inner {
+  position: relative;
+  /* Keeps the orb below behind the text but above the band's background. */
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px clamp(32px, 5vw, 72px);
+  overflow: hidden;
+  padding: clamp(24px, 4vw, 48px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+/* The theme's orb, blurred behind the text: the band's only decoration. */
+.deploy-band-inner::before {
+  content: "";
+  position: absolute;
+  top: -120px;
+  right: -80px;
+  z-index: -1;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  background: var(--orb);
+  filter: blur(60px);
+  opacity: 0.35;
+}
+
+.demo .deploy-band h2 {
+  margin: 0 0 12px;
+  font-size: clamp(1.5rem, 3vw, 2.3rem);
+}
+
+.deploy-band p {
+  max-width: 36em;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
 /* Themes: the four presets in a row, your own theme as a banner below. */
 .themes {
   display: grid;
@@ -1305,7 +1364,8 @@ body:has(.demo[data-theme="bldr"]) [data-askdare]::part(launcher) {
 
 @media (max-width: 900px) {
   .hero,
-  .features {
+  .features,
+  .deploy-band-inner {
     grid-template-columns: minmax(0, 1fr);
   }
 
