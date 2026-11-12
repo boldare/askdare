@@ -8,16 +8,7 @@ A change to what a release contains comes as a pull request to this file.
 
 ## 0.2.0: the chat inside your page
 
-0.2.0-rc is on npm. What's left before the stable release:
-
-| Epic | Goal | Status |
-|---|---|---|
-| Release gates | `e2e:browsers`, `test:visual` and `verify:packs` with eject in a fresh app | Not started |
-| Site demo | An inline React chat on the website that shows its [events](docs/events.md) live | Not started |
-| README poster | The 0.2 features in the README images | Not started |
-| Release | `changeset pre exit`, 0.2.0 as `latest` ([RELEASING.md](RELEASING.md)) | After the three above |
-
-Shipped in 0.2:
+0.2.0 is on npm as `latest`. What it brought:
 - the headless React API and the inline chat ([ADR-0011](docs/adr/0011-react-api-and-inline-chat.md));
 - `add ui`;
 - answer ratings, `onUsage` and the OpenTelemetry add-on ([ADR-0012](docs/adr/0012-server-hooks-and-telemetry.md));
@@ -88,10 +79,9 @@ Work runs in parallel lanes. Tasks that touch the **hot files** run one at a tim
 | Lane | What runs in it | Hot files |
 |---|---|---|
 | Organization | The roadmap, the Project and the issues | No |
-| Release | The 0.2.0 site demo and poster run side by side, then the gates, then the release | No |
 | Deploy | The deploy buttons, the `/deploy` page, then the links to it from the home page and the README. Those links change `site/app/page.tsx` and `README.md`, which the site demo tasks change too: agree the order with them. | No |
 | Decisions | ADRs, in parallel with everything | No |
 | Spikes | Experiments in `spikes/` | No |
 | Core | The reply-options foundation, then suggested and tool-defined options (in parallel), then runtime language step 1, then compaction | **Yes**, one task at a time |
 
-Until 0.2.0 is out, core work for 0.3 lands on the integration branch `release/0.3`, which has a draft PR into `main`.
+Core work for 0.3 lands on the integration branch `release/0.3`, which has a draft PR into `main`. With 0.2.0 out, that PR merges next, and `changeset pre enter rc` starts the 0.3 release candidates ([RELEASING.md](RELEASING.md)).

@@ -1,6 +1,6 @@
 # askdare — project instructions
 
-`@boldare/askdare` is a Next.js library for embeddable AI chatbots, built on the official `openai` SDK (Responses API and Conversations API). Status: 0.1.0 released on npm; 0.2 is prepared on `release/0.2`. Architecture decisions live in `docs/adr/`. Read the relevant ADR before changing anything it covers.
+`@boldare/askdare` is a Next.js library for embeddable AI chatbots, built on the official `openai` SDK (Responses API and Conversations API). Status: 0.2.0 released on npm; 0.3 is prepared on `release/0.3`. Architecture decisions live in `docs/adr/`. Read the relevant ADR before changing anything it covers.
 
 ## Repository layout
 
