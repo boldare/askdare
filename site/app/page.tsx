@@ -234,41 +234,6 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
           </ul>
         </section>
 
-        <section id="replies" className="section replies" aria-labelledby="replies-title">
-          <div className="replies-intro">
-            <h2 id="replies-title">
-              <span>Answers your visitors</span> <strong>click instead of typing</strong>
-            </h2>
-            <p className="section-docs">
-              The assistant offers a few next steps under its answer. A click sends one as the
-              visitor's message, and your page hears it as <code>message.sent</code> with{' '}
-              <code>source: 'reply'</code>, never the text. More about{' '}
-              <a href="/docs/configuration#widget">reply options</a> and{' '}
-              <a href="/docs/events">chat events</a> in the docs.
-            </p>
-            <code className="replies-config">
-              <span className="replies-config-label">askdare.config.ts</span>
-              {"widget: { replies: 'suggest' }"}
-            </code>
-          </div>
-          <ol className="replies-steps" aria-label="Try it">
-            {REPLY_STEPS.map((step, index) => (
-              <li key={step}>
-                <span className="step">{index + 1}</span>
-                {step}
-              </li>
-            ))}
-          </ol>
-          <EventsDemo
-            config={replies}
-            className="replies-demo"
-            chatClassName="replies-chat"
-            greeting="Pick a question, then **click a reply** under my answer"
-            starters={REPLY_STARTERS}
-            lazy
-          />
-        </section>
-
         <section id="how" className="section how" aria-labelledby="how-title">
           <h2 id="how-title">
             <span>From zero to a working chat</span> <strong>in fifteen minutes</strong>
@@ -314,6 +279,41 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
               ))}
             </pre>
           </div>
+        </section>
+
+        <section id="replies" className="section replies" aria-labelledby="replies-title">
+          <div className="replies-intro">
+            <h2 id="replies-title">
+              <span>Answers your visitors</span> <strong>click instead of typing</strong>
+            </h2>
+            <p className="section-docs">
+              The assistant offers a few next steps under its answer. A click sends one as the
+              visitor's message, and your page hears it as <code>message.sent</code> with{' '}
+              <code>source: 'reply'</code>, never the text. More about{' '}
+              <a href="/docs/configuration#widget">reply options</a> and{' '}
+              <a href="/docs/events">chat events</a> in the docs.
+            </p>
+            <code className="replies-config">
+              <span className="replies-config-label">askdare.config.ts</span>
+              {"widget: { replies: 'suggest' }"}
+            </code>
+          </div>
+          <ol className="replies-steps" aria-label="Try it">
+            {REPLY_STEPS.map((step, index) => (
+              <li key={step}>
+                <span className="step">{index + 1}</span>
+                {step}
+              </li>
+            ))}
+          </ol>
+          <EventsDemo
+            config={replies}
+            className="replies-demo"
+            chatClassName="replies-chat"
+            greeting="Pick a question, then **click a reply** under my answer"
+            starters={REPLY_STARTERS}
+            lazy
+          />
         </section>
 
         <section id="themes" className="section" aria-labelledby="themes-title">
