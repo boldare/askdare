@@ -1,0 +1,176 @@
+/* The "Chat events" panel beside a chat: every event `onEvent` hands the page (ADR-0013). */
+.events {
+  box-sizing: border-box;
+  /* Its own column, even when a test takes the chat out of the flow (e2e/visual.spec.ts). */
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  max-height: 640px;
+  padding: 20px;
+  border: 1px solid #24242422;
+  border-radius: 16px;
+  background:
+    radial-gradient(90% 60% at 100% 0%, #e2dbff66 0%, #e2dbff00 70%),
+    radial-gradient(80% 50% at 0% 100%, #ffd9e666 0%, #ffd9e600 70%), #ffffff;
+}
+
+@media (max-width: 899px) {
+  .events {
+    grid-column: auto;
+    max-height: 420px;
+  }
+}
+
+.events header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.events h2 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 800;
+}
+
+.events button {
+  padding: 6px 14px;
+  border: 1px solid #24242426;
+  border-radius: 999px;
+  background: #ffffff;
+  color: inherit;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.events button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.events > p {
+  margin: 8px 0 16px;
+  color: #5f5a68;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.events a {
+  color: #8a2c6a;
+  font-weight: 600;
+}
+
+.events code,
+.events dd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.events > p code {
+  font-size: 0.8125rem;
+}
+
+.events .events-empty {
+  margin: 0;
+  padding: 20px 0;
+  color: #857f8d;
+  text-align: center;
+}
+
+.events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.events-list li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 12px;
+  padding: 10px 12px;
+  border: 1px solid #2424241a;
+  border-radius: 12px;
+  background: #ffffffd9;
+  font-size: 0.8125rem;
+}
+
+.events-type {
+  justify-self: start;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #6b52e01a;
+  color: #4b36b8;
+  font-weight: 600;
+}
+
+.events-list li[data-type="message.sent"] .events-type {
+  background: #c2386f1a;
+  color: #9c2457;
+}
+
+.events-list li[data-type="message.received"] .events-type {
+  background: #1f8f7a1f;
+  color: #12695a;
+}
+
+.events-list li[data-type="error"] .events-type {
+  background: #d932271f;
+  color: #a3221a;
+}
+
+.events-list time {
+  color: #857f8d;
+  font-variant-numeric: tabular-nums;
+}
+
+.events-list dl {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  gap: 4px 14px;
+  margin: 0;
+}
+
+.events-list dl div {
+  display: flex;
+  gap: 4px;
+}
+
+.events-list dt {
+  color: #5f5a68;
+}
+
+.events-list dt::after {
+  content: ":";
+}
+
+.events-list dd {
+  margin: 0;
+}
+
+/* A message sent by clicking one of the options under an answer (ADR-0015). */
+.events-list li[data-source="reply"] {
+  border-color: #c2386f66;
+  box-shadow: 0 0 0 3px #c2386f1a;
+}
+
+/* New entries arrive at the top of the list. */
+@media (prefers-reduced-motion: no-preference) {
+  .events-list li {
+    animation: events-in 0.35s ease-out;
+  }
+}
+
+@keyframes events-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
