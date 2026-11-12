@@ -49,11 +49,7 @@ interface AskdareStub {
 }
 
 /** Keeps only the allowed fields with the right types; the iframe and server check them again. */
-function configureMessage(options: unknown): Record<string, unknown> {
-  const input = (typeof options === 'object' && options !== null ? options : {}) as Record<
-    string,
-    unknown
-  >;
+function configureMessage(input: Record<string, unknown>): Record<string, unknown> {
   const message: Record<string, unknown> = { v: 1, type: 'configure' };
   if (typeof input['greeting'] === 'string') message['greeting'] = input['greeting'];
   if (typeof input['context'] === 'string') message['context'] = input['context'];
@@ -352,7 +348,7 @@ function boot(): void {
       if (look?.locale) {
         if (!warned) {
           console.warn(
-            `[askdare] The bot "${botId}" has a fixed locale; it ignores a language change.`,
+            `[askdare] The bot "${botId}" has a fixed locale, so it keeps its language.`,
           );
         }
         warned = true;
@@ -361,8 +357,14 @@ function boot(): void {
       if (tag === lang) return;
       lang = tag;
       applyTexts();
+      if (!iframe) return;
+      // Until the reloaded chat says it is up: the launcher stays reachable on phones, and the
+      // watchdog looks out for a chat that doesn't come back.
+      ready = false;
+      delete launcher.dataset['ready'];
+      setTimeout(unavailable, 8000);
       // replace(), not a new src: a reload mustn't add an entry to the page's history.
-      iframe?.contentWindow?.location.replace(embedUrl());
+      iframe.contentWindow?.location.replace(embedUrl());
     };
     const turnIcon = (open: boolean): void => {
       launcher.dataset['turned'] = '';
@@ -370,7 +372,8 @@ function boot(): void {
     };
 
     const connect = (frame: HTMLIFrameElement): void => {
-      port?.close();
+      // The previous port stays open: the chat's last words before a reload (an answer stopped
+      // on pagehide) may still be queued on it, and its page is gone, so nothing more comes.
       const channel = new MessageChannel();
       port = channel.port1;
       port.onmessage = (event: MessageEvent<{ v?: number; type?: string; event?: unknown }>) => {
@@ -490,8 +493,9 @@ function boot(): void {
           switchTo(tag);
         }
         // Only the language: the greeting, starters and context set before stay.
-        if (locale === undefined || Object.keys(page).length > 0) {
-          configured = configureMessage(page);
+        const message = configureMessage(page);
+        if (locale === undefined || Object.keys(message).length > 2) {
+          configured = message;
           port?.postMessage(configured);
         }
       }

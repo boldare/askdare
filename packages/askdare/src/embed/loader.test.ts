@@ -17,6 +17,10 @@ type Api = (command: string, ...args: unknown[]) => unknown;
 
 /** What the loader sent the chat over each port, one list per handshake. */
 let handshakes: unknown[][];
+/** The loader's end of each handshake's channel. */
+let ports: { onmessage: ((event: MessageEvent) => void) | null }[];
+const lastPort = (): { onmessage: ((event: MessageEvent) => void) | null } =>
+  ports.at(-1) ?? { onmessage: null };
 /** URLs the chat's iframe was sent to with location.replace(). */
 let reloads: string[];
 
@@ -46,6 +50,7 @@ function openChat(api: Api): void {
 
 beforeEach(() => {
   handshakes = [];
+  ports = [];
   reloads = [];
   document.documentElement.lang = 'en';
   // This test's list: a page's observer outlives its test, as the loader never stops on a page.
@@ -66,7 +71,9 @@ beforeEach(() => {
       readonly port1 = (() => {
         const sent: unknown[] = [];
         handshakes.push(sent);
-        return { postMessage: (message: unknown) => sent.push(message), close() {} };
+        const port = { postMessage: (message: unknown) => sent.push(message), onmessage: null };
+        ports.push(port);
+        return port;
       })();
       readonly port2 = {};
     },
@@ -107,13 +114,26 @@ describe('askdare("configure", { locale }) (ADR-0014)', () => {
     api('configure', { greeting: 'Hello from pricing' });
     api('identify', 'a.b.c');
     openChat(api);
-    api('configure', { locale: 'pl' });
+    // A field the page may not set doesn't count as new page options either.
+    api('configure', { locale: 'pl', model: 'not-allowed' });
     frame.dispatchEvent(new Event('load'));
     expect(handshakes.at(-1)).toEqual([
       { v: 1, type: 'configure', greeting: 'Hello from pricing' },
     ]);
     // The locale is the loader's: it never reaches the chat as a page option.
     expect(JSON.stringify(handshakes)).not.toContain('locale');
+  });
+
+  it('shows the launcher on phones again until the reloaded chat is up', () => {
+    const api = load();
+    openChat(api);
+    expect(launcher().dataset['ready']).toBeUndefined();
+    // The chat says it is up over its port.
+    const ready = { data: { v: 1, type: 'ready' } } as MessageEvent;
+    lastPort().onmessage?.(ready);
+    expect(launcher().dataset['ready']).toBe('');
+    api('configure', { locale: 'pl' });
+    expect(launcher().dataset['ready']).toBeUndefined();
   });
 
   it('does nothing for the language the chat already has', () => {
