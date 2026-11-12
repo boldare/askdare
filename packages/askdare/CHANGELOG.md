@@ -1,5 +1,13 @@
 # @boldare/askdare
 
+## 0.2.0-rc.3
+
+### Patch Changes
+
+- 66da550: The README links to askdare.vercel.app/deploy, where the one-click deploy of the starter takes about five minutes.
+- c0c1a7f: docs: the one-click deploy takes about five minutes, and askdare.vercel.app/deploy makes the `CHAT_SECRET` for the Vercel form.
+- 1c45e8a: With reduced motion, the launcher icon no longer turns as it swaps between chat and close.
+
 ## 0.2.0-rc.2
 
 ### Minor Changes
