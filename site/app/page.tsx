@@ -115,6 +115,13 @@ const REPLY_STARTERS = [
   'Can I try Brightloop for free?',
 ];
 
+/** The options come with the end of the answer, not before: say so, or the demo looks broken. */
+const REPLY_STEPS = [
+  'Pick a question in the chat',
+  'Options appear a moment after the answer ends',
+  'Click one and watch the events',
+];
+
 const pick = <T extends string>(value: unknown, options: readonly { readonly id: T }[]): T =>
   options.find((option) => option.id === value)?.id ?? (options[0] as { id: T }).id;
 
@@ -235,20 +242,28 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
             <p className="section-docs">
               The assistant offers a few next steps under its answer. A click sends one as the
               visitor's message, and your page hears it as <code>message.sent</code> with{' '}
-              <code>source: 'reply'</code>, never the text. Try it below, then read about{' '}
+              <code>source: 'reply'</code>, never the text. More about{' '}
               <a href="/docs/configuration#widget">reply options</a> and{' '}
-              <a href="/docs/events">chat events</a>.
+              <a href="/docs/events">chat events</a> in the docs.
             </p>
             <code className="replies-config">
               <span className="replies-config-label">askdare.config.ts</span>
               {"widget: { replies: 'suggest' }"}
             </code>
           </div>
+          <ol className="replies-steps" aria-label="Try it">
+            {REPLY_STEPS.map((step, index) => (
+              <li key={step}>
+                <span className="step">{index + 1}</span>
+                {step}
+              </li>
+            ))}
+          </ol>
           <EventsDemo
             config={replies}
             className="replies-demo"
             chatClassName="replies-chat"
-            greeting="Let's find the **right plan** for your team"
+            greeting="Pick a question, then **click a reply** under my answer"
             starters={REPLY_STARTERS}
             lazy
           />

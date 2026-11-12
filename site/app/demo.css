@@ -1774,6 +1774,31 @@ body:has(.demo[data-theme="bldr"]) [data-askdare]::part(launcher) {
   font-size: 0.72rem;
 }
 
+/* How to try it, right above the chat: the options come only once the answer has ended. */
+.replies-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  margin: 0 0 20px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  list-style: none;
+}
+
+.replies-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.replies-steps .step {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  font-size: 0.8rem;
+}
+
 .replies-demo {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
