@@ -211,6 +211,24 @@ test('closes from inside the iframe with Escape and returns focus', async ({
   await expect(page.locator('[part="launcher"]')).toBeFocused();
 });
 
+test('opens and closes without motion when the visitor asks for reduced motion', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(ALLOWED_HOST);
+  const launcher = page.locator('[part="launcher"]');
+  for (const expanded of ['true', 'false']) {
+    await launcher.click();
+    await expect(launcher).toHaveAttribute('aria-expanded', expanded);
+    const running = await launcher.evaluate((element) =>
+      (element.getRootNode() as ShadowRoot)
+        .getAnimations()
+        .map((animation) => animation.id || animation.constructor.name),
+    );
+    expect(running).toEqual([]);
+  }
+});
+
 test('refuses to load inside a site that is not on the allowlist', async ({
   page,
   browserName,
