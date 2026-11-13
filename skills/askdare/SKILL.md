@@ -1,6 +1,6 @@
 ---
 name: askdare
-description: Add, configure or troubleshoot the @boldare/askdare AI chat in a Next.js app (defineBot, defineTool, createChatHandler, the widget script, the React chat inside a page, themes, knowledge base, answer ratings, usage reports, deployment). Use when the project depends on @boldare/askdare or the user asks for a website chatbot built on it.
+description: Add, configure or troubleshoot the @boldare/askdare AI chat in a Next.js app (defineBot, defineTool, createChatHandler, the widget script, the React chat inside a page, themes, knowledge base, reply options, the chat's language, answer ratings, usage reports, deployment). Use when the project depends on @boldare/askdare or the user asks for a website chatbot built on it.
 ---
 
 # askdare
@@ -19,6 +19,8 @@ description: Add, configure or troubleshoot the @boldare/askdare AI chat in a Ne
 
 - `defineBot`, `defineTool`, `defineTheme` from `@boldare/askdare`; `createChatHandler` from `@boldare/askdare/next`, with its `onError`, `onUsage` and `onFeedback` options; `otelUsage()` from `@boldare/askdare-otel`.
 - On pages: `<script src="…/api/chat/widget.js?bot=<id>" async>` with `data-launcher="none"` or `data-mode="inline" data-target="…"`, and `askdare('open' | 'close' | 'toggle' | 'configure', …)`.
+- The chat's language on the page, for a bot with `locale: 'auto'`: `askdare('configure', { locale: 'pl' })`, or `data-follow-lang` on the script tag to follow `<html lang>`. The chat reloads in the new language and keeps the conversation; your `instructions` get it as `context.locale`. See `docs/texts.md`.
+- Reply options (clickable answers under the latest reply): `widget.replies: 'suggest'` lets the model suggest them; `defineTool({ replies: (result) => [...] })` derives them from a tool's result. See `docs/reply-options.md`.
 - The chat inside a page of the same Next.js app (React 19): `getChatConfig` from `@boldare/askdare/next` in a Server Component, then `Root`, `DefaultChat`, the hooks (`useChat`, `useChatState`, `useMessage`) and the primitives from `@boldare/askdare/react` (see `docs/react.md`). To change the default components, run `npx @boldare/askdare add ui`; don't copy them from `node_modules` by hand.
 - Styling: `widget.texts`, `widget.theme`, `widget.css` with `[data-ask-part="…"]` selectors and `--ask-*` tokens (see `docs/styling.md`).
 
@@ -35,6 +37,7 @@ Never import from `@boldare/askdare/dist/…` or other internal paths.
 - With `@boldare/askdare/react`: never render `message.text` as HTML (use `MessageText` or `Markdown`); sign a visitor out with `identity={null}`, since `undefined` keeps the current one; a page that passes `identity` must not be cached; on pages with third-party scripts, prefer the script-tag widget.
 - Tools: every Zod field is required (use `.nullable()`, not `.optional()`). Never take user IDs, emails or permissions from tool arguments; use the verified `context` (`visitorId`, `botId`, `locale`, `identity`, `signal`). Keep tools read-only.
 - Signed-in users: the site's backend signs an HS256 JWT with `IDENTITY_SECRET` (`sub`, `aud` = bot ID, `iat`, `exp`), and the page calls `askdare('identify', token)` (`null` on sign-out). See `docs/identity.md`.
+- Reply options: at most 4, up to 80 characters each, plain text without links; anything else is dropped. A click only sends the option's text as the visitor's message, so write options the way a visitor would say them ("Cancel the order"), never as commands or IDs, and never treat a clicked option as more trusted than typed text.
 - More than one server instance (Vercel, several dynos) needs shared limits: `@boldare/askdare-upstash`.
 - Answer ratings (👍/👎) show only with `createChatHandler({ onFeedback })`; `widget.feedback: false` hides them for one bot. askdare stores no ratings: save the report in `onFeedback`. A rating's `comment` is visitor text: escape it wherever it is shown, and cover it in the privacy notice. See `docs/feedback.md`.
 - Costs and tracing: `onUsage` (or `onUsage: otelUsage()` from `@boldare/askdare-otel`). Its reports hold pseudonyms and counts, never message text; don't add any. See `docs/observability.md`.

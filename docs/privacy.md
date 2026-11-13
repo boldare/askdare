@@ -49,7 +49,7 @@ After the visitor's first message, the chat writes an entry to `localStorage` fo
 | Purpose | To show the visitor's ratings again after a reload |
 | Lifetime | The latest hundred ratings are kept; taking a rating back removes it. It isn't sent to the server: the server keeps no ratings at all |
 
-Everything else stays in memory and disappears with the page: the session token, which lasts 15 minutes, and a signed-in visitor's identity.
+Everything else stays in memory and disappears with the page: the session token, which lasts 15 minutes, and a signed-in visitor's identity. The chat's language, set with `askdare('configure', { locale })` or `data-follow-lang`, isn't stored either: the page sets it again on every load ([Texts](texts.md)).
 
 The chat sets no cookies. Browsers may partition or block storage in iframes from other sites; then the conversation doesn't survive a reload, and the chat still works. There is no setting to turn the conversation entry off; ratings go with `onFeedback`.
 
@@ -106,13 +106,13 @@ Everything below lives in the OpenAI project whose key the app uses. Name OpenAI
 - Your instructions for that request, with whatever you put in them, such as a signed-in user's name.
 - The visitor's message, and the page context from `askdare('configure')` if the bot has `pageContext: true`.
 - Attached files, by reference.
-- Your tools' definitions and, when the model calls them, their results.
+- Your tools' definitions and, when the model calls them, their results. With `widget.replies: 'suggest'`, also the definition of the built-in `suggest_replies` tool, which holds no personal data.
 - The `safety_identifier`, and `prompt_cache_key: "askdare:<bot id>"`, which holds no personal data.
 
 ### Conversations
 
 - Conversations are stored with OpenAI's Conversations API, in your project, **until they are deleted** ([ADR-0003](adr/0003-conversation-state.md)). Each one carries the bot ID and the visitor ID as metadata (`askdare_bot`, `askdare_visitor`).
-- A conversation holds the visitor's messages, the page context, the answers, and the tool calls with their results. The instructions are sent with each request rather than stored in the conversation.
+- A conversation holds the visitor's messages, the page context, the answers, and the tool calls with their results. [Reply options](reply-options.md) the model suggested are stored there as a call of `suggest_replies`; options a tool defines aren't stored on their own, since they are derived again from the stored result. A clicked option is an ordinary visitor message. The instructions are sent with each request rather than stored in the conversation.
 - **The visitor can delete it.** "Start a new conversation" asks "Start a new conversation? The current one will be deleted." and then deletes it at OpenAI. For bots with attachments, the files attached in it are deleted too; a file that fails to delete expires on its own.
 - **Nothing else deletes it.** When the browser's handle expires after 30 days, or the visitor clears the browser, the conversation stays in your project. askdare keeps no list of conversations, and OpenAI's API has no endpoint to list them, so there is no tool to find, export or delete one visitor's conversation. Take this into account in your retention decision ([Going public](going-public.md#6-privacy-and-transparency)).
 - **Who can read it:** whoever uses the same browser can continue an anonymous conversation and see its history while the handle works. On a shared computer, that includes the next person, unless the visitor started a new conversation. A conversation started while signed in is shown only to that user ([Signed-in visitors](identity.md)).
