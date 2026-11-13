@@ -59,7 +59,7 @@ Or [try it first, in five minutes](#your-chatbot-in-five-minutes), without your 
 
 ## What you get
 
-[![What it does: answers from your documents with citations, your own tools, images and PDFs, voice input, and secure by default. New in 0.2: the chat inside your own page with React, thumbs-up and thumbs-down ratings of answers, observability with OpenTelemetry, and chat events for analytics. No database.](.github/assets/askdare-features.png)](https://askdare.vercel.app/#features)
+[![What it does: answers from your documents with citations, your own tools, images and PDFs, voice input, secure by default, the chat inside your own page with React, thumbs-up and thumbs-down ratings of answers, observability with OpenTelemetry, and chat events for analytics. New in 0.3: clickable answers suggested by the model, reply options from your tools, switching the chat's language from the page, and a one-click deploy. No database.](.github/assets/askdare-features.png)](https://askdare.vercel.app/#features)
 
 [Knowledge base](docs/knowledge-base.md) · [Tools](docs/tools.md) · [Reply options](docs/reply-options.md) · [Attachments](docs/attachments.md) · [Voice input](docs/voice-input.md) · [The chat inside your page (React)](docs/react.md) · [Answer ratings](docs/feedback.md) · [Observability](docs/observability.md) · [Chat events](docs/events.md) · [Security](THREAT_MODEL.md)
 

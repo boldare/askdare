@@ -158,6 +158,16 @@ const shots = {
       return { x: 0, y: box.top - 4, width: Math.min(400, right), height: box.height + 8 };
     },
   }),
+  // Model-suggested options under the latest answer (the gallery's `replies` state).
+  replies: await chat({
+    state: 'replies',
+    preset: 'aura',
+    height: 900,
+    clip: () => {
+      const box = document.querySelector('[data-ask-part="replies"]').getBoundingClientRect();
+      return { x: box.left - 6, y: box.top - 6, width: box.width + 12, height: box.height + 12 };
+    },
+  }),
   recorder: await chat({
     state: 'listening',
     preset: 'aura',
@@ -218,6 +228,20 @@ const usageCode = await code(
   'ts',
 );
 const eventsCode = await code(`askdare('on', '*', track)`, 'js');
+const repliesCode = await code(
+  `defineTool({
+  replies: (order) => [
+    'Track the parcel',
+    'Talk to a person',
+  ],
+})`,
+  'ts',
+);
+const localeCode = await code(
+  `askdare('configure',
+  { locale: 'pl' })`,
+  'js',
+);
 
 // ---------- The look: the site's Aura theme ----------
 
@@ -377,7 +401,7 @@ const check = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3
 const isNew = '<span class="new">New</span>';
 const features = () => `
   <style>
-    .features { width: 1280px; height: 1180px; padding: 56px 64px; }
+    .features { width: 1280px; height: 1500px; padding: 56px 64px; }
     .features h2 { font-size: 44px; }
     .grid {
       display: grid; grid-template-columns: 372px 1fr 1fr; grid-template-rows: 1fr 1fr;
@@ -411,6 +435,14 @@ const features = () => `
     .files .pic { width: 300px; }
     .voice .pic { width: 318px; }
     .ratings .pic { left: 12px; bottom: 16px; width: 236px; }
+    .replies .pic { left: 16px; bottom: 18px; max-width: 258px; }
+    .added .locale .shiki { bottom: 60px; }
+    .deploy ol { position: absolute; right: 22px; bottom: 22px; left: 22px; display: grid; gap: 8px; list-style: none; counter-reset: step; }
+    .deploy li { display: flex; align-items: center; gap: 10px; font-size: 13.5px; font-weight: 600; counter-increment: step; }
+    .deploy li::before {
+      content: counter(step); display: grid; place-items: center; flex: none; width: 22px; height: 22px;
+      border-radius: 99px; background: #e2dbff; color: #4b3aa8; font-size: 12px; font-weight: 800;
+    }
     .secure ul { display: grid; gap: 9px; margin-top: 14px; list-style: none; font-size: 14.5px; font-weight: 600; }
     .secure li { display: flex; align-items: center; gap: 10px; }
     .secure svg {
@@ -445,16 +477,29 @@ const features = () => `
         </ul></div>
     </div>
     <div class="grid added">
-      <div class="tile card inline"><h3>In your own page ${isNew}</h3>
+      <div class="tile card inline"><h3>In your own page</h3>
         <p>React components from @boldare/askdare/react put the chat in a page of your Next.js app.</p>${reactCode}</div>
-      <div class="tile card ratings"><h3>Answer ratings ${isNew}</h3>
+      <div class="tile card ratings"><h3>Answer ratings</h3>
         <p>👍 or 👎 on every answer, sent to your onFeedback.</p>
         <img class="pic" src="${shots.rating}" alt=""></div>
-      <div class="tile card usage"><h3>Observability ${isNew}</h3>
+      <div class="tile card usage"><h3>Observability</h3>
         <p>Tokens, timings and tool calls of every turn, as OpenTelemetry spans with askdare-otel.</p>${usageCode}</div>
-      <div class="tile card events"><h3>Chat events ${isNew}</h3>
+      <div class="tile card events"><h3>Chat events</h3>
         <p>Feed GA4 or GTM from the page. Metadata only, never what anyone wrote.</p>${eventsCode}
         <ul class="names"><li>ready</li><li>open</li><li>message.sent</li><li>message.received</li><li>feedback</li></ul></div>
+    </div>
+    <div class="grid added">
+      <div class="tile card replies"><h3>Clickable answers ${isNew}</h3>
+        <p>The model suggests the next steps under its answer. A click sends one as the visitor's message.</p>
+        <img class="pic" src="${shots.replies}" alt=""></div>
+      <div class="tile card tool-replies"><h3>Options from tools ${isNew}</h3>
+        <p>A tool turns its result into the next steps. The same result gives the same options.</p>${repliesCode}</div>
+      <div class="tile card locale"><h3>Language switch ${isNew}</h3>
+        <p>The page sets the chat's language. The chat reloads in it and keeps the conversation.</p>${localeCode}
+        <ul class="names"><li>data-follow-lang</li></ul></div>
+      <div class="tile card deploy"><h3>One-click deploy ${isNew}</h3>
+        <p>From the starter to a running chat on Vercel in about five minutes. No code to write.</p>
+        <ol><li>Click Deploy</li><li>Paste your OpenAI key</li><li>Embed the script tag</li></ol></div>
     </div>
     <div class="strip"><strong>No database.</strong><ul class="tags">
       <li>Conversations live in OpenAI</li><li>Vercel or Heroku</li><li>Next.js 16</li><li>TypeScript</li><li>English and Polish</li>
@@ -501,7 +546,7 @@ async function render(html, { width, height, path, scale = 2 }) {
 
 await mkdir(assets, { recursive: true });
 await render(hero(), { width: 1280, height: 640, path: join(assets, 'askdare-hero.png') });
-await render(features(), { width: 1280, height: 1180, path: join(assets, 'askdare-features.png') });
+await render(features(), { width: 1280, height: 1500, path: join(assets, 'askdare-features.png') });
 await render(how(), { width: 1280, height: 640, path: join(assets, 'askdare-how-it-works.png') });
 await render(themes(), { width: 1280, height: 640, path: join(assets, 'askdare-themes.png') });
 // The link preview: square corners, at the size it is shown.
