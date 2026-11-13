@@ -61,7 +61,7 @@ Or [try it first, in five minutes](#your-chatbot-in-five-minutes), without your 
 
 [![What it does: answers from your documents with citations, your own tools, images and PDFs, voice input, and secure by default. New in 0.2: the chat inside your own page with React, thumbs-up and thumbs-down ratings of answers, observability with OpenTelemetry, and chat events for analytics. No database.](.github/assets/askdare-features.png)](https://askdare.vercel.app/#features)
 
-[Knowledge base](docs/knowledge-base.md) · [Tools](docs/tools.md) · [Attachments](docs/attachments.md) · [Voice input](docs/voice-input.md) · [The chat inside your page (React)](docs/react.md) · [Answer ratings](docs/feedback.md) · [Observability](docs/observability.md) · [Chat events](docs/events.md) · [Security](THREAT_MODEL.md)
+[Knowledge base](docs/knowledge-base.md) · [Tools](docs/tools.md) · [Reply options](docs/reply-options.md) · [Attachments](docs/attachments.md) · [Voice input](docs/voice-input.md) · [The chat inside your page (React)](docs/react.md) · [Answer ratings](docs/feedback.md) · [Observability](docs/observability.md) · [Chat events](docs/events.md) · [Security](THREAT_MODEL.md)
 
 ## Themes
 
@@ -74,7 +74,7 @@ Pick a theme, set your brand's colors, or restyle any part with your own CSS, th
 The guides are on [askdare.vercel.app/docs](https://askdare.vercel.app/docs), with search and a chat that answers from them. The same pages are in [`docs/`](docs/), and they ship in the package, so they match the version you installed.
 
 - **Start:** [Getting started](docs/getting-started.md) · [Embedding the chat](docs/embedding.md) · [Command line](docs/cli.md)
-- **Features:** [Knowledge base](docs/knowledge-base.md) · [Tools](docs/tools.md) · [Attachments](docs/attachments.md) · [Voice input](docs/voice-input.md) · [Signed-in visitors](docs/identity.md)
+- **Features:** [Knowledge base](docs/knowledge-base.md) · [Tools](docs/tools.md) · [Reply options](docs/reply-options.md) · [Attachments](docs/attachments.md) · [Voice input](docs/voice-input.md) · [Signed-in visitors](docs/identity.md)
 - **Look and language:** [Themes](docs/themes.md) · [Styling](docs/styling.md) · [Texts](docs/texts.md) · [The chat inside your page (React)](docs/react.md)
 - **Going live:** [Deployment](docs/deployment.md) · [Going-public checklist](docs/going-public.md) · [Costs](docs/costs.md) · [Observability](docs/observability.md) · [Chat events](docs/events.md) · [Answer ratings](docs/feedback.md) · [Privacy](docs/privacy.md)
 - **Reference:** [Configuration](docs/configuration.md) · [Troubleshooting](docs/troubleshooting.md) · [Support matrix](docs/support.md) · [Wire protocol](docs/protocol.md) · [Custom rate-limit store](docs/custom-store.md)

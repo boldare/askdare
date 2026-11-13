@@ -12,18 +12,20 @@ Set it up with `npx @boldare/askdare init` and verify it with `npx @boldare/askd
 - [CLI](docs/cli.md): `init`, `doctor`, `kb sync`, `add ui` and `usage`, with every flag
 - [Troubleshooting](docs/troubleshooting.md): symptoms, causes and fixes, by error code
 - [Tools](docs/tools.md): `defineTool`, Zod schemas, what a tool may trust
+- [Reply options](docs/reply-options.md): clickable answers under the latest reply, suggested by the model (`widget.replies: 'suggest'`) or defined by a tool (`defineTool({ replies })`), limits, placement, cost
 - [Signed-in visitors](docs/identity.md): `askdare('identify')`, IDENTITY_SECRET, `context.identity`
 - [Knowledge base](docs/knowledge-base.md): `npx @boldare/askdare kb sync`, vector stores, citations
 - [Attachments](docs/attachments.md): images and PDFs from visitors
 - [Voice input](docs/voice-input.md): dictation and its limits
 - [Styling](docs/styling.md): texts, languages, AI disclosure, custom CSS, `askdare('open' | 'configure')`, inline mode
 - [React](docs/react.md): the chat inside a page of your own app with `@boldare/askdare/react`: `getChatConfig`, `Root`, `DefaultChat`, hooks and primitives, CSS resets, CSP, `add ui`
-- [Texts](docs/texts.md): every text key with its English and Polish default, plurals, adding a language
+- [Texts](docs/texts.md): every text key with its English and Polish default, plurals, adding a language, switching the chat's language on the page (`askdare('configure', { locale })`, `data-follow-lang`)
 - [Themes](docs/themes.md): Halo, Aura, Sage and Care, tokens and variants
 - [Deployment](docs/deployment.md): Vercel, Heroku, proxies, shared limits
 - [Going public](docs/going-public.md): OpenAI project, secrets, limits, privacy checklist
 - [Costs](docs/costs.md): the worst case under the default limits, and how to keep it bounded
 - [Observability](docs/observability.md): `onUsage` and `onError`, cost per turn, OpenTelemetry spans with `@boldare/askdare-otel`
+- [Chat events](docs/events.md): what the chat reports to the page, for analytics
 - [Answer ratings](docs/feedback.md): 👍/👎 with an optional comment, `onFeedback`, what the report holds
 - [Privacy](docs/privacy.md): what is stored where, for your privacy policy
 - [Support](docs/support.md): Node.js, Next.js, React, zod and TypeScript versions, browsers, sizes
