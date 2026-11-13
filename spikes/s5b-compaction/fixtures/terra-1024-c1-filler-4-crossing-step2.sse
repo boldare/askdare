@@ -1,0 +1,69 @@
+event: response.created
+data: {"type":"response.created","response":{"id":"resp_s5b0061","object":"response","created_at":1794480812,"status":"in_progress","access_programs":{"cyber":"standard"},"background":false,"completed_at":null,"conversation":{"id":"conv_s5b0003"},"error":null,"frequency_penalty":0.0,"image":{"context_compression":"disabled"},"incomplete_details":null,"instructions":"You are the support assistant of a home-goods shop. Be brief. Use get_weather for weather questions and file_search for questions about the team handbook, and cite the handbook when you use it.","max_output_tokens":1024,"max_tool_calls":null,"model":"gpt-6.1-terra","moderation":null,"output":[],"parallel_tool_calls":true,"presence_penalty":0.0,"previous_response_id":null,"prompt_cache_key":"askdare:spike-s5b-terra-1024","prompt_cache_retention":"24h","reasoning":{"context":"all_turns","effort":"medium","mode":"standard","summary":null},"safety_identifier":"redacted","service_tier":"auto","store":true,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tool_usage":{"image_gen":{"input_tokens":0,"input_tokens_details":{"image_tokens":0,"text_tokens":0},"output_tokens":0,"output_tokens_details":{"image_tokens":0,"text_tokens":0},"total_tokens":0},"web_search":{"num_requests":0}},"tools":[{"type":"file_search","filters":null,"max_num_results":3,"ranking_options":{"ranker":"auto","score_threshold":0.0},"vector_store_ids":["vs_s5b0001"]},{"type":"function","description":"Current weather for a city.","name":"get_weather","output_schema":null,"parameters":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"],"additionalProperties":false},"strict":true}],"top_logprobs":0,"top_p":0.98,"truncation":"auto","usage":null,"user":null,"metadata":{}},"sequence_number":0}
+
+event: response.in_progress
+data: {"type":"response.in_progress","response":{"id":"resp_s5b0061","object":"response","created_at":1794480812,"status":"in_progress","access_programs":{"cyber":"standard"},"background":false,"completed_at":null,"conversation":{"id":"conv_s5b0003"},"error":null,"frequency_penalty":0.0,"image":{"context_compression":"disabled"},"incomplete_details":null,"instructions":"You are the support assistant of a home-goods shop. Be brief. Use get_weather for weather questions and file_search for questions about the team handbook, and cite the handbook when you use it.","max_output_tokens":1024,"max_tool_calls":null,"model":"gpt-6.1-terra","moderation":null,"output":[],"parallel_tool_calls":true,"presence_penalty":0.0,"previous_response_id":null,"prompt_cache_key":"askdare:spike-s5b-terra-1024","prompt_cache_retention":"24h","reasoning":{"context":"all_turns","effort":"medium","mode":"standard","summary":null},"safety_identifier":"redacted","service_tier":"auto","store":true,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tool_usage":{"image_gen":{"input_tokens":0,"input_tokens_details":{"image_tokens":0,"text_tokens":0},"output_tokens":0,"output_tokens_details":{"image_tokens":0,"text_tokens":0},"total_tokens":0},"web_search":{"num_requests":0}},"tools":[{"type":"file_search","filters":null,"max_num_results":3,"ranking_options":{"ranker":"auto","score_threshold":0.0},"vector_store_ids":["vs_s5b0001"]},{"type":"function","description":"Current weather for a city.","name":"get_weather","output_schema":null,"parameters":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"],"additionalProperties":false},"strict":true}],"top_logprobs":0,"top_p":0.98,"truncation":"auto","usage":null,"user":null,"metadata":{}},"sequence_number":1}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","item":{"id":"msg_s5b0023","type":"message","status":"in_progress","content":[],"phase":"final_answer","role":"assistant"},"output_index":0,"sequence_number":2}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","content_index":0,"item_id":"msg_s5b0023","output_index":0,"part":{"type":"output_text","annotations":[],"logprobs":[],"text":""},"sequence_number":3}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"not","item_id":"msg_s5b0023","logprobs":[],"obfuscation":"WqKy1f385td9x","output_index":0,"sequence_number":4}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"ed","item_id":"msg_s5b0023","logprobs":[],"obfuscation":"m9VLFuWwQfG5k0","output_index":0,"sequence_number":5}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"\n\n","item_id":"msg_s5b0023","logprobs":[],"obfuscation":"mq1mRD3KGFVBVW","output_index":0,"sequence_number":6}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"K","item_id":"msg_s5b0023","logprobs":[],"obfuscation":"yjzXs8KbbWzInAh","output_index":0,"sequence_number":7}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"rak","item_id":"msg_s5b0023","logprobs":[],"obfuscation":"U1SWyxCcXZpRK","output_index":0,"sequence_number":8}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"ow","item_id":"msg_s5b0023","logprobs":[],"obfuscation":"8dtAnRbyig7oMS","output_index":0,"sequence_number":9}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":":","item_id":"msg_s5b0023","logprobs":[],"obfuscation":"OTAU9iZks5CRLXM","output_index":0,"sequence_number":10}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":" ","item_id":"msg_s5b0023","logprobs":[],"obfuscation":"vNuRdPJByuYYzDs","output_index":0,"sequence_number":11}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"9","item_id":"msg_s5b0023","logprobs":[],"obfuscation":"GuZzgxVe3vFlCoa","output_index":0,"sequence_number":12}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"°C","item_id":"msg_s5b0023","logprobs":[],"obfuscation":"ZOc4JZUfvbgVP4","output_index":0,"sequence_number":13}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":" and","item_id":"msg_s5b0023","logprobs":[],"obfuscation":"tqFZlmTNElPK","output_index":0,"sequence_number":14}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":" rainy","item_id":"msg_s5b0023","logprobs":[],"obfuscation":"RlvuWCKDD2","output_index":0,"sequence_number":15}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":".","item_id":"msg_s5b0023","logprobs":[],"obfuscation":"iIfFZeycoBLy8Mv","output_index":0,"sequence_number":16}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","content_index":0,"item_id":"msg_s5b0023","logprobs":[],"output_index":0,"sequence_number":17,"text":"noted\n\nKrakow: 9°C and rainy."}
+
+event: response.content_part.done
+data: {"type":"response.content_part.done","content_index":0,"item_id":"msg_s5b0023","output_index":0,"part":{"type":"output_text","annotations":[],"logprobs":[],"text":"noted\n\nKrakow: 9°C and rainy."},"sequence_number":18}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","item":{"id":"msg_s5b0023","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":"noted\n\nKrakow: 9°C and rainy."}],"phase":"final_answer","role":"assistant"},"output_index":0,"sequence_number":19}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","item":{"id":"cmp_s5b0032","type":"compaction","encrypted_content":"redacted"},"output_index":1,"sequence_number":20}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","item":{"id":"cmp_s5b0032","type":"compaction","encrypted_content":"redacted"},"output_index":1,"sequence_number":21}
+
+event: response.completed
+data: {"type":"response.completed","response":{"id":"resp_s5b0061","object":"response","created_at":1794480812,"status":"completed","access_programs":{"cyber":"standard"},"background":false,"completed_at":1794480823,"conversation":{"id":"conv_s5b0003"},"error":null,"frequency_penalty":0.0,"image":{"context_compression":"disabled"},"incomplete_details":null,"instructions":"You are the support assistant of a home-goods shop. Be brief. Use get_weather for weather questions and file_search for questions about the team handbook, and cite the handbook when you use it.","max_output_tokens":1024,"max_tool_calls":null,"model":"gpt-6.1-terra","moderation":null,"output":[{"id":"msg_s5b0023","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":"noted\n\nKrakow: 9°C and rainy."}],"phase":"final_answer","role":"assistant"},{"id":"cmp_s5b0032","type":"compaction","encrypted_content":"redacted"}],"parallel_tool_calls":true,"presence_penalty":0.0,"previous_response_id":null,"prompt_cache_key":"askdare:spike-s5b-terra-1024","prompt_cache_retention":"24h","reasoning":{"context":"all_turns","effort":"medium","mode":"standard","summary":null},"safety_identifier":"redacted","service_tier":"default","store":true,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tool_usage":{"image_gen":{"input_tokens":0,"input_tokens_details":{"image_tokens":0,"text_tokens":0},"output_tokens":0,"output_tokens_details":{"image_tokens":0,"text_tokens":0},"total_tokens":0},"web_search":{"num_requests":0}},"tools":[{"type":"file_search","filters":null,"max_num_results":3,"ranking_options":{"ranker":"auto","score_threshold":0.0},"vector_store_ids":["vs_s5b0001"]},{"type":"function","description":"Current weather for a city.","name":"get_weather","output_schema":null,"parameters":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"],"additionalProperties":false},"strict":true}],"top_logprobs":0,"top_p":0.98,"truncation":"auto","usage":{"input_tokens":50069,"input_tokens_details":{"cache_write_tokens":52,"cached_tokens":49988},"output_tokens":710,"output_tokens_details":{"reasoning_tokens":693},"total_tokens":50779},"user":null,"metadata":{}},"sequence_number":22}
+

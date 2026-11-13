@@ -1,0 +1,2827 @@
+{
+  "sdk": "7.52.0",
+  "threshold": 50000,
+  "startedAt": "2026-11-12T10:45:59.930Z",
+  "fixtureText": {
+    "tokensPer100Lines": 3792,
+    "linesPerBlock": 316,
+    "tokensPerBlock": 12000
+  },
+  "luna-16k": {
+    "ms": 117024,
+    "model": "gpt-6-luna",
+    "maxOutputTokens": 16384,
+    "compaction": true,
+    "retryCompactionOnly": true,
+    "turns": [
+      {
+        "turn": "t1-facts-tool",
+        "predictedInput": 23,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0001",
+            "text": "",
+            "totalMs": 4364,
+            "status": "completed",
+            "usage": {
+              "input": 1595,
+              "cached": 0,
+              "cacheWrite": 1566,
+              "output": 77,
+              "reasoning": 56
+            },
+            "outputTypes": [
+              "reasoning",
+              "function_call"
+            ],
+            "functionCalls": [
+              {
+                "call_id": "call_s5b0001",
+                "name": "get_weather",
+                "arguments": "{\"city\":\"Warsaw\"}"
+              }
+            ],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          },
+          {
+            "step": 2,
+            "responseId": "resp_s5b0002",
+            "text": "I’ll keep **PAPAYA-42** in mind during this chat. Warsaw is **12°C and cloudy** right now.",
+            "ttftMs": 2245,
+            "totalMs": 4170,
+            "status": "completed",
+            "usage": {
+              "input": 1705,
+              "cached": 1566,
+              "cacheWrite": 110,
+              "output": 31,
+              "reasoning": 0
+            },
+            "outputTypes": [
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "I’ll keep **PAPAYA-42** in mind during this chat. Warsaw is **12°C and cloudy** right now."
+      },
+      {
+        "turn": "t2-kb-before",
+        "predictedInput": 1751,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0003",
+            "text": "The office dog is called **Pixel**. ",
+            "ttftMs": 3477,
+            "totalMs": 5430,
+            "status": "completed",
+            "usage": {
+              "input": 1755,
+              "cached": 1676,
+              "cacheWrite": 50,
+              "output": 112,
+              "reasoning": 84
+            },
+            "outputTypes": [
+              "file_search_call",
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 1,
+            "fileCitations": 1
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "The office dog is called **Pixel**. ",
+        "checks": {
+          "pixel": true
+        }
+      },
+      {
+        "turn": "c1-filler-1",
+        "predictedInput": 13805,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0004",
+            "text": "noted",
+            "ttftMs": 1531,
+            "totalMs": 3206,
+            "status": "completed",
+            "usage": {
+              "input": 13946,
+              "cached": 1726,
+              "cacheWrite": 12191,
+              "output": 30,
+              "reasoning": 22
+            },
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "noted"
+      },
+      {
+        "turn": "c1-filler-2",
+        "predictedInput": 26004,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0005",
+            "text": "noted",
+            "ttftMs": 1683,
+            "totalMs": 3236,
+            "status": "completed",
+            "usage": {
+              "input": 26025,
+              "cached": 13917,
+              "cacheWrite": 12079,
+              "output": 39,
+              "reasoning": 31
+            },
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "noted"
+      },
+      {
+        "turn": "c1-filler-3",
+        "predictedInput": 38067,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0006",
+            "text": "noted",
+            "ttftMs": 1618,
+            "totalMs": 3277,
+            "status": "completed",
+            "usage": {
+              "input": 38142,
+              "cached": 25996,
+              "cacheWrite": 12117,
+              "output": 16,
+              "reasoning": 8
+            },
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "noted"
+      },
+      {
+        "turn": "c1-filler-4-crossing",
+        "predictedInput": 50151,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0007",
+            "text": "",
+            "totalMs": 3546,
+            "status": "completed",
+            "usage": {
+              "input": 50141,
+              "cached": 38113,
+              "cacheWrite": 11999,
+              "output": 51,
+              "reasoning": 29
+            },
+            "outputTypes": [
+              "reasoning",
+              "function_call"
+            ],
+            "functionCalls": [
+              {
+                "call_id": "call_s5b0002",
+                "name": "get_weather",
+                "arguments": "{\"city\":\"Krakow\"}"
+              }
+            ],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          },
+          {
+            "step": 2,
+            "responseId": "resp_s5b0008",
+            "text": "noted\n\nKrakow is **9°C with rain** right now.",
+            "ttftMs": 2387,
+            "totalMs": 7784,
+            "status": "completed",
+            "usage": {
+              "input": 50224,
+              "cached": 50112,
+              "cacheWrite": 83,
+              "output": 47,
+              "reasoning": 25
+            },
+            "outputTypes": [
+              "reasoning",
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 2,
+                "position": "after-answer",
+                "ms": 2998,
+                "encryptedChars": 53092
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "noted\n\nKrakow is **9°C with rain** right now."
+      },
+      {
+        "turn": "r1-code-word",
+        "predictedInput": 50284,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0009",
+            "text": "Your name is Ola, and your code word is PAPAYA-42.",
+            "ttftMs": 2184,
+            "totalMs": 6514,
+            "status": "completed",
+            "usage": {
+              "input": 50097,
+              "cached": 0,
+              "cacheWrite": 50068,
+              "output": 50,
+              "reasoning": 29
+            },
+            "outputTypes": [
+              "reasoning",
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 2,
+                "position": "after-answer",
+                "ms": 2167,
+                "encryptedChars": 52132
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "Your name is Ola, and your code word is PAPAYA-42.",
+        "checks": {
+          "name": true,
+          "codeWord": true
+        }
+      },
+      {
+        "turn": "r2-tool-output",
+        "predictedInput": 50170,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0010",
+            "text": "",
+            "totalMs": 4921,
+            "status": "completed",
+            "usage": {
+              "input": 50080,
+              "cached": 0,
+              "cacheWrite": 50051,
+              "output": 120,
+              "reasoning": 99
+            },
+            "outputTypes": [
+              "reasoning",
+              "function_call"
+            ],
+            "functionCalls": [
+              {
+                "call_id": "call_s5b0003",
+                "name": "get_weather",
+                "arguments": "{\"city\":\"Warsaw\"}"
+              }
+            ],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          },
+          {
+            "step": 2,
+            "responseId": "resp_s5b0011",
+            "text": "WAW-ZEBRA-9",
+            "ttftMs": 2789,
+            "totalMs": 7366,
+            "status": "completed",
+            "usage": {
+              "input": 50233,
+              "cached": 50051,
+              "cacheWrite": 153,
+              "output": 33,
+              "reasoning": 20
+            },
+            "outputTypes": [
+              "reasoning",
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 2,
+                "position": "after-answer",
+                "ms": 2696,
+                "encryptedChars": 53092
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "WAW-ZEBRA-9",
+        "checks": {
+          "stationCode": true
+        }
+      },
+      {
+        "turn": "r3-detail",
+        "predictedInput": 50289,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0012",
+            "text": "I can’t provide warehouse access codes.",
+            "ttftMs": 2805,
+            "totalMs": 6978,
+            "status": "completed",
+            "usage": {
+              "input": 50225,
+              "cached": 0,
+              "cacheWrite": 50196,
+              "output": 79,
+              "reasoning": 65
+            },
+            "outputTypes": [
+              "reasoning",
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 2,
+                "position": "after-answer",
+                "ms": 2184,
+                "encryptedChars": 52644
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "I can’t provide warehouse access codes.",
+        "checks": {
+          "gateCode": false
+        }
+      },
+      {
+        "turn": "r4-kb-after",
+        "predictedInput": 50321,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0013",
+            "text": "The coffee machine is cleaned every Wednesday.  ",
+            "ttftMs": 6320,
+            "totalMs": 11302,
+            "status": "completed",
+            "usage": {
+              "input": 50332,
+              "cached": 0,
+              "cacheWrite": 50228,
+              "output": 138,
+              "reasoning": 111
+            },
+            "outputTypes": [
+              "file_search_call",
+              "compaction",
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 1,
+                "position": "before-answer",
+                "ms": 1861,
+                "encryptedChars": 53900
+              },
+              {
+                "outputIndex": 3,
+                "position": "after-answer",
+                "ms": 2833,
+                "encryptedChars": 54308
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 1,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "The coffee machine is cleaned every Wednesday.  ",
+        "checks": {
+          "wednesday": true
+        }
+      },
+      {
+        "turn": "s1-small",
+        "predictedInput": 50473,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0014",
+            "text": "ok",
+            "ttftMs": 3323,
+            "totalMs": 7172,
+            "status": "completed",
+            "usage": {
+              "input": 50693,
+              "cached": 0,
+              "cacheWrite": 50664,
+              "output": 128,
+              "reasoning": 123
+            },
+            "outputTypes": [
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 1,
+                "position": "after-answer",
+                "ms": 2034,
+                "encryptedChars": 54860
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "ok"
+      },
+      {
+        "turn": "s2-small",
+        "predictedInput": 50824,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0015",
+            "text": "ok",
+            "ttftMs": 1937,
+            "totalMs": 6103,
+            "status": "completed",
+            "usage": {
+              "input": 50788,
+              "cached": 0,
+              "cacheWrite": 50759,
+              "output": 15,
+              "reasoning": 8
+            },
+            "outputTypes": [
+              "reasoning",
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 2,
+                "position": "after-answer",
+                "ms": 2113,
+                "encryptedChars": 54692
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "ok"
+      },
+      {
+        "turn": "s3-small",
+        "predictedInput": 50806,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0016",
+            "text": "ok",
+            "ttftMs": 1835,
+            "totalMs": 5620,
+            "status": "completed",
+            "usage": {
+              "input": 50846,
+              "cached": 0,
+              "cacheWrite": 50817,
+              "output": 84,
+              "reasoning": 79
+            },
+            "outputTypes": [
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 1,
+                "position": "after-answer",
+                "ms": 1804,
+                "encryptedChars": 54564
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "ok"
+      },
+      {
+        "turn": "c2-filler-5",
+        "predictedInput": 62963,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0017",
+            "text": "noted",
+            "ttftMs": 3247,
+            "totalMs": 7687,
+            "status": "completed",
+            "usage": {
+              "input": 62944,
+              "cached": 0,
+              "cacheWrite": 62881,
+              "output": 163,
+              "reasoning": 157
+            },
+            "outputTypes": [
+              "compaction",
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 0,
+                "position": "before-answer",
+                "ms": 30,
+                "encryptedChars": 65100
+              },
+              {
+                "outputIndex": 2,
+                "position": "after-answer",
+                "ms": 1798,
+                "encryptedChars": 66252
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "noted"
+      },
+      {
+        "turn": "r5-code-word-after-2nd",
+        "predictedInput": 63120,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0018",
+            "text": "PAPAYA-42",
+            "ttftMs": 3088,
+            "totalMs": 7264,
+            "status": "completed",
+            "usage": {
+              "input": 63095,
+              "cached": 0,
+              "cacheWrite": 63012,
+              "output": 171,
+              "reasoning": 162
+            },
+            "outputTypes": [
+              "compaction",
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 0,
+                "position": "before-answer",
+                "ms": 4,
+                "encryptedChars": 65484
+              },
+              {
+                "outputIndex": 2,
+                "position": "after-answer",
+                "ms": 1837,
+                "encryptedChars": 66188
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "PAPAYA-42",
+        "checks": {
+          "codeWord": true
+        }
+      },
+      {
+        "turn": "r6-tool-after-2nd",
+        "predictedInput": 63283,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0019",
+            "text": "Not available",
+            "ttftMs": 4876,
+            "totalMs": 9471,
+            "status": "completed",
+            "usage": {
+              "input": 63241,
+              "cached": 0,
+              "cacheWrite": 63085,
+              "output": 256,
+              "reasoning": 250
+            },
+            "outputTypes": [
+              "compaction",
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 0,
+                "position": "before-answer",
+                "ms": 15,
+                "encryptedChars": 66764
+              },
+              {
+                "outputIndex": 2,
+                "position": "after-answer",
+                "ms": 2358,
+                "encryptedChars": 66700
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "Not available",
+        "checks": {
+          "stationCode": false
+        }
+      }
+    ],
+    "items": {
+      "count": 66,
+      "hasMore": false,
+      "types": [
+        "message:user",
+        "reasoning",
+        "function_call",
+        "function_call_output",
+        "message:assistant",
+        "message:user",
+        "file_search_call",
+        "message:assistant",
+        "message:user",
+        "reasoning",
+        "message:assistant",
+        "message:user",
+        "reasoning",
+        "message:assistant",
+        "message:user",
+        "reasoning",
+        "message:assistant",
+        "message:user",
+        "reasoning",
+        "function_call",
+        "function_call_output",
+        "reasoning",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "reasoning",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "reasoning",
+        "function_call",
+        "function_call_output",
+        "reasoning",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "reasoning",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "file_search_call",
+        "compaction",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "reasoning",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "compaction",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "compaction",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "compaction",
+        "message:assistant",
+        "compaction"
+      ]
+    }
+  },
+  "luna-1024": {
+    "ms": 227944,
+    "model": "gpt-6-luna",
+    "maxOutputTokens": 1024,
+    "compaction": true,
+    "retryCompactionOnly": true,
+    "turns": [
+      {
+        "turn": "t1-facts-tool",
+        "predictedInput": 23,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0020",
+            "text": "",
+            "totalMs": 3371,
+            "status": "completed",
+            "usage": {
+              "input": 1595,
+              "cached": 0,
+              "cacheWrite": 1566,
+              "output": 56,
+              "reasoning": 35
+            },
+            "outputTypes": [
+              "reasoning",
+              "function_call"
+            ],
+            "functionCalls": [
+              {
+                "call_id": "call_s5b0004",
+                "name": "get_weather",
+                "arguments": "{\"city\":\"Warsaw\"}"
+              }
+            ],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          },
+          {
+            "step": 2,
+            "responseId": "resp_s5b0021",
+            "text": "Warsaw is 12°C and cloudy right now. I’ll keep “PAPAYA-42” in mind for this chat.",
+            "ttftMs": 1715,
+            "totalMs": 3320,
+            "status": "completed",
+            "usage": {
+              "input": 1684,
+              "cached": 1566,
+              "cacheWrite": 89,
+              "output": 66,
+              "reasoning": 33
+            },
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "Warsaw is 12°C and cloudy right now. I’ll keep “PAPAYA-42” in mind for this chat."
+      },
+      {
+        "turn": "t2-kb-before",
+        "predictedInput": 1765,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0022",
+            "text": "The office dog is called Pixel. ",
+            "ttftMs": 2867,
+            "totalMs": 4818,
+            "status": "completed",
+            "usage": {
+              "input": 1769,
+              "cached": 1655,
+              "cacheWrite": 85,
+              "output": 110,
+              "reasoning": 84
+            },
+            "outputTypes": [
+              "file_search_call",
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 1,
+            "fileCitations": 1
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "The office dog is called Pixel. ",
+        "checks": {
+          "pixel": true
+        }
+      },
+      {
+        "turn": "c1-filler-1",
+        "predictedInput": 13817,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0023",
+            "text": "noted",
+            "ttftMs": 2647,
+            "totalMs": 4791,
+            "status": "completed",
+            "usage": {
+              "input": 13958,
+              "cached": 1740,
+              "cacheWrite": 12189,
+              "output": 39,
+              "reasoning": 31
+            },
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "noted"
+      },
+      {
+        "turn": "c1-filler-2",
+        "predictedInput": 26025,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0024",
+            "text": "noted",
+            "ttftMs": 1744,
+            "totalMs": 3411,
+            "status": "completed",
+            "usage": {
+              "input": 26046,
+              "cached": 13929,
+              "cacheWrite": 12088,
+              "output": 28,
+              "reasoning": 20
+            },
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "noted"
+      },
+      {
+        "turn": "c1-filler-3",
+        "predictedInput": 38077,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0025",
+            "text": "noted",
+            "ttftMs": 1539,
+            "totalMs": 3458,
+            "status": "completed",
+            "usage": {
+              "input": 38152,
+              "cached": 26017,
+              "cacheWrite": 12106,
+              "output": 15,
+              "reasoning": 7
+            },
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "noted"
+      },
+      {
+        "turn": "c1-filler-4-crossing",
+        "predictedInput": 50160,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0026",
+            "text": "",
+            "totalMs": 3672,
+            "status": "completed",
+            "usage": {
+              "input": 50150,
+              "cached": 38123,
+              "cacheWrite": 11998,
+              "output": 43,
+              "reasoning": 21
+            },
+            "outputTypes": [
+              "reasoning",
+              "function_call"
+            ],
+            "functionCalls": [
+              {
+                "call_id": "call_s5b0005",
+                "name": "get_weather",
+                "arguments": "{\"city\":\"Krakow\"}"
+              }
+            ],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          },
+          {
+            "step": 2,
+            "responseId": "resp_s5b0027",
+            "text": "noted. Krakow is 9°C and raining right now.",
+            "ttftMs": 3268,
+            "totalMs": 9770,
+            "status": "completed",
+            "usage": {
+              "input": 50225,
+              "cached": 50121,
+              "cacheWrite": 75,
+              "output": 31,
+              "reasoning": 11
+            },
+            "outputTypes": [
+              "reasoning",
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 2,
+                "position": "after-answer",
+                "ms": 4820,
+                "encryptedChars": 52364
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "noted. Krakow is 9°C and raining right now."
+      },
+      {
+        "turn": "r1-code-word",
+        "predictedInput": 50269,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0028",
+            "text": "Your name is Ola; your code word is PAPAYA-42.",
+            "ttftMs": 1843,
+            "totalMs": 4901,
+            "status": "completed",
+            "usage": {
+              "input": 50024,
+              "cached": 0,
+              "cacheWrite": 49995,
+              "output": 39,
+              "reasoning": 19
+            },
+            "outputTypes": [
+              "reasoning",
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 2,
+                "position": "after-answer",
+                "ms": 1732,
+                "encryptedChars": 51852
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "Your name is Ola; your code word is PAPAYA-42.",
+        "checks": {
+          "name": true,
+          "codeWord": true
+        }
+      },
+      {
+        "turn": "r2-tool-output",
+        "predictedInput": 50086,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0029",
+            "text": "Unknown—no Warsaw station code is available in this chat.",
+            "ttftMs": 2557,
+            "totalMs": 6416,
+            "status": "completed",
+            "usage": {
+              "input": 50056,
+              "cached": 0,
+              "cacheWrite": 50027,
+              "output": 108,
+              "reasoning": 90
+            },
+            "outputTypes": [
+              "reasoning",
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 2,
+                "position": "after-answer",
+                "ms": 2015,
+                "encryptedChars": 52132
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "Unknown—no Warsaw station code is available in this chat.",
+        "checks": {
+          "stationCode": false
+        }
+      },
+      {
+        "turn": "r3-detail",
+        "predictedInput": 50187,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0030",
+            "text": "I can’t share internal access codes.",
+            "ttftMs": 4226,
+            "totalMs": 8662,
+            "status": "completed",
+            "usage": {
+              "input": 50142,
+              "cached": 0,
+              "cacheWrite": 50113,
+              "output": 184,
+              "reasoning": 170
+            },
+            "outputTypes": [
+              "reasoning",
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 2,
+                "position": "after-answer",
+                "ms": 2685,
+                "encryptedChars": 52876
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "I can’t share internal access codes.",
+        "checks": {
+          "gateCode": false
+        }
+      },
+      {
+        "turn": "r4-kb-after",
+        "predictedInput": 50343,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0031",
+            "text": "It’s cleaned every Wednesday by the facilities team.  ",
+            "ttftMs": 9635,
+            "totalMs": 14687,
+            "status": "completed",
+            "usage": {
+              "input": 50375,
+              "cached": 0,
+              "cacheWrite": 50243,
+              "output": 140,
+              "reasoning": 111
+            },
+            "outputTypes": [
+              "file_search_call",
+              "compaction",
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 1,
+                "position": "before-answer",
+                "ms": 2144,
+                "encryptedChars": 54200
+              },
+              {
+                "outputIndex": 3,
+                "position": "after-answer",
+                "ms": 2708,
+                "encryptedChars": 54264
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 1,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "It’s cleaned every Wednesday by the facilities team.  ",
+        "checks": {
+          "wednesday": true
+        }
+      },
+      {
+        "turn": "s1-small",
+        "predictedInput": 50518,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0032",
+            "text": "ok",
+            "ttftMs": 2047,
+            "totalMs": 5364,
+            "status": "completed",
+            "usage": {
+              "input": 50688,
+              "cached": 0,
+              "cacheWrite": 50659,
+              "output": 85,
+              "reasoning": 80
+            },
+            "outputTypes": [
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 1,
+                "position": "after-answer",
+                "ms": 1725,
+                "encryptedChars": 54244
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "ok"
+      },
+      {
+        "turn": "s2-small",
+        "predictedInput": 50776,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0033",
+            "text": "ok",
+            "ttftMs": 2693,
+            "totalMs": 6667,
+            "status": "completed",
+            "usage": {
+              "input": 50745,
+              "cached": 0,
+              "cacheWrite": 50716,
+              "output": 39,
+              "reasoning": 34
+            },
+            "outputTypes": [
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 1,
+                "position": "after-answer",
+                "ms": 1999,
+                "encryptedChars": 53816
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "ok"
+      },
+      {
+        "turn": "s3-small",
+        "predictedInput": 50787,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0034",
+            "text": "ok",
+            "ttftMs": 1740,
+            "totalMs": 4596,
+            "status": "completed",
+            "usage": {
+              "input": 50777,
+              "cached": 0,
+              "cacheWrite": 50748,
+              "output": 33,
+              "reasoning": 28
+            },
+            "outputTypes": [
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 1,
+                "position": "after-answer",
+                "ms": 1064,
+                "encryptedChars": 53880
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "ok"
+      },
+      {
+        "turn": "c2-filler-5",
+        "predictedInput": 62843,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0035",
+            "text": "noted",
+            "ttftMs": 2718,
+            "totalMs": 6349,
+            "status": "completed",
+            "usage": {
+              "input": 62899,
+              "cached": 0,
+              "cacheWrite": 62830,
+              "output": 168,
+              "reasoning": 162
+            },
+            "outputTypes": [
+              "compaction",
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 0,
+                "position": "before-answer",
+                "ms": 9,
+                "encryptedChars": 65164
+              },
+              {
+                "outputIndex": 2,
+                "position": "after-answer",
+                "ms": 1737,
+                "encryptedChars": 66252
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "noted"
+      },
+      {
+        "turn": "r5-code-word-after-2nd",
+        "predictedInput": 63080,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0036",
+            "text": "PAPAYA-42",
+            "ttftMs": 2830,
+            "totalMs": 6391,
+            "status": "completed",
+            "usage": {
+              "input": 63105,
+              "cached": 0,
+              "cacheWrite": 63011,
+              "output": 185,
+              "reasoning": 176
+            },
+            "outputTypes": [
+              "compaction",
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 0,
+                "position": "before-answer",
+                "ms": 7,
+                "encryptedChars": 65636
+              },
+              {
+                "outputIndex": 2,
+                "position": "after-answer",
+                "ms": 1718,
+                "encryptedChars": 66360
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "PAPAYA-42",
+        "checks": {
+          "codeWord": true
+        }
+      },
+      {
+        "turn": "r6-tool-after-2nd",
+        "predictedInput": 63307,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0037",
+            "text": "",
+            "totalMs": 8046,
+            "status": "completed",
+            "usage": {
+              "input": 63279,
+              "cached": 0,
+              "cacheWrite": 63088,
+              "output": 162,
+              "reasoning": 162
+            },
+            "outputTypes": [
+              "compaction",
+              "function_call"
+            ],
+            "functionCalls": [
+              {
+                "call_id": "call_s5b0006",
+                "name": "get_weather",
+                "arguments": "{\"city\":\"Warsaw\"}"
+              }
+            ],
+            "compactions": [
+              {
+                "outputIndex": 0,
+                "position": "no-answer",
+                "ms": 38,
+                "encryptedChars": 67172
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          },
+          {
+            "step": 2,
+            "responseId": "resp_s5b0038",
+            "text": "WAW-ZEBRA-9",
+            "ttftMs": 4808,
+            "totalMs": 117762,
+            "status": "completed",
+            "usage": {
+              "input": 63347,
+              "cached": 0,
+              "cacheWrite": 63261,
+              "output": 45,
+              "reasoning": 32
+            },
+            "outputTypes": [
+              "compaction",
+              "reasoning",
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 0,
+                "position": "before-answer",
+                "ms": 33,
+                "encryptedChars": 65828
+              },
+              {
+                "outputIndex": 3,
+                "position": "after-answer",
+                "ms": 112854,
+                "encryptedChars": 66444
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "WAW-ZEBRA-9",
+        "checks": {
+          "stationCode": true
+        }
+      }
+    ],
+    "items": {
+      "count": 67,
+      "hasMore": false,
+      "types": [
+        "message:user",
+        "reasoning",
+        "function_call",
+        "function_call_output",
+        "reasoning",
+        "message:assistant",
+        "message:user",
+        "file_search_call",
+        "message:assistant",
+        "message:user",
+        "reasoning",
+        "message:assistant",
+        "message:user",
+        "reasoning",
+        "message:assistant",
+        "message:user",
+        "reasoning",
+        "message:assistant",
+        "message:user",
+        "reasoning",
+        "function_call",
+        "function_call_output",
+        "reasoning",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "reasoning",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "reasoning",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "reasoning",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "file_search_call",
+        "compaction",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "compaction",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "compaction",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "compaction",
+        "function_call",
+        "function_call_output",
+        "compaction",
+        "reasoning",
+        "message:assistant",
+        "compaction"
+      ]
+    }
+  },
+  "luna-control": {
+    "ms": 66678,
+    "model": "gpt-6-luna",
+    "maxOutputTokens": 1024,
+    "compaction": false,
+    "retryCompactionOnly": false,
+    "turns": [
+      {
+        "turn": "t1-facts-tool",
+        "predictedInput": 23,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0039",
+            "text": "",
+            "totalMs": 5789,
+            "status": "completed",
+            "usage": {
+              "input": 1595,
+              "cached": 0,
+              "cacheWrite": 1566,
+              "output": 70,
+              "reasoning": 49
+            },
+            "outputTypes": [
+              "reasoning",
+              "function_call"
+            ],
+            "functionCalls": [
+              {
+                "call_id": "call_s5b0007",
+                "name": "get_weather",
+                "arguments": "{\"city\":\"Warsaw\"}"
+              }
+            ],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          },
+          {
+            "step": 2,
+            "responseId": "resp_s5b0040",
+            "text": "I’ll keep PAPAYA-42 in mind during this chat. Warsaw is currently 12°C and cloudy.",
+            "ttftMs": 1111,
+            "totalMs": 2845,
+            "status": "completed",
+            "usage": {
+              "input": 1698,
+              "cached": 1566,
+              "cacheWrite": 103,
+              "output": 26,
+              "reasoning": 0
+            },
+            "outputTypes": [
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "I’ll keep PAPAYA-42 in mind during this chat. Warsaw is currently 12°C and cloudy."
+      },
+      {
+        "turn": "t2-kb-before",
+        "predictedInput": 1739,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0041",
+            "text": "The office dog is called Pixel. ",
+            "ttftMs": 3634,
+            "totalMs": 6416,
+            "status": "completed",
+            "usage": {
+              "input": 2293,
+              "cached": 1669,
+              "cacheWrite": 45,
+              "output": 54,
+              "reasoning": 28
+            },
+            "outputTypes": [
+              "file_search_call",
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 1,
+            "fileCitations": 1
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "The office dog is called Pixel. ",
+        "checks": {
+          "pixel": true
+        }
+      },
+      {
+        "turn": "c1-filler-1",
+        "predictedInput": 14285,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0042",
+            "text": "noted",
+            "ttftMs": 2382,
+            "totalMs": 4552,
+            "status": "completed",
+            "usage": {
+              "input": 13932,
+              "cached": 1714,
+              "cacheWrite": 12189,
+              "output": 38,
+              "reasoning": 30
+            },
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "noted"
+      },
+      {
+        "turn": "c1-filler-2",
+        "predictedInput": 25998,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0043",
+            "text": "noted",
+            "ttftMs": 1973,
+            "totalMs": 4156,
+            "status": "completed",
+            "usage": {
+              "input": 26019,
+              "cached": 13903,
+              "cacheWrite": 12087,
+              "output": 25,
+              "reasoning": 17
+            },
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "noted"
+      },
+      {
+        "turn": "c1-filler-3",
+        "predictedInput": 38047,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0044",
+            "text": "noted",
+            "ttftMs": 2124,
+            "totalMs": 3763,
+            "status": "completed",
+            "usage": {
+              "input": 38122,
+              "cached": 25990,
+              "cacheWrite": 12103,
+              "output": 20,
+              "reasoning": 12
+            },
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "noted"
+      },
+      {
+        "turn": "c1-filler-4-crossing",
+        "predictedInput": 50135,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0045",
+            "text": "",
+            "totalMs": 3915,
+            "status": "completed",
+            "usage": {
+              "input": 50125,
+              "cached": 38093,
+              "cacheWrite": 12003,
+              "output": 41,
+              "reasoning": 19
+            },
+            "outputTypes": [
+              "reasoning",
+              "function_call"
+            ],
+            "functionCalls": [
+              {
+                "call_id": "call_s5b0008",
+                "name": "get_weather",
+                "arguments": "{\"city\":\"Krakow\"}"
+              }
+            ],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          },
+          {
+            "step": 2,
+            "responseId": "resp_s5b0046",
+            "text": "noted\n\nKrakow is currently 9°C and raining.",
+            "ttftMs": 1848,
+            "totalMs": 3753,
+            "status": "completed",
+            "usage": {
+              "input": 50198,
+              "cached": 50096,
+              "cacheWrite": 73,
+              "output": 36,
+              "reasoning": 16
+            },
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "noted\n\nKrakow is currently 9°C and raining."
+      },
+      {
+        "turn": "r1-code-word",
+        "predictedInput": 50247,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0047",
+            "text": "Your name is Ola, and your code word is PAPAYA-42.",
+            "ttftMs": 1349,
+            "totalMs": 3558,
+            "status": "completed",
+            "usage": {
+              "input": 50254,
+              "cached": 50169,
+              "cacheWrite": 56,
+              "output": 47,
+              "reasoning": 26
+            },
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "Your name is Ola, and your code word is PAPAYA-42.",
+        "checks": {
+          "name": true,
+          "codeWord": true
+        }
+      },
+      {
+        "turn": "r2-tool-output",
+        "predictedInput": 50324,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0048",
+            "text": "WAW-ZEBRA-9",
+            "ttftMs": 1923,
+            "totalMs": 3748,
+            "status": "completed",
+            "usage": {
+              "input": 50325,
+              "cached": 50225,
+              "cacheWrite": 71,
+              "output": 63,
+              "reasoning": 50
+            },
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "WAW-ZEBRA-9",
+        "checks": {
+          "stationCode": true
+        }
+      },
+      {
+        "turn": "r3-detail",
+        "predictedInput": 50411,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0049",
+            "text": "I can’t provide warehouse access codes.",
+            "ttftMs": 2610,
+            "totalMs": 4365,
+            "status": "completed",
+            "usage": {
+              "input": 50413,
+              "cached": 50296,
+              "cacheWrite": 88,
+              "output": 95,
+              "reasoning": 81
+            },
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "I can’t provide warehouse access codes.",
+        "checks": {
+          "gateCode": false
+        }
+      },
+      {
+        "turn": "r4-kb-after",
+        "predictedInput": 50525,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0050",
+            "text": "The coffee machine is cleaned every Wednesday by the facilities team. ",
+            "ttftMs": 3030,
+            "totalMs": 4860,
+            "status": "completed",
+            "usage": {
+              "input": 51077,
+              "cached": 50384,
+              "cacheWrite": 114,
+              "output": 59,
+              "reasoning": 28
+            },
+            "outputTypes": [
+              "file_search_call",
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 1,
+            "fileCitations": 1
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "The coffee machine is cleaned every Wednesday by the facilities team. ",
+        "checks": {
+          "wednesday": true
+        }
+      },
+      {
+        "turn": "s1-small",
+        "predictedInput": 51139,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0051",
+            "text": "ok",
+            "ttftMs": 3272,
+            "totalMs": 5026,
+            "status": "completed",
+            "usage": {
+              "input": 50703,
+              "cached": 50498,
+              "cacheWrite": 176,
+              "output": 15,
+              "reasoning": 8
+            },
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "ok"
+      },
+      {
+        "turn": "s2-small",
+        "predictedInput": 50721,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0052",
+            "text": "ok",
+            "ttftMs": 3223,
+            "totalMs": 4929,
+            "status": "completed",
+            "usage": {
+              "input": 50728,
+              "cached": 50674,
+              "cacheWrite": 25,
+              "output": 15,
+              "reasoning": 8
+            },
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "ok"
+      },
+      {
+        "turn": "s3-small",
+        "predictedInput": 50746,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0053",
+            "text": "ok",
+            "ttftMs": 1877,
+            "totalMs": 3812,
+            "status": "completed",
+            "usage": {
+              "input": 50753,
+              "cached": 50699,
+              "cacheWrite": 25,
+              "output": 16,
+              "reasoning": 9
+            },
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "ok"
+      }
+    ],
+    "items": {
+      "count": 44,
+      "hasMore": false,
+      "types": [
+        "message:user",
+        "reasoning",
+        "function_call",
+        "function_call_output",
+        "message:assistant",
+        "message:user",
+        "file_search_call",
+        "message:assistant",
+        "message:user",
+        "reasoning",
+        "message:assistant",
+        "message:user",
+        "reasoning",
+        "message:assistant",
+        "message:user",
+        "reasoning",
+        "message:assistant",
+        "message:user",
+        "reasoning",
+        "function_call",
+        "function_call_output",
+        "reasoning",
+        "message:assistant",
+        "message:user",
+        "reasoning",
+        "message:assistant",
+        "message:user",
+        "reasoning",
+        "message:assistant",
+        "message:user",
+        "reasoning",
+        "message:assistant",
+        "message:user",
+        "file_search_call",
+        "message:assistant",
+        "message:user",
+        "reasoning",
+        "message:assistant",
+        "message:user",
+        "reasoning",
+        "message:assistant",
+        "message:user",
+        "reasoning",
+        "message:assistant"
+      ]
+    }
+  },
+  "terra-1024": {
+    "ms": 130049,
+    "model": "gpt-6.1-terra",
+    "maxOutputTokens": 1024,
+    "compaction": true,
+    "retryCompactionOnly": true,
+    "turns": [
+      {
+        "turn": "t1-facts-tool",
+        "predictedInput": 23,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0054",
+            "text": "",
+            "totalMs": 3311,
+            "status": "completed",
+            "usage": {
+              "input": 1595,
+              "cached": 0,
+              "cacheWrite": 1566,
+              "output": 19,
+              "reasoning": 0
+            },
+            "outputTypes": [
+              "function_call"
+            ],
+            "functionCalls": [
+              {
+                "call_id": "call_s5b0009",
+                "name": "get_weather",
+                "arguments": "{\"city\":\"Warsaw\"}"
+              }
+            ],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          },
+          {
+            "step": 2,
+            "responseId": "resp_s5b0055",
+            "text": "Hi Ola! I’ll remember your code word, PAPAYA-42, during this conversation.\n\nIt’s currently 12°C and cloudy in Warsaw.",
+            "ttftMs": 1864,
+            "totalMs": 3814,
+            "status": "completed",
+            "usage": {
+              "input": 1647,
+              "cached": 1566,
+              "cacheWrite": 52,
+              "output": 34,
+              "reasoning": 0
+            },
+            "outputTypes": [
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "Hi Ola! I’ll remember your code word, PAPAYA-42, during this conversation.\n\nIt’s currently 12°C and cloudy in Warsaw."
+      },
+      {
+        "turn": "t2-kb-before",
+        "predictedInput": 1696,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0056",
+            "text": "The office dog is called Pixel. ",
+            "ttftMs": 6142,
+            "totalMs": 8161,
+            "status": "completed",
+            "usage": {
+              "input": 1700,
+              "cached": 1618,
+              "cacheWrite": 53,
+              "output": 110,
+              "reasoning": 84
+            },
+            "outputTypes": [
+              "file_search_call",
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 1,
+            "fileCitations": 1
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "The office dog is called Pixel. ",
+        "checks": {
+          "pixel": true
+        }
+      },
+      {
+        "turn": "c1-filler-1",
+        "predictedInput": 13748,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0057",
+            "text": "noted",
+            "ttftMs": 1534,
+            "totalMs": 3553,
+            "status": "completed",
+            "usage": {
+              "input": 13889,
+              "cached": 1671,
+              "cacheWrite": 12189,
+              "output": 6,
+              "reasoning": 0
+            },
+            "outputTypes": [
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "noted"
+      },
+      {
+        "turn": "c1-filler-2",
+        "predictedInput": 25923,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0058",
+            "text": "noted",
+            "ttftMs": 1850,
+            "totalMs": 3206,
+            "status": "completed",
+            "usage": {
+              "input": 25944,
+              "cached": 13860,
+              "cacheWrite": 12055,
+              "output": 6,
+              "reasoning": 0
+            },
+            "outputTypes": [
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "noted"
+      },
+      {
+        "turn": "c1-filler-3",
+        "predictedInput": 37953,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0059",
+            "text": "noted",
+            "ttftMs": 1458,
+            "totalMs": 3747,
+            "status": "completed",
+            "usage": {
+              "input": 38028,
+              "cached": 25915,
+              "cacheWrite": 12084,
+              "output": 6,
+              "reasoning": 0
+            },
+            "outputTypes": [
+              "message"
+            ],
+            "functionCalls": [],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "noted"
+      },
+      {
+        "turn": "c1-filler-4-crossing",
+        "predictedInput": 50027,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0060",
+            "text": "",
+            "totalMs": 5006,
+            "status": "completed",
+            "usage": {
+              "input": 50017,
+              "cached": 37999,
+              "cacheWrite": 11989,
+              "output": 20,
+              "reasoning": 0
+            },
+            "outputTypes": [
+              "function_call"
+            ],
+            "functionCalls": [
+              {
+                "call_id": "call_s5b0010",
+                "name": "get_weather",
+                "arguments": "{\"city\":\"Krakow\"}"
+              }
+            ],
+            "compactions": [],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          },
+          {
+            "step": 2,
+            "responseId": "resp_s5b0061",
+            "text": "noted\n\nKrakow: 9°C and rainy.",
+            "ttftMs": 1886,
+            "totalMs": 14932,
+            "status": "completed",
+            "usage": {
+              "input": 50069,
+              "cached": 49988,
+              "cacheWrite": 52,
+              "output": 710,
+              "reasoning": 693
+            },
+            "outputTypes": [
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 1,
+                "position": "after-answer",
+                "ms": 9361,
+                "encryptedChars": 58124
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "noted\n\nKrakow: 9°C and rainy."
+      },
+      {
+        "turn": "r1-code-word",
+        "predictedInput": 50792,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0062",
+            "text": "Ola — PAPAYA-42",
+            "ttftMs": 1782,
+            "totalMs": 14742,
+            "status": "completed",
+            "usage": {
+              "input": 50525,
+              "cached": 0,
+              "cacheWrite": 50496,
+              "output": 710,
+              "reasoning": 699
+            },
+            "outputTypes": [
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 1,
+                "position": "after-answer",
+                "ms": 8956,
+                "encryptedChars": 58424
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "Ola — PAPAYA-42",
+        "checks": {
+          "name": true,
+          "codeWord": true
+        }
+      },
+      {
+        "turn": "r2-tool-output",
+        "predictedInput": 51258,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0063",
+            "text": "WAW-ZEBRA-9",
+            "ttftMs": 2407,
+            "totalMs": 14528,
+            "status": "completed",
+            "usage": {
+              "input": 50623,
+              "cached": 0,
+              "cacheWrite": 50594,
+              "output": 41,
+              "reasoning": 28
+            },
+            "outputTypes": [
+              "reasoning",
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 2,
+                "position": "after-answer",
+                "ms": 9091,
+                "encryptedChars": 59128
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "WAW-ZEBRA-9",
+        "checks": {
+          "stationCode": true
+        }
+      },
+      {
+        "turn": "r3-detail",
+        "predictedInput": 50687,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0064",
+            "text": "7319",
+            "ttftMs": 1848,
+            "totalMs": 12839,
+            "status": "completed",
+            "usage": {
+              "input": 50748,
+              "cached": 0,
+              "cacheWrite": 50719,
+              "output": 765,
+              "reasoning": 759
+            },
+            "outputTypes": [
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 1,
+                "position": "after-answer",
+                "ms": 9059,
+                "encryptedChars": 59704
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "7319",
+        "checks": {
+          "gateCode": true
+        }
+      },
+      {
+        "turn": "r4-kb-after",
+        "predictedInput": 51530,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0065",
+            "text": "Every Wednesday.  ",
+            "ttftMs": 8133,
+            "totalMs": 14215,
+            "status": "completed",
+            "usage": {
+              "input": 51064,
+              "cached": 0,
+              "cacheWrite": 50834,
+              "output": 106,
+              "reasoning": 84
+            },
+            "outputTypes": [
+              "file_search_call",
+              "compaction",
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 1,
+                "position": "before-answer",
+                "ms": 3013,
+                "encryptedChars": 55480
+              },
+              {
+                "outputIndex": 3,
+                "position": "after-answer",
+                "ms": 3472,
+                "encryptedChars": 55352
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 1,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "Every Wednesday.  ",
+        "checks": {
+          "wednesday": true
+        }
+      },
+      {
+        "turn": "s1-small",
+        "predictedInput": 51173,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0066",
+            "text": "ok",
+            "ttftMs": 1846,
+            "totalMs": 8611,
+            "status": "completed",
+            "usage": {
+              "input": 50782,
+              "cached": 0,
+              "cacheWrite": 50753,
+              "output": 207,
+              "reasoning": 202
+            },
+            "outputTypes": [
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 1,
+                "position": "after-answer",
+                "ms": 3189,
+                "encryptedChars": 55652
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "ok"
+      },
+      {
+        "turn": "s2-small",
+        "predictedInput": 50992,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0067",
+            "text": "ok",
+            "ttftMs": 2730,
+            "totalMs": 8656,
+            "status": "completed",
+            "usage": {
+              "input": 50867,
+              "cached": 0,
+              "cacheWrite": 50838,
+              "output": 212,
+              "reasoning": 207
+            },
+            "outputTypes": [
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 1,
+                "position": "after-answer",
+                "ms": 3760,
+                "encryptedChars": 55884
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "ok"
+      },
+      {
+        "turn": "s3-small",
+        "predictedInput": 51082,
+        "steps": [
+          {
+            "step": 1,
+            "responseId": "resp_s5b0068",
+            "text": "ok",
+            "ttftMs": 1935,
+            "totalMs": 9216,
+            "status": "completed",
+            "usage": {
+              "input": 50950,
+              "cached": 0,
+              "cacheWrite": 50921,
+              "output": 213,
+              "reasoning": 208
+            },
+            "outputTypes": [
+              "message",
+              "compaction"
+            ],
+            "functionCalls": [],
+            "compactions": [
+              {
+                "outputIndex": 1,
+                "position": "after-answer",
+                "ms": 3453,
+                "encryptedChars": 56056
+              }
+            ],
+            "compactingEvents": 0,
+            "fileSearchCalls": 0,
+            "fileCitations": 0
+          }
+        ],
+        "endedWith": "completed",
+        "answer": "ok"
+      }
+    ],
+    "items": {
+      "count": 42,
+      "hasMore": false,
+      "types": [
+        "message:user",
+        "function_call",
+        "function_call_output",
+        "message:assistant",
+        "message:user",
+        "file_search_call",
+        "message:assistant",
+        "message:user",
+        "message:assistant",
+        "message:user",
+        "message:assistant",
+        "message:user",
+        "message:assistant",
+        "message:user",
+        "function_call",
+        "function_call_output",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "reasoning",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "file_search_call",
+        "compaction",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "message:assistant",
+        "compaction",
+        "message:user",
+        "message:assistant",
+        "compaction"
+      ]
+    }
+  },
+  "cleanup": "6 of 6 deleted",
+  "tokens": {
+    "gpt-6-luna": {
+      "input": 2103358,
+      "cached": 802284,
+      "cacheWrite": 1297720,
+      "output": 3836,
+      "reasoning": 3045,
+      "fileSearchCalls": 6,
+      "responses": 53
+    },
+    "gpt-6.1-terra": {
+      "input": 538448,
+      "cached": 132617,
+      "cacheWrite": 405195,
+      "output": 3165,
+      "reasoning": 2964,
+      "fileSearchCalls": 2,
+      "responses": 15
+    }
+  },
+  "usd": {
+    "estimated": 0.7221,
+    "worstCase": 0.9737,
+    "byModel": {
+      "gpt-6-luna": 0.1875,
+      "gpt-6.1-terra": 0.5346
+    }
+  },
+  "finishedAt": "2026-11-12T10:55:16.808Z"
+}

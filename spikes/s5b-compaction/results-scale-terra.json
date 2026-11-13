@@ -1,0 +1,99 @@
+{
+  "model": "gpt-6.1-terra",
+  "blockLines": 1050,
+  "compactionItemTokens@100000": 35681,
+  "recall@100000": {
+    "name": true,
+    "codeWord": true
+  },
+  "turns@100000": [
+    {
+      "label": "t1",
+      "ms": 2531,
+      "status": "completed",
+      "input": 45,
+      "cached": 0,
+      "output": 6,
+      "reasoning": 0,
+      "outputTypes": [
+        "message"
+      ],
+      "encryptedChars": []
+    },
+    {
+      "label": "filler-1",
+      "ms": 2957,
+      "status": "completed",
+      "input": 35556,
+      "cached": 0,
+      "output": 6,
+      "reasoning": 0,
+      "outputTypes": [
+        "message"
+      ],
+      "encryptedChars": []
+    },
+    {
+      "label": "filler-2",
+      "ms": 3033,
+      "status": "completed",
+      "input": 71067,
+      "cached": 35553,
+      "output": 6,
+      "reasoning": 0,
+      "outputTypes": [
+        "message"
+      ],
+      "encryptedChars": []
+    },
+    {
+      "label": "filler-3",
+      "ms": 6568,
+      "status": "completed",
+      "input": 106733,
+      "cached": 71064,
+      "output": 162,
+      "reasoning": 156,
+      "outputTypes": [
+        "compaction",
+        "message"
+      ],
+      "encryptedChars": [
+        30008
+      ]
+    },
+    {
+      "label": "next",
+      "ms": 3366,
+      "status": "completed",
+      "input": 35705,
+      "cached": 0,
+      "output": 11,
+      "reasoning": 0,
+      "outputTypes": [
+        "message"
+      ],
+      "encryptedChars": []
+    },
+    {
+      "label": "next-2",
+      "ms": 2773,
+      "status": "completed",
+      "input": 35726,
+      "cached": 35702,
+      "output": 5,
+      "reasoning": 0,
+      "outputTypes": [
+        "message"
+      ],
+      "encryptedChars": []
+    }
+  ],
+  "deleted@100000": true,
+  "tokens": {
+    "input": 284832,
+    "cached": 142319,
+    "output": 196
+  },
+  "worstCaseUsd": 0.1862
+}

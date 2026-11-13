@@ -1,0 +1,231 @@
+{
+  "model": "gpt-6-luna",
+  "compactionItemTokens@100000": 34557,
+  "recall@100000": {
+    "name": false,
+    "codeWord": true
+  },
+  "turns@100000": [
+    {
+      "label": "t1",
+      "ms": 4091,
+      "status": "completed",
+      "input": 45,
+      "cached": 0,
+      "output": 41,
+      "reasoning": 33,
+      "outputTypes": [
+        "reasoning",
+        "message"
+      ],
+      "encryptedChars": []
+    },
+    {
+      "label": "filler-1",
+      "ms": 3693,
+      "status": "completed",
+      "input": 34543,
+      "cached": 0,
+      "output": 6,
+      "reasoning": 0,
+      "outputTypes": [
+        "message"
+      ],
+      "encryptedChars": []
+    },
+    {
+      "label": "filler-2",
+      "ms": 4019,
+      "status": "completed",
+      "input": 69005,
+      "cached": 34540,
+      "output": 6,
+      "reasoning": 0,
+      "outputTypes": [
+        "message"
+      ],
+      "encryptedChars": []
+    },
+    {
+      "label": "filler-3",
+      "ms": 5377,
+      "status": "completed",
+      "input": 103547,
+      "cached": 69002,
+      "output": 88,
+      "reasoning": 82,
+      "outputTypes": [
+        "compaction",
+        "message"
+      ],
+      "encryptedChars": [
+        29412
+      ]
+    },
+    {
+      "label": "next",
+      "ms": 3569,
+      "status": "completed",
+      "input": 34581,
+      "cached": 0,
+      "output": 88,
+      "reasoning": 67,
+      "outputTypes": [
+        "reasoning",
+        "message"
+      ],
+      "encryptedChars": []
+    },
+    {
+      "label": "next-2",
+      "ms": 2234,
+      "status": "completed",
+      "input": 34679,
+      "cached": 34578,
+      "output": 5,
+      "reasoning": 0,
+      "outputTypes": [
+        "message"
+      ],
+      "encryptedChars": []
+    }
+  ],
+  "deleted@100000": true,
+  "compactionItemTokens@200000": 34549,
+  "recall@200000": {
+    "name": false,
+    "codeWord": false
+  },
+  "turns@200000": [
+    {
+      "label": "t1",
+      "ms": 3043,
+      "status": "completed",
+      "input": 45,
+      "cached": 0,
+      "output": 44,
+      "reasoning": 36,
+      "outputTypes": [
+        "reasoning",
+        "message"
+      ],
+      "encryptedChars": []
+    },
+    {
+      "label": "filler-1",
+      "ms": 2400,
+      "status": "completed",
+      "input": 34546,
+      "cached": 0,
+      "output": 6,
+      "reasoning": 0,
+      "outputTypes": [
+        "message"
+      ],
+      "encryptedChars": []
+    },
+    {
+      "label": "filler-2",
+      "ms": 3069,
+      "status": "completed",
+      "input": 69008,
+      "cached": 34543,
+      "output": 6,
+      "reasoning": 0,
+      "outputTypes": [
+        "message"
+      ],
+      "encryptedChars": []
+    },
+    {
+      "label": "filler-3",
+      "ms": 2372,
+      "status": "completed",
+      "input": 103468,
+      "cached": 69005,
+      "output": 6,
+      "reasoning": 0,
+      "outputTypes": [
+        "message"
+      ],
+      "encryptedChars": []
+    },
+    {
+      "label": "filler-4",
+      "ms": 2983,
+      "status": "completed",
+      "input": 137929,
+      "cached": 103465,
+      "output": 6,
+      "reasoning": 0,
+      "outputTypes": [
+        "message"
+      ],
+      "encryptedChars": []
+    },
+    {
+      "label": "filler-5",
+      "ms": 2768,
+      "status": "completed",
+      "input": 172390,
+      "cached": 137926,
+      "output": 6,
+      "reasoning": 0,
+      "outputTypes": [
+        "message"
+      ],
+      "encryptedChars": []
+    },
+    {
+      "label": "filler-6",
+      "ms": 5453,
+      "status": "completed",
+      "input": 206924,
+      "cached": 172387,
+      "output": 79,
+      "reasoning": 73,
+      "outputTypes": [
+        "compaction",
+        "message"
+      ],
+      "encryptedChars": [
+        29220
+      ]
+    },
+    {
+      "label": "next",
+      "ms": 3665,
+      "status": "completed",
+      "input": 34573,
+      "cached": 0,
+      "output": 115,
+      "reasoning": 97,
+      "outputTypes": [
+        "reasoning",
+        "message"
+      ],
+      "encryptedChars": []
+    },
+    {
+      "label": "next-2",
+      "ms": 2358,
+      "status": "completed",
+      "input": 34698,
+      "cached": 34570,
+      "output": 17,
+      "reasoning": 10,
+      "outputTypes": [
+        "reasoning",
+        "message"
+      ],
+      "encryptedChars": []
+    }
+  ],
+  "deleted@200000": true,
+  "tokens": {
+    "input": 1069981,
+    "cached": 690016,
+    "output": 519
+  },
+  "worstCaseUsd": 0.0547
+}

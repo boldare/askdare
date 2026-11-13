@@ -57,3 +57,25 @@ Two lessons shape the design:
   - Compaction moves to 0.3, after a follow-up spike at a realistic threshold. It should check how many output tokens a 50k-token compaction takes, how billing compares with `usage`, and citations with and without compaction.
   - If compaction ships, its default threshold should be 50,000 tokens: far above the API minimum and well below every current model's context window and the 272k long-context price step.
   - The turn loop must then retry a step whose response holds only a compaction item.
+
+## Update (2026-11-12): compaction at a realistic threshold, spike S5b
+
+[Spike S5b](../../spikes/s5b-compaction/README.md) tested compaction at the 50,000-token threshold proposed above, sent the way `turn.ts` sends a turn, on `gpt-6-luna` and `gpt-6.1-terra`, with a function tool, `file_search` and a control conversation without compaction. It cost about 1 USD.
+
+- **How compaction behaves with `conversation`:**
+  - It keeps the most recent ~60k tokens of history verbatim (whole items; between 59.3k and 67.7k) and summarises only what is older.
+  - Below that size nothing can shrink. At 50k the input stayed at 50–63k, and every later response compacted again (31 compacting responses in 4 conversations).
+  - Above it, the input does shrink: 101.7–206.9k fell to 34.6–59.3k on the next turn.
+- **At 50k, compaction is harmful:**
+  - Each compaction rewrites the context, so prompt caching is lost on every turn: the 7 turns after the threshold cost 12× (luna) and about 24× (terra) as much as the same turns without compaction.
+  - It adds 1–9 s per response, once 113 s. Passes before the answer delay the first token to 6–10 s.
+  - `file_search` answers after compaction had no file citations in 3 of 3 conversations, while the control cited. This confirms the S5 observation.
+- **The S5 blockers, measured again:**
+  - No response ended `incomplete` or held only a compaction item (0 of 31), but terra spent up to 765 output tokens on a compacting turn with a few-word answer, against the default `maxOutputTokens` of 1,024.
+  - `usage` reported compaction as output (reasoning) tokens; no zero-usage response this time. Billing against the dashboard was not checked.
+- **Facts above the retained window:** terra kept first-turn facts across a 100k compaction (1 of 1). Luna lost them in 3 of 3 runs at 100–200k.
+- **Side finding:** `responses.inputTokens.count` with `conversation` locks that conversation (400 `conversation_locked`) for at least 75 s. The library must never count tokens against a live conversation.
+- **Decision:**
+  - Compaction waits. `limits.compactAt` (#52) is not part of 0.3.0-rc.1, and the 50,000 default above is withdrawn. 0.3 keeps `truncation: 'auto'` and `limits.maxTurns`.
+  - Reconsider it for 0.4 at the earliest, as an opt-in with no default, once `file_search` keeps citations after compaction (or the stream mapper rebuilds them from `file_search_call.results`).
+  - If it ships, it needs: a threshold validated between 100,000 and 272,000; +1,024 `max_output_tokens` headroom on requests that may compact, included in the budget reservation; compaction cost taken from `usage.output_tokens`; the S5 retry for compaction-only responses; and a note that the summary quality depends on the model.
