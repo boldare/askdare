@@ -1,9 +1,11 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { parseEnv } from 'node:util';
 import { defineConfig } from 'vitest/config';
 
 // Live tests against real APIs. Run only on demand (`pnpm smoke`), never in `pnpm test`.
 // Secrets come from git-ignored env files (see docs/live-testing.md): .env.smoke.local wins,
 // otherwise the site's or the starter's own env file is reused so the key exists in one place only.
+// The first file that holds a key is loaded: the site's may carry only a vector store ID.
 for (const file of [
   '.env.smoke.local',
   'site/.env.local',
@@ -11,7 +13,7 @@ for (const file of [
   'examples/starter/.env.local',
   'examples/starter/.env',
 ]) {
-  if (existsSync(file)) {
+  if (existsSync(file) && parseEnv(readFileSync(file, 'utf8'))['OPENAI_API_KEY']) {
     process.loadEnvFile(file);
     break;
   }
