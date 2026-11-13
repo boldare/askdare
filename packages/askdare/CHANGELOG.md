@@ -1,5 +1,18 @@
 # @boldare/askdare
 
+## 0.3.0-rc.0
+
+### Minor Changes
+
+- bca8d48: The chat can show clickable reply options under the latest answer ("Yes, book it", "Show prices"), in the widget and inside a page. A click sends the option as the visitor's own message. This release adds the groundwork: a `replies` protocol event (additive in protocol version 1) with `replies` on the latest answer in the history, `ChatMessage.replies`, the `QuickReplies` primitive with the `replies` and `reply` parts, the theme variant `replies` (`answer` puts the options under the answer, `composer` puts them in one row above the message field), the `message.replies` text, and `source: 'reply'` on the `message.sent` chat event. Options are plain text: at most four, up to 80 characters each, without links. Model-suggested and tool-defined options, which fill them, come in later releases (ADR-0015).
+- 9fed4d3: A tool can offer clickable reply options derived from its result: `defineTool({ replies: (result) => ['Track the parcel', 'Talk to a person'] })`. `replies` gets the successful result as the model received it (parsed back from JSON) and is typed from `execute`; the options come back after a reload, from the stored call. The same limits as every reply option apply: at most four, up to 80 characters, plain text without links. Only the options reach the browser, never the tool's result (ADR-0015).
+- 35ee326: The chat can switch language without a page load (ADR-0014, step 1). On a page with a bot set to `locale: 'auto'`, `askdare('configure', { locale: 'pl' })` or `data-follow-lang` on the script tag (which follows the page's `<html lang>`) switches the launcher's texts at once and reloads the chat in the new language. The visitor keeps their conversation; new answers follow the new language, as `context.locale` in your `instructions`. An answer still streaming during the switch is reported as `message.received` with `outcome: 'stopped'`, and the server still finishes and stores it. A bot with a fixed locale ignores the switch and says so once in the console. A `configure` call with only `locale` keeps the greeting, starters and context set before. In React, pass the new `locale` to `getChatConfig` as before.
+- 7357c6f: Reply options suggested by the model (ADR-0015). With `widget.replies: 'suggest'`, a bot gets the built-in tool `suggest_replies`: the model can offer 2–4 short replies under an answer, which visitors click instead of typing. The server answers the call itself (no bot code runs), cleans the options up and sends them in the `replies` event; after a reload, the history brings back the options of the latest answer. When the model suggests them after its answer, the message ends without another model call; otherwise it takes one more. `suggest_replies` is now a reserved tool name. Off by default: it costs about 250 input tokens per model call, and sometimes a model call (docs/costs.md).
+
+### Patch Changes
+
+- 9cb8282: Reply options with characters the visitor can't see are dropped: zero-width and tag characters, direction marks, private-use and unassigned code points. A click sends an option as the visitor's own message, so it now always says exactly what they read. Emoji built with the zero-width joiner still work.
+
 ## 0.2.0
 
 ### Minor Changes
