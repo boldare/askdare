@@ -5,6 +5,7 @@ import { PREVIEW } from '../preview';
 import { SiteFooter, SiteHeader, VercelIcon } from '../site-chrome';
 import { ChatSecret } from './chat-secret';
 import { HEROKU_DOCS, VERCEL_DEPLOY_URL } from './clone-url';
+import { DeployVideo } from './deploy-video';
 import './deploy.css';
 
 const title = 'Your own AI chatbot, online in five minutes · askdare';
@@ -58,6 +59,7 @@ export default function Deploy() {
             repository, on your own OpenAI key. No database, no code to write. The chat in the
             corner of this page is what you get.
           </p>
+          <DeployVideo />
         </section>
 
         <ol className="section deploy-steps" aria-label="Three steps">

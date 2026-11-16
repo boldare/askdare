@@ -162,7 +162,7 @@ const SHOTS = {
     await Promise.race([
       answer.waitFor(),
       error.waitFor().then(async () => {
-        throw new Error(`The chat answered with an error: ${await error.innerText()}`);
+        throw new Error(`The chat answered with an error: ${await error.textContent()}`);
       }),
     ]);
     await chat
@@ -175,7 +175,7 @@ const SHOTS = {
     const busy = chat.locator('[data-ask-part="typing"]');
     for (let quiet = 0; quiet < 4 || (await busy.count()) > 0; ) {
       await pause(250);
-      const now = await answer.innerText().catch(() => '');
+      const now = await answer.textContent().catch(() => '');
       quiet = now && now === last ? quiet + 1 : 0;
       last = now;
     }

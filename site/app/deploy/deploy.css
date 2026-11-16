@@ -12,6 +12,27 @@
   margin-bottom: 0;
 }
 
+.deploy-video {
+  margin: clamp(24px, 3vw, 40px) 0 0;
+  max-width: 880px;
+}
+
+.deploy-video video {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 18px;
+  box-shadow:
+    0 30px 60px -30px rgb(60 20 90 / 0.35),
+    0 0 0 1px rgb(30 10 50 / 0.06);
+}
+
+.deploy-video figcaption {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .deploy-steps {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
