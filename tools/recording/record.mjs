@@ -278,8 +278,8 @@ async function vercel() {
   say(
     'Sign in to Vercel in the browser window (not recorded). If Vercel asks to create the repository first, do that too.\n  Recording starts by itself when the form with OPENAI_API_KEY shows (or press Enter).',
   );
-  const form = page.getByText('OPENAI_API_KEY', { exact: true }).first();
-  await untilEnterOr(form.waitFor({ timeout: 0 }));
+  // Vercel shows the variable names as field values, so look for them the way the paste does.
+  await untilEnterOr(poll(() => markValueField(page, 'OPENAI_API_KEY'), 1000));
   await page.waitForLoadState('networkidle').catch(() => {});
   await pause(800);
 
