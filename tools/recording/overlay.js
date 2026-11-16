@@ -13,9 +13,9 @@
       border-radius: 50%; background: rgb(255 255 255 / .55); border: 2px solid rgb(17 17 17 / .55);
       pointer-events: none; animation: __rec-ripple .5s ease-out forwards; }
     @keyframes __rec-ripple { from { transform: scale(.3); opacity: 1 } to { transform: scale(1.4); opacity: 0 } }
-    /* Secrets: the CHAT_SECRET on /deploy, and any secret-looking field on other sites. */
-    .secret-value, input[type="password"], input[name*="value" i], input[name*="secret" i],
-    input[name*="key" i], textarea[name*="value" i] {
+    /* Secrets: the CHAT_SECRET on /deploy, password fields, the fields the recorder points
+       at, and any field that gets a long value without spaces (a pasted key or secret). */
+    .secret-value, input[type="password"], [data-rec-field], [data-rec-secret] {
       -webkit-text-security: disc !important; filter: blur(7px) !important; }
   `;
   const arrow =
@@ -65,6 +65,19 @@
       setTimeout(() => r.remove(), 600);
     },
   };
+
+  // A pasted key or secret is masked in the same task as the paste, before the next paint.
+  const looksSecret = (v) => v.length >= 16 && !/\s/.test(v);
+  addEventListener(
+    'input',
+    (e) => {
+      const f = e.target;
+      if (f instanceof HTMLInputElement || f instanceof HTMLTextAreaElement) {
+        if (looksSecret(f.value)) f.setAttribute('data-rec-secret', '');
+      }
+    },
+    true,
+  );
 
   // When a person drives the page (the Vercel part), follow the real mouse.
   addEventListener('mousemove', (e) => e.isTrusted && place(e.clientX, e.clientY), true);

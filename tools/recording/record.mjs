@@ -185,11 +185,6 @@ const SHOTS = {
   },
 };
 
-/** Masks every text field on the Vercel pages, so nothing pasted is ever painted readable. */
-const MASK_ALL_FIELDS = `
-  input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]), textarea {
-    -webkit-text-security: disc !important; filter: blur(6px) !important; }`;
-
 const lines = createInterface({ input: process.stdin });
 /** Resolves with `fallback` when you press Enter, unless `detect` settles first. */
 function untilEnterOr(detect, fallback = 'enter') {
@@ -276,16 +271,6 @@ async function vercel() {
     locale: 'en-US',
   });
   await ctx.addInitScript(overlay);
-  await ctx.addInitScript((css) => {
-    if (!location.hostname.endsWith('vercel.com')) return;
-    const add = () => {
-      const s = document.createElement('style');
-      s.textContent = css;
-      document.documentElement.append(s);
-    };
-    if (document.documentElement) add();
-    else addEventListener('DOMContentLoaded', add);
-  }, MASK_ALL_FIELDS);
   const page = ctx.pages()[0] ?? (await ctx.newPage());
   await page.goto(deployUrl);
 
