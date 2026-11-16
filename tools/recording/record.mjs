@@ -1,12 +1,17 @@
 // Records the shots of the one-click deploy video as screencast frames (issue #79).
 //
 //   pnpm --filter askdare-recording record [shot…]   scripted shots: home, deploy, chat
-//   pnpm --filter askdare-recording record:vercel    you drive Vercel; frames are recorded
+//   pnpm --filter askdare-recording record:vercel    the whole flow on Vercel: you sign in,
+//                                                    paste the key and the secret, and click
+//                                                    Deploy; it records, then films the chat on
+//                                                    the new app and runs the edit
 //
 // APP_URL is the freshly deployed starter for the chat shot (default: the askdare demo).
 // Frames land in out/<shot>/ with their timestamps; edit.mjs turns them into the video.
+import { spawn } from 'node:child_process';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
 
@@ -131,8 +136,8 @@ const SHOTS = {
   },
 
   /** The new app: open the chat, ask, and watch the answer stream in. */
-  async chat(page) {
-    await page.goto(APP, { waitUntil: 'networkidle' });
+  async chat(page, url = APP) {
+    await page.goto(url, { waitUntil: 'networkidle' });
     const stop = await screencast(page, 'chat');
     await pause(500);
     await caption(page, 'Minutes later, <b>your chat is live</b>');
@@ -180,44 +185,204 @@ const SHOTS = {
   },
 };
 
+/** Masks every text field on the Vercel pages, so nothing pasted is ever painted readable. */
+const MASK_ALL_FIELDS = `
+  input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]), textarea {
+    -webkit-text-security: disc !important; filter: blur(6px) !important; }`;
+
+const lines = createInterface({ input: process.stdin });
+/** Resolves with `fallback` when you press Enter, unless `detect` settles first. */
+function untilEnterOr(detect, fallback = 'enter') {
+  let off;
+  const enter = new Promise((r) => {
+    const on = (line) => r(line.trim() || fallback);
+    lines.once('line', on);
+    off = () => lines.off('line', on);
+  });
+  return Promise.race([enter, detect]).finally(off);
+}
+
+/** Polls `fn` until it returns a truthy value (or forever; Enter is the way out). */
+async function poll(fn, every = 500) {
+  for (;;) {
+    const v = await fn().catch(() => null);
+    if (v) return v;
+    await pause(every);
+  }
+}
+
+const say = (text) => console.log(`\n▶ ${text}`);
+
+/**
+ * The value field next to an environment variable's name, marked so it can be focused.
+ * Vercel's form isn't ours, so this guesses: the first text field after the name in the page.
+ */
+async function markValueField(page, name) {
+  return page.evaluate((name) => {
+    const fields = [...document.querySelectorAll('input, textarea')].filter(
+      (f) => !['checkbox', 'radio', 'hidden', 'button', 'submit'].includes(f.type),
+    );
+    const isName = (el) => ('value' in el && el.value === name) || el.textContent?.trim() === name;
+    let anchor = fields.find(isName);
+    if (!anchor) {
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);
+      while (walker.nextNode()) {
+        const el = walker.currentNode;
+        if (el.children.length === 0 && el.textContent?.trim() === name) {
+          anchor = el;
+          break;
+        }
+      }
+    }
+    if (!anchor) return false;
+    const field = fields.find(
+      (f) => f !== anchor && anchor.compareDocumentPosition(f) & Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    if (!field) return false;
+    for (const f of document.querySelectorAll(`[data-rec-field="${name}"]`))
+      f.removeAttribute('data-rec-field');
+    field.setAttribute('data-rec-field', name);
+    return true;
+  }, name);
+}
+
+/** Glides to a variable's value field and focuses it, then waits for your paste. */
+async function pasteInto(page, name) {
+  const found = await markValueField(page, name).catch(() => false);
+  if (found) {
+    const field = page.locator(`[data-rec-field="${name}"]`);
+    await clickOn(page, field, { ms: 900 });
+    say(`Paste ${name} (Cmd+V) into the focused field in the browser.`);
+    await untilEnterOr(poll(async () => (await field.evaluate((f) => f.value.length)) >= 20));
+  } else {
+    say(`Click the value field of ${name}, paste it (Cmd+V), then press Enter here.`);
+    await untilEnterOr(new Promise(() => {}));
+  }
+  await pause(600);
+}
+
 async function vercel() {
-  // A profile of its own, so you sign in to Vercel once and never in your daily browser.
+  const deployUrl = (
+    await readFile(join(HERE, '../../site/app/deploy/clone-url.ts'), 'utf8')
+  ).match(/https:\/\/vercel\.com\/new\/clone\?[^'"`]+/)?.[0];
+  if (!deployUrl) throw new Error('No Vercel clone URL in site/app/deploy/clone-url.ts');
+
+  // A profile of its own, so you sign in to Vercel here and never in your daily browser.
   const ctx = await chromium.launchPersistentContext(join(HERE, '.profile'), {
     headless: false,
     viewport: VIEWPORT,
     deviceScaleFactor: 2,
+    colorScheme: 'light',
+    locale: 'en-US',
   });
   await ctx.addInitScript(overlay);
+  await ctx.addInitScript((css) => {
+    if (!location.hostname.endsWith('vercel.com')) return;
+    const add = () => {
+      const s = document.createElement('style');
+      s.textContent = css;
+      document.documentElement.append(s);
+    };
+    if (document.documentElement) add();
+    else addEventListener('DOMContentLoaded', add);
+  }, MASK_ALL_FIELDS);
   const page = ctx.pages()[0] ?? (await ctx.newPage());
-  const deployUrl = (
-    await readFile(join(HERE, '../../site/app/deploy/clone-url.ts'), 'utf8')
-  ).match(/https:\/\/vercel\.com\/new\/clone\?[^'"`]+/)?.[0];
-  await page.goto(deployUrl ?? 'https://vercel.com/new');
-  console.log(
-    '\nSign in to Vercel in the window that opened (that part is not recorded).\nThen press Enter here to start recording, fill the form with a throwaway key, click Deploy,\nwait for the build to finish, and press Enter again to stop.\n',
+  await page.goto(deployUrl);
+
+  // 1. Sign-in, not recorded: wait until the form names the variables.
+  say(
+    'Sign in to Vercel in the browser window (not recorded). If Vercel asks to create the repository first, do that too.\n  Recording starts by itself when the form with OPENAI_API_KEY shows (or press Enter).',
   );
-  await waitForEnter();
-  await page.goto(deployUrl ?? 'https://vercel.com/new');
+  const form = page.getByText('OPENAI_API_KEY', { exact: true }).first();
+  await untilEnterOr(form.waitFor({ timeout: 0 }));
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await pause(800);
+
+  // 2. The form, recorded: you paste the two values, the script does the rest of the moving.
   const stop = await screencast(page, 'vercel');
-  console.log('Recording. Press Enter when the form is filled and you have clicked Deploy.');
-  await caption(page, 'Paste the <b>key</b> and the <b>secret</b>, click <b>Deploy</b>');
-  await waitForEnter();
+  await caption(page, 'Paste the <b>key</b> and the <b>secret</b>');
+  await pause(800);
+  await pasteInto(page, 'OPENAI_API_KEY');
+  await pasteInto(page, 'CHAT_SECRET');
+
+  // 3. Deploy: point at the button, you click it.
+  await caption(page, 'Then <b>Deploy</b>');
+  const deploy = page.getByRole('button', { name: /^deploy$/i }).last();
+  if (await deploy.isVisible().catch(() => false)) {
+    await clickOn(page, deploy, { click: false, ms: 900 });
+  }
+  say(
+    'Click Deploy in the browser. (That creates the repository and the project on your account.)',
+  );
+  const startUrl = page.url();
+  await untilEnterOr(
+    poll(
+      async () =>
+        page.url() !== startUrl ||
+        (await page
+          .getByText(/building|deploying|queued/i)
+          .first()
+          .isVisible()),
+    ),
+  );
+
+  // 4. The build, sped up in the edit.
   await caption(page, 'Vercel builds <b>your own copy</b>');
   speed(15);
-  console.log('Press Enter once the build is done.');
-  await waitForEnter();
+  say('Building. Waiting for Vercel to finish (or press Enter when it has).');
+  await untilEnterOr(
+    poll(
+      async () =>
+        page
+          .getByText(/congratulations|your project has been deployed/i)
+          .first()
+          .isVisible(),
+      1000,
+    ),
+  );
+  speed(1);
+  await caption(page, 'Done. <b>Your app is live</b>');
+  await pause(2500);
   await stop();
-  await ctx.close();
-}
 
-function waitForEnter() {
-  return new Promise((r) => process.stdin.once('data', r));
+  // 5. The new app: find its address on the success page, or ask for it.
+  let app = await page
+    .evaluate(() =>
+      [...document.querySelectorAll('a[href]')]
+        .map((a) => a.href)
+        .find((h) => /^https:\/\/[^/]+\.vercel\.app\/?$/.test(h) && !h.includes('//vercel.app')),
+    )
+    .catch(() => null);
+  if (!app) {
+    say('Paste the address of your new app (https://….vercel.app) and press Enter:');
+    app = await untilEnterOr(new Promise(() => {}), '');
+  }
+  app = app.trim().replace(/\/$/, '');
+  say(`Recording the chat on ${app}`);
+  const chatPage = await ctx.newPage();
+  await chatPage.bringToFront();
+  await SHOTS.chat(chatPage, app);
+  await ctx.close();
+  lines.close();
+
+  // 6. The edit.
+  say('Editing the video…');
+  await new Promise((resolve, reject) =>
+    spawn(process.execPath, [join(HERE, 'edit.mjs')], {
+      stdio: 'inherit',
+      env: { ...process.env, APP_URL: app },
+    }).on('exit', (code) =>
+      code === 0 ? resolve() : reject(new Error(`edit exited with ${code}`)),
+    ),
+  );
+  say(`All done. Tell Claude the recording is ready, and revoke the OpenAI key you pasted.`);
 }
 
 if (process.argv.includes('--vercel')) {
   await vercel();
   process.exit(0);
 }
+lines.close();
 
 const wanted = process.argv.slice(2).filter((a) => !a.startsWith('-'));
 const browser = await chromium.launch();
