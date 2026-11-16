@@ -1,0 +1,16 @@
+{
+  "name": "askdare-recording",
+  "private": true,
+  "type": "module",
+  "description": "Records the one-click deploy video for the README and /deploy (issue #79).",
+  "scripts": {
+    "record": "node record.mjs",
+    "record:vercel": "node record.mjs --vercel",
+    "edit": "node edit.mjs"
+  },
+  "devDependencies": {
+    "@ffmpeg-installer/ffmpeg": "1.1.0",
+    "@fontsource-variable/plus-jakarta-sans": "5.3.0",
+    "@playwright/test": "^1.65.0"
+  }
+}

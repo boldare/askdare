@@ -2,6 +2,8 @@ packages:
   - packages/*
   - examples/*
   - site
+  # Tools that make the site's media; never published.
+  - tools/*
 
 # Workspace packages are linked when their version satisfies the range. The starter asks for a
 # real semver range (not workspace:), so it also installs from npm after create-next-app.
@@ -14,3 +16,7 @@ minimumReleaseAge: 1440
 allowBuilds:
   # Hooks are installed by our own `prepare` script instead.
   lefthook: false
+  # tools/recording: the binary ships executable; its script only runs chmod.
+  "@ffmpeg-installer/darwin-arm64": false
+  "@ffmpeg-installer/darwin-x64": false
+  "@ffmpeg-installer/linux-x64": false
