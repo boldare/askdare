@@ -8,8 +8,40 @@
   max-width: 13em;
 }
 
+.deploy-tagline {
+  margin: clamp(14px, 1.6vw, 22px) 0 0;
+  font-size: clamp(1.1rem, 1.6vw, 1.35rem);
+  letter-spacing: -0.01em;
+  color: var(--muted);
+}
+
+.deploy-tagline strong {
+  color: var(--ink);
+}
+
 .deploy-intro .lead {
   margin-bottom: 0;
+}
+
+.deploy-video {
+  margin: clamp(24px, 3vw, 40px) 0 0;
+  max-width: 880px;
+}
+
+.deploy-video video {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 18px;
+  box-shadow:
+    0 30px 60px -30px rgb(60 20 90 / 0.35),
+    0 0 0 1px rgb(30 10 50 / 0.06);
+}
+
+.deploy-video figcaption {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .deploy-steps {

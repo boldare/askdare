@@ -36,3 +36,21 @@ test('the deploy button opens Vercel with the starter', async ({ page }) => {
     expect.arrayContaining(['OPENAI_API_KEY', 'CHAT_SECRET', 'ASKDARE_MODEL']),
   );
 });
+
+test('the deploy video loops muted, and waits for a click under reduced motion', async ({
+  browser,
+}) => {
+  for (const reducedMotion of ['no-preference', 'reduce'] as const) {
+    const page = await browser.newPage({ reducedMotion });
+    await page.goto(`${APP}/deploy`);
+    const video = page.locator('.deploy-video video');
+    await expect(video).toHaveJSProperty('muted', true);
+    if (reducedMotion === 'reduce') {
+      await expect(video).toHaveAttribute('controls', '');
+      await expect(video).toHaveJSProperty('paused', true);
+    } else {
+      await expect(video).not.toHaveAttribute('controls', '');
+    }
+    await page.close();
+  }
+});
