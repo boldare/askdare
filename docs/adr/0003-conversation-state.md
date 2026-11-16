@@ -76,6 +76,6 @@ Two lessons shape the design:
 - **Facts above the retained window:** terra kept first-turn facts across a 100k compaction (1 of 1). Luna lost them in 3 of 3 runs at 100–200k.
 - **Side finding:** `responses.inputTokens.count` with `conversation` locks that conversation (400 `conversation_locked`) for at least 75 s. The library must never count tokens against a live conversation.
 - **Decision:**
-  - Compaction waits. `limits.compactAt` (#52) is not part of 0.3.0-rc.1, and the 50,000 default above is withdrawn. 0.3 keeps `truncation: 'auto'` and `limits.maxTurns`.
+  - Compaction waits. `limits.compactAt` (#52) is not part of 0.3, and the 50,000 default above is withdrawn. 0.3 keeps `truncation: 'auto'` and `limits.maxTurns`.
   - Reconsider it for 0.4 at the earliest, as an opt-in with no default, once `file_search` keeps citations after compaction (or the stream mapper rebuilds them from `file_search_call.results`).
   - If it ships, it needs: a threshold validated between 100,000 and 272,000; +1,024 `max_output_tokens` headroom on requests that may compact, included in the budget reservation; compaction cost taken from `usage.output_tokens`; the S5 retry for compaction-only responses; and a note that the summary quality depends on the model.
