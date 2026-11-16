@@ -8,6 +8,17 @@
   max-width: 13em;
 }
 
+.deploy-tagline {
+  margin: clamp(14px, 1.6vw, 22px) 0 0;
+  font-size: clamp(1.1rem, 1.6vw, 1.35rem);
+  letter-spacing: -0.01em;
+  color: var(--muted);
+}
+
+.deploy-tagline strong {
+  color: var(--ink);
+}
+
 .deploy-intro .lead {
   margin-bottom: 0;
 }

@@ -54,10 +54,13 @@ export default function Deploy() {
             <span>Your own</span> <strong>AI chatbot</strong>, <span>online in</span>{' '}
             <strong>five minutes</strong>
           </h1>
+          <p className="deploy-tagline">
+            <strong>One-click deploy to Vercel.</strong> Bring an OpenAI key, we'll do the rest.
+          </p>
           <p className="lead">
-            Deploy the askdare starter to Vercel: a Next.js app with one chatbot, in your own
-            repository, on your own OpenAI key. No database, no code to write. The chat in the
-            corner of this page is what you get.
+            The askdare starter is a Next.js app with one chatbot, in your own repository, on your
+            own OpenAI key. No database, no code to write. The chat in the corner of this page is
+            what you get.
           </p>
           <DeployVideo />
         </section>
