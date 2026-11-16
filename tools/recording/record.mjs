@@ -140,7 +140,7 @@ const SHOTS = {
     await page.goto(url, { waitUntil: 'networkidle' });
     const stop = await screencast(page, 'chat');
     await pause(500);
-    await caption(page, 'Minutes later, <b>your chat is live</b>');
+    await caption(page, 'And it <b>answers</b>');
     await pause(500);
     await clickOn(page, page.locator('[part="launcher"]'));
     const t = Date.now();

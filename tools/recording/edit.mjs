@@ -37,7 +37,28 @@ const APP_HOST = new URL(process.env.APP_URL ?? 'https://askdare-chat.vercel.app
 const CUT = [
   { shot: 'home', url: 'askdare.vercel.app', from: 0.4, to: -0.2, speed: 1.1 },
   { shot: 'deploy', url: 'askdare.vercel.app/deploy', from: 0.3, to: 0, speed: 1.15 },
-  { shot: 'vercel', url: 'vercel.com/new', from: 0, to: 0, speed: 1.6 },
+  { shot: 'vercel', url: 'vercel.com/new', from: 0, to: 0, speed: 1.6, minFrames: 30 },
+  {
+    // One frame held: Vercel's "Deployed to Production" page, with the account blurred.
+    shot: 'deployed',
+    url: 'vercel.com/new',
+    from: 0,
+    to: 0,
+    speed: 1,
+    still: {
+      image: 'vercel/00000.jpg',
+      seconds: 2.8,
+      caption: 'Vercel builds it: <b>live in 32 seconds</b>',
+      // x, y, w, h on the 2560×1600 frame: team name, avatar, the name in the sentence, and
+      // the preview's script tag (its URL holds the account name).
+      blur: [
+        [0, 0, 440, 110],
+        [2400, 0, 160, 110],
+        [1135, 265, 262, 65],
+        [1015, 640, 540, 26],
+      ],
+    },
+  },
   { shot: 'chat', url: APP_HOST, from: 0.3, to: 0, speed: 1.25 },
 ];
 const END_CARD = 2.6;
@@ -217,8 +238,55 @@ await rm(WORK, { recursive: true, force: true });
 await mkdir(WORK, { recursive: true });
 
 const clips = [];
+/** Turns one recorded frame into a shot of its own: blurred where asked, held for a while. */
+async function makeStill(cut) {
+  const { image, seconds, caption, blur } = cut.still;
+  const src = join(OUT, image);
+  if (!existsSync(src)) return false;
+  const dir = join(OUT, cut.shot);
+  await rm(dir, { recursive: true, force: true });
+  await mkdir(dir, { recursive: true });
+  let graph = '[0:v]format=rgb24[s0]';
+  blur.forEach(([x, y, w, h], k) => {
+    graph += `;[s${k}]split[a${k}][b${k}];[b${k}]crop=${w}:${h}:${x}:${y},boxblur=${Math.min(18, Math.floor(Math.min(w, h) / 2) - 1)}:3:${Math.min(9, Math.floor(Math.min(w, h) / 4) - 1)}:3[r${k}];[a${k}][r${k}]overlay=${x}:${y}[s${k + 1}]`;
+  });
+  await ff([
+    '-i',
+    src,
+    '-filter_complex',
+    graph,
+    '-map',
+    `[s${blur.length}]`,
+    '-q:v',
+    '2',
+    join(dir, '00000.jpg'),
+  ]);
+  const t = 1000;
+  await writeFile(
+    join(dir, 'frames.json'),
+    JSON.stringify({
+      frames: [{ file: '00000.jpg', t }],
+      end: t + seconds,
+      captions: [{ t, html: caption }],
+    }),
+  );
+  return true;
+}
+
 for (const [i, cut] of CUT.entries()) {
-  if (!existsSync(join(OUT, cut.shot, 'frames.json'))) {
+  if (cut.still && !(await makeStill(cut))) {
+    console.log(`${cut.shot}: no source frame, skipped`);
+    continue;
+  }
+  const framesFile = join(OUT, cut.shot, 'frames.json');
+  if (cut.minFrames && existsSync(framesFile)) {
+    const n = JSON.parse(await readFile(framesFile, 'utf8')).frames.length;
+    if (n < cut.minFrames) {
+      console.log(`${cut.shot}: only ${n} frame(s), skipped`);
+      continue;
+    }
+  }
+  if (!existsSync(framesFile)) {
     console.log(`${cut.shot}: not recorded, skipped`);
     continue;
   }
