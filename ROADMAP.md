@@ -8,33 +8,37 @@ A change to what a release contains comes as a pull request to this file.
 
 ## 0.2.0: the chat inside your page
 
-0.2.0 is on npm as `latest`. What it brought:
+0.2.0 brought:
 - the headless React API and the inline chat ([ADR-0011](docs/adr/0011-react-api-and-inline-chat.md));
 - `add ui`;
 - answer ratings, `onUsage` and the OpenTelemetry add-on ([ADR-0012](docs/adr/0012-server-hooks-and-telemetry.md));
 - browser events ([ADR-0013](docs/adr/0013-browser-events.md)).
 
-## 0.3: talk in more ways
+## 0.3.0: talk in more ways
 
-| Epic | Goal | Decision |
-|---|---|---|
-| Deploy buttons | One click from the starter to a running chat on Vercel or Heroku, in about five minutes. A `/deploy` page on the website walks through it, and the home page hero and the README lead there. | No ADR: the site and docs only |
-| Reply options | Clickable answers under the latest reply. The model can suggest them, or a tool can define them. They're the first slice of `toolRenderers`. | ADR-0015 |
-| Runtime language, step 1 | The page switches the chat's language (`askdare('configure', { locale })`, or following `<html lang>`). The iframe reloads, and the conversation stays. | ADR-0014 |
+0.3.0 is on npm as `latest`. What it brought:
+- one-click deploy buttons for Vercel and Heroku, with the `/deploy` page on the website;
+- reply options, suggested by the model or defined by a tool, the first slice of `toolRenderers` ([ADR-0015](docs/adr/0015-reply-options.md));
+- runtime language, step 1: the page switches the chat's language and the iframe reloads, keeping the conversation ([ADR-0014](docs/adr/0014-runtime-language.md)).
 
-0.3 ships these three. `embedPath` and `toolRenderers` moved to 0.4, so that reply options, their first slice, get feedback first. Compaction left 0.3 after spike S5b; see Later.
+Compaction left 0.3 after spike S5b; see Later.
 
 ## 0.4: settle in
 
+0.4 ships these three, in this order, one at a time in the Core lane:
+
 | Epic | Goal | Decision |
 |---|---|---|
-| Runtime language, step 2 | Switch the language in place, with texts per language in `defineBot` | ADR-0014 |
-| Admin, stage 1 | A dev console with no database: bot configuration, `doctor`, a playground, test questions | ADR-0016 |
-| `embedPath`, `toolRenderers` | A custom UI inside the iframe, and React components for tool results | [ADR-0008](docs/adr/0008-ui-customization-and-themes.md) |
+| Runtime language, step 2 | Switch the language in place, with texts per language in `defineBot` and `GET <basePath>/config/<bot>?lang=` | [ADR-0014](docs/adr/0014-runtime-language.md) |
+| `toolRenderers` | React components for tool results, building on the reply-options payload. A design note comes first. | [ADR-0008](docs/adr/0008-ui-customization-and-themes.md), [ADR-0015](docs/adr/0015-reply-options.md) |
+| `embedPath` | A custom UI inside the iframe, so the script-tag widget can use your own components and `toolRenderers`. A design note comes first. | [ADR-0005](docs/adr/0005-embedding-model.md), [ADR-0008](docs/adr/0008-ui-customization-and-themes.md) |
+
+The design notes for `toolRenderers` and `embedPath` are written in the Decisions lane while the language work runs. Admin left 0.4 to keep it small; see Later.
 
 ## Later
 
 The order of these is decided on the Project board:
+- **Admin, stage 1.** A dev console with no database: bot configuration, `doctor`, a playground, test questions (ADR-0016).
 - **Admin, stage 2.** The `@boldare/askdare-admin` add-on: a store port with Postgres and Upstash adapters, dashboards of costs and ratings, and review of 👎 conversations (ADR-0016).
 - **Handoff to a human.** A `handoff` tool and an `onHandoff` hook (email, Slack, webhook).
 - **Forms in the chat.** Collecting leads into `onLead`, with validated fields.
@@ -81,9 +85,9 @@ Work runs in parallel lanes. Tasks that touch the **hot files** run one at a tim
 | Lane | What runs in it | Hot files |
 |---|---|---|
 | Organization | The roadmap, the Project and the issues | No |
-| Deploy | The deploy buttons, the `/deploy` page, then the links to it from the home page and the README. Those links change `site/app/page.tsx` and `README.md`, which the site demo tasks change too: agree the order with them. | No |
-| Decisions | ADRs, in parallel with everything | No |
+| Deploy | What is left of the deploy buttons: the starter template repo for the Heroku button | No |
+| Decisions | ADRs and design notes, in parallel with everything. For 0.4: the `toolRenderers` and `embedPath` design notes | No |
 | Spikes | Experiments in `spikes/` | No |
-| Core | The reply-options foundation, then suggested and tool-defined options (in parallel), then runtime language step 1, then compaction | **Yes**, one task at a time |
+| Core | Runtime language step 2 (texts per language, then the `/config/<bot>` endpoint, then switching in place), then `toolRenderers`, then `embedPath` | **Yes**, one task at a time |
 
-Core work for 0.3 lands on the integration branch `release/0.3`, which has a draft PR into `main`. With 0.2.0 out, that PR merges next, and `changeset pre enter rc` starts the 0.3 release candidates ([RELEASING.md](RELEASING.md)).
+Core work for 0.4 lands on `main` with `--no-ff`, or on an integration branch `release/0.4` if a task must not reach `main` before the release ([RELEASING.md](RELEASING.md)).
