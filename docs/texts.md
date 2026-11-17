@@ -24,7 +24,7 @@ defineBot({
 
 - **Keys.** Only the keys in the table below are accepted. An unknown key, or a text that is empty or longer than 300 characters, makes `defineBot` throw at startup.
 - **Shortcuts.** `title`, `greeting`, `placeholder` and `launcherLabel` set `header.title`, `welcome.greeting`, `composer.placeholder` and `launcher.label`. If you set a shortcut and the same key in `texts`, the shortcut wins.
-- **Every language.** An override replaces the text in every language. With `locale: 'auto'`, Polish visitors see your override too.
+- **Every language.** An override replaces the text in every language. With `locale: 'auto'`, Polish visitors see your override too. For different texts in each language, use [texts per language](#texts-per-language).
 - **Placeholders.** Words in braces, such as `{count}`, `{name}`, `{size}` and `{max}`, are filled in by the widget. Keep the ones the default text has. A placeholder the widget doesn't fill for that key is shown as typed.
 - **Bold.** In `welcome.greeting`, `**words**` are shown in bold.
 
@@ -44,6 +44,28 @@ A page can still set its own greeting with `askdare('configure', { greeting })`;
 `defineBot` throws on a value that is neither `'auto'` nor a valid BCP 47 tag. The language part of the tag picks the dictionary, and the full tag picks the plural rules.
 
 With `'auto'`, the launcher on your page follows the same order. Your `instructions` function receives the chosen tag as `context.locale`, so you can tell the model which language to answer in.
+
+### Texts per language
+
+With `locale: 'auto'`, give `widget.texts` one set of overrides per language instead:
+
+```ts
+defineBot({
+  // …
+  widget: {
+    locale: 'auto',
+    texts: {
+      en: { 'launcher.label': 'Questions?', 'welcome.greeting': 'Hi! How can I help?' },
+      pl: { 'launcher.label': 'Pytania?', 'welcome.greeting': 'Cześć! W czym pomóc?' },
+    },
+  },
+});
+```
+
+- **Which set a visitor gets.** The set for their language tag (`pl-PL`), else for its language part (`pl`). A language without a built-in dictionary, such as French, shows English, so it gets the `en` set. A language with a dictionary but no set of yours, such as Polish without `pl`, shows the built-in Polish texts.
+- **Shortcuts.** `title`, `greeting`, `placeholder` and `launcherLabel` still apply in every language, but a set that gives the same key wins for its language.
+- **Keys and tags.** The keys are checked as in the flat form. Each language must be a valid BCP 47 tag, once (`pl` and `PL` are the same language), and at most 20 languages are allowed.
+- **One form or the other.** `texts` is either one set for every language or one set per language, not both.
 
 ### Switching the language on the page
 
@@ -156,7 +178,7 @@ To see the categories of another language, run `new Intl.PluralRules('cs').resol
 
 ## Add a language
 
-The library has dictionaries for English and Polish only, and `widget.texts` has no per-language form. For another language, set a fixed `locale` and translate every key:
+The library has dictionaries for English and Polish only. For another language, translate every key, either for a bot with a fixed `locale`:
 
 ```ts
 defineBot({
@@ -176,8 +198,8 @@ defineBot({
 
 - Keys you leave out show English.
 - Plurals follow the rules of the tag you set, so translate each category the language uses.
-- Keep `locale` fixed. With `'auto'`, your translations would show to every visitor, whatever their language. For a site in several languages without a dictionary, define one bot per language, each with its own `locale` and `texts`.
-- The chat document's `lang` attribute is your `locale` as soon as `widget.texts` has any key, so screen readers read your translation in the right language. Without your texts, a language without a built-in dictionary shows English, and `lang` says `en`.
+- With `'auto'`, put the translation in its own set (`texts: { de: { … } }`, see [texts per language](#texts-per-language)). Flat texts would show to every visitor, whatever their language.
+- The chat document's `lang` attribute is the visitor's language when a set of yours exists for it, or your fixed `locale` as soon as flat `widget.texts` has any key, so screen readers read your translation in the right language. Without your texts, a language without a built-in dictionary shows English, and `lang` says `en`.
 
 ## All texts
 

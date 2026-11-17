@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { canonicalLocale, TEXT_KEYS, type TextKey, textsFor } from '../i18n/texts';
+import { canonicalLocale, TEXT_KEYS, type TextKey, textLocale, textsFor } from '../i18n/texts';
 import type { VisitorIdentity } from '../security/identity';
 import { PRESET_NAMES, type PresetName } from '../theme/presets';
 import {
@@ -96,6 +96,9 @@ export interface VoiceConfig {
   readonly maxSeconds?: number;
 }
 
+/** Overrides for the texts the chat shows, by key (see the dictionary in the docs). */
+export type WidgetTexts = Readonly<Partial<Record<TextKey, string>>>;
+
 /** Public widget settings. Everything here is sent to browsers, so never put secrets in it. */
 export interface WidgetConfig {
   /** Shortcut for `texts['header.title']`. */
@@ -112,8 +115,13 @@ export interface WidgetConfig {
    * Polish; other languages show English unless you set `texts`. Default `en`.
    */
   readonly locale?: string;
-  /** Overrides for any text the widget shows, by key (see the dictionary in the docs). */
-  readonly texts?: Readonly<Partial<Record<TextKey, string>>>;
+  /**
+   * Overrides for any text the widget shows, by key (see the dictionary in the docs). Either one
+   * set for every language (`{ 'launcher.label': 'Questions?' }`), or one set per language
+   * (`{ en: {...}, pl: {...} }`): a visitor gets the set for their language tag, then for its
+   * primary subtag, and a language without a built-in dictionary gets the `en` set.
+   */
+  readonly texts?: WidgetTexts | Readonly<Record<string, WidgetTexts>>;
   /**
    * The note that visitors are talking to an AI (EU AI Act, art. 50), shown under the message
    * field, with an optional link to your privacy policy (an https URL or a path on your app).
@@ -164,8 +172,13 @@ export interface BotWidget {
   readonly replies: 'suggest' | 'off';
   readonly avatar: string | undefined;
   readonly launcherLabel: string;
-  /** Text overrides, including the title, greeting, placeholder and launcher label shortcuts. */
-  readonly texts: Readonly<Partial<Record<TextKey, string>>>;
+  /**
+   * Text overrides for every language, including the title, greeting, placeholder and launcher
+   * label shortcuts.
+   */
+  readonly texts: WidgetTexts;
+  /** Text overrides per language, by canonical BCP 47 tag; they win over `texts`. */
+  readonly textsByLocale: Readonly<Record<string, WidgetTexts>>;
   readonly disclosure: false | { readonly privacyUrl: string | undefined };
   readonly css: string;
   readonly theme: ResolvedTheme;
@@ -258,6 +271,57 @@ const origin = z.string().refine((value) => {
   }
 }, 'must be an https origin like https://www.example.com (no path or wildcard; http only for localhost)');
 
+const flatTexts = z.partialRecord(
+  z.enum(TEXT_KEYS as [TextKey, ...TextKey[]]),
+  z.string().trim().min(1).max(300),
+);
+const textsPerLanguage = z
+  .record(z.string(), flatTexts)
+  .refine(
+    (sets) => Object.keys(sets).every((tag) => canonicalLocale(tag) !== undefined),
+    'must use BCP 47 tags like en or pl-PL as languages',
+  )
+  .refine((sets) => Object.keys(sets).length <= 20, 'has more than 20 languages')
+  .refine((sets) => {
+    const tags = Object.keys(sets).map((tag) => canonicalLocale(tag));
+    return new Set(tags).size === tags.length;
+  }, 'has the same language twice');
+/** Per-language when any value is a set of texts; a flat set has only strings. */
+const isPerLanguage = (value: unknown): boolean =>
+  typeof value === 'object' &&
+  value !== null &&
+  Object.values(value).some((entry) => typeof entry === 'object' && entry !== null);
+const textsSchema = z.unknown().superRefine((value, context) => {
+  const result = (isPerLanguage(value) ? textsPerLanguage : flatTexts).safeParse(value);
+  for (const issue of result.error?.issues ?? []) {
+    context.addIssue({ code: 'custom', message: issue.message, path: issue.path });
+  }
+});
+
+/**
+ * The overrides a visitor in `locale` gets: the set for every language, then the per-language set
+ * for the tag, else its primary subtag, else the `en` set when the language has no built-in
+ * dictionary (so its texts are English anyway).
+ */
+export function widgetTexts(
+  widget: Pick<BotWidget, 'texts' | 'textsByLocale'>,
+  locale: string,
+): WidgetTexts {
+  const own =
+    languageTexts(widget, locale) ??
+    (textLocale(locale) === 'en' ? widget.textsByLocale['en'] : undefined);
+  return own ? { ...widget.texts, ...own } : widget.texts;
+}
+
+/** The per-language set written for this language (its tag, else its primary subtag), if any. */
+export function languageTexts(
+  widget: Pick<BotWidget, 'textsByLocale'>,
+  locale: string,
+): WidgetTexts | undefined {
+  const tag = canonicalLocale(locale) ?? locale;
+  return widget.textsByLocale[tag] ?? widget.textsByLocale[tag.split('-')[0] ?? tag];
+}
+
 const definitionSchema = z.object({
   id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,47}$/, 'use 1-48 lowercase letters, digits or dashes'),
   model: z.string().trim().min(1, 'is required'),
@@ -340,12 +404,7 @@ const definitionSchema = z.object({
           'must be auto or a BCP 47 tag like en or pl-PL',
         )
         .optional(),
-      texts: z
-        .partialRecord(
-          z.enum(TEXT_KEYS as [TextKey, ...TextKey[]]),
-          z.string().trim().min(1).max(300),
-        )
-        .optional(),
+      texts: textsSchema.optional(),
       disclosure: z
         .union([
           z.literal(false),
@@ -394,15 +453,27 @@ export function defineBot(definition: BotDefinition): Bot {
   const { instructions } = definition;
   const widget = definition.widget ?? {};
   const locale = widget.locale ?? 'en';
-  // The old shortcuts are text overrides, so a configured greeting wins in every language.
-  const overrides: Readonly<Partial<Record<TextKey, string>>> = Object.freeze({
-    ...widget.texts,
+  const perLanguage = isPerLanguage(widget.texts);
+  const textsByLocale: Readonly<Record<string, WidgetTexts>> = Object.freeze(
+    perLanguage
+      ? Object.fromEntries(
+          Object.entries(widget.texts as Readonly<Record<string, WidgetTexts>>).map(
+            ([tag, set]) => [canonicalLocale(tag) ?? tag, Object.freeze({ ...set })],
+          ),
+        )
+      : {},
+  );
+  // The old shortcuts are text overrides, so a configured greeting wins in every language,
+  // unless a per-language set gives that key for the visitor's language.
+  const overrides: WidgetTexts = Object.freeze({
+    ...(perLanguage ? {} : (widget.texts as WidgetTexts | undefined)),
     ...(widget.title ? { 'header.title': widget.title } : {}),
     ...(widget.greeting ? { 'welcome.greeting': widget.greeting } : {}),
     ...(widget.placeholder ? { 'composer.placeholder': widget.placeholder } : {}),
     ...(widget.launcherLabel ? { 'launcher.label': widget.launcherLabel } : {}),
   });
-  const texts = textsFor(locale === 'auto' ? 'en' : locale, overrides);
+  const ownLocale = locale === 'auto' ? 'en' : locale;
+  const texts = textsFor(ownLocale, widgetTexts({ texts: overrides, textsByLocale }, ownLocale));
   const theme = resolveTheme(definition.widget?.theme, definition.widget?.colorScheme ?? 'auto');
   // Built-in presets are checked in CI; a customized theme is checked here, in development.
   if (
@@ -458,6 +529,7 @@ export function defineBot(definition: BotDefinition): Bot {
       avatar: widget.avatar,
       launcherLabel: texts['launcher.label'] ?? '',
       texts: overrides,
+      textsByLocale,
       disclosure:
         widget.disclosure === false
           ? false

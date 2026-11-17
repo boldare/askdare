@@ -1,4 +1,4 @@
-import type { Bot } from '../bot/define-bot';
+import { type Bot, widgetTexts } from '../bot/define-bot';
 import { TEXT_LOCALES, textLocale, textsFor } from '../i18n/texts';
 import { LAUNCHER_PLACEHOLDER, type LauncherLook } from '../protocol/launcher';
 
@@ -15,7 +15,9 @@ export function launcherLook(bot: Bot): LauncherLook {
   const tokens = theme.colorScheme === 'dark' ? theme.dark : theme.light;
   const texts = Object.fromEntries(
     TEXT_LOCALES.map((locale) => {
-      const all = textsFor(locale, bot.widget.texts);
+      // A fixed locale shows its own texts in the dictionary it uses, `de` in English say.
+      const fixed = bot.widget.locale !== 'auto' && textLocale(bot.widget.locale) === locale;
+      const all = textsFor(locale, widgetTexts(bot.widget, fixed ? bot.widget.locale : locale));
       return [
         locale,
         {

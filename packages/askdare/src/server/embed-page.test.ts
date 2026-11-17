@@ -45,9 +45,12 @@ describe('renderEmbedPage', () => {
     skinCss: '[data-ask-part="panel"]{display:flex}',
     skinCssFile: 'skin.333.css',
   };
-  const page = (widget: NonNullable<Parameters<typeof defineBot>[0]['widget']>): string => {
+  const page = (
+    widget: NonNullable<Parameters<typeof defineBot>[0]['widget']>,
+    visitor = 'en',
+  ): string => {
     const bot = defineBot({ id: 'support', model: 'm', instructions: 'x', widget });
-    const locale = bot.widget.locale === 'auto' ? 'en' : bot.widget.locale;
+    const locale = bot.widget.locale === 'auto' ? visitor : bot.widget.locale;
     return renderEmbedPage(bot, '/api/chat', assets, {
       locale,
       theme: bot.widget.theme,
@@ -60,5 +63,16 @@ describe('renderEmbedPage', () => {
     // Untranslated, the interface is English, and says so.
     expect(page({ locale: 'de' })).toContain('lang="en"');
     expect(page({ locale: 'pl-PL' })).toContain('lang="pl-PL"');
+    expect(page({ locale: 'de', texts: { de: { 'header.title': 'Assistent' } } })).toContain(
+      'lang="de"',
+    );
+    // With auto, a visitor whose language has a set gets it, and its lang.
+    const auto = { locale: 'auto', texts: { de: { 'header.title': 'Assistent' } } } as const;
+    expect(page(auto, 'de-AT')).toContain('lang="de-AT"');
+    expect(page(auto, 'fr')).toContain('lang="en"');
+    // A set for another language doesn't translate this one.
+    expect(page({ locale: 'de', texts: { pl: { 'header.title': 'Asystent' } } })).toContain(
+      'lang="en"',
+    );
   });
 });

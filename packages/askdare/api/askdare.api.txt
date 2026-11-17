@@ -1105,6 +1105,8 @@ interface VoiceConfig {
   /** Longest dictation; recording stops by itself at this point. Default 60 seconds. */
   readonly maxSeconds?: number;
 }
+/** Overrides for the texts the chat shows, by key (see the dictionary in the docs). */
+type WidgetTexts = Readonly<Partial<Record<TextKey, string>>>;
 /** Public widget settings. Everything here is sent to browsers, so never put secrets in it. */
 interface WidgetConfig {
   /** Shortcut for `texts['header.title']`. */
@@ -1121,8 +1123,13 @@ interface WidgetConfig {
    * Polish; other languages show English unless you set `texts`. Default `en`.
    */
   readonly locale?: string;
-  /** Overrides for any text the widget shows, by key (see the dictionary in the docs). */
-  readonly texts?: Readonly<Partial<Record<TextKey, string>>>;
+  /**
+   * Overrides for any text the widget shows, by key (see the dictionary in the docs). Either one
+   * set for every language (`{ 'launcher.label': 'Questions?' }`), or one set per language
+   * (`{ en: {...}, pl: {...} }`): a visitor gets the set for their language tag, then for its
+   * primary subtag, and a language without a built-in dictionary gets the `en` set.
+   */
+  readonly texts?: WidgetTexts | Readonly<Record<string, WidgetTexts>>;
   /**
    * The note that visitors are talking to an AI (EU AI Act, art. 50), shown under the message
    * field, with an optional link to your privacy policy (an https URL or a path on your app).
@@ -1174,8 +1181,13 @@ interface BotWidget {
   readonly replies: "suggest" | "off";
   readonly avatar: string | undefined;
   readonly launcherLabel: string;
-  /** Text overrides, including the title, greeting, placeholder and launcher label shortcuts. */
-  readonly texts: Readonly<Partial<Record<TextKey, string>>>;
+  /**
+   * Text overrides for every language, including the title, greeting, placeholder and launcher
+   * label shortcuts.
+   */
+  readonly texts: WidgetTexts;
+  /** Text overrides per language, by canonical BCP 47 tag; they win over `texts`. */
+  readonly textsByLocale: Readonly<Record<string, WidgetTexts>>;
   readonly disclosure: false | {
     readonly privacyUrl: string | undefined;
   };
