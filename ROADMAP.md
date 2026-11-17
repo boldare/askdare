@@ -72,7 +72,7 @@ Work runs in parallel lanes. Tasks that touch the **hot files** run one at a tim
 | Organization | The roadmap and `tasks/` | No |
 | Deploy | What is left of the deploy buttons: the starter template repo for the Heroku button | No |
 | Decisions | ADRs and design notes, in parallel with everything. For 0.4: the `toolRenderers` and `embedPath` design notes | No |
-| Spikes | Experiments in `spikes/` | No |
+| Spikes | Experiments in `spikes/`. For 0.4: S6, a `ModelGateway` for Claude | No |
 | Core | Runtime language step 2 (texts per language, then the `/config/<bot>` endpoint, then switching in place), then `toolRenderers`, then `embedPath` | **Yes**, one task at a time |
 
 Core work for 0.4 lands on `main` with `--no-ff`, or on an integration branch `release/0.4` if a task must not reach `main` before the release ([RELEASING.md](RELEASING.md)).
