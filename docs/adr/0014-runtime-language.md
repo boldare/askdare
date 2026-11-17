@@ -41,7 +41,7 @@ Only bots with `locale: 'auto'` switch. A bot with a fixed locale ignores a swit
 
 - **Per-language texts.** `widget.texts` also accepts `{ en: {...}, pl: {...} }`, one set of overrides per language. The flat form stays valid and means "the bot's locale", or English for `auto`.
 
-  Update (2026-11-17), as built: the flat form keeps applying in every language, as it did before, so no bot changes behavior. A visitor gets the set for their tag, else its primary subtag; a language without a built-in dictionary gets the `en` set. A set's key wins over the `title`, `greeting`, `placeholder` and `launcherLabel` shortcuts for its language.
+  Update (2026-11-17), as built: the flat form keeps applying in every language, as it did before, so no bot changes behavior. A visitor gets the set for their tag, else one for the same language; a language without a built-in dictionary gets the `en` set, and the launcher gets an entry for each language with a set. A set's key wins over the `title`, `greeting`, `placeholder` and `launcherLabel` shortcuts for its language.
 - **`GET <basePath>/config/<bot>?lang=`** returns the public configuration for that language, built by `publicConfig()` like the iframe's and `getChatConfig`'s, so the "no secrets" test covers it.
 - **The store gets `setLocale(locale)`.** It fetches that configuration, swaps the texts and the locale, and keeps the messages, the draft and any turn in progress. The client's locale becomes mutable, so the next message carries the new one.
 - **The bridge gets a `locale` message**, so the loader switches the iframe without reloading it.

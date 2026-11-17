@@ -1126,8 +1126,8 @@ interface WidgetConfig {
   /**
    * Overrides for any text the widget shows, by key (see the dictionary in the docs). Either one
    * set for every language (`{ 'launcher.label': 'Questions?' }`), or one set per language
-   * (`{ en: {...}, pl: {...} }`): a visitor gets the set for their language tag, then for its
-   * primary subtag, and a language without a built-in dictionary gets the `en` set.
+   * (`{ en: {...}, pl: {...} }`): a visitor gets the set for their language tag, else one for
+   * the same language, and a language without a built-in dictionary gets the `en` set.
    */
   readonly texts?: WidgetTexts | Readonly<Record<string, WidgetTexts>>;
   /**

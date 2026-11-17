@@ -62,7 +62,8 @@ defineBot({
 });
 ```
 
-- **Which set a visitor gets.** The set for their language tag (`pl-PL`), else for its language part (`pl`). A language without a built-in dictionary, such as French, shows English, so it gets the `en` set. A language with a dictionary but no set of yours, such as Polish without `pl`, shows the built-in Polish texts.
+- **Which set a visitor gets.** The set for their language tag (`pl-PL`), else one for the same language (`pl`, or another `pl-…` set). A language without a built-in dictionary, such as French, shows English, so it gets the `en` set. A language with a dictionary but no set of yours, such as Polish without `pl`, shows the built-in Polish texts.
+- **The launcher on your page** follows the same sets, by language: a German page shows your `de` launcher texts, the rest in English.
 - **Shortcuts.** `title`, `greeting`, `placeholder` and `launcherLabel` still apply in every language, but a set that gives the same key wins for its language.
 - **Keys and tags.** The keys are checked as in the flat form. Each language must be a valid BCP 47 tag, once (`pl` and `PL` are the same language), and at most 20 languages are allowed.
 - **One form or the other.** `texts` is either one set for every language or one set per language, not both.

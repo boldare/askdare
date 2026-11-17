@@ -55,6 +55,21 @@ describe('loaderWithLook (real built loader)', () => {
     const look = launcherLook(multi);
     expect(look.texts['en']?.label).toBe('Questions?');
     expect(look.texts['pl']?.label).toBe('Pytania?');
+    // A language without a dictionary gets its own entry, keyed as the loader looks it up.
+    const regional = defineBot({
+      id: 'regional',
+      model: 'm',
+      instructions: 'x',
+      widget: {
+        locale: 'auto',
+        texts: { 'de-AT': { 'launcher.label': 'Fragen?' }, 'pl-PL': { 'launcher.label': 'Hej' } },
+      },
+    });
+    const looks = launcherLook(regional).texts;
+    expect(Object.keys(looks)).toEqual(['en', 'pl', 'de']);
+    expect(looks['de']?.label).toBe('Fragen?');
+    expect(looks['de']?.open).toBe('Open chat');
+    expect(looks['pl']?.label).toBe('Hej');
     // A fixed locale without a dictionary shows its own set in the English entry it uses.
     const german = defineBot({
       id: 'de',

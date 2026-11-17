@@ -189,8 +189,15 @@ describe('defineBot', () => {
       expect(widgetTexts(bot.widget, 'en-GB')['launcher.label']).toBe('Questions?');
       // French has no dictionary, so it shows English, with the en set.
       expect(widgetTexts(bot.widget, 'fr')['launcher.label']).toBe('Questions?');
+      // Another tag of the same language uses its set.
+      expect(widgetTexts(bot.widget, 'pl')['launcher.label']).toBe('Pytania?');
       // Polish has a dictionary: without its set it gets only the shortcuts, never English texts.
-      expect(widgetTexts(bot.widget, 'pl')).toEqual({ 'welcome.greeting': 'Hi from the shortcut' });
+      const englishOnly = define({
+        locale: 'auto',
+        greeting: 'Hi',
+        texts: { en: { 'launcher.label': 'Q' } },
+      });
+      expect(widgetTexts(englishOnly.widget, 'pl')).toEqual({ 'welcome.greeting': 'Hi' });
       // The resolved shortcuts follow the bot's own language, English for auto.
       expect(bot.widget.launcherLabel).toBe('Questions?');
       expect(bot.widget.greeting).toBe('Hi from the shortcut');

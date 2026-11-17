@@ -118,8 +118,8 @@ export interface WidgetConfig {
   /**
    * Overrides for any text the widget shows, by key (see the dictionary in the docs). Either one
    * set for every language (`{ 'launcher.label': 'Questions?' }`), or one set per language
-   * (`{ en: {...}, pl: {...} }`): a visitor gets the set for their language tag, then for its
-   * primary subtag, and a language without a built-in dictionary gets the `en` set.
+   * (`{ en: {...}, pl: {...} }`): a visitor gets the set for their language tag, else one for
+   * the same language, and a language without a built-in dictionary gets the `en` set.
    */
   readonly texts?: WidgetTexts | Readonly<Record<string, WidgetTexts>>;
   /**
@@ -313,14 +313,26 @@ export function widgetTexts(
   return own ? { ...widget.texts, ...own } : widget.texts;
 }
 
-/** The per-language set written for this language (its tag, else its primary subtag), if any. */
+/**
+ * The per-language set written for this language, if any: the one for its tag, else for its
+ * primary subtag, else the first one for another tag of the same language (`pl-PL` for `pl`).
+ */
 export function languageTexts(
   widget: Pick<BotWidget, 'textsByLocale'>,
   locale: string,
 ): WidgetTexts | undefined {
   const tag = canonicalLocale(locale) ?? locale;
-  return widget.textsByLocale[tag] ?? widget.textsByLocale[tag.split('-')[0] ?? tag];
+  const sets = widget.textsByLocale;
+  const language = primarySubtag(tag);
+  return (
+    sets[tag] ??
+    sets[language] ??
+    Object.entries(sets).find(([other]) => primarySubtag(other) === language)?.[1]
+  );
 }
+
+/** The language part of a BCP 47 tag, lowercase: `pl` for `pl-PL`. */
+export const primarySubtag = (tag: string): string => (tag.split('-')[0] ?? tag).toLowerCase();
 
 const definitionSchema = z.object({
   id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,47}$/, 'use 1-48 lowercase letters, digits or dashes'),
