@@ -12,6 +12,7 @@ Every path sits under the route's base path: `/api/chat` by default, or `basePat
 | --- | --- | --- |
 | `GET /widget.js` | None | The loader script for your pages. `?bot=<id>` adds that bot's launcher look |
 | `GET /embed/<bot>` | None | The chat document in the iframe. `?lang=<tag>` carries the embedding page's language for `locale: 'auto'`, and `?mode=inline` marks a chat inside the page |
+| `GET /config/<bot>` | None | The bot's public configuration in one language, for switching the chat's language in place. `?lang=<tag>` picks the language for `locale: 'auto'` |
 | `GET /theme/<bot>.css` | None | The bot's theme and `widget.css`, with a content hash in `?v=` |
 | `GET /assets/<file>` | None | The chat's script and stylesheet, and the preset fonts |
 | `POST /session` | None | Starts or renews a visitor's session and answers an access token ([Identity](#identity)) |
@@ -26,6 +27,7 @@ Every path sits under the route's base path: `/api/chat` by default, or `basePat
 - **`POST /messages`** takes `{ "botId", "text", "resumeToken"?, "attachments"?, "context"?, "locale"? }`. Without `resumeToken`, the server starts a new conversation and sends `conversation.created`. `locale` is the visitor's language tag, passed to the bot's instructions.
 - **`POST /history`** takes `{ "botId", "resumeToken" }` and answers `{ "messages": [{ "id", "role", "text", "citations", "attachments", "feedback"?, "replies"? }] }`, where `attachments` is a count, `feedback` is the answer's rating handle (see [Feedback](#feedback)) and `replies` are the options of the latest answer (see [Reply options](#reply-options)).
 - **`DELETE /conversation`** takes the same body and answers `204` with no body.
+- **`GET /config/<bot>`** answers the same public configuration the chat document carries: texts, greeting, starters, theme variants and the other widget settings, never the model, instructions, tools or vector stores. For a bot with `locale: 'auto'`, `?lang=` picks the language; without it, the browser's `Accept-Language` does, then English. A bot with a fixed locale ignores `lang`. An invalid tag answers `400` with `invalid_input`, an unknown bot `404`. Responses are cached for five minutes (`no-cache` in development) and vary by `Accept-Language`.
 - **Same origin only.** Every `POST` and `DELETE` except `/doctor` refuses cross-site requests with `401`. The API serves the chat's own iframe, which runs on the same origin.
 
 ## Transport
