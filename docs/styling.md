@@ -171,7 +171,7 @@ Every preset sets both font tokens, so set both. You can also set them as the `f
 <script src="https://app.example.com/api/chat/widget.js?bot=support" async></script>
 ```
 
-`locale` is a BCP 47 tag, such as `'pl'`, and the server checks it against the bot like any language. It reloads the chat in that language and keeps the conversation; a call with only `locale` leaves the greeting, suggestions and context as they were. To follow your page's `<html lang>` instead, add `data-follow-lang` to the script tag. See [Texts](texts.md#switching-the-language-on-the-page).
+`locale` is a BCP 47 tag, such as `'pl'`, and the server checks it against the bot like any language. It switches the chat to that language in place and keeps the conversation; a call with only `locale` leaves the greeting, suggestions and context as they were. To follow your page's `<html lang>` instead, add `data-follow-lang` to the script tag. See [Texts](texts.md#switching-the-language-on-the-page).
 
 An inline chat loads with the page without taking focus or scrolling to itself.
 

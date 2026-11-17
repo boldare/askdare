@@ -132,7 +132,13 @@ test('the chat follows the page into another language and keeps the conversation
   await chat.getByRole('textbox').fill('Before the switch');
   await chat.getByRole('textbox').press('Enter');
   await expect(answers.last()).toContainText('You said: Before the switch');
+  await chat.getByRole('textbox').fill('A draft');
   const entries = await page.evaluate(() => history.length);
+  // A mark in the chat's own window: a reload would wipe it.
+  const frame = page.frames().find((candidate) => candidate.url().includes('/embed/'));
+  await frame?.evaluate(() => {
+    (window as unknown as { kept: boolean }).kept = true;
+  });
 
   // The page switches its language in place, as a single-page app's language menu does.
   await page.evaluate(() => {
@@ -140,8 +146,12 @@ test('the chat follows the page into another language and keeps the conversation
   });
   await expect(page.getByRole('button', { name: 'Zamknij czat' })).toBeVisible();
   await expect(chat.getByRole('textbox')).toHaveAttribute('placeholder', 'Napisz wiadomość…');
+  await expect(chat.locator('html')).toHaveAttribute('lang', 'pl');
+  // In place (ADR-0014, step 2): no reload, so the conversation and the draft stay.
+  expect(await frame?.evaluate(() => (window as unknown as { kept?: boolean }).kept)).toBe(true);
+  await expect(chat.getByRole('textbox')).toHaveValue('A draft');
   await expect(answers.first()).toContainText('You said: Before the switch');
-  // The reload replaces the chat's page: the visitor's Back button still leaves the page.
+  // The visitor's Back button still leaves the page.
   expect(await page.evaluate(() => history.length)).toBe(entries);
 
   await chat.getByRole('textbox').fill('Po zmianie języka');
@@ -157,24 +167,27 @@ test('the chat follows the page into another language and keeps the conversation
   expect(after?.instructions).toContain('default to pl');
 });
 
-test('a switch mid-answer tells the page the answer stopped', async ({ page }) => {
+test('a switch mid-answer lets the answer finish', async ({ page }) => {
   await page.goto(`${HOST}?variant=follow-lang`);
   await page.getByRole('button', { name: 'Open chat' }).click();
   const chat = page.frameLocator('iframe[title="Chat"]');
-  await chat.getByRole('textbox').fill('[slow] cut off by a switch');
+  const answer = chat.locator('[data-ask-part="message"][data-role="assistant"]').last();
+  await chat.getByRole('textbox').fill('[slow] still streaming during a switch');
   await chat.getByRole('textbox').press('Enter');
-  await expect(
-    chat.locator('[data-ask-part="message"][data-role="assistant"]').last(),
-  ).toContainText('You said:');
+  await expect(answer).toContainText('You said:');
   await page.evaluate(() =>
     (window as unknown as { askdare: (...call: unknown[]) => void }).askdare('configure', {
       locale: 'pl',
     }),
   );
   await expect(chat.getByRole('textbox')).toHaveAttribute('placeholder', 'Napisz wiadomość…');
+  await expect(answer).toContainText('You said: [slow] still streaming during a switch');
   await expect
     .poll(() => page.evaluate(() => (window as unknown as { events: unknown[] }).events))
-    .toContainEqual(expect.objectContaining({ type: 'message.received', outcome: 'stopped' }));
+    .toContainEqual(expect.objectContaining({ type: 'message.received', outcome: 'completed' }));
+  expect(
+    await page.evaluate(() => (window as unknown as { events: unknown[] }).events),
+  ).not.toContainEqual(expect.objectContaining({ outcome: 'stopped' }));
 });
 
 test('calls made before the script loads are queued and run', async ({ page }) => {

@@ -3,7 +3,23 @@ import type { HistoryMessage } from '../protocol/history';
 import { decodeEvent, SseParser } from '../protocol/sse';
 import { parseHistory } from '../protocol/validate';
 import { PROTOCOL_HEADER, PROTOCOL_VERSION } from '../protocol/version';
+import type { ChatWidget } from './config';
 import type { SafeStorage } from './storage';
+
+/** The parts of a widget a language switch replaces, checked before use. */
+function isWidget(value: unknown): value is ChatWidget {
+  if (typeof value !== 'object' || value === null) return false;
+  const widget = value as Record<string, unknown>;
+  const texts = widget['texts'];
+  return (
+    ['locale', 'title', 'greeting', 'placeholder', 'launcherLabel'].every(
+      (key) => typeof widget[key] === 'string',
+    ) &&
+    typeof texts === 'object' &&
+    texts !== null &&
+    Object.values(texts).every((text) => typeof text === 'string')
+  );
+}
 
 export interface ChatClientOptions {
   readonly basePath: string;
@@ -91,6 +107,8 @@ export class ChatClient {
   readonly #options: ChatClientOptions;
   readonly #fetch: typeof fetch;
   readonly #botId: string;
+  /** The visitor's language, sent with each message; it changes when the page switches it. */
+  #locale: string;
   #session: Session | undefined;
   /** The page context the current conversation already has, so it is sent only when it changes. */
   #sentContext: string | undefined;
@@ -114,6 +132,34 @@ export class ChatClient {
     this.#options = options;
     this.#fetch = options.fetch ?? ((input, init) => fetch(input, init));
     this.#botId = options.botId;
+    this.#locale = options.locale;
+  }
+
+  /** The language sent with each message from now on (ADR-0014, step 2). */
+  setLocale(locale: string): void {
+    this.#locale = locale;
+  }
+
+  /**
+   * The bot's public widget settings in another language, from `GET /config/<bot>`, with the
+   * language its texts are written in; undefined when they can't be read. Never throws.
+   */
+  async fetchWidget(
+    locale: string,
+  ): Promise<{ readonly widget: ChatWidget; readonly language: string } | undefined> {
+    const query = new URLSearchParams({ lang: locale });
+    try {
+      const response = await this.#fetch(
+        `${this.#options.basePath}/config/${encodeURIComponent(this.#botId)}?${query}`,
+      );
+      if (!response.ok) return undefined;
+      const body = (await response.json()) as { readonly widget?: unknown } | null;
+      if (!isWidget(body?.widget)) return undefined;
+      const language = response.headers.get('content-language');
+      return { widget: body.widget, language: language || body.widget.locale };
+    } catch {
+      return undefined;
+    }
   }
 
   /** A client-side error: the dictionary text for `key`, else the English message. */
@@ -340,7 +386,7 @@ export class ChatClient {
           return json({
             botId: this.#options.botId,
             text: message.text,
-            locale: this.#options.locale,
+            locale: this.#locale,
             ...(message.attachments?.length ? { attachments: message.attachments } : {}),
             ...(context ? { context } : {}),
             ...(resumeToken ? { resumeToken } : {}),

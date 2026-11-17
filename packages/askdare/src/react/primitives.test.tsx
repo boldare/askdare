@@ -178,6 +178,46 @@ describe('Root and the default look', () => {
     expect(await screen.findByRole('region', { name: 'Sales' })).toBeTruthy();
   });
 
+  it('switches the language in place when only the locale changes', async () => {
+    const server = fakeServer();
+    vi.stubGlobal('fetch', server.fetch);
+    const view = render(
+      <Root config={testConfig()}>
+        <DefaultPanel />
+      </Root>,
+    );
+    const field = screen.getByRole('textbox');
+    fireEvent.change(field, { target: { value: 'Hello' } });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Send' }).hasAttribute('disabled')).toBe(false),
+    );
+    fireEvent.keyDown(field, { key: 'Enter' });
+    await screen.findByText('You said: Hello');
+    const requests = server.requests.length;
+
+    const english = testConfig();
+    view.rerender(
+      <Root
+        config={{
+          ...english,
+          widget: {
+            ...english.widget,
+            locale: 'pl',
+            placeholder: 'Napisz wiadomość…',
+            texts: { ...english.widget.texts, 'composer.send': 'Wyślij' },
+          },
+        }}
+      >
+        <DefaultPanel />
+      </Root>,
+    );
+    expect(await screen.findByRole('button', { name: 'Wyślij' })).toBeTruthy();
+    expect(screen.getByRole('textbox').getAttribute('placeholder')).toBe('Napisz wiadomość…');
+    // The same chat: the conversation stays, and the config came with the props.
+    expect(screen.getByText('You said: Hello')).toBeTruthy();
+    expect(server.requests.length).toBe(requests);
+  });
+
   it('closes on Escape only when it is pressed in the chat', () => {
     vi.stubGlobal('fetch', fakeServer().fetch);
     const onClose = vi.fn();

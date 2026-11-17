@@ -78,6 +78,8 @@ export function createFixtureStore(botConfig: ChatConfig, fixture: Fixture): Cha
     stop: () => {},
     identify: () => {},
     configure: (page) => set({ page }),
+    setLocale: async () => false,
+    language: undefined,
     hide: () => {},
     level: () => undefined,
     onFocus,
