@@ -1,4 +1,4 @@
-import type { Bot } from '../bot/define-bot';
+import { type Bot, widgetTexts } from '../bot/define-bot';
 import type { ChatConfig } from '../chat/config';
 import { textsFor } from '../i18n/texts';
 import { PROTOCOL_VERSION } from '../protocol/version';
@@ -19,10 +19,18 @@ export interface PublicView {
  * (ADR-0008); a test checks that.
  */
 export function publicConfig(bot: Bot, basePath: string, view: PublicView = {}): ChatConfig {
-  const { theme, css: _css, texts: overrides, feedback, replies: _replies, ...widget } = bot.widget;
+  const {
+    theme,
+    css: _css,
+    texts: _texts,
+    textsByLocale: _textsByLocale,
+    feedback,
+    replies: _replies,
+    ...widget
+  } = bot.widget;
   const resolved = view.theme ?? theme;
   const locale = view.locale ?? (widget.locale === 'auto' ? 'en' : widget.locale);
-  const texts = textsFor(locale, overrides);
+  const texts = textsFor(locale, widgetTexts(bot.widget, locale));
   return {
     protocolVersion: PROTOCOL_VERSION,
     basePath,

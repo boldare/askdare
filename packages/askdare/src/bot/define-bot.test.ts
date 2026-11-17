@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defineBot } from './define-bot';
+import { defineBot, widgetTexts } from './define-bot';
 
 describe('defineBot', () => {
   it('applies default limits and normalizes instructions to a function', () => {
@@ -150,5 +150,76 @@ describe('defineBot', () => {
     ],
   ])('rejects invalid definitions (%#)', (definition, message) => {
     expect(() => defineBot(definition)).toThrow(message);
+  });
+
+  describe('widget.texts per language', () => {
+    const define = (widget: NonNullable<Parameters<typeof defineBot>[0]['widget']>) =>
+      defineBot({ id: 'a', model: 'm', instructions: 'x', widget });
+
+    it('keeps the flat form for every language, with the shortcuts winning', () => {
+      const bot = define({
+        title: 'Shortcut',
+        texts: { 'header.title': 'Flat', 'launcher.label': 'Questions?' },
+      });
+      expect(bot.widget.texts).toEqual({
+        'header.title': 'Shortcut',
+        'launcher.label': 'Questions?',
+      });
+      expect(bot.widget.textsByLocale).toEqual({});
+      expect(widgetTexts(bot.widget, 'pl')).toBe(bot.widget.texts);
+    });
+
+    it('picks the set for the tag, then its primary subtag, else en for a language without a dictionary', () => {
+      const bot = define({
+        locale: 'auto',
+        greeting: 'Hi from the shortcut',
+        texts: {
+          en: { 'launcher.label': 'Questions?' },
+          'pl-PL': { 'launcher.label': 'Pytania?', 'welcome.greeting': 'Cześć' },
+          DE: { 'launcher.label': 'Fragen?' },
+        },
+      });
+      expect(Object.keys(bot.widget.textsByLocale)).toEqual(['en', 'pl-PL', 'de']);
+      expect(bot.widget.texts).toEqual({ 'welcome.greeting': 'Hi from the shortcut' });
+      expect(widgetTexts(bot.widget, 'pl-PL')).toEqual({
+        'launcher.label': 'Pytania?',
+        'welcome.greeting': 'Cześć',
+      });
+      expect(widgetTexts(bot.widget, 'de-AT')['launcher.label']).toBe('Fragen?');
+      expect(widgetTexts(bot.widget, 'en-GB')['launcher.label']).toBe('Questions?');
+      // French has no dictionary, so it shows English, with the en set.
+      expect(widgetTexts(bot.widget, 'fr')['launcher.label']).toBe('Questions?');
+      // Another tag of the same language uses its set.
+      expect(widgetTexts(bot.widget, 'pl')['launcher.label']).toBe('Pytania?');
+      // Polish has a dictionary: without its set it gets only the shortcuts, never English texts.
+      const englishOnly = define({
+        locale: 'auto',
+        greeting: 'Hi',
+        texts: { en: { 'launcher.label': 'Q' } },
+      });
+      expect(widgetTexts(englishOnly.widget, 'pl')).toEqual({ 'welcome.greeting': 'Hi' });
+      // The resolved shortcuts follow the bot's own language, English for auto.
+      expect(bot.widget.launcherLabel).toBe('Questions?');
+      expect(bot.widget.greeting).toBe('Hi from the shortcut');
+    });
+
+    it("resolves a fixed locale's shortcuts from its own set", () => {
+      const bot = define({ locale: 'pl', texts: { pl: { 'header.title': 'Asystent' } } });
+      expect(bot.widget.title).toBe('Asystent');
+    });
+
+    it('rejects unknown keys, invalid tags and the same language twice', () => {
+      expect(() => define({ texts: { 'no.such.key': 'x' } as never })).toThrow(/widget\.texts/);
+      expect(() => define({ texts: { en: { 'no.such.key': 'x' } } as never })).toThrow(
+        /widget\.texts\.en/,
+      );
+      expect(() => define({ texts: { 'not a tag!': { 'launcher.label': 'x' } } })).toThrow(
+        /BCP 47/,
+      );
+      expect(() =>
+        define({ texts: { pl: { 'launcher.label': 'a' }, PL: { 'launcher.label': 'b' } } }),
+      ).toThrow(/same language twice/);
+      expect(() => define({ texts: { en: { 'launcher.label': '' } } })).toThrow(/widget\.texts/);
+    });
   });
 });

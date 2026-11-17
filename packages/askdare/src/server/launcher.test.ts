@@ -41,4 +41,42 @@ describe('loaderWithLook (real built loader)', () => {
     expect(loaderWithLook(LOADER_JS, other)).not.toContain('sage-bot');
     expect(loaderWithLook(LOADER_JS, undefined)).toContain('JSON.parse("{}")');
   });
+
+  it('gives the launcher each language its own texts', () => {
+    const multi = defineBot({
+      id: 'multi',
+      model: 'm',
+      instructions: 'x',
+      widget: {
+        locale: 'auto',
+        texts: { en: { 'launcher.label': 'Questions?' }, pl: { 'launcher.label': 'Pytania?' } },
+      },
+    });
+    const look = launcherLook(multi);
+    expect(look.texts['en']?.label).toBe('Questions?');
+    expect(look.texts['pl']?.label).toBe('Pytania?');
+    // A language without a dictionary gets its own entry, keyed as the loader looks it up.
+    const regional = defineBot({
+      id: 'regional',
+      model: 'm',
+      instructions: 'x',
+      widget: {
+        locale: 'auto',
+        texts: { 'de-AT': { 'launcher.label': 'Fragen?' }, 'pl-PL': { 'launcher.label': 'Hej' } },
+      },
+    });
+    const looks = launcherLook(regional).texts;
+    expect(Object.keys(looks)).toEqual(['en', 'pl', 'de']);
+    expect(looks['de']?.label).toBe('Fragen?');
+    expect(looks['de']?.open).toBe('Open chat');
+    expect(looks['pl']?.label).toBe('Hej');
+    // A fixed locale without a dictionary shows its own set in the English entry it uses.
+    const german = defineBot({
+      id: 'de',
+      model: 'm',
+      instructions: 'x',
+      widget: { locale: 'de', texts: { de: { 'launcher.label': 'Fragen?' } } },
+    });
+    expect(launcherLook(german).texts['en']?.label).toBe('Fragen?');
+  });
 });

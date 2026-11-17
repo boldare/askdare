@@ -1,4 +1,4 @@
-import type { Bot } from '../bot/define-bot';
+import { type Bot, languageTexts } from '../bot/define-bot';
 import type { ChatConfig, ChatWidget } from '../chat/config';
 import { textLocale } from '../i18n/texts';
 
@@ -161,8 +161,11 @@ export function renderEmbedPage(
   view: EmbedView,
 ): string {
   const config = embedConfig(bot, basePath, view);
-  // A fixed locale with the operator's own texts is a translation: tell screen readers so.
-  const translated = bot.widget.locale !== 'auto' && Object.keys(bot.widget.texts ?? {}).length > 0;
+  // The operator's own texts for this language, or a fixed locale with texts for every language,
+  // are a translation: tell screen readers so.
+  const translated =
+    languageTexts(bot.widget, config.widget.locale) !== undefined ||
+    (bot.widget.locale !== 'auto' && Object.keys(bot.widget.texts).length > 0);
   const lang = translated ? config.widget.locale : uiLanguage(config.widget.locale);
   const attributes = Object.entries(themeAttributes(view.theme))
     .map(([name, value]) => ` ${name}="${escapeHtml(value)}"`)

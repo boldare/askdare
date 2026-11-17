@@ -101,4 +101,27 @@ describe('getChatConfig', () => {
       themeAsset(bot.widget.theme, own, 'support').hash,
     );
   });
+
+  it('gives each language its own texts, and keeps the sets out of the config', () => {
+    const multi = defineBot({
+      id: 'multi',
+      model: 'm',
+      instructions: 'x',
+      widget: {
+        locale: 'auto',
+        texts: {
+          en: { 'welcome.greeting': 'Hello' },
+          pl: { 'welcome.greeting': 'Dzień dobry' },
+        },
+      },
+    });
+    const polish = publicConfig(multi, '/api/chat', { locale: 'pl-PL' });
+    expect(polish.widget.greeting).toBe('Dzień dobry');
+    expect(polish.widget.texts['welcome.greeting']).toBe('Dzień dobry');
+    expect(polish.widget.texts['composer.send']).toBe('Wyślij');
+    expect(publicConfig(multi, '/api/chat', { locale: 'fr' }).widget.greeting).toBe('Hello');
+    expect(publicConfig(multi, '/api/chat').widget.greeting).toBe('Hello');
+    expect(JSON.stringify(polish)).not.toContain('textsByLocale');
+    expect(JSON.stringify(polish)).not.toContain('Hello');
+  });
 });

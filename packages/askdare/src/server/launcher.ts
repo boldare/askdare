@@ -1,4 +1,4 @@
-import type { Bot } from '../bot/define-bot';
+import { type Bot, primarySubtag, widgetTexts } from '../bot/define-bot';
 import { TEXT_LOCALES, textLocale, textsFor } from '../i18n/texts';
 import { LAUNCHER_PLACEHOLDER, type LauncherLook } from '../protocol/launcher';
 
@@ -13,11 +13,18 @@ const initials = (title: string): string =>
 export function launcherLook(bot: Bot): LauncherLook {
   const { theme } = bot.widget;
   const tokens = theme.colorScheme === 'dark' ? theme.dark : theme.light;
+  // The loader picks an entry by the page's primary subtag: one per built-in dictionary, plus one
+  // per language the bot has its own texts for (`de`, in English with the bot's German set).
+  const languages = [
+    ...new Set([...TEXT_LOCALES, ...Object.keys(bot.widget.textsByLocale).map(primarySubtag)]),
+  ];
   const texts = Object.fromEntries(
-    TEXT_LOCALES.map((locale) => {
-      const all = textsFor(locale, bot.widget.texts);
+    languages.map((language) => {
+      // A fixed locale shows its own texts in the dictionary it uses, `de` in English say.
+      const fixed = bot.widget.locale !== 'auto' && textLocale(bot.widget.locale) === language;
+      const all = textsFor(language, widgetTexts(bot.widget, fixed ? bot.widget.locale : language));
       return [
-        locale,
+        language,
         {
           label: all['launcher.label'] ?? '',
           open: all['launcher.open'] ?? '',
