@@ -45,6 +45,8 @@ Only bots with `locale: 'auto'` switch. A bot with a fixed locale ignores a swit
 - **`GET <basePath>/config/<bot>?lang=`** returns the public configuration for that language, built by `publicConfig()` like the iframe's and `getChatConfig`'s, so the "no secrets" test covers it.
 - **The store gets `setLocale(locale)`.** It fetches that configuration, swaps the texts and the locale, and keeps the messages, the draft and any turn in progress. The client's locale becomes mutable, so the next message carries the new one.
 - **The bridge gets a `locale` message**, so the loader switches the iframe without reloading it.
+
+  Update (2026-11-17), as built: the step 1 `locale` message gains `inPlace: 1`. A loader that sends it keeps the chat connected; without it (a loader cached from before step 2), or when the chat can't load the new texts, the chat reloads as in step 1. `GET /config/<bot>` also answers `Content-Language`, the language the texts are written in, which becomes the chat document's `lang`.
 - **React keys the store without the locale** and calls `setLocale` when the prop changes, so a switch no longer resets the chat.
 
 ### Not decided here

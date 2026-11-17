@@ -28,6 +28,10 @@ export interface FakeServerOptions {
   readonly feedback?: (body: Record<string, unknown>) => Promise<boolean>;
   /** Streams the answer's events but ends the stream only on `release()`. */
   readonly holdAnswer?: boolean;
+  /** Answers `GET /config/<bot>` with an error, as an unreachable route would. */
+  readonly failConfig?: boolean;
+  /** Holds every `/config` response until `release()`. */
+  readonly holdConfig?: boolean;
 }
 
 export interface FakeServer {
@@ -58,6 +62,28 @@ export function fakeServer(options: FakeServerOptions = {}): FakeServer {
   });
   const impl = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const path = String(input).replace('/api/chat', '');
+    if (path.startsWith('/config/')) {
+      const lang = new URL(path, 'https://app.example').searchParams.get('lang') ?? 'en';
+      requests.push({ path, method: 'GET', body: {} });
+      if (options.holdConfig) await held;
+      if (options.failConfig)
+        return Response.json({ error: { code: 'not_found' } }, { status: 404 });
+      const { widget } = testConfig();
+      const texts = textsFor(lang);
+      return Response.json(
+        {
+          ...testConfig(),
+          widget: {
+            ...widget,
+            locale: lang,
+            greeting: `Greeting in ${lang}`,
+            placeholder: texts['composer.placeholder'],
+            texts,
+          },
+        },
+        { headers: { 'content-language': lang } },
+      );
+    }
     const method = init?.method ?? 'GET';
     const text = typeof init?.body === 'string' ? init.body : '{}';
     const body = JSON.parse(text) as Record<string, unknown>;

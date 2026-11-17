@@ -6,7 +6,7 @@ import {
   useMemo,
   useSyncExternalStore,
 } from 'react';
-import type { ChatAttachments } from '../chat/config';
+import type { ChatAttachments, ChatConfig } from '../chat/config';
 import type { Translate } from '../chat/reducer';
 import type { ChatMessage, ChatState } from '../chat/state';
 import type { ChatActions, ChatStore } from '../chat/store';
@@ -63,6 +63,23 @@ export function useStore(): ChatStore {
   const store = useContext(StoreContext);
   if (!store) throw new Error('[askdare] Chat components must be inside <Root>.');
   return store;
+}
+
+/**
+ * The chat's texts in its current language. Re-renders when the language switches in place
+ * (ADR-0014), which components reading `useStore().t` would miss.
+ */
+export function useTexts(): Translate {
+  const store = useStore();
+  const read = (): Translate => store.t;
+  return useSyncExternalStore(store.subscribe, read, read);
+}
+
+/** The chat's public configuration, current after a language switch in place. */
+export function useChatConfig(): ChatConfig {
+  const store = useStore();
+  const read = (): ChatConfig => store.config;
+  return useSyncExternalStore(store.subscribe, read, read);
 }
 
 /** The chat's state; re-renders on every change. */

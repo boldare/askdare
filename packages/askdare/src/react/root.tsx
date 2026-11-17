@@ -60,8 +60,8 @@ export function Root({
     }
   }
   const page: PageOptions = pageOptions({ greeting, starters, context });
-  // One chat per bot, route and language: another config starts another chat.
-  const id = `${config.basePath} ${config.botId} ${config.widget.locale}`;
+  // One chat per bot and route: another language switches the same chat in place (ADR-0014).
+  const id = `${config.basePath} ${config.botId}`;
   const [held, setHeld] = useState(() => ({ id, store: createChatStore(config, { page }) }));
   let { store } = held;
   if (held.id !== id) {
@@ -93,6 +93,16 @@ export function Root({
       stopEvents();
     };
   }, [store]);
+
+  // A config in another language: the chat takes its texts and keeps the conversation.
+  const locale = config.widget.locale;
+  const latest = useRef(config);
+  useLayoutEffect(() => {
+    latest.current = config;
+  }, [config]);
+  useEffect(() => {
+    if (store.config.widget.locale !== locale) void store.setLocale(locale, latest.current);
+  }, [locale, store]);
 
   const key = JSON.stringify(page);
   // biome-ignore lint/correctness/useExhaustiveDependencies: `key` stands for the page options

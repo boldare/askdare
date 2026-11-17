@@ -21,6 +21,7 @@ import { readToolReplies } from '../tools/define-tool';
 import { readSuggestedReplies } from '../tools/suggest-replies';
 import { detectAudio, languageHints, maxAudioBytes, worstCaseSeconds } from '../voice/audio';
 import {
+  documentLanguage,
   type EmbedAssets,
   type EmbedView,
   embedContentSecurityPolicy,
@@ -415,14 +416,15 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     if (lang !== null && canonicalLocale(lang) === undefined) {
       throw new AskdareError('invalid_input', { message: 'lang must be a BCP 47 tag.' });
     }
-    const body = publicConfig(bot, config.basePath, {
-      locale: localeFor(bot, query, request),
-      feedback: feedbackOn(bot),
-    });
+    const locale = localeFor(bot, query, request);
+    const body = publicConfig(bot, config.basePath, { locale, feedback: feedbackOn(bot) });
+    // Without `lang`, a bot set to auto answers in the browser's language.
+    const byBrowser = bot.widget.locale === 'auto' && lang === null;
     return jsonResponse(body, 200, {
+      // The language the texts are written in, for the chat document's `lang`.
+      'Content-Language': documentLanguage(bot, locale),
       'Cache-Control': config.development ? 'no-cache' : 'public, max-age=300',
-      // Without `lang`, a bot set to auto answers in the browser's language.
-      Vary: 'Accept-Language',
+      ...(byBrowser ? { Vary: 'Accept-Language' } : {}),
       'Cross-Origin-Resource-Policy': 'same-origin',
       'X-Content-Type-Options': 'nosniff',
     });

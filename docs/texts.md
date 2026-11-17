@@ -75,7 +75,9 @@ A site that switches its language without a page load, such as a single-page app
 - **`data-follow-lang`** on the script tag makes the chat follow the page's `<html lang>` whenever it changes.
 - **`askdare('configure', { locale: 'pl' })`** switches it from your own code. It wins over `data-follow-lang` until the page's `lang` changes again.
 
-The launcher's texts change at once, and the chat reloads in the new language. The visitor keeps their conversation: earlier answers stay in the language they were written in, and new answers and the interface follow the switch. Your `instructions` function gets the new tag as `context.locale` from the next message on. The reload loads the conversation again, which takes about as long as opening the chat. An answer still streaming disappears from view, and the page hears `message.received` with `outcome: 'stopped'` ([Chat events](events.md)); the server still finishes and stores it.
+The launcher's texts change at once, and the chat switches in place, without reloading. The visitor keeps their conversation, their unsent message and an answer still streaming, which finishes as usual. Earlier answers stay in the language they were written in; new answers and the interface follow the switch. Your `instructions` function gets the new tag as `context.locale` from the next message on.
+
+If the chat can't load the new texts, or the switch happens before the chat has connected, it reloads in the new language instead and keeps the conversation. An answer still streaming then disappears from view, and the page hears `message.received` with `outcome: 'stopped'` ([Chat events](events.md)); the server still finishes and stores it.
 
 Only a bot with `locale: 'auto'` switches. A bot with a fixed locale keeps its language, and the console says once that it ignored the change. The value is a BCP 47 tag; anything else is ignored with a console warning.
 
@@ -113,7 +115,7 @@ Setting the same language again does nothing.
 
 A call with only `locale` keeps the greeting, starters and page context of earlier `configure` calls. Next to `data-follow-lang`, your call wins until the page's `lang` changes again.
 
-**In React.** `Root` starts the chat again when the `locale` of its config changes, and the conversation stays ([React](react.md#good-to-know)). Read the language in a Server Component, for example from a `[lang]` segment:
+**In React.** When only the `locale` of its config changes, `Root` switches the same chat to the new texts, and the conversation, the unsent message and an answer under way stay ([React](react.md#good-to-know)). Read the language in a Server Component, for example from a `[lang]` segment:
 
 ```tsx
 // app/[lang]/help/page.tsx

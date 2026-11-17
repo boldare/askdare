@@ -6,6 +6,7 @@ import { App } from './app';
 import { bindBridge } from './bind-bridge';
 import { FIXTURES } from './gallery';
 import { connectToHost } from './host-bridge';
+import { switchLocale } from './switch-locale';
 import '../react/skin/askdare.css';
 import './frame.css';
 
@@ -24,14 +25,24 @@ if (root) {
   const bridge = connectToHost(config.allowedOrigins);
   // Started before the first render, so a stored conversation shows as loading from the start.
   const unbind = bindBridge(store, bridge);
-  // The page switched the chat's language (ADR-0014, step 1). The answer under way ends here, so
-  // the page hears it as stopped before the reload cuts it off, and the chat reloads in that
-  // language; it restores the conversation, and the loader connects again.
-  bridge.onLocale((locale) => {
-    unbind();
+  const withLang = (locale: string): URL => {
     const url = new URL(location.href);
     url.searchParams.set('lang', locale);
-    location.replace(url);
+    return url;
+  };
+  switchLocale(store, bridge, {
+    // The answer under way ends here, so the page hears it as stopped before the reload cuts it
+    // off; the chat restores the conversation, and the loader connects again.
+    reload(locale) {
+      unbind();
+      location.replace(withLang(locale));
+    },
+    switched(locale, language) {
+      document.documentElement.lang = language;
+      document.title = store.config.widget.title;
+      // A reload, by the visitor or after an error, keeps the new language.
+      history.replaceState(history.state, '', withLang(locale));
+    },
   });
   createRoot(root).render(
     <App

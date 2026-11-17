@@ -97,14 +97,19 @@ const switches = (): (string | null)[] => [
 ];
 
 describe('askdare("configure", { locale }) (ADR-0014)', () => {
-  it('switches the launcher and asks the chat to reload in the new language', () => {
+  it('switches the launcher and asks the chat to switch in place', () => {
     const api = load();
     expect(launcher().getAttribute('aria-label')).toBe('Ask us, Open chat');
     openChat(api);
     expect(frame.src).toBe(`${APP}/api/chat/embed/support?lang=en`);
 
     api('configure', { locale: 'pl-pl' });
-    expect(handshakes.at(-1)?.at(-1)).toEqual({ v: 1, type: 'locale', locale: 'pl-PL' });
+    expect(handshakes.at(-1)?.at(-1)).toEqual({
+      v: 1,
+      type: 'locale',
+      locale: 'pl-PL',
+      inPlace: 1,
+    });
     expect(reloads).toEqual([]);
     expect(launcher().getAttribute('aria-label')).toBe('Zamknij czat');
     api('close');
@@ -116,11 +121,12 @@ describe('askdare("configure", { locale }) (ADR-0014)', () => {
     api('open');
     api('configure', { locale: 'pl' });
     expect(reloads).toEqual([`${APP}/api/chat/embed/support?lang=pl`]);
-    // A switch before the reloaded chat connects, too.
+    // Once connected, every switch goes over the port and the chat stays connected.
     frame.dispatchEvent(new Event('load'));
     api('configure', { locale: 'de' });
     api('configure', { locale: 'en' });
-    expect(switches()).toEqual(['de', 'pl', 'en']);
+    expect(switches()).toEqual(['de', 'en', 'pl']);
+    expect(reloads).toHaveLength(1);
   });
 
   it('opens a chat that isn’t loaded yet in the new language, without a reload', () => {
@@ -149,7 +155,7 @@ describe('askdare("configure", { locale }) (ADR-0014)', () => {
     expect(JSON.stringify(configures)).not.toContain('locale');
   });
 
-  it('shows the launcher on phones again until the reloaded chat is up', () => {
+  it('keeps a connected chat ready through a switch in place', () => {
     const api = load();
     openChat(api);
     expect(launcher().dataset['ready']).toBeUndefined();
@@ -158,6 +164,15 @@ describe('askdare("configure", { locale }) (ADR-0014)', () => {
     lastPort().onmessage?.(ready);
     expect(launcher().dataset['ready']).toBe('');
     api('configure', { locale: 'pl' });
+    expect(launcher().dataset['ready']).toBe('');
+    expect(reloads).toEqual([]);
+  });
+
+  it('shows the launcher on phones again until a chat reloaded from the page is up', () => {
+    const api = load();
+    api('open');
+    api('configure', { locale: 'pl' });
+    expect(reloads).toHaveLength(1);
     expect(launcher().dataset['ready']).toBeUndefined();
   });
 

@@ -359,18 +359,19 @@ function boot(): void {
       lang = tag;
       applyTexts();
       if (!iframe) return;
-      // Until the reloaded chat says it is up: the launcher stays reachable on phones, and the
-      // watchdog looks out for a chat that doesn't come back.
+      // A connected chat switches in place and stays connected (step 2); if it can't, it reloads
+      // itself and connects again.
+      if (port) {
+        port.postMessage({ v: 1, type: 'locale', locale: tag, inPlace: 1 });
+        return;
+      }
+      // Not connected yet, nothing is under way: reload it from here, with replace(), so the
+      // page's history gets no entry. Until it says it is up, the launcher stays reachable on
+      // phones, and the watchdog looks out for a chat that doesn't come back.
       ready = false;
       delete launcher.dataset['ready'];
       setTimeout(unavailable, 8000);
-      // A connected chat stops the answer under way, so the page hears how it ended, and reloads
-      // itself. Not connected yet, nothing is under way: reload it from here, with replace(), so
-      // the page's history gets no entry.
-      if (port) port.postMessage({ v: 1, type: 'locale', locale: tag });
-      else iframe.contentWindow?.location.replace(embedUrl());
-      // Until the reloaded chat connects: a switch meanwhile reloads it from here.
-      port = undefined;
+      iframe.contentWindow?.location.replace(embedUrl());
     };
     const turnIcon = (open: boolean): void => {
       launcher.dataset['turned'] = '';

@@ -9,8 +9,11 @@ export type HostMessage =
   | { readonly v: 1; readonly type: 'ready' }
   | { readonly v: 1; readonly type: 'close' }
   | { readonly v: 1; readonly type: 'hidden' }
-  /** The page switched the chat's language: a BCP 47 tag (ADR-0014). */
-  | { readonly v: 1; readonly type: 'locale'; readonly locale: string }
+  /**
+   * The page switched the chat's language: a BCP 47 tag (ADR-0014). `inPlace` from a loader that
+   * keeps the chat connected (step 2); without it, the chat reloads (step 1).
+   */
+  | { readonly v: 1; readonly type: 'locale'; readonly locale: string; readonly inPlace?: 1 }
   /** A chat event for the page's askdare('on') listeners (ADR-0013). */
   | { readonly v: 1; readonly type: 'event'; readonly event: ChatEvent }
   | ({ readonly v: 1; readonly type: 'configure' } & PageOptions);
@@ -37,7 +40,7 @@ export interface HostBridge {
   /** Called with each askdare('identify') (a token, or null to sign out); replays the latest. */
   onIdentify(listener: (token: string | null) => void): () => void;
   /** Called with each language the page switches the chat to; returns an unsubscribe function. */
-  onLocale(listener: (locale: string) => void): () => void;
+  onLocale(listener: (locale: string, inPlace: boolean) => void): () => void;
 }
 
 /**
@@ -51,7 +54,7 @@ export function connectToHost(allowedOrigins: readonly string[]): HostBridge {
   const configureListeners = new Set<(options: PageOptions) => void>();
   let latest: PageOptions | undefined;
   const identifyListeners = new Set<(token: string | null) => void>();
-  const localeListeners = new Set<(locale: string) => void>();
+  const localeListeners = new Set<(locale: string, inPlace: boolean) => void>();
   let identity: string | null | undefined;
   const setIdentity = (token: string | null | undefined): void => {
     if (token === undefined) return;
@@ -82,7 +85,8 @@ export function connectToHost(allowedOrigins: readonly string[]): HostBridge {
         setIdentity(identityToken(portEvent.data['token']));
       } else if (portEvent.data['type'] === 'locale') {
         const locale = pageLocale(portEvent.data['locale']);
-        if (locale) for (const listener of localeListeners) listener(locale);
+        const inPlace = portEvent.data['inPlace'] === 1;
+        if (locale) for (const listener of localeListeners) listener(locale, inPlace);
       }
     };
     port.start();

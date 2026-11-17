@@ -1,6 +1,6 @@
 import type { ComponentProps, ReactElement } from 'react';
 import type { Rating } from '../chat/state';
-import { useChatState, useMessage, useStore } from './context';
+import { useChatState, useMessage, useStore, useTexts } from './context';
 
 export interface FeedbackButtonProps extends ComponentProps<'button'> {
   /** What a click rates the answer: 👍 `up` or 👎 `down`. A second click takes the rating back. */
@@ -18,7 +18,8 @@ export function FeedbackButton({
   ...props
 }: FeedbackButtonProps): ReactElement | null {
   const message = useMessage();
-  const { actions, t } = useStore();
+  const { actions } = useStore();
+  const t = useTexts();
   const key = message.feedback?.key;
   const current = useChatState((state) => (key ? state.ratings[key] : undefined));
   if (!key || message.role !== 'assistant' || message.status !== 'done') return null;

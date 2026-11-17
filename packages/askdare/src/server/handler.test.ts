@@ -390,8 +390,10 @@ describe('GET /config/<bot>', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toContain('application/json');
     expect(response.headers.get('cache-control')).toContain('max-age=300');
-    expect(response.headers.get('vary')).toBe('Accept-Language');
+    // The language is in the URL, so caches need not keep a copy per browser language.
+    expect(response.headers.get('vary')).toBeNull();
     expect(response.headers.get('cross-origin-resource-policy')).toBe('same-origin');
+    expect(response.headers.get('content-language')).toBe('pl-PL');
     const body = await read(response);
     expect(body.botId).toBe('texts');
     expect(body.feedback).toBe(true);
@@ -401,9 +403,16 @@ describe('GET /config/<bot>', () => {
   });
 
   it("falls back to the browser's language, then English, without lang", async () => {
-    expect((await read(await get('/config/texts'))).widget.greeting).toBe('Hello');
+    const plain = await get('/config/texts');
+    expect(plain.headers.get('vary')).toBe('Accept-Language');
+    expect((await read(plain)).widget.greeting).toBe('Hello');
     const polish = await read(await get('/config/texts', { 'accept-language': 'pl,en;q=0.5' }));
     expect(polish.widget.greeting).toBe('Dzień dobry');
+  });
+
+  it('names the language the texts are written in', async () => {
+    // French has no dictionary and no set of the bot's: its texts are English.
+    expect((await get('/config/texts?lang=fr')).headers.get('content-language')).toBe('en');
   });
 
   it('keeps a fixed locale whatever lang says', async () => {

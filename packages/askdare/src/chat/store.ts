@@ -67,6 +67,15 @@ export interface ChatStore {
   /** Signs the visitor in with a token from the site's backend, or out with null (ADR-0009). */
   identify(token: string | null): void;
   configure(page: PageOptions): void;
+  /**
+   * Switches the chat's language in place (ADR-0014, step 2): new texts and locale, while the
+   * messages, the draft and an answer under way stay. Uses the texts of `config` when given (a
+   * chat inside a page gets them from `getChatConfig`), else fetches them from the route. Resolves
+   * false, keeping the current texts, when they can't be loaded or a later switch overtook it.
+   */
+  setLocale(locale: string, config?: ChatConfig): Promise<boolean>;
+  /** The language the chat's texts are written in, for a document's `lang`; set by `setLocale`. */
+  readonly language: string | undefined;
   /** The chat was hidden: the microphone goes off. */
   hide(): void;
   /** The microphone's loudness from 0 to 1 while recording. */
@@ -154,8 +163,13 @@ function revokePreviews(files: readonly { readonly previewUrl?: string | undefin
 }
 
 /** The chat's state and actions for one bot, without any UI (ADR-0011). */
-export function createChatStore(config: ChatConfig, options: ChatStoreOptions = {}): ChatStore {
-  const t = translator(config.widget.texts);
+export function createChatStore(
+  initialConfig: ChatConfig,
+  options: ChatStoreOptions = {},
+): ChatStore {
+  // Both change when the language switches in place; everything reads the current ones.
+  let config = initialConfig;
+  let t = translator(config.widget.texts);
   const client =
     options.client ??
     new ChatClient({
@@ -574,10 +588,21 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
     },
   };
 
+  /** Counts language switches, so only the latest one applies. */
+  let switches = 0;
+  let language: string | undefined;
+
   return {
-    config,
+    get config() {
+      return config;
+    },
     actions,
-    t,
+    get t() {
+      return t;
+    },
+    get language() {
+      return language;
+    },
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
@@ -645,6 +670,35 @@ export function createChatStore(config: ChatConfig, options: ChatStoreOptions = 
 
     configure(page) {
       set({ page });
+    },
+
+    async setLocale(locale, next) {
+      const id = ++switches;
+      const fetched = next
+        ? { widget: next.widget, language: undefined }
+        : await client.fetchWidget(locale);
+      if (id !== switches || fetched === undefined) return false;
+      const { widget } = fetched;
+      language = fetched.language;
+      // Only what depends on the language; the look and the rest stay as they are.
+      const { title, greeting, placeholder, launcherLabel, texts } = widget;
+      config = {
+        ...config,
+        widget: {
+          ...config.widget,
+          locale: widget.locale,
+          title,
+          greeting,
+          placeholder,
+          launcherLabel,
+          texts,
+        },
+      };
+      t = translator(texts);
+      client.setLocale(widget.locale);
+      // A new snapshot, so every part of the chat renders the new texts.
+      set({});
+      return true;
     },
 
     hide() {

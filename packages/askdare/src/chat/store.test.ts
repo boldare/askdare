@@ -530,6 +530,102 @@ describe('createChatStore', () => {
   });
 });
 
+describe('setLocale', () => {
+  it('switches the texts in place, keeping the conversation and the draft', async () => {
+    const server = fakeServer();
+    const store = createChatStore(testConfig(), { client: testClient(server) });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.send('Before');
+    store.actions.setDraft('half-typed');
+    const before = store.getSnapshot();
+    let renders = 0;
+    store.subscribe(() => {
+      renders += 1;
+    });
+
+    expect(await store.setLocale('pl-PL')).toBe(true);
+    expect(server.requests.at(-1)?.path).toBe('/config/support?lang=pl-PL');
+    expect(store.config.widget.locale).toBe('pl-PL');
+    expect(store.config.widget.greeting).toBe('Greeting in pl-PL');
+    // The look and the rest of the config stay.
+    expect(store.config.widget.preset).toBe('aura');
+    expect(store.config.widget.title).toBe('Brightloop assistant');
+    expect(store.t('composer.send')).toBe('Wyślij');
+    expect(store.language).toBe('pl-PL');
+    expect(renders).toBe(1);
+    const after = store.getSnapshot();
+    expect(after).not.toBe(before);
+    expect(after.messages).toBe(before.messages);
+    expect(after.draft).toBe('half-typed');
+
+    // The next message carries the new language.
+    await store.actions.send('After');
+    const sent = server.requests.filter((request) => request.path === '/messages');
+    expect(sent.map((request) => request.body['locale'])).toEqual(['en', 'pl-PL']);
+  });
+
+  it('lets an answer under way finish', async () => {
+    const server = fakeServer({ holdAnswer: true });
+    const store = createChatStore(testConfig(), { client: testClient(server) });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    const sending = store.actions.send('Long answer');
+    await until(store, (state) => state.messages.at(-1)?.text === 'You said: Long answer');
+    expect(await store.setLocale('pl')).toBe(true);
+    expect(store.getSnapshot().busy).toBe(true);
+    server.release();
+    await sending;
+    expect(store.getSnapshot().messages.at(-1)).toMatchObject({
+      text: 'You said: Long answer',
+      status: 'done',
+    });
+  });
+
+  it('keeps the current texts when the route fails', async () => {
+    const server = fakeServer({ failConfig: true });
+    const store = createChatStore(testConfig(), { client: testClient(server) });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    expect(await store.setLocale('pl')).toBe(false);
+    expect(store.config.widget.locale).toBe('en');
+    expect(store.t('composer.send')).toBe('Send');
+    await store.actions.send('Still English');
+    const sent = server.requests.find((request) => request.path === '/messages');
+    expect(sent?.body['locale']).toBe('en');
+  });
+
+  it('applies only the latest of quick switches', async () => {
+    const server = fakeServer({ holdConfig: true });
+    const store = createChatStore(testConfig(), { client: testClient(server) });
+    const first = store.setLocale('pl');
+    const second = store.setLocale('de');
+    server.release();
+    expect(await first).toBe(false);
+    expect(await second).toBe(true);
+    expect(store.config.widget.locale).toBe('de');
+  });
+
+  it('takes the texts of a config it is given, without a request', async () => {
+    const server = fakeServer();
+    const store = createChatStore(testConfig(), { client: testClient(server) });
+    const polish = testConfig();
+    const next = {
+      ...polish,
+      widget: {
+        ...polish.widget,
+        locale: 'pl',
+        greeting: 'Cześć',
+        texts: { 'composer.send': 'Wyślij' },
+      },
+    };
+    expect(await store.setLocale('pl', next)).toBe(true);
+    expect(store.config.widget.greeting).toBe('Cześć');
+    expect(store.t('composer.send')).toBe('Wyślij');
+    expect(server.requests).toEqual([]);
+  });
+});
+
 describe('chat events', () => {
   /** Events without the duration, which depends on the clock. */
   const recorded = (events: ChatEvent[]) =>
