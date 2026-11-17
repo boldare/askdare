@@ -2,7 +2,7 @@
 
 Where askdare is going, release by release. This file holds the direction only:
 - **Decisions** that are expensive to reverse are [Architecture Decision Records](docs/adr/README.md).
-- **Tasks and their status** live in the [GitHub Project](https://github.com/orgs/boldare/projects/20).
+- **Tasks and their status** live in [`tasks/`](tasks/README.md), one file per task.
 
 A change to what a release contains comes as a pull request to this file.
 
@@ -37,7 +37,7 @@ The design notes for `toolRenderers` and `embedPath` are written in the Decision
 
 ## Later
 
-The order of these is decided on the Project board:
+The order of these is decided when a release is planned:
 - **Admin, stage 1.** A dev console with no database: bot configuration, `doctor`, a playground, test questions (ADR-0016).
 - **Admin, stage 2.** The `@boldare/askdare-admin` add-on: a store port with Postgres and Upstash adapters, dashboards of costs and ratings, and review of 👎 conversations (ADR-0016).
 - **Handoff to a human.** A `handoff` tool and an `onHandoff` hook (email, Slack, webhook).
@@ -51,25 +51,10 @@ The order of these is decided on the Project board:
 
 ## How we track work
 
-- **Issues are for current work only.** Epics and the tasks of the next two releases are issues of type **Task**, so they never read as bug reports. Anything further out, ideas included, is a draft item on the Project board. A draft becomes an issue when it moves to Ready.
-- **Each task is an issue** made from the [agent-ready task template](.github/ISSUE_TEMPLATE/task.yml). Its fields are:
-  - the goal;
-  - the ADRs to read;
-  - the files it may touch and those it must not;
-  - the Definition of Done;
-  - the tasks it depends on.
-- **The issue is the whole brief** for whoever picks it up, person or agent.
-- **The GitHub Project [askdare roadmap](https://github.com/orgs/boldare/projects/20)** holds every task, each a sub-issue of its epic. Its fields:
-  - `Status`;
-  - `Release`;
-  - `Track`;
-  - `Size`;
-  - `Lane`;
-  - `Hot files`.
-- **Its views:**
-  - a board by status;
-  - a roadmap by release;
-  - "Ready for agents", which lists unblocked tasks.
+- **Tasks live in the repository,** in [`tasks/`](tasks/README.md): one file per task, with its status, lane and dependencies. Only the next release gets task files; anything further out is a line under Later.
+- **The task file is the whole brief** for whoever picks it up, person or agent: the goal, the ADRs to read, the files it may touch and those it must not, the Definition of Done and the tasks it depends on.
+- **The pull request that finishes a task deletes its file,** so `tasks/` lists only open work.
+- **GitHub issues are for users:** bug reports and feature requests. Roadmap work doesn't go there.
 
 ### Lanes and hot files
 
@@ -84,7 +69,7 @@ Work runs in parallel lanes. Tasks that touch the **hot files** run one at a tim
 
 | Lane | What runs in it | Hot files |
 |---|---|---|
-| Organization | The roadmap, the Project and the issues | No |
+| Organization | The roadmap and `tasks/` | No |
 | Deploy | What is left of the deploy buttons: the starter template repo for the Heroku button | No |
 | Decisions | ADRs and design notes, in parallel with everything. For 0.4: the `toolRenderers` and `embedPath` design notes | No |
 | Spikes | Experiments in `spikes/` | No |
