@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactElement } from 'react';
-import { useChatState, useOptionalMessage, useStore } from './context';
+import { useChatState, useOptionalMessage, useStore, useTexts } from './context';
 
 export type QuickRepliesProps = ComponentProps<'div'>;
 
@@ -12,7 +12,8 @@ export type QuickRepliesProps = ComponentProps<'div'>;
  */
 export function QuickReplies(props: QuickRepliesProps): ReactElement | null {
   const own = useOptionalMessage();
-  const { actions, t } = useStore();
+  const { actions } = useStore();
+  const t = useTexts();
   const replies = useChatState((state) => {
     const latest = state.messages.at(-1);
     if (latest?.role !== 'assistant' || latest.status !== 'done') return undefined;

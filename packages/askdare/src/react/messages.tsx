@@ -8,7 +8,7 @@ import {
 } from 'react';
 import type { ChatMessage, PendingFile, SentFile } from '../chat/state';
 import { pluralText } from '../i18n/format';
-import { MessageProvider, useChatState, useMessage, useStore } from './context';
+import { MessageProvider, useChatConfig, useChatState, useMessage, useTexts } from './context';
 import { Markdown, safeUrl } from './markdown';
 import { useMergedRef } from './refs';
 
@@ -91,7 +91,7 @@ export type MessageTextProps = ComponentProps<'div'>;
  */
 export function MessageText(props: MessageTextProps): ReactElement | null {
   const message = useMessage();
-  const { t } = useStore();
+  const t = useTexts();
   if (message.text !== '') {
     return (
       <div data-ask-part="bubble" {...props}>
@@ -116,7 +116,7 @@ export type CitationsProps = ComponentProps<'ol'>;
 /** The sources of an answer. Links go through the same check as links in answers. */
 export function Citations(props: CitationsProps): ReactElement | null {
   const message = useMessage();
-  const { t } = useStore();
+  const t = useTexts();
   if (message.citations.length === 0) return null;
   return (
     <ol data-ask-part="citations" aria-label={t('message.sources')} {...props}>
@@ -147,7 +147,7 @@ interface FileListProps extends ComponentProps<'ul'> {
 
 /** Files of a message, or those picked for the next one (which can be removed). */
 export function FileList({ files, list, onRemove, ...props }: FileListProps): ReactElement {
-  const { t } = useStore();
+  const t = useTexts();
   return (
     <ul data-ask-part={list} aria-label={t('attachment.list')} {...props}>
       {files.map((file, index) => {
@@ -202,7 +202,7 @@ export type MessageFilesProps = Omit<ComponentProps<'ul'>, 'ref'> & {
  */
 export function MessageFiles({ ref, ...props }: MessageFilesProps): ReactElement | null {
   const message = useMessage();
-  const { widget } = useStore().config;
+  const { widget } = useChatConfig();
   if (message.files && message.files.length > 0) {
     return (
       <FileList

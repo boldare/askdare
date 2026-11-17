@@ -5,10 +5,12 @@ import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFixtureStore } from '../chat/fixture-store';
 import { echo, fakeServer, testConfig } from '../chat/testing/fake-server';
+import { textsFor } from '../i18n/texts';
 import { ChatProvider } from './context';
 import {
   Citations,
   Composer,
+  FeedbackButton,
   Input,
   Message,
   MessageList,
@@ -216,6 +218,45 @@ describe('Root and the default look', () => {
     // The same chat: the conversation stays, and the config came with the props.
     expect(screen.getByText('You said: Hello')).toBeTruthy();
     expect(server.requests.length).toBe(requests);
+  });
+
+  it('switches the labels of primitives that read only their message', async () => {
+    vi.stubGlobal('fetch', fakeServer().fetch);
+    const english = testConfig();
+    const polish = {
+      ...english,
+      widget: { ...english.widget, locale: 'pl', texts: textsFor('pl') },
+    };
+    // No useChat above the message list: only the primitives themselves can notice the switch.
+    const chat = (config: typeof english) => (
+      <Root config={config}>
+        <Messages>
+          <MessageList>
+            <Message>
+              <MessageText />
+              <FeedbackButton rating="up" />
+            </Message>
+          </MessageList>
+        </Messages>
+        <Composer>
+          <Input />
+          <Send />
+        </Composer>
+      </Root>
+    );
+    const view = render(chat(english));
+    const field = screen.getByRole('textbox');
+    fireEvent.change(field, { target: { value: 'Hello' } });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Send' }).hasAttribute('disabled')).toBe(false),
+    );
+    fireEvent.keyDown(field, { key: 'Enter' });
+    const up = textsFor('en')['feedback.up'] ?? '';
+    expect(await screen.findByRole('button', { name: up })).toBeTruthy();
+
+    view.rerender(chat(polish));
+    const polishUp = textsFor('pl')['feedback.up'] ?? '';
+    expect(await screen.findByRole('button', { name: polishUp })).toBeTruthy();
   });
 
   it('closes on Escape only when it is pressed in the chat', () => {

@@ -97,7 +97,9 @@ export function Root({
   // A config in another language: the chat takes its texts and keeps the conversation.
   const locale = config.widget.locale;
   const latest = useRef(config);
-  latest.current = config;
+  useLayoutEffect(() => {
+    latest.current = config;
+  }, [config]);
   useEffect(() => {
     if (store.config.widget.locale !== locale) void store.setLocale(locale, latest.current);
   }, [locale, store]);
