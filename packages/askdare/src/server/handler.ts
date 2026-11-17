@@ -31,6 +31,7 @@ import {
 } from './embed-page';
 import type { ChatFeedbackReport } from './feedback-report';
 import { loaderWithLook } from './launcher';
+import { publicConfig } from './public-config';
 import { hookError, STREAM_HEADERS, streamTurn } from './stream-turn';
 import type { ChatUsageReport } from './usage-report';
 
@@ -400,6 +401,30 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
         'Cross-Origin-Resource-Policy': 'same-origin',
         'X-Content-Type-Options': 'nosniff',
       },
+    });
+  };
+
+  /**
+   * The bot's public configuration in one language (ADR-0014, step 2), so a chat can switch its
+   * language without reloading. Built by `publicConfig`, like the iframe's, so it carries no
+   * secrets. A fixed locale ignores `lang`; an invalid `lang` is refused.
+   */
+  const serveConfig = (botId: string, query: URLSearchParams, request: Request): Response => {
+    const bot = findBot(botId);
+    const lang = query.get('lang');
+    if (lang !== null && canonicalLocale(lang) === undefined) {
+      throw new AskdareError('invalid_input', { message: 'lang must be a BCP 47 tag.' });
+    }
+    const body = publicConfig(bot, config.basePath, {
+      locale: localeFor(bot, query, request),
+      feedback: feedbackOn(bot),
+    });
+    return jsonResponse(body, 200, {
+      'Cache-Control': config.development ? 'no-cache' : 'public, max-age=300',
+      // Without `lang`, a bot set to auto answers in the browser's language.
+      Vary: 'Accept-Language',
+      'Cross-Origin-Resource-Policy': 'same-origin',
+      'X-Content-Type-Options': 'nosniff',
     });
   };
 
@@ -926,6 +951,8 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       if (path === '/widget.js') return serveLoader(query);
       const embed = /^\/embed\/([a-z0-9-]{1,48})$/.exec(path);
       if (embed?.[1]) return serveEmbed(embed[1], query, request);
+      const botConfig = /^\/config\/([a-z0-9-]{1,48})$/.exec(path);
+      if (botConfig?.[1]) return serveConfig(botConfig[1], query, request);
       const theme = /^\/theme\/([a-z0-9-]{1,48})\.css$/.exec(path);
       if (theme?.[1]) return serveTheme(theme[1], query, request);
       const asset = /^\/assets\/([a-zA-Z0-9.-]{1,80})$/.exec(path);

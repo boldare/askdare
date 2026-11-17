@@ -348,6 +348,90 @@ describe('static routes', () => {
   });
 });
 
+describe('GET /config/<bot>', () => {
+  const texts = defineBot({
+    id: 'texts',
+    model: 'secret-model',
+    instructions: 'SECRET-INSTRUCTIONS',
+    knowledge: { vectorStoreId: 'vs_secret' },
+    widget: {
+      locale: 'auto',
+      texts: {
+        en: { 'welcome.greeting': 'Hello' },
+        pl: { 'welcome.greeting': 'Dzień dobry' },
+      },
+    },
+  });
+  const fixed = defineBot({ id: 'fixed', model: 'm', instructions: 'x', widget: { locale: 'pl' } });
+  let configHandler: RequestHandler;
+  beforeAll(() => {
+    configHandler = createRequestHandler({
+      bots: [texts, fixed],
+      basePath: '/api/chat',
+      assets,
+      gateway: () => gateway,
+      tokens: async () => tokens,
+      limits: createLimits({ store: memoryStore() }),
+      clientIp: () => 'ip',
+      onFeedback: () => {},
+    });
+  });
+  const get = (path: string, headers: Record<string, string> = {}) =>
+    configHandler(new Request(`${BASE}${path}`, { headers }));
+  const read = async (response: Response) =>
+    (await response.json()) as {
+      botId: string;
+      feedback: boolean;
+      widget: { locale: string; greeting: string; texts: Record<string, string> };
+    };
+
+  it('answers the public configuration in the language asked for', async () => {
+    const response = await get('/config/texts?lang=pl-PL');
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('application/json');
+    expect(response.headers.get('cache-control')).toContain('max-age=300');
+    expect(response.headers.get('vary')).toBe('Accept-Language');
+    expect(response.headers.get('cross-origin-resource-policy')).toBe('same-origin');
+    const body = await read(response);
+    expect(body.botId).toBe('texts');
+    expect(body.feedback).toBe(true);
+    expect(body.widget.locale).toBe('pl-PL');
+    expect(body.widget.greeting).toBe('Dzień dobry');
+    expect(body.widget.texts['composer.send']).toBe('Wyślij');
+  });
+
+  it("falls back to the browser's language, then English, without lang", async () => {
+    expect((await read(await get('/config/texts'))).widget.greeting).toBe('Hello');
+    const polish = await read(await get('/config/texts', { 'accept-language': 'pl,en;q=0.5' }));
+    expect(polish.widget.greeting).toBe('Dzień dobry');
+  });
+
+  it('keeps a fixed locale whatever lang says', async () => {
+    const body = await read(await get('/config/fixed?lang=en'));
+    expect(body.widget.locale).toBe('pl');
+    expect(body.widget.texts['composer.send']).toBe('Wyślij');
+  });
+
+  it('refuses an invalid lang and an unknown bot', async () => {
+    const invalid = await get('/config/texts?lang=en%22%3B%20ignore');
+    expect(invalid.status).toBe(400);
+    expect(((await invalid.json()) as { error: { code: string } }).error.code).toBe(
+      'invalid_input',
+    );
+    expect((await get('/config/sales?lang=en')).status).toBe(404);
+    expect((await get('/config/Texts')).status).toBe(404);
+  });
+
+  it('never sends what stays on the server', async () => {
+    const body = await (await get('/config/texts?lang=pl')).text();
+    for (const secret of ['secret-model', 'SECRET-INSTRUCTIONS', 'vs_secret', 'textsByLocale']) {
+      expect(body).not.toContain(secret);
+    }
+    // Nor another language's texts.
+    expect(body).not.toContain('Hello');
+  });
+});
+
 describe('POST /session', () => {
   it('issues an access token for a new visitor', async () => {
     const response = await handler(post('/session', { botId: 'support' }));
