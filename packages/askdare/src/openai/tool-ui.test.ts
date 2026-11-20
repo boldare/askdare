@@ -190,8 +190,7 @@ describe('tool UI payloads in a turn', () => {
     expect(JSON.stringify(logged.mock.calls)).not.toContain('payload-text');
   });
 
-  it('sends at most four per answer across steps, and logs the dropped tool once', async () => {
-    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  it("sends every step's payloads in call order and leaves the cap to the server", async () => {
     const days = ['mon', 'tue', 'wed'];
     serve([
       callStep(
@@ -203,9 +202,37 @@ describe('tool UI payloads in a turn', () => {
       textTurnEvents(['Six lookups.']),
     ]);
     const events = await run([slots]);
-    expect(cards(events).map((event) => event.callId)).toEqual(['a0', 'a1', 'a2', 'b0']);
-    expect(logged.mock.calls.filter((args) => String(args[0]).includes('at most 4'))).toHaveLength(
-      1,
-    );
+    expect(cards(events).map((event) => event.callId)).toEqual([
+      'a0',
+      'a1',
+      'a2',
+      'b0',
+      'b1',
+      'b2',
+    ]);
+  });
+
+  it('sends nothing for a call ID the protocol could not carry', async () => {
+    serve([
+      callStep(call('c'.repeat(129), 'find_slots', '{"day":"mon"}')),
+      textTurnEvents(['Mon.']),
+    ]);
+    expect(cards(await run([slots]))).toEqual([]);
+  });
+
+  it('logs a RangeError of the developer as a failure, with the error', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const dates = defineTool({
+      name: 'dates',
+      description: 'Bad date.',
+      input: z.object({}),
+      execute: () => ({ at: 'not a date' }),
+      ui: (result) => ({ at: new Date(result.at).toISOString() }),
+    });
+    serve([callStep(call('c1', 'dates')), textTurnEvents(['Done.'])]);
+    await run([dates]);
+    const [message, error] = logged.mock.calls[0] ?? [];
+    expect(String(message)).toContain('ui of tool "dates" failed');
+    expect(error).toBeInstanceOf(RangeError);
   });
 });

@@ -9,7 +9,13 @@ import { z } from 'zod';
 import type { Bot } from '../bot/define-bot';
 import type { ToolCallRecord, TurnRequest } from '../gateway';
 import type { ToolUi } from '../protocol/tool-ui';
-import { readToolReplies, readToolUi, type StoredToolCall, type Tool } from '../tools/define-tool';
+import {
+  readToolReplies,
+  readToolUi,
+  type StoredToolCall,
+  type Tool,
+  ToolUiLimitError,
+} from '../tools/define-tool';
 import {
   SUGGEST_REPLIES,
   SUGGEST_REPLIES_DESCRIPTION,
@@ -179,7 +185,7 @@ async function invoke(
 
 /** The developer's `ui` failed or broke a limit: name the tool, never the payload or the result. */
 function uiError(tool: Tool, error: unknown): void {
-  if (error instanceof RangeError) {
+  if (error instanceof ToolUiLimitError) {
     console.error(`[askdare] ui of tool "${tool.name}" was dropped: ${error.message}.`);
   } else {
     console.error(`[askdare] ui of tool "${tool.name}" failed:`, error);

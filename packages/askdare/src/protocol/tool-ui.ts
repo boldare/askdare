@@ -21,7 +21,8 @@ export interface ToolUi {
   readonly data: unknown;
 }
 
-const TOOL_NAME = /^[a-zA-Z0-9_-]{1,64}$/;
+/** A tool's name: what `defineTool` accepts and what the protocol carries. */
+export const TOOL_NAME: RegExp = /^[a-zA-Z0-9_-]{1,64}$/;
 
 /** Whether a value is plain JSON: no `undefined`, functions, class instances or `NaN`. */
 function isPlainJson(value: unknown, depth: number): boolean {

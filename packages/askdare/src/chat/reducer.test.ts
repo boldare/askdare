@@ -63,18 +63,10 @@ describe('applyEvent', () => {
       data,
     });
     let messages = applyEvent([], { type: 'message.start', messageId: 'm' });
-    for (const event of [
-      card('c1'),
-      card('c1'),
-      card('c2', null),
-      card('c3'),
-      card('c4'),
-      card('c5'),
-      card('c6'),
-    ]) {
+    for (const event of [card('c1'), card('c1'), card('c3'), card('c4'), card('c5'), card('c6')]) {
       messages = applyEvent(messages, event);
     }
-    // A repeated call and a payload that breaks the limits are ignored; four at most.
+    // A repeated call is ignored, and an answer keeps four at most (parseEvent checked the rest).
     expect(messages[0]?.ui?.map((item) => item.callId)).toEqual(['c1', 'c3', 'c4', 'c5']);
     expect(messages[0]?.ui?.[0]).toEqual({
       callId: 'c1',

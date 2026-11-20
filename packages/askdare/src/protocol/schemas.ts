@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { ERROR_CODES, MESSAGE_END_REASONS, type ProtocolEvent } from './events';
 import type { HistoryResponse } from './history';
 import { isReplyList } from './replies';
-import { isToolUi, isToolUiList } from './tool-ui';
+import { isToolUi, isToolUiList, TOOL_NAME } from './tool-ui';
 
 const feedback = z
   .object({ handle: z.string().min(1).max(4096), key: z.string().regex(/^[0-9a-f]{16,64}$/) })
@@ -25,7 +25,7 @@ const callId = z.string().min(1).max(128);
 /** A tool UI payload (ADR-0017); the rules live in ./tool-ui.ts, shared with the browser. */
 const toolUiFields = {
   callId,
-  name: z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/),
+  name: z.string().regex(TOOL_NAME),
   data: z.unknown(),
 };
 const TOOL_UI_RULE = 'plain JSON of at most 8 KB and 8 levels, never null';

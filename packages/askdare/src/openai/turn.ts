@@ -2,7 +2,7 @@ import type OpenAI from 'openai';
 import type { ResponseInputContent, ResponseInputItem } from 'openai/resources/responses/responses';
 import type { TokenUsage, TurnRequest, TurnResult } from '../gateway';
 import type { MessageEndReason } from '../protocol/events';
-import { MAX_TOOL_UI, type ToolUi } from '../protocol/tool-ui';
+import type { ToolUi } from '../protocol/tool-ui';
 import { SUGGEST_REPLIES, suggestedReplies } from '../tools/suggest-replies';
 import { addUsage, ZERO_USAGE } from '../usage';
 import { fromOpenAIError } from './errors';
@@ -133,20 +133,9 @@ export async function runTurn(client: OpenAI, request: TurnRequest): Promise<Tur
   let toolReplies: readonly string[] | undefined;
   // Options the model suggested in this turn; it may do so once (ADR-0015).
   let replies: readonly string[] | undefined;
-  // UI payloads sent in this turn: at most four per answer, in call order (ADR-0017).
-  let uiSent = 0;
-  const dropped = new Set<string>();
-  const onUi = (ui: ToolUi): void => {
-    if (uiSent >= MAX_TOOL_UI) {
-      if (!dropped.has(ui.name)) {
-        dropped.add(ui.name);
-        console.error(`[askdare] ui of tool "${ui.name}" was dropped: an answer shows at most 4.`);
-      }
-      return;
-    }
-    uiSent += 1;
+  // The server keeps at most four per answer (server/stream-turn.ts).
+  const onUi = (ui: ToolUi): void =>
     request.emit({ type: 'tool.ui', messageId: request.messageId, ...ui });
-  };
   // Model calls the budget holds. A step may call tools only when the call after it is held too.
   let covered = 1;
   const covers = async (call: number): Promise<boolean> => {

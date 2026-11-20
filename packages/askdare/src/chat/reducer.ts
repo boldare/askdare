@@ -2,7 +2,7 @@ import { formatText } from '../i18n/format';
 import type { TextKey } from '../i18n/texts';
 import type { ProtocolEvent } from '../protocol/events';
 import type { HistoryMessage } from '../protocol/history';
-import { isToolUi, MAX_TOOL_UI } from '../protocol/tool-ui';
+import { MAX_TOOL_UI } from '../protocol/tool-ui';
 import type { ChatMessage } from './state';
 
 /** A text in the visitor's language, with `{name}` placeholders filled. */
@@ -65,10 +65,9 @@ export function applyEvent(
         ],
       }));
     case 'tool.ui': {
+      // parseEvent checked the payload; a fifth one or a call seen before is ignored.
       const { callId, name, data } = event;
       const payload = { callId, name, data };
-      // Checked again here: a payload past the limits or a call seen before is ignored.
-      if (!isToolUi(payload)) return messages;
       return update(event.messageId, (message) => {
         const ui = message.ui ?? [];
         if (ui.length >= MAX_TOOL_UI || ui.some((item) => item.callId === callId)) return message;

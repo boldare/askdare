@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { normalizeReplies } from '../protocol/replies';
-import { type ToolUi, toToolUiData } from '../protocol/tool-ui';
+import { isToolUi, TOOL_NAME, type ToolUi, toToolUiData } from '../protocol/tool-ui';
 import type { VisitorIdentity } from '../security/identity';
 
 /** What a tool may know about the request. Identity here is verified, never chosen by the model. */
@@ -85,8 +85,6 @@ export interface Tool<Name extends string = string, Ui = unknown> {
   readonly ui?: ((output: unknown) => Ui | null | undefined) | undefined;
 }
 
-const TOOL_NAME = /^[a-zA-Z0-9_-]{1,64}$/;
-
 /** Finds fields OpenAI strict mode would reject, so they fail at startup instead of mid-chat. */
 function strictModeProblems(schema: z.ZodType, path: string): string[] {
   if (schema instanceof z.ZodOptional || schema instanceof z.ZodDefault) {
@@ -156,6 +154,19 @@ export interface StoredToolCall {
   readonly output: string | undefined;
 }
 
+/** The tool's output for a call, if it ran with arguments that fit its schema and succeeded. */
+function successfulOutput(tool: Tool, call: StoredToolCall): unknown {
+  if (call.output === undefined) return undefined;
+  let args: unknown;
+  try {
+    args = JSON.parse(call.arguments);
+  } catch {
+    // The live turn refused these arguments, so the tool never ran.
+    return undefined;
+  }
+  return tool.input.safeParse(args).success ? JSON.parse(call.output) : undefined;
+}
+
 /**
  * The options a turn's calls define, oldest call first (ADR-0015): the last call that
  * defines any wins. The live turn and the history both pick them here, from the stored JSON, so a
@@ -171,10 +182,11 @@ export function readToolReplies(
   let replies: readonly string[] | undefined;
   for (const call of calls) {
     const tool = tools.find((candidate) => candidate.name === call.name);
-    if (!tool?.replies || call.output === undefined) continue;
+    if (!tool?.replies) continue;
     try {
-      if (!tool.input.safeParse(JSON.parse(call.arguments)).success) continue;
-      const items = tool.replies(JSON.parse(call.output));
+      const output = successfulOutput(tool, call);
+      if (output === undefined) continue;
+      const items = tool.replies(output);
       const offered = Array.isArray(items) ? normalizeReplies(items) : undefined;
       if (offered) replies = offered;
     } catch (error) {
@@ -184,17 +196,12 @@ export function readToolReplies(
   return replies;
 }
 
-/** The tool's output for a call, if it ran with arguments that fit its schema and succeeded. */
-function successfulOutput(tool: Tool, call: StoredToolCall): unknown {
-  if (call.output === undefined) return undefined;
-  let args: unknown;
-  try {
-    args = JSON.parse(call.arguments);
-  } catch {
-    // The live turn refused these arguments, so the tool never ran.
-    return undefined;
+/** A `ui` payload broke the limits of ADR-0017; it says so without quoting the payload. */
+export class ToolUiLimitError extends Error {
+  constructor() {
+    super('the payload is not plain JSON of at most 8 KB and 8 levels');
+    this.name = 'ToolUiLimitError';
   }
-  return tool.input.safeParse(args).success ? JSON.parse(call.output) : undefined;
 }
 
 /**
@@ -218,10 +225,10 @@ export function readToolUi(
       const value = tool.ui(output);
       if (value === undefined || value === null) continue;
       const data = toToolUiData(value);
-      if (data === undefined) {
-        throw new RangeError('the payload is not plain JSON of at most 8 KB and 8 levels');
-      }
-      payloads.push({ callId: call.callId, name: tool.name, data });
+      if (data === undefined) throw new ToolUiLimitError();
+      const payload = { callId: call.callId, name: tool.name, data };
+      // A call ID the protocol can't carry would be refused by every client.
+      if (isToolUi(payload)) payloads.push(payload);
     } catch (error) {
       onError?.(tool, error);
     }

@@ -9,6 +9,7 @@ import type {
 } from '../protocol/events';
 import { normalizeReplies } from '../protocol/replies';
 import { encodeComment, encodeEvent } from '../protocol/sse';
+import { MAX_TOOL_UI } from '../protocol/tool-ui';
 import { PROTOCOL_HEADER, PROTOCOL_VERSION } from '../protocol/version';
 import { addUsage, ZERO_USAGE } from '../usage';
 import type { ChatUsageReport } from './usage-report';
@@ -104,6 +105,25 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         }
       };
       const emit = (event: ProtocolEvent): void => write(encodeEvent(event));
+      // At most four UI payloads per answer, each call once, whatever the gateway sends (ADR-0017).
+      const cards = new Set<string>();
+      const dropped = new Set<string>();
+      const emitTurn = (event: ProtocolEvent): void => {
+        if (event.type === 'tool.ui') {
+          if (cards.has(event.callId)) return;
+          if (cards.size >= MAX_TOOL_UI) {
+            if (!dropped.has(event.name)) {
+              dropped.add(event.name);
+              console.error(
+                `[askdare] ui of tool "${event.name}" was dropped: an answer shows at most 4.`,
+              );
+            }
+            return;
+          }
+          cards.add(event.callId);
+        }
+        emit(event);
+      };
       const finish = (): void => {
         clearInterval(heartbeat);
         if (closed) return;
@@ -168,7 +188,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           safetyIdentifier,
           messageId,
           signal: deadline,
-          emit,
+          emit: emitTurn,
           reserveCall: options.reserveCall,
           onStep: (step) => {
             steps += 1;

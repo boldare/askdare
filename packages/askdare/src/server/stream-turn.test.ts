@@ -146,6 +146,34 @@ describe('streamTurn', () => {
     expect(none.events.map((event) => event.type)).not.toContain('replies');
   });
 
+  it('passes at most four UI payloads per answer, each call once, and logs the dropped tool once', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const gateway = fakeGateway(async (request) => {
+      for (const callId of ['c1', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6']) {
+        request.emit({
+          type: 'tool.ui',
+          messageId: request.messageId,
+          callId,
+          name: 'find_slots',
+          data: { callId },
+        });
+      }
+      return COMPLETED;
+    });
+    const { events } = await collect(streamTurn(options({ gateway })));
+    expect(events.flatMap((event) => (event.type === 'tool.ui' ? [event.callId] : []))).toEqual([
+      'c1',
+      'c2',
+      'c3',
+      'c4',
+    ]);
+    const drops = logged.mock.calls.filter((args) => String(args[0]).includes('at most 4'));
+    expect(drops).toEqual([
+      ['[askdare] ui of tool "find_slots" was dropped: an answer shows at most 4.'],
+    ]);
+    logged.mockRestore();
+  });
+
   it('continues an existing conversation without creating a new one', async () => {
     const gateway = fakeGateway(async () => COMPLETED);
     const { events } = await collect(streamTurn(options({ gateway, conversationId: 'conv_old' })));

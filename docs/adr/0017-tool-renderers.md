@@ -76,6 +76,8 @@ The iframe renders askdare's own skin, which can't import a site's components. I
   - the `tool.ui` protocol event and the `ui` field in the history response (additive in protocol version 1);
   - `toolRenderers` on `Root`, the primitives `ToolResults` and `Link`, the parts `tool-results` and `tool-result`, and the types `ToolRendererProps`, `ToolRenderers` and `ToolUi`.
 - **History reads function calls for every answer,** not only the latest. It stays inside the one page of items it already loads, so it costs CPU, not requests.
+- **A turn that ends without a visible answer** (an error, `max_steps`) shows its cards live, on the empty answer, but not after a reload, where there is no answer to attach them to. Showing them on the visitor's message instead would put a card where the visitor never saw one; this is accepted.
+- **The cap of four per answer is the server's,** in `server/stream-turn.ts`, not each gateway's, so a second `ModelGateway` (spike S6) can't send more.
 - **A card can change after a deploy:** a reload derives it with the tool's current `ui`. Storing the payload would need a database (ADR-0003); this is accepted and documented.
 - **The model still writes about the result.** Developers who want the card to speak for itself say so in the tool's description or the bot's instructions; askdare doesn't hide the text.
 - **Cards don't reach the script-tag widget until `embedPath` ships.** The bytes of `tool.ui` events are sent to it anyway; at most 32 KB per answer.
