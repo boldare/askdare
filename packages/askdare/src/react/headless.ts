@@ -33,8 +33,8 @@ export {
   Recorder,
   Send,
 } from './composer';
-export type { Chat, ChatBot } from './context';
-export { useChat, useChatState, useMessage } from './context';
+export type { Chat, ChatBot, Frame } from './context';
+export { useChat, useChatState, useFrame, useMessage } from './context';
 export type { FeedbackButtonProps } from './feedback';
 export { FeedbackButton } from './feedback';
 export type { MarkdownProps } from './markdown';

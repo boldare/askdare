@@ -354,9 +354,12 @@ interface DefaultChatComponents {
   readonly Footer?: ComponentType;
 }
 interface DefaultPanelProps {
-  /** Level of the chat's title (default 2); 1 makes the chat the page's main landmark. */
+  /**
+   * Level of the chat's title (default 2, or 1 inside `EmbedRoot`); 1 makes the chat the page's
+   * main landmark.
+   */
   readonly headingLevel?: 1 | 2 | 3 | 4 | 5;
-  /** Shows a close button, and Escape calls it too. */
+  /** Shows a close button, and Escape calls it too. Inside `EmbedRoot`, it closes the widget by default. */
   readonly onClose?: (() => void) | undefined;
   readonly components?: DefaultChatComponents | undefined;
 }
@@ -694,6 +697,19 @@ interface Chat {
   /** A text in the visitor's language by its key, such as `composer.send`. */
   readonly t: Translate;
 }
+/**
+ * The chat is the whole document of the widget's iframe (`EmbedRoot`, ADR-0018): `close` asks the
+ * loader to close the panel; undefined when the page isn't in an iframe or in `inline` mode.
+ */
+interface Frame {
+  readonly close: (() => void) | undefined;
+}
+/**
+ * Inside `EmbedRoot`, on your own page in the widget's iframe (ADR-0018): the chat is the whole
+ * document, and `close` asks the loader to close the panel (undefined in `inline` mode or when the
+ * page isn't in the widget). Null everywhere else. Your own markup uses it for a close button.
+ */
+export declare function useFrame(): Frame | null;
 /** The whole chat: its state, actions, bot settings and texts. Re-renders on every change. */
 export declare function useChat(): Chat;
 /**
@@ -818,7 +834,7 @@ interface RootProps {
  * take what `askdare('identify')` and `askdare('configure')` take, checked the same way.
  */
 export declare function Root({ config, identity, context, greeting, starters, onEvent, toolRenderers, children }: RootProps): ReactElement;
-export { type AttachButtonProps, type Chat, type ChatActions, type ChatAttachments, type ChatBot, type ChatConfig, type ChatEvent, type ChatEventListener, type ChatEventType, type ChatMessage, type ChatPhase, type ChatState, type ChatStyles, type ChatWidget, type Citation, type CitationsProps, type ComposerProps, type DefaultChatComponents, type DefaultChatProps, type DictateButtonProps, type Dictation, type ErrorMessageProps, type FeedbackButtonProps, type FilesProps, type InputProps, Link, type LinkProps, type MarkdownProps, type MessageFilesProps, type MessageListProps, type MessageProps, type MessageTextProps, type MessagesProps, type PanelProps, type PendingFile, type QuickRepliesProps, type Rating, type RecorderProps, type RootProps, type SendProps, type SentFile, type StatusProps, type ThemeProps, type ToolRendererProps, type ToolRenderers, ToolResults, type ToolResultsProps, type ToolUi, type Translate };
+export { type AttachButtonProps, type Chat, type ChatActions, type ChatAttachments, type ChatBot, type ChatConfig, type ChatEvent, type ChatEventListener, type ChatEventType, type ChatMessage, type ChatPhase, type ChatState, type ChatStyles, type ChatWidget, type Citation, type CitationsProps, type ComposerProps, type DefaultChatComponents, type DefaultChatProps, type DictateButtonProps, type Dictation, type ErrorMessageProps, type FeedbackButtonProps, type FilesProps, type Frame, type InputProps, Link, type LinkProps, type MarkdownProps, type MessageFilesProps, type MessageListProps, type MessageProps, type MessageTextProps, type MessagesProps, type PanelProps, type PendingFile, type QuickRepliesProps, type Rating, type RecorderProps, type RootProps, type SendProps, type SentFile, type StatusProps, type ThemeProps, type ToolRendererProps, type ToolRenderers, ToolResults, type ToolResultsProps, type ToolUi, type Translate };
 
 // ==== store.d.ts ====
 import { z } from "zod";

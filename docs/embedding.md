@@ -286,7 +286,7 @@ export function FramedChat({ config }: { config: EmbedChatConfig }) {
 }
 ```
 
-`EmbedRoot` connects to the loader on the embedding site exactly as askdare's own page does: `askdare('identify')`, `configure`, `on`, opening, closing and language switches all work. Inside it, `DefaultChat` is the page's main landmark with an `h1`, and shows a close button. Instead of `DefaultChat`, you can use an [ejected copy](react.md#eject-the-default-look) or [your own markup](react.md#your-own-markup).
+`EmbedRoot` connects to the loader on the embedding site exactly as askdare's own page does: `askdare('identify')`, `configure`, `on`, opening, closing and language switches all work. Inside it, `DefaultChat` is the page's main landmark with an `h1`, and shows a close button. Instead of `DefaultChat`, you can use an [ejected copy](react.md#eject-the-default-look), which behaves the same, or [your own markup](react.md#your-own-markup), where `useFrame()` gives you the close action for your own button.
 
 **4. Send the iframe page's headers.** Without them, any site could frame the page, and the microphone would follow your app's policy. Set them in `proxy.ts`, per request:
 

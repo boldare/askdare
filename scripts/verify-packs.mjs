@@ -23,7 +23,7 @@ import { chromium } from '@playwright/test';
 
 const repo = join(import.meta.dirname, '..');
 // The create-next-app of the Next.js version the repository tests against.
-const CREATE_NEXT_APP = 'create-next-app@16.4.3';
+const CREATE_NEXT_APP = 'create-next-app@16.4.6';
 const PNPM = 'pnpm@12.16.1';
 const MOCK_PORT = 4111;
 const APP_PORT = 3200;
