@@ -94,6 +94,12 @@ function WrongCard({ data }: { readonly data: { readonly price: number } }): Rea
   return <p>{data.price}</p>;
 }
 
+// Without the tool's type, any name and `data: unknown`, which the component checks itself.
+function Untyped({ data, name }: Chat.ToolRendererProps): ReactElement {
+  const label: string = name;
+  return <p>{typeof data === 'string' ? data : label}</p>;
+}
+
 export const renderers = { find_slots: SlotList } satisfies Chat.ToolRenderers<[typeof findSlots]>;
 // @ts-expect-error a component for another payload
 export const wrong = { find_slots: WrongCard } satisfies Chat.ToolRenderers<[typeof findSlots]>;
@@ -103,7 +109,7 @@ export const unknownTool = { book_slot: SlotList } satisfies Chat.ToolRenderers<
 export function WithCards(): ReactElement {
   const ui: readonly Chat.ToolUi[] | undefined = Chat.useMessage().ui;
   return (
-    <Chat.Root config={config} toolRenderers={renderers}>
+    <Chat.Root config={config} toolRenderers={{ ...renderers, other_tool: Untyped }}>
       <Chat.MessageList>
         <Chat.ToolResults className={ui ? 'cards' : undefined} />
       </Chat.MessageList>

@@ -36,7 +36,8 @@ export interface RootProps {
   /**
    * Your components for tools' results, by tool name (ADR-0017): each gets what the tool's `ui`
    * returned and is drawn by `ToolResults`, in `DefaultChat` under the answer. Type them with
-   * `satisfies ToolRenderers<[typeof myTool]>`.
+   * `satisfies ToolRenderers<[typeof myTool]>`. Define the map outside your component (or
+   * memoize it): a new object on every render re-renders every card.
    */
   readonly toolRenderers?: ToolRenderers | undefined;
   readonly children?: ReactNode;

@@ -70,10 +70,11 @@ test('a tool card inside a page', async ({ page }) => {
   await expect(reply).toHaveAttribute('data-status', 'done');
   await expect(reply.locator('[data-ask-part="tool-result"]')).toHaveCount(1);
   await page.evaluate(() => document.fonts.ready);
+  // The answer's width follows its text, whose conversation ID and time change on every run.
   await page.addStyleTag({
-    content: '.inline-chat { position: fixed; top: 0; left: 0; width: 832px; }',
+    content: `.inline-chat { position: fixed; top: 0; left: 0; width: 832px; }
+      .inline-chat [data-role="assistant"] [data-ask-part="message-body"] { width: 420px; }`,
   });
-  // The time and the conversation ID in the echo change on every run.
   await expect(reply).toHaveScreenshot('inline-tool-card.png', {
     mask: [reply.locator('[data-card-time]'), reply.locator('[data-ask-part="bubble"]')],
   });

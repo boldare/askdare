@@ -791,11 +791,16 @@ export declare function QuickReplies(props: QuickRepliesProps): ReactElement | n
  */
 type ToolData<T> = T extends {
   readonly ui?: ((output: never) => infer Ui) | undefined;
-} ? NonNullable<Ui> : never;
+} ? Exclude<Ui, null | undefined> : never;
+/** Any tool: without a type argument, a component gets `data: unknown` and any name. */
+interface AnyTool {
+  readonly name: string;
+  readonly ui?: ((output: never) => unknown) | undefined;
+}
 /** What a component registered for a tool gets (ADR-0017). */
 interface ToolRendererProps<T extends {
   readonly name: string;
-} = never> {
+} = AnyTool> {
   /** What the tool's `ui` picked from its result: plain JSON. Render it as text, never as HTML. */
   readonly data: ToolData<T>;
   /** The tool's name. */
@@ -810,7 +815,7 @@ interface ToolRendererProps<T extends {
  */
 type ToolRenderers<Tools extends readonly {
   readonly name: string;
-}[] = never> = [Tools] extends [never] ? Readonly<Record<string, ComponentType<ToolRendererProps>>> : { readonly [T in Tools[number] as T["name"]]?: ComponentType<ToolRendererProps<T>>; };
+}[] = never> = [Tools] extends [never] ? Readonly<Record<string, ComponentType<ToolRendererProps<never>>>> : { readonly [T in Tools[number] as T["name"]]?: ComponentType<ToolRendererProps<T>>; };
 type ToolResultsProps = ComponentProps<"div">;
 /**
  * The current message's tool payloads (ADR-0017), each drawn by the component registered for its
@@ -850,7 +855,8 @@ interface RootProps {
   /**
    * Your components for tools' results, by tool name (ADR-0017): each gets what the tool's `ui`
    * returned and is drawn by `ToolResults`, in `DefaultChat` under the answer. Type them with
-   * `satisfies ToolRenderers<[typeof myTool]>`.
+   * `satisfies ToolRenderers<[typeof myTool]>`. Define the map outside your component (or
+   * memoize it): a new object on every render re-renders every card.
    */
   readonly toolRenderers?: ToolRenderers | undefined;
   readonly children?: ReactNode;

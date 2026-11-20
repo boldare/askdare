@@ -17,11 +17,17 @@ import { safeUrl } from './markdown';
  * code reaches the page. Structural, so the page needs only the tool's type.
  */
 type ToolData<T> = T extends { readonly ui?: ((output: never) => infer Ui) | undefined }
-  ? NonNullable<Ui>
+  ? Exclude<Ui, null | undefined>
   : never;
 
+/** Any tool: without a type argument, a component gets `data: unknown` and any name. */
+interface AnyTool {
+  readonly name: string;
+  readonly ui?: ((output: never) => unknown) | undefined;
+}
+
 /** What a component registered for a tool gets (ADR-0017). */
-export interface ToolRendererProps<T extends { readonly name: string } = never> {
+export interface ToolRendererProps<T extends { readonly name: string } = AnyTool> {
   /** What the tool's `ui` picked from its result: plain JSON. Render it as text, never as HTML. */
   readonly data: ToolData<T>;
   /** The tool's name. */
@@ -38,7 +44,7 @@ export interface ToolRendererProps<T extends { readonly name: string } = never> 
 export type ToolRenderers<Tools extends readonly { readonly name: string }[] = never> = [
   Tools,
 ] extends [never]
-  ? Readonly<Record<string, ComponentType<ToolRendererProps>>>
+  ? Readonly<Record<string, ComponentType<ToolRendererProps<never>>>>
   : { readonly [T in Tools[number] as T['name']]?: ComponentType<ToolRendererProps<T>> };
 
 export type { ToolUi };
@@ -87,10 +93,14 @@ export type ToolResultsProps = ComponentProps<'div'>;
 export function ToolResults(props: ToolResultsProps): ReactElement | null {
   const { ui } = useMessage();
   const renderers = useContext(RenderersContext);
+  const missing: string[] = [];
   const cards = (ui ?? []).flatMap(({ callId, name, data }) => {
     // Own names only: a tool may be called `constructor`.
     const Renderer = renderers && Object.hasOwn(renderers, name) ? renderers[name] : undefined;
-    if (!Renderer) return [];
+    if (!Renderer) {
+      if (renderers) missing.push(name);
+      return [];
+    }
     return [
       <div key={callId} data-ask-part="tool-result" data-ask-tool={name}>
         <Card name={name}>
@@ -99,9 +109,6 @@ export function ToolResults(props: ToolResultsProps): ReactElement | null {
       </div>,
     ];
   });
-  const missing = renderers
-    ? (ui ?? []).filter((item) => !Object.hasOwn(renderers, item.name)).map((item) => item.name)
-    : [];
   const key = missing.join(' ');
   // biome-ignore lint/correctness/useExhaustiveDependencies: `key` stands for the names
   useEffect(() => {
@@ -132,7 +139,8 @@ export type LinkProps = Omit<ComponentProps<'a'>, 'href' | 'target' | 'rel'> & {
  */
 export function Link({ href, children, ...props }: LinkProps): ReactElement {
   const safe = safeUrl(href);
-  if (!safe) return <span className={props.className}>{children}</span>;
+  // The same props on the text, so its styling and accessible name don't depend on the URL.
+  if (!safe) return <span {...(props as ComponentProps<'span'>)}>{children}</span>;
   return (
     <a {...props} href={safe} target="_blank" rel="noopener noreferrer nofollow">
       {children}

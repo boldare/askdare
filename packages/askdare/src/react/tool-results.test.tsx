@@ -61,6 +61,7 @@ function Broken(): ReactElement {
 }
 
 function Title({ data }: ToolRendererProps): ReactElement {
+  // Untyped, `data` is unknown: a page without the tool's type checks what it got.
   const { title, url } = data as { title: string; url: string };
   return (
     <p>
@@ -115,6 +116,15 @@ describe('ToolResults', () => {
     expect(warn).toHaveBeenCalledOnce();
     expect(String(warn.mock.calls[0]?.[0])).toContain('"lookup_order_xyz"');
     expect(String(warn.mock.calls[0]?.[0])).not.toContain('"id"');
+  });
+
+  it('warns about a tool whose component is undefined, as for a missing one', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    show([answer([{ callId: 'c1', name: 'typo_tool', data: {} }])], {
+      typo_tool: undefined as never,
+    });
+    expect(screen.queryByTestId('cards')).toBeNull();
+    expect(String(warn.mock.calls[0]?.[0])).toContain('"typo_tool"');
   });
 
   it("never takes a component from the map's prototype", () => {
@@ -185,14 +195,17 @@ describe('Link', () => {
     'data:text/html,<script>alert(1)</script>',
     '/relative',
     'tel:123',
-  ])('renders %s as text only', (href) => {
+  ])('renders %s as text only, with the same props', (href) => {
     render(
-      <Link href={href} className="cta">
+      <Link href={href} className="cta" title="Book" data-kind="booking">
         Open
       </Link>,
     );
     expect(screen.queryByRole('link')).toBeNull();
-    expect(screen.getByText('Open').className).toBe('cta');
+    const text = screen.getByText('Open');
+    expect(text.className).toBe('cta');
+    expect(text.getAttribute('title')).toBe('Book');
+    expect(text.getAttribute('data-kind')).toBe('booking');
   });
 });
 
