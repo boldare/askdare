@@ -1,6 +1,7 @@
 // A user's page with the chat inside it, as far as the published types go (ADR-0011).
 import { defineBot, defineTool } from '@boldare/askdare';
-import { type ChatConfig, getChatConfig } from '@boldare/askdare/next';
+import { EmbedRoot } from '@boldare/askdare/embed';
+import { type ChatConfig, type EmbedChatConfig, getChatConfig } from '@boldare/askdare/next';
 import * as Chat from '@boldare/askdare/react';
 import { type ReactElement, useRef } from 'react';
 import { z } from 'zod';
@@ -116,4 +117,18 @@ export function WithCards(): ReactElement {
       <Chat.DefaultChat />
     </Chat.Root>
   );
+}
+
+// The page at a bot's embedPath (ADR-0018).
+export function Framed({ embed }: { readonly embed: EmbedChatConfig }): ReactElement {
+  return (
+    <EmbedRoot config={embed} toolRenderers={renderers}>
+      <Chat.DefaultChat className="framed" />
+    </EmbedRoot>
+  );
+}
+
+export function NotAnEmbedConfig(): ReactElement {
+  // @ts-expect-error getChatConfig's config lacks the allowed origins and the mode
+  return <EmbedRoot config={config} />;
 }

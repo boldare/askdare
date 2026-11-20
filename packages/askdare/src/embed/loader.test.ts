@@ -231,3 +231,25 @@ describe('data-follow-lang', () => {
     expect(switches()).toEqual([]);
   });
 });
+
+describe('a chat page that asks for the handshake (ADR-0018)', () => {
+  const hello = (source: unknown, origin = APP) =>
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { v: 1, type: 'askdare:hello' },
+        origin,
+        source: source as MessageEventSource,
+      }),
+    );
+
+  it('answers its own iframe on the app with a new handshake, and nobody else', () => {
+    openChat(load(fixed));
+    expect(handshakes).toHaveLength(1);
+    const own = (frame as unknown as { contentWindow: unknown }).contentWindow;
+    hello(own, 'https://evil.example');
+    hello({ postMessage() {} });
+    expect(handshakes).toHaveLength(1);
+    hello(own);
+    expect(handshakes).toHaveLength(2);
+  });
+});

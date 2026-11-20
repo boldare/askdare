@@ -1,7 +1,7 @@
 'use client';
 
 import * as Chat from '@boldare/askdare/react';
-import { toolRenderers } from '../../tool-cards';
+import { toolRenderers } from '@/components/tool-cards';
 
 function Heading() {
   const { bot, state, actions } = Chat.useChat();

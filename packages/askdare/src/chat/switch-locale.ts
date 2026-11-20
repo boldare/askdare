@@ -1,5 +1,5 @@
-import type { ChatStore } from '../chat/store';
 import type { HostBridge } from './host-bridge';
+import type { ChatStore } from './store';
 
 export interface LocaleSwitch {
   /** Reloads the chat in `locale`: the step 1 switch, and the fallback of step 2. */

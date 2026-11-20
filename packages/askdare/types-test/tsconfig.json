@@ -13,7 +13,8 @@
     "paths": {
       "@boldare/askdare": ["../dist/index.d.ts"],
       "@boldare/askdare/next": ["../dist/next.d.ts"],
-      "@boldare/askdare/react": ["../dist/react.d.ts"]
+      "@boldare/askdare/react": ["../dist/react.d.ts"],
+      "@boldare/askdare/embed": ["../dist/embed.d.ts"]
     }
   },
   "files": ["consumer.ts", "consumer-react.tsx"]

@@ -1,10 +1,15 @@
-import type { ChatEvent } from '../chat/events';
-import { identityToken, type PageOptions, pageLocale, pageOptions } from '../chat/page-options';
+import type { ChatEvent } from './events';
+import { identityToken, type PageOptions, pageLocale, pageOptions } from './page-options';
 
 /** Messages exchanged with the loader over a dedicated MessagePort. Versioned; unknown ones are ignored. */
 export type HostMessage =
   /** `identity`: the latest askdare('identify') before the chat connected. */
   | { readonly v: 1; readonly type: 'askdare:init'; readonly identity?: string | null }
+  /**
+   * Sent to the loader by a chat page that may have missed `askdare:init` because it runs after
+   * its load event (ADR-0018); the loader answers with a new `askdare:init`.
+   */
+  | { readonly v: 1; readonly type: 'askdare:hello' }
   | { readonly v: 1; readonly type: 'identify'; readonly token: string | null }
   | { readonly v: 1; readonly type: 'ready' }
   | { readonly v: 1; readonly type: 'close' }
@@ -17,6 +22,25 @@ export type HostMessage =
   /** A chat event for the page's askdare('on') listeners (ADR-0013). */
   | { readonly v: 1; readonly type: 'event'; readonly event: ChatEvent }
   | ({ readonly v: 1; readonly type: 'configure' } & PageOptions);
+
+/** Handshakes that arrived before the chat connected, kept by `holdHandshake`. */
+const held: MessageEvent[] = [];
+
+/**
+ * Keeps the loader's handshake if it arrives before `connectToHost` runs: the loader sends it once,
+ * when the iframe has loaded, and a page that hydrates later (the site's own page at `embedPath`,
+ * ADR-0018) would miss it. Only messages from the parent window are kept; `connectToHost` checks
+ * their origin as it checks any other.
+ */
+export function holdHandshake(): void {
+  if (typeof window === 'undefined' || window.parent === window) return;
+  window.addEventListener('message', (event: MessageEvent) => {
+    const data = event.data as Partial<HostMessage> | null;
+    if (event.source === window.parent && data?.v === 1 && data.type === 'askdare:init') {
+      held.push(event);
+    }
+  });
+}
 
 /** How long to wait for the loader before the first request, when it never says hello. */
 const HANDSHAKE_TIMEOUT_MS = 3_000;
@@ -47,7 +71,17 @@ export interface HostBridge {
  * Accepts the loader's handshake only from the parent window and an allowed origin, then talks
  * exclusively over the transferred port (ADR-0005). Messages from anywhere else are ignored.
  */
-export function connectToHost(allowedOrigins: readonly string[]): HostBridge {
+export function connectToHost(
+  allowedOrigins: readonly string[],
+  options: {
+    /**
+     * Asks the loader for the handshake, and takes the newest one it sends: for a page that may run
+     * after its load event, when the loader sent its first (ADR-0018). Off in askdare's own page,
+     * whose script always runs first.
+     */
+    readonly hello?: boolean;
+  } = {},
+): HostBridge {
   const embedded = window.parent !== window;
   let port: MessagePort | undefined;
   const hiddenListeners = new Set<() => void>();
@@ -70,7 +104,9 @@ export function connectToHost(allowedOrigins: readonly string[]): HostBridge {
   const allowed = new Set([window.location.origin, ...allowedOrigins]);
 
   const onMessage = (event: MessageEvent): void => {
-    if (port || event.source !== window.parent || !allowed.has(event.origin)) return;
+    if ((port && !options.hello) || event.source !== window.parent || !allowed.has(event.origin)) {
+      return;
+    }
     const data = event.data as Partial<HostMessage> | null;
     if (data?.v !== 1 || data.type !== 'askdare:init' || !event.ports[0]) return;
     port = event.ports[0];
@@ -91,11 +127,21 @@ export function connectToHost(allowedOrigins: readonly string[]): HostBridge {
     };
     port.start();
     port.postMessage({ v: 1, type: 'ready' } satisfies HostMessage);
-    window.removeEventListener('message', onMessage);
+    // With `hello`, a later handshake from the loader replaces this one, so keep listening.
+    if (!options.hello) window.removeEventListener('message', onMessage);
     setIdentity(identityToken((data as { identity?: unknown }).identity));
     connected();
   };
-  if (embedded) window.addEventListener('message', onMessage);
+  if (embedded) {
+    window.addEventListener('message', onMessage);
+    for (const event of held.splice(0)) onMessage(event);
+    // Only to the origins that may embed the chat: nothing reaches any other page.
+    if (options.hello && !port) {
+      for (const origin of allowed) {
+        window.parent.postMessage({ v: 1, type: 'askdare:hello' } satisfies HostMessage, origin);
+      }
+    }
+  }
 
   return {
     embedded,

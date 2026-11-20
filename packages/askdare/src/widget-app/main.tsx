@@ -1,12 +1,12 @@
 import { createRoot } from 'react-dom/client';
+import { bindBridge } from '../chat/bind-bridge';
 import { createFixtureStore } from '../chat/fixture-store';
+import { connectToHost } from '../chat/host-bridge';
 import { createChatStore } from '../chat/store';
+import { switchLocale } from '../chat/switch-locale';
 import type { EmbedConfig } from '../server/embed-page';
 import { App } from './app';
-import { bindBridge } from './bind-bridge';
 import { FIXTURES } from './gallery';
-import { connectToHost } from './host-bridge';
-import { switchLocale } from './switch-locale';
 import '../react/skin/askdare.css';
 import './frame.css';
 

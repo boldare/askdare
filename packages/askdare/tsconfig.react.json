@@ -9,5 +9,5 @@
     // The skin imports the public entry, as an ejected copy does (ADR-0011).
     "paths": { "@boldare/askdare/react": ["./src/react/headless.ts"] }
   },
-  "include": ["src/react", "src/chat", "src/vite-env.d.ts"]
+  "include": ["src/react", "src/chat", "src/embed-root", "src/vite-env.d.ts"]
 }

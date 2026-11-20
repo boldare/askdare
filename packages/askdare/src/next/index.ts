@@ -1,4 +1,10 @@
-export type { ChatAttachments, ChatConfig, ChatStyles, ChatWidget } from '../chat/config';
+export type {
+  ChatAttachments,
+  ChatConfig,
+  ChatStyles,
+  ChatWidget,
+  EmbedChatConfig,
+} from '../chat/config';
 export type { TrustProxy } from '../limits/client-ip';
 export type { ChatFeedbackReport } from '../server/feedback-report';
 export type {
@@ -17,7 +23,6 @@ export { createChatHandler } from './create-chat-handler';
 export type { ChatConfigOptions } from './get-chat-config';
 export { getChatConfig } from './get-chat-config';
 export type {
-  EmbedChatConfig,
   EmbedConfigOptions,
   EmbedPageHeader,
   EmbedSearchParams,
