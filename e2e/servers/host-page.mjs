@@ -117,12 +117,15 @@ for (const port of PORTS) {
       response.writeHead(404).end();
       return;
     }
-    const lang = /^([a-z]{2}(-[A-Z]{2})?|none)$/.test(url.searchParams.get('lang') ?? '')
-      ? url.searchParams.get('lang')
-      : 'en';
-    response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-    // One of our own names, never the query's text, which goes into the page's HTML.
+    // What goes into the page's HTML is checked or one of our own names, never the query's text.
+    const asked = url.searchParams.get('lang') ?? '';
+    const lang = /^([a-z]{2}(-[A-Z]{2})?|none)$/.test(asked) ? asked : 'en';
     const bot = BOTS.find((name) => name === url.searchParams.get('bot')) ?? 'support';
-    response.end(page(port, url.searchParams.get('variant') ?? 'default', lang, bot));
+    const variant =
+      [...Object.keys(VARIANTS), 'identity', 'forged'].find(
+        (name) => name === url.searchParams.get('variant'),
+      ) ?? 'default';
+    response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    response.end(page(port, variant, lang, bot));
   }).listen(port, '127.0.0.1', () => console.log(`host page on http://127.0.0.1:${port}`));
 }
