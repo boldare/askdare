@@ -522,6 +522,18 @@
     font-size: 0.8rem;
   }
 
+  /* Tool cards (ADR-0017): the cards are the site's components; the skin only spaces them. */
+  [data-ask-part="tool-results"]:where([data-ask-skin] *) {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  [data-ask-part="tool-result"]:where([data-ask-skin] *) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
   [data-ask-part="citations"]:where([data-ask-skin] *) {
     display: flex;
     flex-wrap: wrap;

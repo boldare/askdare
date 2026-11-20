@@ -33,7 +33,7 @@ Compaction left 0.3 after spike S5b; see Later.
 | `toolRenderers` | React components for tool results, building on the reply-options payload. | [ADR-0017](docs/adr/0017-tool-renderers.md) |
 | `embedPath` | A custom UI inside the iframe, so the script-tag widget can use your own components and `toolRenderers`. A design note comes first. | [ADR-0005](docs/adr/0005-embedding-model.md), [ADR-0008](docs/adr/0008-ui-customization-and-themes.md) |
 
-Runtime language step 2 is done. The `toolRenderers` decision is ADR-0017; the `embedPath` design note is written in the Decisions lane while `toolRenderers` is built. Admin left 0.4 to keep it small; see Later.
+Runtime language step 2 and `toolRenderers` are done (ADR-0017). `embedPath` waits for its design note, task 3a in the Decisions lane. Admin left 0.4 to keep it small; see Later.
 
 ## Later
 
@@ -73,6 +73,6 @@ Work runs in parallel lanes. Tasks that touch the **hot files** run one at a tim
 | Deploy | What is left of the deploy buttons: the starter template repo for the Heroku button | No |
 | Decisions | ADRs and design notes, in parallel with everything. For 0.4: the `embedPath` design note | No |
 | Spikes | Experiments in `spikes/`. For 0.4: S6, a `ModelGateway` for Claude | No |
-| Core | `toolRenderers` (the payload and the protocol, then the React API), then `embedPath` | **Yes**, one task at a time |
+| Core | `embedPath`, once its design note is accepted (`toolRenderers` is done: ADR-0017) | **Yes**, one task at a time |
 
 Core work for 0.4 lands on `main` with `--no-ff`, or on an integration branch `release/0.4` if a task must not reach `main` before the release ([RELEASING.md](RELEASING.md)).

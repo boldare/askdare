@@ -12,6 +12,7 @@ import type { ChatEventListener } from '../chat/events';
 import { identityToken, type PageOptions, pageOptions } from '../chat/page-options';
 import { createChatStore } from '../chat/store';
 import { ChatProvider } from './context';
+import { type ToolRenderers, ToolRenderersProvider } from './tool-results';
 
 export interface RootProps {
   /** From `getChatConfig()` in a Server Component. */
@@ -32,6 +33,13 @@ export interface RootProps {
    * rating (ADR-0013). Metadata only, never the text. A new function doesn't restart the chat.
    */
   readonly onEvent?: ChatEventListener | undefined;
+  /**
+   * Your components for tools' results, by tool name (ADR-0017): each gets what the tool's `ui`
+   * returned and is drawn by `ToolResults`, in `DefaultChat` under the answer. Type them with
+   * `satisfies ToolRenderers<[typeof myTool]>`. Define the map outside your component (or
+   * memoize it): a new object on every render re-renders every card.
+   */
+  readonly toolRenderers?: ToolRenderers | undefined;
   readonly children?: ReactNode;
 }
 
@@ -46,6 +54,7 @@ export function Root({
   greeting,
   starters,
   onEvent,
+  toolRenderers,
   children,
 }: RootProps): ReactElement {
   if (!isBasePath(config.basePath)) {
@@ -110,5 +119,9 @@ export function Root({
     if (JSON.stringify(store.getSnapshot().page) !== key) store.configure(page);
   }, [key, store]);
 
-  return <ChatProvider store={store}>{children}</ChatProvider>;
+  return (
+    <ChatProvider store={store}>
+      <ToolRenderersProvider renderers={toolRenderers}>{children}</ToolRenderersProvider>
+    </ChatProvider>
+  );
 }

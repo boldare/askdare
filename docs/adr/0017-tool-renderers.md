@@ -41,14 +41,14 @@ The rules that bound the design are the same as for replies:
 ### The API: `toolRenderers` on `Root`
 
 - **`Root({ toolRenderers })`**, a map from a tool's name to a React component. It lives in the chat's context, so `DefaultChat` and every primitive inside the same `Root` see it; `DefaultChat` gets no prop of its own (one place to set it, and an ejected skin needs no change).
-- **A new primitive `ToolResults`** (part `tool-results`, each card in a part `tool-result` with `data-ask-tool="<name>"`) renders the current message's payloads with the registered components, in call order. The default skin places it under the answer text, before the citations. A headless chat places it wherever it wants.
+- **A new primitive `ToolResults`** (part `tool-results`, each card in a part `tool-result` with `data-ask-tool="<name>"`) renders the current message's payloads with the registered components, in call order. The default skin places it under the answer text, before the files and the citations. A headless chat places it wherever it wants.
 - **A renderer gets `{ data, name, callId }`** and reads anything else through the hooks. To act, it calls `useChat().actions.send(text)`: a click sends a visitor message, exactly as a reply option does (ADR-0015). There is no other action, so a card can't select a tool, a flow or an instruction (ADR-0004).
 - **Typed from `defineTool`.** `Tool` gets two type parameters with defaults, `Tool<Name extends string = string, Ui = unknown>`, and `defineTool` infers the name as a literal (a `const` type parameter) and `Ui` from `ui`'s return type. Two helper types are exported:
   - `ToolRendererProps<T extends Tool>`: `{ data: Jsonified<Ui>, name, callId }`;
   - `ToolRenderers<T extends readonly Tool[]>`: a map with an optional component per tool name.
 
   A page imports its tools with `import type`, so no server code reaches the client bundle: `const renderers = { find_slots: SlotList } satisfies ToolRenderers<[typeof findSlots]>`. `Root` itself takes the loose form, so the helpers are a convenience, never required.
-- **Fallback:** a payload whose tool has no renderer renders nothing. The model saw the result and tells it in text anyway. In development, `ToolResults` warns once per tool name. There is no generic JSON view: it would show visitors data the developer never designed for them.
+- **Fallback:** a payload whose tool has no renderer renders nothing. The model saw the result and tells it in text anyway. When `Root` has `toolRenderers`, `ToolResults` warns in the console once per tool name without a component (changed during implementation: a check for development needs `process.env`, which the browser entry doesn't read; the iframe, which has no renderers, stays quiet). There is no generic JSON view: it would show visitors data the developer never designed for them.
 - **A renderer that throws** is caught by an error boundary around each card. That card renders nothing and the chat goes on; in development the error is logged.
 
 ### Security
@@ -61,13 +61,20 @@ The rules that bound the design are the same as for replies:
 
 ### Budget
 
-- `@boldare/askdare/react` stays within its 32 KB budget (28 KB in 0.3). `ToolResults`, `Link`, the error boundary and the client check add well under 1 KB gzipped; `scripts/react-size.mjs` enforces it.
+- `@boldare/askdare/react` stays within its 32 KB budget, as `scripts/react-size.mjs` measures it. `ToolResults`, `Link` and the error boundary add about 450 bytes gzipped: 32,399 of 32,768 bytes after task 2c, so the next addition to the React entry needs room made first.
 - The iframe app gains only the reducer case and the client check, since it registers no renderers.
 - The loader doesn't change.
 
 ### The script-tag widget
 
 The iframe renders askdare's own skin, which can't import a site's components. It receives and stores `tool.ui` events, and with no renderers registered shows nothing, as above. A site that wants cards in the script-tag widget serves its own page inside the iframe with `embedPath`, which renders `Root` with its `toolRenderers`; the design note for `embedPath` (task 3a) decides how.
+
+## Evidence
+
+Built in tasks 2b and 2c (November 2026):
+- **Live and after a reload.** A live turn on the site's demo bot (OpenAI) sent `tool.ui` right after the call's `tool.status`, with only the fields `ui` picked; `POST /history` returned the same payload on the same answer. `e2e/tool-cards.spec.ts` checks this in Chromium, Firefox and WebKit against the mocked API, and that a click in a card goes out as the visitor's message.
+- **The iframe is unchanged.** It receives the payloads and draws nothing; all of its visual baselines passed without an update. The chat inside a page got one new baseline, `inline-tool-card`.
+- **Reviews.** A security review found nothing to fix; a code review moved the cap of four per answer from the OpenAI gateway into `server/stream-turn.ts`.
 
 ## Consequences
 

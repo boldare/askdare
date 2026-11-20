@@ -64,6 +64,7 @@ That is all: the components are client components already, and the chat loads it
 | `greeting`, `starters` | This page's greeting and up to 4 suggested questions, instead of the bot's. |
 | `context` | A short description of the page for the assistant, up to 1,000 characters. Only for a bot with `pageContext: true`. |
 | `onEvent` | Called with what happens in the chat, such as a message sent or an answer rated, for analytics. Metadata only. A new function doesn't restart the chat. See [Chat events](events.md). |
+| `toolRenderers` | Your components for tools' results, by tool name. `DefaultChat` and `ToolResults` draw them under the answer. See [Tool cards](#tool-cards). |
 
 `greeting`, `starters` and `context` are the same as in `askdare('configure')` and are checked the same way ([Styling](styling.md#3-page-javascript)).
 
@@ -128,6 +129,7 @@ function Bubble() {
   return (
     <Chat.Message className={message.role === 'user' ? 'mine' : 'theirs'}>
       <Chat.MessageText />
+      <Chat.ToolResults />
       <Chat.MessageFiles />
       <Chat.Citations />
       <Chat.FeedbackButton rating="up">👍</Chat.FeedbackButton>
@@ -174,6 +176,8 @@ Without `Theme` and `DefaultChat`, no stylesheet of the chat loads: the look is 
 | `MessageText` | `div` | The text: the visitor's as typed, an answer as Markdown, typing dots before the first word. |
 | `Markdown` | none | Renders a `text` as the chat renders answers. |
 | `Citations` | `ol` | The answer's sources. |
+| `ToolResults` | `div` | The answer's tool cards (`tool-result`, with `data-ask-tool`), each drawn by the component `Root`'s `toolRenderers` has for its tool, in call order. See [Tool cards](#tool-cards). |
+| `Link` | `a` or `span` | A link for a URL from a tool's payload, checked as links in answers are: only `https`, `http` and `mailto`, opened in a new tab. Any other URL renders the text alone. |
 | `MessageFiles` | `ul` or `p` | The files sent with a message. |
 | `FeedbackButton` | `button` | Rates the answer; takes `rating="up"` or `"down"`. See [Answer ratings](feedback.md). |
 | `QuickReplies` | `div` | The options the latest answer offers, as a group of buttons (`reply`) that show their text as plain text. A click sends the option as the visitor's message. Inside `MessageList` it renders under the latest answer only; placed anywhere else, such as above the `Composer`, it shows the latest answer's options there. Either way they go away once the visitor sends anything. The default look follows the theme's `replies` variant ([Themes](themes.md#variants)). See [Reply options](reply-options.md#in-react). |
@@ -190,6 +194,49 @@ Without `Theme` and `DefaultChat`, no stylesheet of the chat loads: the look is 
 Primitives that have nothing to show render nothing, so you can place them without conditions.
 
 **Never render an answer as HTML.** Model output can be steered by whatever the model reads. `MessageText` and `Markdown` turn it into elements without ever producing HTML, allow only `http`, `https` and `mailto` links, and never load images. If you render `message.text` yourself, render it as text.
+
+### Tool cards
+
+A tool can pick what the visitor may see of its result with `ui` ([Tools](tools.md#cards-for-the-visitor)). Give `Root` a component for it, and the chat draws it under the answer, live and after a reload:
+
+```tsx
+'use client';
+import * as Chat from '@boldare/askdare/react';
+// Types only: the tool runs on the server and never reaches this bundle.
+import type { findSlots } from '@/tools';
+
+function SlotList({ data }: Chat.ToolRendererProps<typeof findSlots>) {
+  const { actions } = Chat.useChat();
+  return (
+    <ul className="slots">
+      {data.slots.map((slot) => (
+        <li key={slot}>
+          <button type="button" onClick={() => void actions.send(`Book ${slot}`)}>
+            {slot}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const toolRenderers = { find_slots: SlotList } satisfies Chat.ToolRenderers<[typeof findSlots]>;
+
+export function Help({ config }: { config: Chat.ChatConfig }) {
+  return (
+    <Chat.Root config={config} toolRenderers={toolRenderers}>
+      <Chat.DefaultChat className="help-chat" />
+    </Chat.Root>
+  );
+}
+```
+
+- **A component gets `{ data, name, callId }`.** `data` is what the tool's `ui` returned, typed from the tool with `ToolRendererProps<typeof tool>`. `satisfies ToolRenderers<[…]>` checks each component against its tool's payload and the tool names; `Root` also takes a plain map without types. Everything else comes from the hooks.
+- **Render `data` as text.** React escapes it. Never pass it to `dangerouslySetInnerHTML`, and put URLs from it in `Chat.Link`, which drops `javascript:` and every other scheme but `https`, `http` and `mailto`. Load images only from URLs your tool builds itself, never from the model's arguments: an image URL can carry data out if a prompt injection steers the model.
+- **To act, send a message.** `actions.send(text)` sends the visitor's own words, exactly as if they had typed them; the model decides what happens, as always. A card can't run a tool or anything else by itself.
+- **No component, no card.** A tool without one shows nothing (the answer's text still tells the result), and the console says so once per tool. If a component throws, its card is left out and the chat goes on.
+- **Placement.** `DefaultChat` puts the cards under the answer's text. In your own markup, place `ToolResults` inside `MessageList`; style the cards yourself, with the chat's tokens (`var(--ask-color-border)` and the others) so they follow the theme.
+- **The script-tag widget** gets the payloads but has no components to draw them with: cards show only in the chat inside your page, for now.
 
 ### Hooks
 
@@ -284,4 +331,4 @@ The copy imports only `@boldare/askdare/react`, so `Root`, the hooks and the pri
 - **Several chats on a page** work, each in its own `Root`, also for different bots with different themes.
 - **One conversation per bot and browser**, shared by every page that shows that bot, and by the widget on the same origin.
 - **Switching the language.** Call `getChatConfig` with the new `locale` and pass the result to `Root`: the same chat switches to that language's texts, greeting and placeholder, and the conversation, the unsent message and an answer still streaming stay. Another bot or `basePath` starts another chat. Only a bot with `locale: 'auto'` switches; see [Texts](texts.md#switching-the-language-on-the-page).
-- **Sizes** (gzipped, in your bundle): about 28 KB for everything, about 8 KB when you use only `Root` and the hooks. The Markdown renderer is loaded only if you render `MessageText` or `Markdown`.
+- **Sizes** (gzipped, in your bundle): about 32 KB for everything, about 10 KB when you use only `Root` and the hooks. The Markdown renderer is loaded only if you render `MessageText` or `Markdown`.

@@ -1,0 +1,42 @@
+/* The site's own cards for tool results, drawn with the chat's tokens so they follow the theme. */
+.tool-card {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--ask-color-border);
+  border-radius: calc(var(--ask-radius) * 0.75);
+  background: var(--ask-color-background);
+  color: var(--ask-color-text);
+}
+
+.tool-card figcaption {
+  color: var(--ask-color-muted);
+  font-size: 0.78rem;
+}
+
+.tool-card-value {
+  margin: 2px 0 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.tool-card-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+}
+
+.tool-card-actions button {
+  padding: 2px 10px;
+  border: 1px solid var(--ask-color-border);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tool-card-actions a {
+  color: var(--ask-color-accent);
+}
