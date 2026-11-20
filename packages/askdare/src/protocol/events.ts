@@ -34,6 +34,7 @@ export const PROTOCOL_EVENT_TYPES = [
   'text.delta',
   'citation',
   'tool.status',
+  'tool.ui',
   'replies',
   'message.end',
   'error',
@@ -87,6 +88,19 @@ export interface ToolStatusEvent {
 }
 
 /**
+ * A tool's result as the visitor may see it, for a component the site registered (ADR-0017). Sent
+ * right after the call's `tool.status` `done`, never for a failed call, at most four per answer.
+ * `data` is plain JSON of at most 8 KB, as the tool's `ui` function returned it.
+ */
+export interface ToolUiEvent {
+  readonly type: 'tool.ui';
+  readonly messageId: string;
+  readonly callId: string;
+  readonly name: string;
+  readonly data: unknown;
+}
+
+/**
  * Options the visitor can click under this answer instead of typing (ADR-0015). Sent at most
  * once, before `message.end`: one to four distinct, trimmed, one-line texts of up to 80
  * characters, without links. A client shows them as plain text, never as Markdown.
@@ -137,6 +151,7 @@ export type ProtocolEvent =
   | TextDeltaEvent
   | CitationEvent
   | ToolStatusEvent
+  | ToolUiEvent
   | RepliesEvent
   | MessageEndEvent
   | ErrorEvent;

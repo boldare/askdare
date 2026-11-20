@@ -20,7 +20,7 @@ The rules that bound the design are the same as for replies:
 
 ### The payload: `defineTool({ ui })`
 
-- **A tool declares `ui: (output) => Data | undefined`,** next to `replies`. Like `replies`, it is a function of the result as stored (parsed back from JSON, `Jsonified<Output>`), runs on the server in the developer's code, and only for a successful call. `undefined` sends nothing.
+- **A tool declares `ui: (output) => Data | undefined`,** next to `replies`. Like `replies`, it is a function of the result as stored (parsed back from JSON, `Jsonified<Output>`), runs on the server in the developer's code, and only for a successful call. `undefined` or `null` sends nothing.
 - **The tool's result still never reaches the client.** Only what `ui` returns does. `ui` is where the developer picks the fields a visitor may see; the docs say so in its JSDoc and in `docs/tools.md` (no prices for other customers, no internal IDs, nothing about other visitors).
 - **`ui` must be pure and deterministic.** The live turn and a reload derive the payload from the same stored output (below), so they match as long as the tool's code doesn't change between them. A `ui` that throws defines nothing and is reported like a throwing `replies`.
 - **Independent of `replies`.** A tool may define both; the precedence rules of ADR-0015 don't change.
@@ -34,7 +34,7 @@ The rules that bound the design are the same as for replies:
 ### The protocol: a new `tool.ui` event
 
 - **`tool.ui { messageId, callId, name, data }`,** additive in protocol version 1; older clients ignore unknown events. `name` is the tool's name, `callId` the same opaque ID as in `tool.status`. It is a separate event, not an extension of `replies`, because ADR-0015 gives each payload kind its own schema and limits.
-- **Sent right after the tool's `tool.status` `done`,** before the next model step, so a card can show while the model is still writing. It is never sent for a failed call.
+- **Sent once the step's calls are done,** in call order, before the next model step, so a card can show while the model is still writing and the live turn orders cards as a reload does. It is never sent for a failed call.
 - **History after a reload:** `HistoryMessage` gets an optional `ui: { callId, name, data }[]`. `openai/history.ts` rebuilds it from the stored `function_call` and `function_call_output` items with the bot's current tools, for **every** answer in the loaded page (at most 100 items), not only the latest as with replies: a card is part of the answer, an option is not. The calls of a turn attach to that turn's last visible answer, as in the live stream.
 - **The browser core:** `ChatMessage.ui?: readonly ToolUi[]`, set by the reducer (hot files: `chat/state.ts`, `chat/reducer.ts`). The iframe stores the payloads like any other client.
 

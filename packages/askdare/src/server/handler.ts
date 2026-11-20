@@ -8,7 +8,7 @@ import {
 } from '../attachments/files';
 import type { Bot } from '../bot/define-bot';
 import { AskdareError, type AskdareErrorOptions, toAskdareError } from '../errors';
-import type { ModelGateway, RepliesReader, TurnAttachment } from '../gateway';
+import type { ModelGateway, RepliesReader, TurnAttachment, UiReader } from '../gateway';
 import { canonicalLocale } from '../i18n/texts';
 import type { Limits } from '../limits/limits';
 import type { DoctorReport } from '../protocol/doctor';
@@ -17,7 +17,7 @@ import type { IdentityFailure, IdentityVerifier, VerifiedIdentity } from '../sec
 import { newVisitorId, type ResumeGrant, type TokenService } from '../security/tokens';
 import { PRESET_NAMES, type PresetName } from '../theme/presets';
 import { type ColorScheme, type ResolvedTheme, resolveTheme } from '../theme/theme';
-import { readToolReplies } from '../tools/define-tool';
+import { readToolReplies, readToolUi } from '../tools/define-tool';
 import { readSuggestedReplies } from '../tools/suggest-replies';
 import { detectAudio, languageHints, maxAudioBytes, worstCaseSeconds } from '../voice/audio';
 import {
@@ -298,6 +298,15 @@ function repliesReader(bot: Bot): RepliesReader | undefined {
   return (calls) =>
     (defined ? readToolReplies(bot.tools, calls) : undefined) ??
     (suggested ? readSuggestedReplies(calls) : undefined);
+}
+
+/** Reads each answer's UI payloads back from its turn's calls (ADR-0017); none without `ui`. */
+function uiReader(bot: Bot): UiReader | undefined {
+  if (!bot.tools.some((tool) => tool.ui)) return undefined;
+  return (calls) =>
+    readToolUi(bot.tools, calls, (tool) =>
+      console.error(`[askdare] ui of tool "${tool.name}" failed while reading the history.`),
+    );
 }
 
 /**
@@ -837,7 +846,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     const { bot, conversationId, tokens, owner } = await ownedConversation(request);
     let messages = await config
       .gateway()
-      .listMessages(conversationId, request.signal, repliesReader(bot));
+      .listMessages(conversationId, request.signal, repliesReader(bot), uiReader(bot));
     if (feedbackOn(bot)) {
       messages = await Promise.all(
         messages.map(async (message) =>

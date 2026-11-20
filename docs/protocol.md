@@ -25,7 +25,7 @@ Every path sits under the route's base path: `/api/chat` by default, or `basePat
 | `POST /doctor` | Doctor token | Checks the setup for `askdare doctor` ([Diagnostics](#diagnostics)) |
 
 - **`POST /messages`** takes `{ "botId", "text", "resumeToken"?, "attachments"?, "context"?, "locale"? }`. Without `resumeToken`, the server starts a new conversation and sends `conversation.created`. `locale` is the visitor's language tag, passed to the bot's instructions.
-- **`POST /history`** takes `{ "botId", "resumeToken" }` and answers `{ "messages": [{ "id", "role", "text", "citations", "attachments", "feedback"?, "replies"? }] }`, where `attachments` is a count, `feedback` is the answer's rating handle (see [Feedback](#feedback)) and `replies` are the options of the latest answer (see [Reply options](#reply-options)).
+- **`POST /history`** takes `{ "botId", "resumeToken" }` and answers `{ "messages": [{ "id", "role", "text", "citations", "attachments", "feedback"?, "replies"?, "ui"? }] }`, where `attachments` is a count, `feedback` is the answer's rating handle (see [Feedback](#feedback)), `replies` are the options of the latest answer (see [Reply options](#reply-options)) and `ui` are the tool payloads of an answer (see [Tool UI](#tool-ui)).
 - **`DELETE /conversation`** takes the same body and answers `204` with no body.
 - **`GET /config/<bot>`** answers the same public configuration the chat document carries: texts, greeting, starters, theme variants and the other widget settings, never the model, instructions, tools or vector stores. For a bot with `locale: 'auto'`, `?lang=` picks the language; without it, the browser's `Accept-Language` does, then English. A bot with a fixed locale ignores `lang`. An invalid tag answers `400` with `invalid_input`, an unknown bot `404`. Responses are cached for five minutes (`no-cache` in development) and vary by `Accept-Language`. `Content-Language` names the language the texts are written in, for the chat document's `lang`: the visitor's when the bot has texts for it, else English for a language without a built-in dictionary.
 - **Same origin only.** Every `POST` and `DELETE` except `/doctor` refuses cross-site requests with `401`. The API serves the chat's own iframe, which runs on the same origin.
@@ -54,6 +54,7 @@ Every path sits under the route's base path: `/api/chat` by default, or `basePat
 | `text.delta` | `messageId`, `delta` | Append text to the reply (markdown) |
 | `citation` | `messageId`, `index`, `title`, `url?` | Source for marker `[index]`; `url` is http(s) only |
 | `tool.status` | `messageId`, `callId`, `name`, `state: running \| done \| error` | A tool ran; arguments and results stay on the server. `name: file_search` is the knowledge base search |
+| `tool.ui` | `messageId`, `callId`, `name`, `data` | What a tool picked from its result for the visitor ([Tool UI](#tool-ui)); after the step's `tool.status` events, at most four per answer |
 | `replies` | `messageId`, `items` | Options the visitor can click instead of typing ([Reply options](#reply-options)); at most once, before `message.end` |
 | `message.end` | `messageId`, `reason`, `resumeToken?`, `feedback?` | The reply finished. A resumed conversation gets a fresh `resumeToken`, so it stays reachable 30 days after its last message. `feedback` is the answer's rating handle, when answers can be rated. Reasons: `completed`, `max_steps`, `max_output_tokens`, `timeout`, `content_filter`, `aborted` |
 | `error` | `code`, `message`, `retryAfterMs?`, `key?`, `params?` | The turn failed; `message` is safe to show ([keys and parameters](#error-keys-and-parameters)) |
@@ -88,6 +89,17 @@ An answer can offer a few options the visitor clicks instead of typing ("Yes, bo
 - **Plain text.** Show each item as text, never as Markdown or HTML.
 - **Only under the latest answer.** Hide the options as soon as the visitor sends anything.
 - **A click is a message.** Send the item's text through `POST /messages` like typed text. The server can't tell the difference, and nothing else travels with it.
+
+Older clients ignore the event, so it is additive in protocol version 1.
+
+## Tool UI
+
+A tool can pick fields from its result for the visitor to see as a card, list or table, drawn by a component the site registers ([ADR-0017](adr/0017-tool-renderers.md)). The payload comes in a `tool.ui` event, `{ "messageId", "callId", "name", "data" }`: `callId` is the same opaque ID as in `tool.status`, `name` is the tool's name, which picks the component, and `data` is whatever the tool's `ui` function returned. The events of a step come once all its calls are done, in call order, before the model writes on. After a reload, `POST /history` returns them as `ui: [{ "callId", "name", "data" }]` on the answer they belong to, for every answer, not only the latest. How to define them: [Tools](tools.md#cards-for-the-visitor).
+
+- **Limits.** `data` is plain JSON (objects, arrays, strings, finite numbers, booleans and `null`, but not `null` alone), at most 8 KB (8,192 bytes of UTF-8 JSON) and at most 8 levels of arrays and objects. An answer carries at most four, each `callId` once. The server drops a payload that breaks a limit whole and never cuts one; clients ignore an event that breaks one, and refuse a history that does.
+- **Never a failed call.** A call that failed, timed out or returned too much data sends no `tool.ui`.
+- **Never as HTML.** Render `data` with your own components as text, and links through a URL check; no client renders it as Markdown or HTML.
+- **A click is a message.** A component acts only by sending a visitor message through `POST /messages`, as a reply option does.
 
 Older clients ignore the event, so it is additive in protocol version 1.
 

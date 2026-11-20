@@ -8,7 +8,8 @@ import type {
 import { z } from 'zod';
 import type { Bot } from '../bot/define-bot';
 import type { ToolCallRecord, TurnRequest } from '../gateway';
-import { readToolReplies, type StoredToolCall, type Tool } from '../tools/define-tool';
+import type { ToolUi } from '../protocol/tool-ui';
+import { readToolReplies, readToolUi, type StoredToolCall, type Tool } from '../tools/define-tool';
 import {
   SUGGEST_REPLIES,
   SUGGEST_REPLIES_DESCRIPTION,
@@ -176,15 +177,28 @@ async function invoke(
   }
 }
 
+/** The developer's `ui` failed or broke a limit: name the tool, never the payload or the result. */
+function uiError(tool: Tool, error: unknown): void {
+  if (error instanceof RangeError) {
+    console.error(`[askdare] ui of tool "${tool.name}" was dropped: ${error.message}.`);
+  } else {
+    console.error(`[askdare] ui of tool "${tool.name}" failed:`, error);
+  }
+}
+
 /**
  * Runs every function call of a step in parallel and returns the outputs to send back. Every call
  * gets an output, even on failure: a call left without one breaks the conversation (spike S1, E5).
  * When a successful call's tool defines reply options, the last such call's go to `onReplies`.
+ * The successful calls' UI payloads go to `onUi` in call order once all are done (ADR-0017).
  */
 export async function executeCalls(
   calls: readonly FunctionCall[],
   request: TurnRequest,
-  onReplies?: (replies: readonly string[]) => void,
+  handlers: {
+    readonly onReplies?: (replies: readonly string[]) => void;
+    readonly onUi?: (ui: ToolUi) => void;
+  } = {},
 ): Promise<ResponseInputItem[]> {
   const tools = new Map(request.bot.tools.map((tool) => [tool.name, tool]));
   for (const call of calls) {
@@ -220,18 +234,27 @@ export async function executeCalls(
         name: call.name.slice(0, 64),
         state: outcome === 'ok' ? 'done' : 'error',
       });
-      if (outcome === 'ok')
-        succeeded[index] = { name: call.name, arguments: call.arguments, output };
+      if (outcome === 'ok') {
+        succeeded[index] = {
+          callId: call.callId,
+          name: call.name,
+          arguments: call.arguments,
+          output,
+        };
+      }
       return { type: 'function_call_output', call_id: call.callId, output } as const;
     }),
   );
+  const stored = succeeded.filter((call) => call !== undefined);
+  // In call order once the step's calls are done, so the live turn and a reload agree.
+  if (handlers.onUi) {
+    for (const ui of readToolUi(request.bot.tools, stored, uiError)) handlers.onUi(ui);
+  }
   // Picked from the outputs as stored, as the history does after a reload (openai/history.ts).
-  const replies = readToolReplies(
-    request.bot.tools,
-    succeeded.filter((call) => call !== undefined),
-    (tool, error) => console.error(`[askdare] replies of tool "${tool.name}" failed:`, error),
+  const replies = readToolReplies(request.bot.tools, stored, (tool, error) =>
+    console.error(`[askdare] replies of tool "${tool.name}" failed:`, error),
   );
-  if (replies) onReplies?.(replies);
+  if (replies) handlers.onReplies?.(replies);
   return outputs;
 }
 

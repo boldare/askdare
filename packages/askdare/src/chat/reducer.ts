@@ -2,6 +2,7 @@ import { formatText } from '../i18n/format';
 import type { TextKey } from '../i18n/texts';
 import type { ProtocolEvent } from '../protocol/events';
 import type { HistoryMessage } from '../protocol/history';
+import { isToolUi, MAX_TOOL_UI } from '../protocol/tool-ui';
 import type { ChatMessage } from './state';
 
 /** A text in the visitor's language, with `{name}` placeholders filled. */
@@ -24,6 +25,7 @@ export const fromHistory = (message: HistoryMessage): ChatMessage => ({
   status: 'done',
   ...(message.feedback ? { feedback: message.feedback } : {}),
   ...(message.replies ? { replies: message.replies } : {}),
+  ...(message.ui ? { ui: message.ui } : {}),
 });
 
 /** The messages after one protocol event of a streamed answer. */
@@ -62,6 +64,17 @@ export function applyEvent(
           { index: event.index, title: event.title, url: event.url },
         ],
       }));
+    case 'tool.ui': {
+      const { callId, name, data } = event;
+      const payload = { callId, name, data };
+      // Checked again here: a payload past the limits or a call seen before is ignored.
+      if (!isToolUi(payload)) return messages;
+      return update(event.messageId, (message) => {
+        const ui = message.ui ?? [];
+        if (ui.length >= MAX_TOOL_UI || ui.some((item) => item.callId === callId)) return message;
+        return { ...message, ui: [...ui, payload] };
+      });
+    }
     case 'replies':
       return update(event.messageId, (message) => ({ ...message, replies: event.items }));
     case 'message.end':

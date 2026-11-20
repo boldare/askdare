@@ -381,6 +381,15 @@ interface FeedbackHandle {
   /** Stable for the answer across reloads, so the client can remember its rating. Hex. */
   readonly key: string;
 }
+/** One tool call's payload, as the `tool.ui` event and the history carry it. */
+interface ToolUi {
+  /** The call, as in `tool.status`. Opaque. */
+  readonly callId: string;
+  /** The tool's name, which picks the renderer. */
+  readonly name: string;
+  /** Whatever the tool's `ui` returned: plain JSON, never `null`. */
+  readonly data: unknown;
+}
 /**
  * What a page may set with askdare('configure') or the props of `Root`, checked again here. The
  * language isn't among them: it comes with the chat's address (`?lang=`, or `getChatConfig` in
@@ -419,6 +428,11 @@ interface ChatMessage {
    * is the latest message; a click sends the option as the visitor's own message.
    */
   readonly replies?: readonly string[] | undefined;
+  /**
+   * What the turn's tools picked from their results for the visitor to see (ADR-0017), in call
+   * order, at most four: plain JSON for the components registered with `toolRenderers`.
+   */
+  readonly ui?: readonly ToolUi[] | undefined;
 }
 type Rating = "up" | "down";
 /** A file picked for the next message. */
@@ -991,9 +1005,9 @@ interface ToolContext {
 type Jsonified<T> = T extends {
   toJSON(): infer R;
 } ? Jsonified<R> : T extends bigint | symbol | ((...args: never[]) => unknown) | undefined ? never : T extends readonly (infer Item)[] ? Jsonified<Item>[] : T extends object ? { [Key in keyof T as Jsonified<T[Key]> extends never ? never : Key]: Jsonified<T[Key]>; } : T;
-interface ToolDefinition<Input extends z.ZodObject, Output = unknown> {
+interface ToolDefinition<Input extends z.ZodObject, Output = unknown, Ui = unknown, Name extends string = string> {
   /** Name the model calls, 1–64 letters, digits, `_` or `-`. */
-  readonly name: string;
+  readonly name: Name;
   /** Tells the model when and how to use the tool. */
   readonly description: string;
   /**
@@ -1014,20 +1028,34 @@ interface ToolDefinition<Input extends z.ZodObject, Output = unknown> {
    * several calls of a turn define them, the last one wins.
    */
   readonly replies?: (output: Jsonified<Output>) => readonly string[] | undefined;
+  /**
+   * What the visitor may see of a successful result, for a component the site registers with
+   * `toolRenderers` (ADR-0017). Only this reaches the browser, never the result itself, so pick
+   * the fields a visitor may see. It gets the result as the model received it, parsed back from
+   * JSON, and runs again on every reload, so keep it pure: the same result, the same payload.
+   * Return plain JSON of at most 8 KB and 8 levels, or `undefined` or `null` for none; a payload
+   * over a limit is dropped whole. An answer shows at most 4, in call order.
+   */
+  readonly ui?: (output: Jsonified<Output>) => Ui | null | undefined;
 }
-interface Tool {
-  readonly name: string;
+/**
+ * A tool the bot can call. `Name` and `Ui` carry the tool's name and the type its `ui` returns,
+ * so a page can type its renderers with `import type` (ADR-0017).
+ */
+interface Tool<Name extends string = string, Ui = unknown> {
+  readonly name: Name;
   readonly description: string;
   readonly input: z.ZodObject;
   readonly execute: (input: unknown, context: ToolContext) => unknown;
   readonly timeoutMs: number;
   readonly replies?: ((output: unknown) => readonly string[] | undefined) | undefined;
+  readonly ui?: ((output: unknown) => Ui | null | undefined) | undefined;
 }
 /**
  * Declares a server-side function the model may call. Arguments are validated with the schema
  * before `execute` runs; failures are reported to the model, never to the visitor.
  */
-declare function defineTool<Input extends z.ZodObject, Output = unknown>(definition: ToolDefinition<Input, Output>): Tool;
+declare function defineTool<Input extends z.ZodObject, Output = unknown, Ui = never, const Name extends string = string>(definition: ToolDefinition<Input, Output, Ui, Name>): Tool<Name, Ui>;
 /** Per-request context available when building instructions. */
 interface BotContext {
   /** Validated BCP 47 tag chosen by the widget. */

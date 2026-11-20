@@ -1,4 +1,5 @@
 import type { FeedbackHandle } from './events';
+import type { ToolUi } from './tool-ui';
 
 /** One message of a stored conversation, as returned by `POST /history`. */
 export interface HistoryMessage {
@@ -12,6 +13,8 @@ export interface HistoryMessage {
   readonly feedback?: FeedbackHandle | undefined;
   /** On the latest answer only: the options it offered, as in the `replies` event (ADR-0015). */
   readonly replies?: readonly string[] | undefined;
+  /** On answers: the payloads their turn's tools defined, as in the `tool.ui` events (ADR-0017). */
+  readonly ui?: readonly ToolUi[] | undefined;
 }
 
 export interface HistoryCitation {

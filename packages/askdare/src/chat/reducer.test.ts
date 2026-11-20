@@ -54,6 +54,50 @@ describe('applyEvent', () => {
     ).toBe(false);
   });
 
+  it("keeps each answer's tool UI payloads in call order, live and from history (ADR-0017)", () => {
+    const card = (callId: string, data: unknown = { slots: ['9:00'] }) => ({
+      type: 'tool.ui' as const,
+      messageId: 'm',
+      callId,
+      name: 'find_slots',
+      data,
+    });
+    let messages = applyEvent([], { type: 'message.start', messageId: 'm' });
+    for (const event of [
+      card('c1'),
+      card('c1'),
+      card('c2', null),
+      card('c3'),
+      card('c4'),
+      card('c5'),
+      card('c6'),
+    ]) {
+      messages = applyEvent(messages, event);
+    }
+    // A repeated call and a payload that breaks the limits are ignored; four at most.
+    expect(messages[0]?.ui?.map((item) => item.callId)).toEqual(['c1', 'c3', 'c4', 'c5']);
+    expect(messages[0]?.ui?.[0]).toEqual({
+      callId: 'c1',
+      name: 'find_slots',
+      data: { slots: ['9:00'] },
+    });
+    expect(applyEvent(messages, { ...card('c9'), messageId: 'other' })).toEqual(messages);
+
+    const ui = [{ callId: 'c1', name: 'find_slots', data: { slots: ['9:00'] } }];
+    const restored = fromHistory({
+      id: 'm',
+      role: 'assistant',
+      text: 'Hi',
+      citations: [],
+      attachments: 0,
+      ui,
+    });
+    expect(restored.ui).toEqual(ui);
+    expect(
+      'ui' in fromHistory({ id: 'u', role: 'user', text: 'Hi', citations: [], attachments: 0 }),
+    ).toBe(false);
+  });
+
   it('ignores events of other messages and unknown types', () => {
     const messages = applyEvent([], { type: 'message.start', messageId: 'm' });
     expect(applyEvent(messages, { type: 'text.delta', messageId: 'x', delta: '!' })).toEqual(
