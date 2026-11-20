@@ -20,7 +20,7 @@ export const currentTime = defineTool({
       return { error: `Unknown time zone "${timeZone}".` };
     }
   },
-  // What the visitor sees as a card (ADR-0017); app/tool-cards.tsx draws it.
+  // What the visitor sees as a card (ADR-0017); components/tool-cards.tsx draws it.
   ui: (result) => ('now' in result ? { timeZone: result.timeZone, now: result.now } : undefined),
 });
 

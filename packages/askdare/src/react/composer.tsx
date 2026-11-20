@@ -59,6 +59,13 @@ export function Input({ ref, onKeyDown, onPaste, onChange, ...props }: InputProp
     if (own.current) fitToContent(own.current);
   }, [draft]);
 
+  // Text typed into the server-rendered field before the page hydrated is in the DOM only: take it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once, when the field first mounts
+  useEffect(() => {
+    const typed = own.current?.value;
+    if (typed && typed !== store.getSnapshot().draft) actions.setDraft(typed);
+  }, []);
+
   useEffect(
     // After a dictation the field is new: the store keeps the request until this one can take it.
     () => store.onFocus('input', (explicit) => focusElement(own, explicit)),

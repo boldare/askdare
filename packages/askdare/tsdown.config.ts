@@ -15,8 +15,10 @@ export default defineConfig([
     clean: true,
   },
   {
-    // @boldare/askdare/react (ADR-0011): client components for the user's own bundler.
-    entry: { react: 'src/react/index.ts' },
+    // @boldare/askdare/react (ADR-0011): client components for the user's own bundler, and
+    // @boldare/askdare/embed (ADR-0018) in the same build, so both share one copy of the chat's
+    // contexts: an app that imports both gets one chat, not two that can't see each other.
+    entry: { react: 'src/react/index.ts', embed: 'src/embed-root/index.ts' },
     format: 'esm',
     hash: false,
     platform: 'browser',

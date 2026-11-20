@@ -1,6 +1,7 @@
 // Size budgets of @boldare/askdare/react (ADR-0011), as an app's bundler would ship it: bundled
 // from dist/react.js with React left out, minified and gzipped. The whole entry (the default look
-// and the Markdown renderer included) and a headless page that uses only Root and useChat.
+// and the Markdown renderer included), a headless page that uses only Root and useChat, and the
+// page at a bot's embedPath with EmbedRoot (ADR-0018).
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -10,12 +11,19 @@ import { build } from 'vite';
 
 const pkg = join(dirname(fileURLToPath(import.meta.url)), '..');
 const entry = JSON.stringify(join(pkg, 'dist', 'react.js'));
+const embed = JSON.stringify(join(pkg, 'dist', 'embed.js'));
 const CASES = [
   { name: 'react.js', budget: 32 * 1024, source: `export * from ${entry};` },
   {
     name: 'headless (Root and useChat)',
     budget: 12 * 1024,
     source: `import { Root, useChat } from ${entry};\nexport { Root, useChat };`,
+  },
+  {
+    // The page at a bot's embedPath (ADR-0018): EmbedRoot, its bridge to the loader, and the hooks.
+    name: 'embed (EmbedRoot and useChat)',
+    budget: 14 * 1024,
+    source: `import { EmbedRoot } from ${embed};\nimport { useChat } from ${entry};\nexport { EmbedRoot, useChat };`,
   },
 ];
 

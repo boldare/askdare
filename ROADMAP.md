@@ -33,7 +33,7 @@ Compaction left 0.3 after spike S5b; see Later.
 | `toolRenderers` | React components for tool results, building on the reply-options payload. | [ADR-0017](docs/adr/0017-tool-renderers.md) |
 | `embedPath` | A custom UI inside the iframe, so the script-tag widget can use your own components and `toolRenderers`. | [ADR-0018](docs/adr/0018-embed-path.md) |
 
-Runtime language step 2 and `toolRenderers` are done (ADR-0017). `embedPath` is decided (ADR-0018) and built in two Core tasks: the server side (3b), then `EmbedRoot` (3c). Admin left 0.4 to keep it small; see Later.
+All three are done: runtime language step 2, `toolRenderers` (ADR-0017) and `embedPath` (ADR-0018). Admin left 0.4 to keep it small; see Later.
 
 ## Later
 
@@ -73,6 +73,6 @@ Work runs in parallel lanes. Tasks that touch the **hot files** run one at a tim
 | Deploy | What is left of the deploy buttons: the starter template repo for the Heroku button | No |
 | Decisions | ADRs and design notes, in parallel with everything. The 0.4 design notes are done (ADR-0017, ADR-0018) | No |
 | Spikes | Experiments in `spikes/`. For 0.4: S6, a `ModelGateway` for Claude | No |
-| Core | `embedPath`: the server side (3b), then `EmbedRoot` (3c) | **Yes**, one task at a time |
+| Core | Nothing left for 0.4 | **Yes**, one task at a time |
 
-Core work for 0.4 lands on `main` with `--no-ff`, or on an integration branch `release/0.4` if a task must not reach `main` before the release ([RELEASING.md](RELEASING.md)). `embedPath` is such a case: its server side (3b) is on `release/0.4`, so `main` can't ship it without `EmbedRoot` (3c). Both reach `main` together.
+Core work for 0.4 lands on `main` with `--no-ff`, or on an integration branch `release/0.4` if a task must not reach `main` before the release ([RELEASING.md](RELEASING.md)). `embedPath` was such a case: its server side (3b) waited on `release/0.4` for `EmbedRoot` (3c), and both reached `main` together.

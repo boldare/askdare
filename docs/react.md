@@ -236,7 +236,7 @@ export function Help({ config }: { config: Chat.ChatConfig }) {
 - **To act, send a message.** `actions.send(text)` sends the visitor's own words, exactly as if they had typed them; the model decides what happens, as always. A card can't run a tool or anything else by itself.
 - **No component, no card.** A tool without one shows nothing (the answer's text still tells the result), and the console says so once per tool. If a component throws, its card is left out and the chat goes on.
 - **Placement.** `DefaultChat` puts the cards under the answer's text. In your own markup, place `ToolResults` inside `MessageList`; style the cards yourself, with the chat's tokens (`var(--ask-color-border)` and the others) so they follow the theme.
-- **The script-tag widget** gets the payloads but has no components to draw them with: cards show only in the chat inside your page, for now.
+- **The script-tag widget** draws them too, for a bot that shows your own page in its iframe: render that page with `EmbedRoot` from `@boldare/askdare/embed` and the same `toolRenderers`. See [Embedding: your own page in the iframe](embedding.md#your-own-page-in-the-iframe).
 
 ### Hooks
 

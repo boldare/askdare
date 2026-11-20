@@ -30,6 +30,7 @@ v1 used an iframe, but it had a broken script API, `postMessage('*')` and no ori
   2. After `load`, it posts `init` with an explicit `targetOrigin` and transfers a `MessagePort`.
   3. The iframe checks `event.origin` against the allowlist, and the loader checks `event.source === iframe.contentWindow`.
   4. Messages are versioned (`v`), and unknown messages are ignored.
+  5. A chat page that runs after its load event (a site's own page, [ADR-0018](0018-embed-path.md)) asks with `askdare:hello`; the loader answers only its own iframe on the app's origin, with a new `init`.
 - **Storage:**
   - Best effort: partitioned `localStorage` inside the iframe, wrapped in try/catch.
   - Nothing is written before the visitor's first message. No cookies.

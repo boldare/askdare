@@ -216,6 +216,108 @@ An inline chat inside a React app has a hydration caveat. [Styling](styling.md#3
 
 In the Next.js app that serves the chat, you can also render it without an iframe, as React components in your own pages: see [The chat inside your page](react.md).
 
+## Your own page in the iframe
+
+By default the widget's iframe shows askdare's own page, built with the default look: it needs nothing from you and nothing on your side can break it. A bot can show a page of your app there instead, so the widget on every site that embeds it uses your own components and draws your [tool cards](react.md#tool-cards) ([ADR-0018](adr/0018-embed-path.md)). The snippet on those sites stays the same.
+
+**1. Point the bot at a page.** A path of your app, outside the chat route:
+
+```ts
+// askdare.config.ts
+defineBot({ id: 'support', /* … */ embedPath: '/askdare/support' });
+```
+
+The chat route now redirects the iframe there, with `lang` (for a bot with `locale: 'auto'`) and `mode=inline` (for an inline chat) in the query.
+
+**2. Give the page its own root layout.** Put it in a route group with its own `<html>` and `<body>`, so nothing of your site (its header, navigation, fonts, analytics or chat widget) renders or runs inside the widget on other sites. With a group of its own, your other pages move into a group too, such as `app/(site)/`:
+
+```tsx
+// app/(askdare)/layout.tsx
+import './frame.css'; // html, body { height: 100%; margin: 0 }
+
+export default function FrameLayout({ children }: { readonly children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  );
+}
+```
+
+**3. Render the chat with `EmbedRoot`.** The page reads its configuration in a Server Component; a client component renders it:
+
+```tsx
+// app/(askdare)/askdare/support/page.tsx
+import { getEmbedConfig } from '@boldare/askdare/next';
+import { Suspense } from 'react';
+import { bots } from '@/askdare.config';
+import { FramedChat } from './framed-chat';
+
+type Search = Promise<Record<string, string | string[] | undefined>>;
+
+export default function Page({ searchParams }: { searchParams: Search }) {
+  // With Cache Components (as in the starter), the request's data is read inside Suspense.
+  return (
+    <Suspense>
+      <Chat searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function Chat({ searchParams }: { searchParams: Search }) {
+  const config = getEmbedConfig({ bots, bot: 'support', searchParams: await searchParams });
+  return <FramedChat config={config} />;
+}
+```
+
+```tsx
+// app/(askdare)/askdare/support/framed-chat.tsx
+'use client';
+import { type EmbedChatConfig, EmbedRoot } from '@boldare/askdare/embed';
+import * as Chat from '@boldare/askdare/react';
+import { toolRenderers } from '@/components/tool-cards';
+
+export function FramedChat({ config }: { config: EmbedChatConfig }) {
+  return (
+    <EmbedRoot config={config} toolRenderers={toolRenderers}>
+      <Chat.DefaultChat className="framed-chat" />
+    </EmbedRoot>
+  );
+}
+```
+
+`EmbedRoot` connects to the loader on the embedding site exactly as askdare's own page does: `askdare('identify')`, `configure`, `on`, opening, closing and language switches all work. Inside it, `DefaultChat` is the page's main landmark with an `h1`, and shows a close button. Instead of `DefaultChat`, you can use an [ejected copy](react.md#eject-the-default-look) or [your own markup](react.md#your-own-markup).
+
+**4. Send the iframe page's headers.** Without them, any site could frame the page, and the microphone would follow your app's policy. Set them in `proxy.ts`, per request:
+
+```ts
+// proxy.ts
+import { embedPageHeaders } from '@boldare/askdare/next';
+import { type NextRequest, NextResponse } from 'next/server';
+import { bots } from './askdare.config';
+
+export function proxy(request: NextRequest) {
+  const response = NextResponse.next();
+  const bot = bots.find((item) => item.embedPath === request.nextUrl.pathname);
+  for (const { key, value } of bot ? embedPageHeaders({ bots, bot: bot.id }) : []) {
+    response.headers.set(key, value);
+  }
+  return response;
+}
+
+export const config = { matcher: '/askdare/:bot' };
+```
+
+Not `headers()` in `next.config.ts`, unless the allowed origins are written in your code: Next.js evaluates it when the app is built, so origins from the environment where it runs would be missing, and the widget wouldn't open on those sites. If you already have a `proxy.ts` that signs visitors in or rewrites paths (i18n), leave the page's path out of what it does: the page must answer without a redirect.
+
+**5. Check it.** Run `npx @boldare/askdare doctor --origin https://www.example.com`. It follows the redirect and checks the page: it answers without a redirect, renders `EmbedRoot`, may be framed by the app and every allowed origin and by nothing else, and keeps the microphone off unless the bot has voice input.
+
+Things to know:
+- **The page runs your scripts with the chat's origin,** as [the chat inside your page](react.md) does: they could read the visitor's session. Load no third-party scripts on it; the root layout of its own keeps your site's out.
+- **The page is rendered per request** (it reads its search parameters). Don't cache it.
+- **It opens a moment later** than askdare's own page: one redirect, and your page hydrates before the chat connects. Until then, the Send button stays off.
+- **In an app with `basePath`** in `next.config.ts`, include that prefix in `embedPath`.
+
 ## Staging and production
 
 Each environment usually embeds the chat on different sites. Read the list from an environment variable, for example `ASKDARE_ALLOWED_ORIGINS`, split on commas:

@@ -43,6 +43,21 @@ export interface RootProps {
   readonly children?: ReactNode;
 }
 
+/** Refuses a config that would make the chat talk to, or load styles from, anywhere but its route. */
+export function checkConfig(config: ChatConfig): void {
+  if (!isBasePath(config.basePath)) {
+    throw new TypeError(
+      `[askdare] The chat's basePath must be a path on this app, like /api/chat; got "${config.basePath}".`,
+    );
+  }
+  // The stylesheets come from the same route: a config must not point them anywhere else.
+  for (const href of Object.values(config.styles ?? {})) {
+    if (!href.startsWith(`${config.basePath}/`) || href.includes('//') || href.includes('\\')) {
+      throw new TypeError(`[askdare] The chat's stylesheets must come from ${config.basePath}.`);
+    }
+  }
+}
+
 /**
  * Runs one bot's chat for the components inside it, without rendering any element. Its props
  * take what `askdare('identify')` and `askdare('configure')` take, checked the same way.
@@ -57,17 +72,7 @@ export function Root({
   toolRenderers,
   children,
 }: RootProps): ReactElement {
-  if (!isBasePath(config.basePath)) {
-    throw new TypeError(
-      `[askdare] The chat's basePath must be a path on this app, like /api/chat; got "${config.basePath}".`,
-    );
-  }
-  // The stylesheets come from the same route: a config must not point them anywhere else.
-  for (const href of Object.values(config.styles ?? {})) {
-    if (!href.startsWith(`${config.basePath}/`) || href.includes('//') || href.includes('\\')) {
-      throw new TypeError(`[askdare] The chat's stylesheets must come from ${config.basePath}.`);
-    }
-  }
+  checkConfig(config);
   const page: PageOptions = pageOptions({ greeting, starters, context });
   // One chat per bot and route: another language switches the same chat in place (ADR-0014).
   const id = `${config.basePath} ${config.botId}`;

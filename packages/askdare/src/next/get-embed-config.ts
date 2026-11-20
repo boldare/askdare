@@ -1,5 +1,5 @@
 import type { Bot } from '../bot/define-bot';
-import type { ChatConfig } from '../chat/config';
+import type { EmbedChatConfig } from '../chat/config';
 import { embedPermissionsPolicy, frameAncestors } from '../server/embed-page';
 import { getChatConfig } from './get-chat-config';
 
@@ -17,14 +17,6 @@ export interface EmbedConfigOptions {
   readonly basePath?: string;
   /** The page's search parameters: the chat route passes the language and the mode in them. */
   readonly searchParams: EmbedSearchParams;
-}
-
-/** What `EmbedRoot` from `@boldare/askdare/embed` needs: public, like `getChatConfig`'s. */
-export interface EmbedChatConfig extends ChatConfig {
-  /** Origins whose pages may hand the chat its connection to the loader (ADR-0005). */
-  readonly allowedOrigins: readonly string[];
-  /** `inline` inside an element of the host page, `floating` in the widget's panel. */
-  readonly mode: 'floating' | 'inline';
 }
 
 const first = (params: EmbedSearchParams, name: string): string | undefined => {

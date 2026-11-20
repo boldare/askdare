@@ -157,21 +157,9 @@ By default the widget's iframe shows askdare's own page, which needs nothing fro
 
 The page must send the headers askdare's own page sends. `@boldare/askdare/next` gives you both halves:
 - `getEmbedConfig({ bots, bot, searchParams })` reads the language and the mode from the page's search parameters and returns the bot's public configuration, its allowed origins and the mode.
-- `embedPageHeaders({ bots, bot })` returns the page's headers for `headers()` in `next.config.ts`: `frame-ancestors` with the app and `security.allowedOrigins`, a `Permissions-Policy` that keeps the microphone off unless the bot has voice input, and `Referrer-Policy: strict-origin`.
+- `embedPageHeaders({ bots, bot })` returns the page's headers: `frame-ancestors` with the app and `security.allowedOrigins`, a `Permissions-Policy` that keeps the microphone off unless the bot has voice input, and `Referrer-Policy: strict-origin`. Send them from `proxy.ts`.
 
-```ts
-// next.config.ts
-import { embedPageHeaders } from '@boldare/askdare/next';
-import { bots } from './askdare.config';
-
-export default {
-  async headers() {
-    return [{ source: '/askdare/support', headers: embedPageHeaders({ bots, bot: 'support' }) }];
-  },
-};
-```
-
-The page itself renders `EmbedRoot` from `@boldare/askdare/embed`, which arrives in a later 0.4 step. `npx @boldare/askdare doctor` follows the redirect and checks the page: no login or redirect in front of it, `EmbedRoot` on it, who may frame it and the microphone rule.
+The page renders `EmbedRoot` from `@boldare/askdare/embed`. [Embedding: your own page in the iframe](embedding.md#your-own-page-in-the-iframe) walks through it. `npx @boldare/askdare doctor` follows the redirect and checks the page: no login or redirect in front of it, `EmbedRoot` on it, who may frame it and the microphone rule.
 
 ### Limits
 
