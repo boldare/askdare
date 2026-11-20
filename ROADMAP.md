@@ -75,4 +75,4 @@ Work runs in parallel lanes. Tasks that touch the **hot files** run one at a tim
 | Spikes | Experiments in `spikes/`. For 0.4: S6, a `ModelGateway` for Claude | No |
 | Core | `embedPath`: the server side (3b), then `EmbedRoot` (3c) | **Yes**, one task at a time |
 
-Core work for 0.4 lands on `main` with `--no-ff`, or on an integration branch `release/0.4` if a task must not reach `main` before the release ([RELEASING.md](RELEASING.md)).
+Core work for 0.4 lands on `main` with `--no-ff`, or on an integration branch `release/0.4` if a task must not reach `main` before the release ([RELEASING.md](RELEASING.md)). `embedPath` is such a case: its server side (3b) is on `release/0.4`, so `main` can't ship it without `EmbedRoot` (3c). Both reach `main` together.

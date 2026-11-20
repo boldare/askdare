@@ -16,3 +16,10 @@ export type {
 export { createChatHandler } from './create-chat-handler';
 export type { ChatConfigOptions } from './get-chat-config';
 export { getChatConfig } from './get-chat-config';
+export type {
+  EmbedChatConfig,
+  EmbedConfigOptions,
+  EmbedPageHeader,
+  EmbedSearchParams,
+} from './get-embed-config';
+export { embedPageHeaders, getEmbedConfig } from './get-embed-config';

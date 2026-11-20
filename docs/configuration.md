@@ -86,6 +86,7 @@ export const { GET, POST, DELETE } = createChatHandler({
 | `attachments` | `AttachmentConfig` | off | Images and PDFs from visitors. See [Attachments](#attachments). |
 | `voice` | `VoiceConfig` | off | Dictation. See [Voice](#voice). |
 | `security` | `BotSecurity` | own origin only | Sites that may embed the chat. See [Security](#security). |
+| `embedPath` | `string` | off: askdare's own page | A page of this app to show in the widget's iframe instead of askdare's, such as `/askdare/support`. A path of the app, outside the chat route, without a query, a fragment or `.`/`..` segments. See [Your own page in the iframe](#your-own-page-in-the-iframe). |
 | `limits` | `BotLimits` | see [Limits](#limits) | Rates and budgets. |
 | `widget` | `WidgetConfig` | see [Widget](#widget) | Texts, language and look. |
 
@@ -149,6 +150,28 @@ Each entry must be an origin exactly as a browser writes it:
 The list holds at most 50 origins. Duplicates are dropped. A wrong entry fails with "must be an https origin like https://www.example.com (no path or wildcard; http only for localhost)".
 
 To check that a site may embed the chat, run `npx @boldare/askdare doctor --origin https://www.example.com`.
+
+### Your own page in the iframe
+
+By default the widget's iframe shows askdare's own page, which needs nothing from you. With `embedPath`, it shows a page of your app instead, so the widget on other sites can use your own components and [tool cards](react.md#tool-cards) ([ADR-0018](adr/0018-embed-path.md)). The chat route redirects the iframe to that path, with the visitor's language (`lang`, for a bot with `locale: 'auto'`) and the mode (`mode=inline`) in the query; the loader on the embedding site doesn't change. The redirect goes to `embedPath` exactly as you write it, so in an app with `basePath` in `next.config.ts` include that prefix (`/help/askdare/support`).
+
+The page must send the headers askdare's own page sends. `@boldare/askdare/next` gives you both halves:
+- `getEmbedConfig({ bots, bot, searchParams })` reads the language and the mode from the page's search parameters and returns the bot's public configuration, its allowed origins and the mode.
+- `embedPageHeaders({ bots, bot })` returns the page's headers for `headers()` in `next.config.ts`: `frame-ancestors` with the app and `security.allowedOrigins`, a `Permissions-Policy` that keeps the microphone off unless the bot has voice input, and `Referrer-Policy: strict-origin`.
+
+```ts
+// next.config.ts
+import { embedPageHeaders } from '@boldare/askdare/next';
+import { bots } from './askdare.config';
+
+export default {
+  async headers() {
+    return [{ source: '/askdare/support', headers: embedPageHeaders({ bots, bot: 'support' }) }];
+  },
+};
+```
+
+The page itself renders `EmbedRoot` from `@boldare/askdare/embed`, which arrives in a later 0.4 step. `npx @boldare/askdare doctor` follows the redirect and checks the page: no login or redirect in front of it, `EmbedRoot` on it, who may frame it and the microphone rule.
 
 ### Limits
 

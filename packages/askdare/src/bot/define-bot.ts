@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isEmbedPath } from '../base-path';
 import { canonicalLocale, TEXT_KEYS, type TextKey, textLocale, textsFor } from '../i18n/texts';
 import type { VisitorIdentity } from '../security/identity';
 import { PRESET_NAMES, type PresetName } from '../theme/presets';
@@ -213,6 +214,13 @@ export interface BotDefinition {
   readonly voice?: VoiceConfig | undefined;
   readonly security?: BotSecurity;
   readonly widget?: WidgetConfig;
+  /**
+   * A page of this app to show in the widget's iframe instead of askdare's own, such as
+   * `/askdare/support` (ADR-0018): the chat route redirects the iframe there. Render it with
+   * `EmbedRoot` from `@boldare/askdare/embed` and `getEmbedConfig`, and send `embedPageHeaders`
+   * with it. Off when absent: askdare's page, which needs nothing from you.
+   */
+  readonly embedPath?: string | undefined;
 }
 
 export interface Bot {
@@ -227,6 +235,7 @@ export interface Bot {
   readonly voice: Required<VoiceConfig> | undefined;
   readonly security: { readonly allowedOrigins: readonly string[] };
   readonly widget: BotWidget;
+  readonly embedPath: string | undefined;
 }
 
 const DEFAULT_LIMITS: Required<BotLimits> = {
@@ -404,6 +413,10 @@ const definitionSchema = z.object({
     })
     .optional(),
   security: z.object({ allowedOrigins: z.array(origin).max(50).optional() }).optional(),
+  embedPath: z
+    .string()
+    .refine(isEmbedPath, 'must be a path of this app like /askdare/support')
+    .optional(),
   widget: z
     .object({
       title: z.string().trim().min(1).max(80).optional(),
@@ -529,6 +542,7 @@ export function defineBot(definition: BotDefinition): Bot {
     security: Object.freeze({
       allowedOrigins: Object.freeze([...new Set(definition.security?.allowedOrigins ?? [])]),
     }),
+    embedPath: definition.embedPath,
     widget: Object.freeze({
       title: texts['header.title'] ?? '',
       subtitle: widget.subtitle ?? '',

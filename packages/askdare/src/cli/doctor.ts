@@ -1,7 +1,12 @@
 import { readFile } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { parseEnv } from 'node:util';
-import { type DoctorCheck, type DoctorReport, doctorReportSchema } from '../protocol/doctor';
+import {
+  type BotEmbed,
+  type DoctorCheck,
+  type DoctorReport,
+  doctorReportSchema,
+} from '../protocol/doctor';
 import { createIdentityVerifier } from '../security/identity';
 import { createTokenService } from '../security/tokens';
 import {
@@ -245,20 +250,138 @@ function redirectOrMissing(response: Response, url: string): DoctorCheck | undef
   return undefined;
 }
 
+/** The sources of the response's `frame-ancestors`, one list per policy that sets it. */
+function frameAncestorsOf(response: Response): string[][] {
+  const policy = response.headers.get('content-security-policy') ?? '';
+  return [...policy.matchAll(/frame-ancestors\s+([^;,]*)/g)].map((match) =>
+    (match[1] ?? '').trim().split(/\s+/).filter(Boolean),
+  );
+}
+
+/** Whether `origin` may frame a page whose `frame-ancestors` sources are these. */
+const mayFrame = (sources: readonly string[], origin: string, appOrigin: string): boolean =>
+  sources.includes(origin) || (origin === appOrigin && sources.includes("'self'"));
+
+const EMBED_HEADERS_FIX = (path: string, botId: string): string =>
+  `Send embedPageHeaders({ bots, bot: '${botId}' }) from @boldare/askdare/next for ${path} in the headers() of next.config.`;
+
+/**
+ * A bot's own page in the widget's iframe (ADR-0018): reachable without a login or a redirect,
+ * rendered with EmbedRoot, framed only by the app and the bot's allowed origins, and with the
+ * microphone off unless the bot has voice input.
+ */
+async function embedPage(
+  fetcher: typeof fetch,
+  base: string,
+  botId: string,
+  embed: BotEmbed,
+  origin: string | undefined,
+): Promise<DoctorCheck[]> {
+  const appOrigin = new URL(base).origin;
+  const url = `${appOrigin}${embed.path}`;
+  const page = await request(fetcher, url);
+  if (!(page instanceof Response)) return [page];
+  const pageFix = `Leave ${embed.path} out of proxy.ts (its matcher) and of anything that signs visitors in or rewrites the path.`;
+  const missing = redirectOrMissing(page, url);
+  if (missing) {
+    await page.body?.cancel();
+    return [{ ...missing, fix: pageFix }];
+  }
+  if (!page.ok) {
+    await page.body?.cancel();
+    return [fail(`${url} answered HTTP ${page.status}.`, pageFix)];
+  }
+  const checks: DoctorCheck[] = [];
+  const html = await page.text();
+  checks.push(
+    html.includes('data-askdare-embed')
+      ? ok(`${embed.path} renders the chat.`)
+      : fail(
+          `${embed.path} doesn't render EmbedRoot.`,
+          'Render <EmbedRoot config={getEmbedConfig(…)}> from @boldare/askdare/embed on that page.',
+        ),
+  );
+  const fix = EMBED_HEADERS_FIX(embed.path, botId);
+  const ancestors = frameAncestorsOf(page);
+  const sources = ancestors[0] ?? [];
+  const allowed = new Set(["'self'", appOrigin, ...embed.allowedOrigins]);
+  const wider = sources.filter((source) => !allowed.has(source));
+  // The app's own pages need it too: the widget there opens the same page.
+  const absent = [
+    ...(mayFrame(sources, appOrigin, appOrigin) ? [] : [appOrigin]),
+    ...embed.allowedOrigins.filter((item) => !sources.includes(item)),
+  ];
+  if (page.headers.has('x-frame-options')) {
+    checks.push(fail(`X-Frame-Options on ${embed.path} stops sites from embedding it.`, fix));
+  } else if (ancestors.length !== 1) {
+    checks.push(
+      fail(
+        ancestors.length === 0
+          ? `Any site can frame ${embed.path}: it has no frame-ancestors policy.`
+          : `A second Content-Security-Policy on ${embed.path} overrides who may frame it.`,
+        fix,
+      ),
+    );
+  } else if (wider.length > 0) {
+    checks.push(
+      fail(`${embed.path} may be framed by more than the bot allows: ${wider.join(' ')}`, fix),
+    );
+  } else if (absent.length > 0) {
+    checks.push(
+      fail(
+        `${absent.join(', ')} may not frame ${embed.path}, so the widget can't open there.`,
+        fix,
+      ),
+    );
+  } else {
+    checks.push(ok(`Sites that may frame ${embed.path}: ${sources.join(' ')}`));
+  }
+  if (origin !== undefined && ancestors.length === 1) {
+    checks.push(
+      mayFrame(sources, origin, appOrigin)
+        ? ok(`${origin} may embed the chat.`)
+        : fail(
+            `${origin} may not embed the chat: it isn't in the bot's security.allowedOrigins.`,
+            `Add '${origin}' to security.allowedOrigins of bot "${botId}" and deploy.`,
+          ),
+    );
+  }
+  const microphone = /(?:^|,)\s*microphone=([^,]*)/
+    .exec(page.headers.get('permissions-policy') ?? '')?.[1]
+    ?.trim();
+  if (!embed.voice && microphone !== '()') {
+    checks.push(
+      fail(`${embed.path} doesn't keep the microphone off for a bot without voice input.`, fix),
+    );
+  } else if (embed.voice && !/\bself\b|\*/.test(microphone ?? '')) {
+    checks.push(warn(`${embed.path} doesn't allow the microphone, so dictation won't start.`, fix));
+  }
+  if (page.headers.has('set-cookie')) {
+    checks.push(
+      warn(
+        `Something sets cookies on ${embed.path}.`,
+        'askdare uses no cookies; scripts on the page could read them with the chat.',
+      ),
+    );
+  }
+  return checks;
+}
+
 /** What the browser needs from widget.js and the chat page; things in front of askdare can break it. */
 async function headers(
   fetcher: typeof fetch,
   base: string,
   botId: string,
   origin: string | undefined,
+  embed: BotEmbed | undefined,
 ): Promise<DoctorCheck[]> {
   const checks: DoctorCheck[] = [];
   const loaderUrl = `${base}/widget.js?bot=${botId}`;
   const loader = await request(fetcher, loaderUrl);
   if (!(loader instanceof Response)) return [loader];
   const embedUrl = `${base}/embed/${botId}`;
-  const embed = await request(fetcher, embedUrl);
-  if (!(embed instanceof Response)) return [embed];
+  const embedResponse = await request(fetcher, embedUrl);
+  if (!(embedResponse instanceof Response)) return [embedResponse];
 
   const loaderProblem = redirectOrMissing(loader, loaderUrl);
   if (loaderProblem) checks.push(loaderProblem);
@@ -270,46 +393,55 @@ async function headers(
     checks.push(ok('widget.js loads.'));
   }
 
-  const embedProblem = redirectOrMissing(embed, embedUrl);
-  if (embedProblem) {
-    checks.push(embedProblem);
-  } else if (!embed.ok) {
-    checks.push(fail(`${embedUrl} answered HTTP ${embed.status}.`, PROXY_FIX));
-  } else {
-    const policy = embed.headers.get('content-security-policy') ?? '';
-    const ancestors = [...policy.matchAll(/frame-ancestors\s+([^;,]*)/g)].map((match) =>
-      match[1]?.trim(),
-    );
-    const fix = 'Leave /api/chat out of the headers() in next.config and of proxy.ts.';
-    // A site that should embed the chat: the app itself ('self') or one of the bot's allowed origins.
-    if (origin !== undefined && ancestors.length === 1) {
-      const allowed = (ancestors[0] ?? '').split(/\s+/);
-      const self = new URL(base).origin === origin;
-      checks.push(
-        self || allowed.includes(origin)
-          ? ok(`${origin} may embed the chat.`)
-          : fail(
-              `${origin} may not embed the chat: it isn't in the bot's security.allowedOrigins.`,
-              `Add '${origin}' to security.allowedOrigins of bot "${botId}" and deploy.`,
-            ),
-      );
-    }
-    if (embed.headers.has('x-frame-options')) {
-      checks.push(fail('X-Frame-Options on the chat page stops sites from embedding it.', fix));
-    } else if (ancestors.length !== 1) {
-      checks.push(
-        fail(
-          ancestors.length === 0
-            ? 'The chat page lost its frame-ancestors policy.'
-            : 'A second Content-Security-Policy on the chat page overrides who may embed it.',
-          fix,
-        ),
-      );
+  if (embed) {
+    // The route sends the iframe to the bot's own page (ADR-0018).
+    const location = embedResponse.headers.get('location') ?? '';
+    if (
+      embedResponse.status === 302 &&
+      (location === embed.path || location.startsWith(`${embed.path}?`))
+    ) {
+      checks.push(ok(`The widget opens ${embed.path}.`));
+      checks.push(...(await embedPage(fetcher, base, botId, embed, origin)));
     } else {
-      checks.push(ok(`Sites that may embed the chat: ${ancestors[0]}`));
+      checks.push(fail(`${embedUrl} doesn't send the widget to ${embed.path}.`, PROXY_FIX));
+    }
+  } else {
+    const embedProblem = redirectOrMissing(embedResponse, embedUrl);
+    if (embedProblem) {
+      checks.push(embedProblem);
+    } else if (!embedResponse.ok) {
+      checks.push(fail(`${embedUrl} answered HTTP ${embedResponse.status}.`, PROXY_FIX));
+    } else {
+      const ancestors = frameAncestorsOf(embedResponse);
+      const fix = 'Leave /api/chat out of the headers() in next.config and of proxy.ts.';
+      // A site that should embed the chat: the app itself ('self') or one of the bot's allowed origins.
+      if (origin !== undefined && ancestors.length === 1) {
+        checks.push(
+          mayFrame(ancestors[0] ?? [], origin, new URL(base).origin)
+            ? ok(`${origin} may embed the chat.`)
+            : fail(
+                `${origin} may not embed the chat: it isn't in the bot's security.allowedOrigins.`,
+                `Add '${origin}' to security.allowedOrigins of bot "${botId}" and deploy.`,
+              ),
+        );
+      }
+      if (embedResponse.headers.has('x-frame-options')) {
+        checks.push(fail('X-Frame-Options on the chat page stops sites from embedding it.', fix));
+      } else if (ancestors.length !== 1) {
+        checks.push(
+          fail(
+            ancestors.length === 0
+              ? 'The chat page lost its frame-ancestors policy.'
+              : 'A second Content-Security-Policy on the chat page overrides who may embed it.',
+            fix,
+          ),
+        );
+      } else {
+        checks.push(ok(`Sites that may embed the chat: ${(ancestors[0] ?? []).join(' ')}`));
+      }
     }
   }
-  if (loader.headers.has('set-cookie') || embed.headers.has('set-cookie')) {
+  if (loader.headers.has('set-cookie') || embedResponse.headers.has('set-cookie')) {
     checks.push(
       warn(
         "Something sets cookies on askdare's responses.",
@@ -317,7 +449,7 @@ async function headers(
       ),
     );
   }
-  await Promise.all([loader.body?.cancel(), embed.body?.cancel()]);
+  await Promise.all([loader.body?.cancel(), embedResponse.body?.cancel()]);
   return checks;
 }
 
@@ -424,7 +556,7 @@ async function live(
       title: `Bot "${bot.id}"`,
       checks: [
         ...bot.checks,
-        ...(await headers(fetcher, base, bot.id, options.origin)),
+        ...(await headers(fetcher, base, bot.id, options.origin, bot.embed)),
         ...timeout(bot, routeSeconds),
       ],
     });

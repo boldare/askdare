@@ -6,3 +6,17 @@
 export function isBasePath(value: string): boolean {
   return /^(\/[a-zA-Z0-9._~-]+)+$/.test(value);
 }
+
+/**
+ * Whether a bot's `embedPath` is a page of the same app, like `/askdare/support` (ADR-0018): a
+ * path as `isBasePath` accepts it, without `.` or `..` segments, so a redirect to it can't leave
+ * the app or climb out of where it points.
+ */
+export function isEmbedPath(value: string): boolean {
+  return isBasePath(value) && !value.split('/').some((segment) => /^\.{1,2}$/.test(segment));
+}
+
+/** Whether `path` is `basePath` itself or inside it. */
+export function isInside(path: string, basePath: string): boolean {
+  return path === basePath || path.startsWith(`${basePath}/`);
+}
