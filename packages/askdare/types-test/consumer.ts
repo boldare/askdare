@@ -8,7 +8,12 @@ import {
   type ToolContext,
   type VisitorIdentity,
 } from '@boldare/askdare';
-import { createChatHandler } from '@boldare/askdare/next';
+import {
+  createChatHandler,
+  type EmbedChatConfig,
+  embedPageHeaders,
+  getEmbedConfig,
+} from '@boldare/askdare/next';
 import { z } from 'zod';
 
 const lookup = defineTool({
@@ -63,3 +68,21 @@ export const bots = [
 export const { GET, POST, DELETE } = createChatHandler({ bots, gallery: false });
 
 export const nobody: VisitorIdentity | undefined = undefined;
+
+// Your own page in the widget's iframe (ADR-0018).
+export const framed = defineBot({
+  id: 'framed',
+  model: 'a-current-model',
+  instructions: 'x',
+  embedPath: '/askdare/framed',
+});
+export const embedConfig: EmbedChatConfig = getEmbedConfig({
+  bots: [framed],
+  bot: 'framed',
+  searchParams: { lang: 'pl', mode: undefined },
+});
+export const mode: 'floating' | 'inline' = embedConfig.mode;
+export const nextHeaders: { key: string; value: string }[] = embedPageHeaders({
+  bots: [framed],
+  bot: 'framed',
+});

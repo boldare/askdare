@@ -6,6 +6,7 @@ import { defineBot } from '../bot/define-bot';
 import type { ModelGateway } from '../gateway';
 import { createLimits } from '../limits/limits';
 import { memoryStore } from '../limits/store';
+import { embedPageHeaders } from '../next/get-embed-config';
 import { createTokenService } from '../security/tokens';
 import type { EmbedAssets } from '../server/embed-page';
 import { createRequestHandler, type HandlerConfig } from '../server/handler';
@@ -141,6 +142,100 @@ describe('askdare doctor', () => {
       '✗ X-Frame-Options on the chat page stops sites from embedding it.',
     );
     expect(blocked.text).toContain("! Something sets cookies on askdare's responses.");
+  });
+
+  describe("a bot's own page in the iframe (ADR-0018)", () => {
+    const bots = [
+      defineBot({
+        id: 'support',
+        model: 'gpt-test',
+        instructions: 'x',
+        security: { allowedOrigins: ['https://www.example.com'] },
+        embedPath: '/askdare/support',
+      }),
+    ];
+    const GOOD_HTML = '<html><body><div data-askdare-embed="">…</div></body></html>';
+    /** The app, with the page at embedPath answered as `page` says. */
+    const withPage =
+      (page: (request: Request) => Response) =>
+      (request: Request): Promise<Response> =>
+        new URL(request.url).pathname === '/askdare/support'
+          ? Promise.resolve(page(request))
+          : app({ bots, development: true })(request);
+    const headersOf = (entries: readonly { key: string; value: string }[]) =>
+      Object.fromEntries(entries.map(({ key, value }) => [key, value]));
+
+    it('follows the redirect and passes a page with EmbedRoot and the headers', async () => {
+      const handle = withPage(
+        () =>
+          new Response(GOOD_HTML, {
+            headers: {
+              'content-type': 'text/html',
+              ...headersOf(embedPageHeaders({ bots, bot: 'support' })),
+            },
+          }),
+      );
+      output = [];
+      const { failures, text } = await run(handle);
+      expect(failures).toBe(0);
+      expect(text).toContain('✓ The widget opens /askdare/support.');
+      expect(text).toContain('✓ /askdare/support renders the chat.');
+      expect(text).toContain(
+        "✓ Sites that may frame /askdare/support: 'self' https://www.example.com",
+      );
+    });
+
+    it('fails a page behind a login, without EmbedRoot, framable by anyone or with the microphone on', async () => {
+      const login = await run(
+        withPage(() => new Response(null, { status: 307, headers: { location: '/login' } })),
+      );
+      expect(login.text).toContain(`✗ ${URL_BASE}/askdare/support redirects to /login.`);
+      expect(login.text).toContain('proxy.ts');
+
+      output = [];
+      const bare = await run(withPage(() => new Response('<html></html>', { headers: {} })));
+      expect(bare.text).toContain("✗ /askdare/support doesn't render EmbedRoot.");
+      expect(bare.text).toContain(
+        '✗ Any site can frame /askdare/support: it has no frame-ancestors policy.',
+      );
+      expect(bare.text).toContain(
+        "✗ /askdare/support doesn't keep the microphone off for a bot without voice input.",
+      );
+      expect(bare.text).toContain("embedPageHeaders({ bots, bot: 'support' })");
+
+      output = [];
+      const wide = await run(
+        withPage(
+          () =>
+            new Response(GOOD_HTML, {
+              headers: {
+                'content-security-policy': "frame-ancestors 'self' https://www.example.com *",
+                'permissions-policy': 'microphone=()',
+              },
+            }),
+        ),
+        { url: URL_BASE },
+      );
+      expect(wide.text).toContain(
+        '✗ /askdare/support may be framed by more than the bot allows: *',
+      );
+
+      output = [];
+      const narrow = await run(
+        withPage(
+          () =>
+            new Response(GOOD_HTML, {
+              headers: {
+                'content-security-policy': "frame-ancestors 'self'",
+                'permissions-policy': 'microphone=()',
+              },
+            }),
+        ),
+      );
+      expect(narrow.text).toContain(
+        "✗ https://www.example.com may not frame /askdare/support, so the widget can't open there.",
+      );
+    });
   });
 
   it('explains a CHAT_SECRET that differs from the app, and an app that is down', async () => {

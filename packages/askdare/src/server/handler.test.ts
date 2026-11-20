@@ -284,6 +284,72 @@ describe('static routes', () => {
     expect(new TextDecoder().decode(await font.arrayBuffer())).toBe('wOF2font');
   });
 
+  describe("a bot's own page in the iframe (ADR-0018)", () => {
+    const framed = (gallery = false) =>
+      createRequestHandler({
+        bots: [
+          defineBot({ id: 'own', model: 'm', instructions: 'x', embedPath: '/askdare/own' }),
+          defineBot({
+            id: 'own-auto',
+            model: 'm',
+            instructions: 'x',
+            embedPath: '/askdare/auto',
+            widget: { locale: 'auto' },
+          }),
+        ],
+        basePath: '/api/chat',
+        assets,
+        gateway: () => gateway,
+        tokens: async () => tokens,
+        limits: createLimits({ store: memoryStore() }),
+        clientIp: () => 'test',
+        onError: () => {},
+        gallery,
+      });
+
+    it('sends the iframe there with only the language and the mode, never cached', async () => {
+      const fixed = await framed()(
+        new Request(`${BASE}/embed/own?lang=pl&mode=inline&gallery=welcome&x=<y>`),
+      );
+      expect(fixed.status).toBe(302);
+      // A bot with a fixed language keeps it, so the page needs no lang.
+      expect(fixed.headers.get('location')).toBe('/askdare/own?mode=inline');
+      expect(fixed.headers.get('cache-control')).toBe('no-store');
+
+      const fromPage = await framed()(
+        new Request(`${BASE}/embed/own-auto?lang=pl-PL&mode=floating`),
+      );
+      expect(fromPage.headers.get('location')).toBe('/askdare/auto?lang=pl-PL');
+      const fromBrowser = await framed()(
+        new Request(`${BASE}/embed/own-auto`, { headers: { 'accept-language': 'de-DE,de;q=0.9' } }),
+      );
+      expect(fromBrowser.headers.get('location')).toBe('/askdare/auto?lang=de-DE');
+    });
+
+    it("keeps askdare's page for the gallery and for bots without embedPath", async () => {
+      const gallery = await framed(true)(new Request(`${BASE}/embed/own?gallery=streaming`));
+      expect(gallery.status).toBe(200);
+      expect(await gallery.text()).toContain('"gallery":"streaming"');
+      expect((await handler(new Request(`${BASE}/embed/support`))).status).toBe(200);
+    });
+
+    it('refuses an embedPath inside the chat route', () => {
+      for (const embedPath of ['/api/chat', '/api/chat/embed/own']) {
+        expect(() =>
+          createRequestHandler({
+            bots: [defineBot({ id: 'own', model: 'm', instructions: 'x', embedPath })],
+            basePath: '/api/chat',
+            assets,
+            gateway: () => gateway,
+            tokens: async () => tokens,
+            limits: createLimits({ store: memoryStore() }),
+            clientIp: () => 'test',
+          }),
+        ).toThrow(/embedPath must be a page outside \/api\/chat/);
+      }
+    });
+  });
+
   it('ignores gallery parameters unless gallery mode is on', async () => {
     const html = await (
       await handler(new Request(`${BASE}/embed/support?gallery=streaming&preset=sage&scheme=dark`))

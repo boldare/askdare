@@ -121,6 +121,7 @@ Without `--env-file`, `doctor` reads the environment the way `next dev` does: va
 | Attachments | Only with `attachments`: the key can upload and delete a small file. | Files: Write |
 | Headers | `widget.js?bot=<id>` answers with JavaScript, and the chat page answers without a redirect, without `X-Frame-Options` and with exactly one `frame-ancestors`. It lists the sites that may embed the chat, and warns when something sets cookies. | |
 | `--origin` | The site is the app itself or is in the bot's `security.allowedOrigins`. | |
+| Your own page | Only with `embedPath`: the chat page redirects to it, and the page answers without a redirect (a login or a `proxy.ts` rewrite), renders `EmbedRoot`, has exactly one `frame-ancestors` that lists the app and every allowed origin and nothing more, and keeps the microphone off for a bot without voice input. The fixes name `embedPageHeaders`. | |
 | Timeout | The route's `maxDuration` is at least the bot's `limits.turnTimeoutMs` plus 15 seconds. Otherwise it's a warning. | |
 
 `doctor` also says when OpenAI rejects the key, or when the project is out of credit. Each run makes a few small OpenAI requests per bot, and everything it creates is deleted straight away. The app accepts one run at a time, and at most 3 a minute.
