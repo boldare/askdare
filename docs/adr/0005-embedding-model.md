@@ -53,4 +53,6 @@ v1 used an iframe, but it had a broken script API, `postMessage('*')` and no ori
 - **Embed page rendered inside the user's Next app.** Rejected for 0.1: the host layout and proxy can break it. It was planned for 0.2 as an opt-in `embedPath`.
 
   Update (2026-11-10): `embedPath` moves to 0.3. 0.2 adds the chat inside a page of the same app instead ([ADR-0011](0011-react-api-and-inline-chat.md)), and `embedPath` builds on its primitives.
+
+  Update (2026-11-20): decided in [ADR-0018](0018-embed-path.md) as an opt-in per bot. The library's page stays the default, and the loader doesn't change: the route redirects to the bot's page.
 - **npm React component only.** Rejected: it doesn't serve non-React hosts.

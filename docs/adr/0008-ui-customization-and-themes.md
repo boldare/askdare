@@ -29,6 +29,8 @@ Update (2026-11-10): `toolRenderers` (React components for tool results) and `em
 
 Update (2026-11-16): both move again, to 0.4, so that reply options ([ADR-0015](0015-reply-options.md)), the first slice of `toolRenderers`, get feedback in 0.3 first.
 
+Update (2026-11-20): `toolRenderers` is [ADR-0017](0017-tool-renderers.md), and `embedPath` is [ADR-0018](0018-embed-path.md): a site's own page in the widget's iframe, opt-in per bot.
+
 ### Rules
 
 - **Two kinds of configuration.** Server config (model, instructions, tools, limits, secrets) and public config (`widget`) have separate types. Only the public part reaches the browser: the embed page (`GET <basePath>/embed/<bot>`) inlines it as JSON, and a unit test checks that the model, instructions, tools and vector store never appear in it.
