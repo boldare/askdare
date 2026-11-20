@@ -243,6 +243,7 @@ export function Help({ config }: { config: Chat.ChatConfig }) {
 - **`useChat()`** returns `{ state, actions, bot, t }` and re-renders on every change.
 - **`useChatState(select)`** returns one value and re-renders only when it changes: `useChatState((state) => state.busy)`. Return a value from the state, not a new object.
 - **`useMessage()`** returns the message being rendered, inside `MessageList`.
+- **`useFrame()`** returns `{ close }` inside `EmbedRoot`, on your own page in the widget's iframe, and `null` everywhere else. `close` asks the widget to close its panel (undefined for an inline chat). The default look, ejected or not, uses it to become the page's main landmark with a close button; your own markup can use it for its close button. See [Embedding](embedding.md#your-own-page-in-the-iframe).
 
 | `state` | Meaning |
 | --- | --- |

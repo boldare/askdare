@@ -1,5 +1,5 @@
-import { type ReactElement, useContext } from 'react';
-import { FrameContext, useStore } from './context';
+import type { ReactElement } from 'react';
+import { useStore } from './context';
 import { DefaultPanel, type DefaultPanelProps } from './skin';
 import { Theme, type ThemeProps } from './theme';
 
@@ -15,22 +15,11 @@ export interface DefaultChatProps extends DefaultPanelProps {
  */
 export function DefaultChat({ className, colorScheme, ...panel }: DefaultChatProps): ReactElement {
   const { styles } = useStore().config;
-  // In the widget's iframe the chat is the document, as askdare's own page is (ADR-0018).
-  const frame = useContext(FrameContext);
   return (
     // data-ask-skin: the skin's rules reach only inside this element, never a headless chat.
     <Theme className={className} colorScheme={colorScheme} data-ask-skin="">
       {styles && <link rel="stylesheet" href={styles.skin} precedence="askdare" />}
-      {frame ? (
-        <DefaultPanel
-          headingLevel={1}
-          {...panel}
-          onClose={panel.onClose ?? frame.close}
-          ownsDocument
-        />
-      ) : (
-        <DefaultPanel {...panel} />
-      )}
+      <DefaultPanel {...panel} />
     </Theme>
   );
 }
