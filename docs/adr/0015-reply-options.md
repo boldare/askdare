@@ -1,6 +1,6 @@
 # ADR-0015: Reply options and tool UI payloads
 
-- **Status:** Accepted
+- **Status:** Accepted. Extended by [ADR-0017](0017-tool-renderers.md): tool results as React components, on the path set here.
 - **Date:** 2026-11-11
 
 ## Context

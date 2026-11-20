@@ -30,10 +30,10 @@ Compaction left 0.3 after spike S5b; see Later.
 | Epic | Goal | Decision |
 |---|---|---|
 | Runtime language, step 2 | Switch the language in place, with texts per language in `defineBot` and `GET <basePath>/config/<bot>?lang=` | [ADR-0014](docs/adr/0014-runtime-language.md) |
-| `toolRenderers` | React components for tool results, building on the reply-options payload. A design note comes first. | [ADR-0008](docs/adr/0008-ui-customization-and-themes.md), [ADR-0015](docs/adr/0015-reply-options.md) |
+| `toolRenderers` | React components for tool results, building on the reply-options payload. | [ADR-0017](docs/adr/0017-tool-renderers.md) |
 | `embedPath` | A custom UI inside the iframe, so the script-tag widget can use your own components and `toolRenderers`. A design note comes first. | [ADR-0005](docs/adr/0005-embedding-model.md), [ADR-0008](docs/adr/0008-ui-customization-and-themes.md) |
 
-The design notes for `toolRenderers` and `embedPath` are written in the Decisions lane while the language work runs. Admin left 0.4 to keep it small; see Later.
+Runtime language step 2 is done. The `toolRenderers` decision is ADR-0017; the `embedPath` design note is written in the Decisions lane while `toolRenderers` is built. Admin left 0.4 to keep it small; see Later.
 
 ## Later
 
@@ -71,8 +71,8 @@ Work runs in parallel lanes. Tasks that touch the **hot files** run one at a tim
 |---|---|---|
 | Organization | The roadmap and `tasks/` | No |
 | Deploy | What is left of the deploy buttons: the starter template repo for the Heroku button | No |
-| Decisions | ADRs and design notes, in parallel with everything. For 0.4: the `toolRenderers` and `embedPath` design notes | No |
+| Decisions | ADRs and design notes, in parallel with everything. For 0.4: the `embedPath` design note | No |
 | Spikes | Experiments in `spikes/`. For 0.4: S6, a `ModelGateway` for Claude | No |
-| Core | Runtime language step 2 (texts per language, then the `/config/<bot>` endpoint, then switching in place), then `toolRenderers`, then `embedPath` | **Yes**, one task at a time |
+| Core | `toolRenderers` (the payload and the protocol, then the React API), then `embedPath` | **Yes**, one task at a time |
 
 Core work for 0.4 lands on `main` with `--no-ff`, or on an integration branch `release/0.4` if a task must not reach `main` before the release ([RELEASING.md](RELEASING.md)).
