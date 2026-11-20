@@ -3,7 +3,7 @@ import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import type { ModelGateway } from '../gateway';
-import { defineTool, readToolReplies } from '../tools/define-tool';
+import { defineTool, readToolReplies, readToolUi } from '../tools/define-tool';
 import { createOpenAIGateway } from './gateway';
 import { OPENAI_TEST_BASE_URL } from './testing/msw';
 
@@ -246,8 +246,18 @@ describe('listMessages', () => {
       const messages = await gateway.listMessages('conv_r', undefined, reader);
       expect(reader).toHaveBeenCalledOnce();
       expect(reader).toHaveBeenCalledWith([
-        { name: 'find_slots', arguments: '{}', output: '{"slots":["9:00","11:00"]}' },
-        { name: 'suggest', arguments: '{"items":["Later"]}', output: undefined },
+        {
+          callId: 'call_fc_3',
+          name: 'find_slots',
+          arguments: '{}',
+          output: '{"slots":["9:00","11:00"]}',
+        },
+        {
+          callId: 'call_fc_4',
+          name: 'suggest',
+          arguments: '{"items":["Later"]}',
+          output: undefined,
+        },
       ]);
       expect(messages.map((item) => item.replies)).toEqual([
         undefined,
@@ -353,6 +363,80 @@ describe('listMessages', () => {
           const items = turn(output('fc_e', result), call('fc_e', 'fallback', '{}'));
           expect(await latestReplies(`conv_e${index}`, items)).toEqual(['Talk to a person']);
         }
+      });
+    });
+
+    // The same stored calls give every answer its cards back (ADR-0017).
+    describe('UI payloads of every answer (ADR-0017)', () => {
+      const slots = defineTool({
+        name: 'find_slots',
+        description: 'd',
+        input: z.object({ day: z.string() }),
+        execute: () => ({ slots: ['9:00'], cost: 7 }),
+        ui: (result) => ({ slots: result.slots }),
+      });
+      const broken = defineTool({
+        name: 'broken',
+        description: 'd',
+        input: z.object({}),
+        execute: () => null,
+        ui: () => {
+          throw new Error('no card');
+        },
+      });
+      const reader = (calls: Parameters<typeof readToolUi>[1]) =>
+        readToolUi([slots, broken], calls);
+      // Newest first: two turns with cards, the latest also with a call that fails to render.
+      const ITEMS = [
+        message('msg_4', 'assistant', 'Tuesday too.'),
+        output('fc_4', 'null'),
+        output('fc_3', '{"slots":["10:00"],"cost":1}'),
+        call('fc_4', 'broken', '{}'),
+        call('fc_3', 'find_slots', '{"day":"tue"}'),
+        message('msg_3', 'user', 'And Tuesday?'),
+        message('msg_2b', 'assistant', 'Monday has 9:00.'),
+        message('msg_2a', 'assistant', 'Let me look.'),
+        output('fc_1', '{"slots":["9:00"],"cost":7}'),
+        call('fc_1', 'find_slots', '{"day":"mon"}'),
+        message('msg_1', 'user', 'Book Monday'),
+      ];
+
+      it("gives each answer its turn's cards, on the turn's last answer", async () => {
+        serve('conv_ui', ITEMS);
+        const messages = await gateway.listMessages('conv_ui', undefined, undefined, reader);
+        expect(messages.map((item) => [item.id, item.ui])).toEqual([
+          ['msg_1', undefined],
+          ['msg_2a', undefined],
+          ['msg_2b', [{ callId: 'call_fc_1', name: 'find_slots', data: { slots: ['9:00'] } }]],
+          ['msg_3', undefined],
+          ['msg_4', [{ callId: 'call_fc_3', name: 'find_slots', data: { slots: ['10:00'] } }]],
+        ]);
+      });
+
+      it('shows at most four per answer and nothing when the reader fails', async () => {
+        const many = [1, 2, 3, 4, 5].flatMap((n) => [
+          output(`fc_${n}`, '{"slots":["9:00"],"cost":1}'),
+          call(`fc_${n}`, 'find_slots', '{"day":"mon"}'),
+        ]);
+        serve('conv_many', [
+          message('msg_9', 'assistant', 'Five.'),
+          ...many,
+          message('msg_8', 'user', 'All'),
+        ]);
+        const messages = await gateway.listMessages('conv_many', undefined, undefined, reader);
+        expect(messages.at(-1)?.ui?.map((item) => item.callId)).toEqual([
+          'call_fc_5',
+          'call_fc_4',
+          'call_fc_3',
+          'call_fc_2',
+        ]);
+
+        serve('conv_ui', ITEMS);
+        const failing = await gateway.listMessages('conv_ui', undefined, undefined, () => {
+          throw new Error('bad');
+        });
+        expect(failing.map((item) => item.text)).toHaveLength(5);
+        expect(failing.some((item) => item.ui)).toBe(false);
       });
     });
   });

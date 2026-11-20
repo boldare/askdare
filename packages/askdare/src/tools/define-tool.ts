@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { normalizeReplies } from '../protocol/replies';
+import { isToolUi, TOOL_NAME, type ToolUi, toToolUiData } from '../protocol/tool-ui';
 import type { VisitorIdentity } from '../security/identity';
 
 /** What a tool may know about the request. Identity here is verified, never chosen by the model. */
@@ -31,9 +32,14 @@ export type Jsonified<T> = T extends { toJSON(): infer R }
         ? { [Key in keyof T as Jsonified<T[Key]> extends never ? never : Key]: Jsonified<T[Key]> }
         : T;
 
-export interface ToolDefinition<Input extends z.ZodObject, Output = unknown> {
+export interface ToolDefinition<
+  Input extends z.ZodObject,
+  Output = unknown,
+  Ui = unknown,
+  Name extends string = string,
+> {
   /** Name the model calls, 1–64 letters, digits, `_` or `-`. */
-  readonly name: string;
+  readonly name: Name;
   /** Tells the model when and how to use the tool. */
   readonly description: string;
   /**
@@ -54,18 +60,30 @@ export interface ToolDefinition<Input extends z.ZodObject, Output = unknown> {
    * several calls of a turn define them, the last one wins.
    */
   readonly replies?: (output: Jsonified<Output>) => readonly string[] | undefined;
+  /**
+   * What the visitor may see of a successful result, for a component the site registers with
+   * `toolRenderers` (ADR-0017). Only this reaches the browser, never the result itself, so pick
+   * the fields a visitor may see. It gets the result as the model received it, parsed back from
+   * JSON, and runs again on every reload, so keep it pure: the same result, the same payload.
+   * Return plain JSON of at most 8 KB and 8 levels, or `undefined` or `null` for none; a payload
+   * over a limit is dropped whole. An answer shows at most 4, in call order.
+   */
+  readonly ui?: (output: Jsonified<Output>) => Ui | null | undefined;
 }
 
-export interface Tool {
-  readonly name: string;
+/**
+ * A tool the bot can call. `Name` and `Ui` carry the tool's name and the type its `ui` returns,
+ * so a page can type its renderers with `import type` (ADR-0017).
+ */
+export interface Tool<Name extends string = string, Ui = unknown> {
+  readonly name: Name;
   readonly description: string;
   readonly input: z.ZodObject;
   readonly execute: (input: unknown, context: ToolContext) => unknown;
   readonly timeoutMs: number;
   readonly replies?: ((output: unknown) => readonly string[] | undefined) | undefined;
+  readonly ui?: ((output: unknown) => Ui | null | undefined) | undefined;
 }
-
-const TOOL_NAME = /^[a-zA-Z0-9_-]{1,64}$/;
 
 /** Finds fields OpenAI strict mode would reject, so they fail at startup instead of mid-chat. */
 function strictModeProblems(schema: z.ZodType, path: string): string[] {
@@ -88,9 +106,12 @@ function strictModeProblems(schema: z.ZodType, path: string): string[] {
  * Declares a server-side function the model may call. Arguments are validated with the schema
  * before `execute` runs; failures are reported to the model, never to the visitor.
  */
-export function defineTool<Input extends z.ZodObject, Output = unknown>(
-  definition: ToolDefinition<Input, Output>,
-): Tool {
+export function defineTool<
+  Input extends z.ZodObject,
+  Output = unknown,
+  Ui = never,
+  const Name extends string = string,
+>(definition: ToolDefinition<Input, Output, Ui, Name>): Tool<Name, Ui> {
   const problems: string[] = [];
   if (!TOOL_NAME.test(definition.name)) {
     problems.push('name must be 1-64 letters, digits, "_" or "-"');
@@ -105,6 +126,9 @@ export function defineTool<Input extends z.ZodObject, Output = unknown>(
   if (definition.replies !== undefined && typeof definition.replies !== 'function') {
     problems.push('replies must be a function of the result');
   }
+  if (definition.ui !== undefined && typeof definition.ui !== 'function') {
+    problems.push('ui must be a function of the result');
+  }
   if (problems.length > 0) {
     throw new TypeError(`[askdare] Invalid tool "${definition.name}": ${problems.join('; ')}`);
   }
@@ -117,14 +141,30 @@ export function defineTool<Input extends z.ZodObject, Output = unknown>(
     ...(definition.replies
       ? { replies: definition.replies as (output: unknown) => readonly string[] | undefined }
       : {}),
+    ...(definition.ui ? { ui: definition.ui as (output: unknown) => Ui | null | undefined } : {}),
   });
 }
 
 /** A function call as stored: arguments and output in JSON, no output if it failed or wasn't answered. */
 export interface StoredToolCall {
+  /** Needed for UI payloads, which the browser tells apart by call. */
+  readonly callId?: string | undefined;
   readonly name: string;
   readonly arguments: string;
   readonly output: string | undefined;
+}
+
+/** The tool's output for a call, if it ran with arguments that fit its schema and succeeded. */
+function successfulOutput(tool: Tool, call: StoredToolCall): unknown {
+  if (call.output === undefined) return undefined;
+  let args: unknown;
+  try {
+    args = JSON.parse(call.arguments);
+  } catch {
+    // The live turn refused these arguments, so the tool never ran.
+    return undefined;
+  }
+  return tool.input.safeParse(args).success ? JSON.parse(call.output) : undefined;
 }
 
 /**
@@ -142,10 +182,11 @@ export function readToolReplies(
   let replies: readonly string[] | undefined;
   for (const call of calls) {
     const tool = tools.find((candidate) => candidate.name === call.name);
-    if (!tool?.replies || call.output === undefined) continue;
+    if (!tool?.replies) continue;
     try {
-      if (!tool.input.safeParse(JSON.parse(call.arguments)).success) continue;
-      const items = tool.replies(JSON.parse(call.output));
+      const output = successfulOutput(tool, call);
+      if (output === undefined) continue;
+      const items = tool.replies(output);
       const offered = Array.isArray(items) ? normalizeReplies(items) : undefined;
       if (offered) replies = offered;
     } catch (error) {
@@ -153,4 +194,44 @@ export function readToolReplies(
     }
   }
   return replies;
+}
+
+/** A `ui` payload broke the limits of ADR-0017; it says so without quoting the payload. */
+export class ToolUiLimitError extends Error {
+  constructor() {
+    super('the payload is not plain JSON of at most 8 KB and 8 levels');
+    this.name = 'ToolUiLimitError';
+  }
+}
+
+/**
+ * The payloads a turn's calls define for the visitor, in call order (ADR-0017), as the live turn
+ * and the history both send them. A call without an ID, a failed call and a tool without `ui`
+ * define none. A `ui` that throws, or returns a payload over the limits, defines none either;
+ * `onError` hears about it. The caller keeps at most `MAX_TOOL_UI` per answer.
+ */
+export function readToolUi(
+  tools: readonly Tool[],
+  calls: readonly StoredToolCall[],
+  onError?: (tool: Tool, error: unknown) => void,
+): readonly ToolUi[] {
+  const payloads: ToolUi[] = [];
+  for (const call of calls) {
+    const tool = tools.find((candidate) => candidate.name === call.name);
+    if (!tool?.ui || call.callId === undefined || call.output === undefined) continue;
+    try {
+      const output = successfulOutput(tool, call);
+      if (output === undefined) continue;
+      const value = tool.ui(output);
+      if (value === undefined || value === null) continue;
+      const data = toToolUiData(value);
+      if (data === undefined) throw new ToolUiLimitError();
+      const payload = { callId: call.callId, name: tool.name, data };
+      // A call ID the protocol can't carry would be refused by every client.
+      if (isToolUi(payload)) payloads.push(payload);
+    } catch (error) {
+      onError?.(tool, error);
+    }
+  }
+  return payloads;
 }

@@ -1017,6 +1017,62 @@ describe('conversation history and deletion', () => {
     expect(messages[0]?.replies).toEqual(['Book 9:00', 'Book 11:00']);
   });
 
+  it("rebuilds every answer's cards from the bot's tools, and reads none without ui (ADR-0017)", async () => {
+    const tool = (ui: boolean) =>
+      defineTool({
+        name: 'find_slots',
+        description: 'd',
+        input: z.object({}),
+        execute: () => ({ slots: ['9:00'], cost: 3 }),
+        ...(ui ? { ui: (result: { slots: string[] }) => ({ slots: result.slots }) } : {}),
+      });
+    const readers: unknown[] = [];
+    const handler = (ui: boolean) =>
+      createRequestHandler({
+        bots: [
+          defineBot({ id: 'support', model: 'test-model', instructions: 'x', tools: [tool(ui)] }),
+        ],
+        basePath: '/api/chat',
+        assets,
+        gateway: () => ({
+          ...gateway,
+          listMessages: async (_id, _signal, _replies, reader) => {
+            readers.push(reader);
+            const cards = reader?.([
+              {
+                callId: 'c1',
+                name: 'find_slots',
+                arguments: '{}',
+                output: '{"slots":["9:00"],"cost":3}',
+              },
+            ]);
+            return [
+              {
+                id: 'msg_a',
+                role: 'assistant',
+                text: 'One slot.',
+                citations: [],
+                attachments: 0,
+                ...(cards?.length ? { ui: cards } : {}),
+              },
+            ];
+          },
+        }),
+        tokens: async () => tokens,
+        limits: createLimits({ store: memoryStore() }),
+        clientIp: () => 'test',
+        onError: () => {},
+      });
+    const { resumeToken, auth } = await grant(OWNER);
+    const response = await handler(true)(post('/history', { botId: 'support', resumeToken }, auth));
+    const { messages } = (await response.json()) as { messages: { ui?: unknown[] }[] };
+    expect(messages[0]?.ui).toEqual([
+      { callId: 'c1', name: 'find_slots', data: { slots: ['9:00'] } },
+    ]);
+    await handler(false)(post('/history', { botId: 'support', resumeToken }, auth));
+    expect(readers[1]).toBeUndefined();
+  });
+
   it("prefers a tool's options to the model's suggestion after a reload", async () => {
     const both = defineBot({
       id: 'support',

@@ -2,6 +2,7 @@ import type OpenAI from 'openai';
 import type { ResponseInputContent, ResponseInputItem } from 'openai/resources/responses/responses';
 import type { TokenUsage, TurnRequest, TurnResult } from '../gateway';
 import type { MessageEndReason } from '../protocol/events';
+import type { ToolUi } from '../protocol/tool-ui';
 import { SUGGEST_REPLIES, suggestedReplies } from '../tools/suggest-replies';
 import { addUsage, ZERO_USAGE } from '../usage';
 import { fromOpenAIError } from './errors';
@@ -132,6 +133,9 @@ export async function runTurn(client: OpenAI, request: TurnRequest): Promise<Tur
   let toolReplies: readonly string[] | undefined;
   // Options the model suggested in this turn; it may do so once (ADR-0015).
   let replies: readonly string[] | undefined;
+  // The server keeps at most four per answer (server/stream-turn.ts).
+  const onUi = (ui: ToolUi): void =>
+    request.emit({ type: 'tool.ui', messageId: request.messageId, ...ui });
   // Model calls the budget holds. A step may call tools only when the call after it is held too.
   let covered = 1;
   const covers = async (call: number): Promise<boolean> => {
@@ -191,8 +195,11 @@ export async function runTurn(client: OpenAI, request: TurnRequest): Promise<Tur
       input = [
         ...answered,
         ...(calls.length > 0
-          ? await executeCalls(calls, request, (items) => {
-              toolReplies = items;
+          ? await executeCalls(calls, request, {
+              onReplies: (items) => {
+                toolReplies = items;
+              },
+              onUi,
             })
           : []),
       ];

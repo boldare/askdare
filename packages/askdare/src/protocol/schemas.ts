@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { ERROR_CODES, MESSAGE_END_REASONS, type ProtocolEvent } from './events';
 import type { HistoryResponse } from './history';
 import { isReplyList } from './replies';
+import { isToolUi, isToolUiList, TOOL_NAME } from './tool-ui';
 
 const feedback = z
   .object({ handle: z.string().min(1).max(4096), key: z.string().regex(/^[0-9a-f]{16,64}$/) })
@@ -18,6 +19,17 @@ const messageId = z.string().min(1).max(128);
 const replies = z
   .array(z.string())
   .refine(isReplyList, 'one to four distinct options of up to 80 characters, without links');
+
+const callId = z.string().min(1).max(128);
+
+/** A tool UI payload (ADR-0017); the rules live in ./tool-ui.ts, shared with the browser. */
+const toolUiFields = {
+  callId,
+  name: z.string().regex(TOOL_NAME),
+  data: z.unknown(),
+};
+const TOOL_UI_RULE = 'plain JSON of at most 8 KB and 8 levels, never null';
+const toolUi = z.object(toolUiFields).refine(isToolUi, TOOL_UI_RULE);
 
 /** Every protocol event, as the server promises it. */
 export const protocolEventSchema: z.ZodType<ProtocolEvent> = z.discriminatedUnion('type', [
@@ -43,10 +55,13 @@ export const protocolEventSchema: z.ZodType<ProtocolEvent> = z.discriminatedUnio
   z.object({
     type: z.literal('tool.status'),
     messageId,
-    callId: z.string().min(1).max(128),
+    callId,
     name: z.string().min(1).max(64),
     state: z.enum(['running', 'done', 'error']),
   }),
+  z
+    .object({ type: z.literal('tool.ui'), messageId, ...toolUiFields })
+    .refine(isToolUi, TOOL_UI_RULE),
   z.object({ type: z.literal('replies'), messageId, items: replies }),
   z.object({
     type: z.literal('message.end'),
@@ -82,6 +97,7 @@ export const historyResponseSchema: z.ZodType<HistoryResponse> = z.object({
       attachments: z.number().int().min(0),
       feedback,
       replies: replies.optional(),
+      ui: z.array(toolUi).refine(isToolUiList, 'one to four payloads, no call twice').optional(),
     }),
   ),
 });
