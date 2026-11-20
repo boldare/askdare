@@ -121,9 +121,8 @@ for (const port of PORTS) {
       ? url.searchParams.get('lang')
       : 'en';
     response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-    const bot = BOTS.includes(url.searchParams.get('bot') ?? '')
-      ? url.searchParams.get('bot')
-      : 'support';
+    // One of our own names, never the query's text, which goes into the page's HTML.
+    const bot = BOTS.find((name) => name === url.searchParams.get('bot')) ?? 'support';
     response.end(page(port, url.searchParams.get('variant') ?? 'default', lang, bot));
   }).listen(port, '127.0.0.1', () => console.log(`host page on http://127.0.0.1:${port}`));
 }
