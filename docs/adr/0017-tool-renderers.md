@@ -67,7 +67,7 @@ The rules that bound the design are the same as for replies:
 
 ### The script-tag widget
 
-The iframe renders askdare's own skin, which can't import a site's components. It receives and stores `tool.ui` events, and with no renderers registered shows nothing, as above. A site that wants cards in the script-tag widget serves its own page inside the iframe with `embedPath`, which renders `Root` with its `toolRenderers`; the design note for `embedPath` (task 3a) decides how.
+The iframe renders askdare's own skin, which can't import a site's components. It receives and stores `tool.ui` events, and with no renderers registered shows nothing, as above. A site that wants cards in the script-tag widget serves its own page inside the iframe with `embedPath`, which renders `Root` with its `toolRenderers`; [ADR-0018](0018-embed-path.md) decides how.
 
 ## Evidence
 

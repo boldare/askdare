@@ -21,6 +21,7 @@ Short records of decisions that are expensive to reverse. One decision per file,
 | [0015](0015-reply-options.md) | Reply options and tool UI payloads | Accepted |
 | [0016](0016-admin.md) | Admin: a console first, then an add-on with storage | Accepted |
 | [0017](0017-tool-renderers.md) | Tool results as React components (`toolRenderers`) | Accepted |
+| [0018](0018-embed-path.md) | Your own page inside the widget's iframe (`embedPath`) | Accepted |
 
 ## Template
 
