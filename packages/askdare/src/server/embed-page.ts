@@ -100,12 +100,21 @@ export function embedConfig(bot: Bot, basePath: string, view?: EmbedView): Embed
   };
 }
 
+/** Who may frame the chat's page: the app itself and the bot's allowlist (ADR-0005). */
+export function frameAncestors(bot: Bot): string {
+  return `frame-ancestors ${["'self'", ...bot.security.allowedOrigins].join(' ')}`;
+}
+
+/** No camera or location, and the microphone only for a bot with voice input (ADR-0005). */
+export function embedPermissionsPolicy(bot: Bot): string {
+  return `camera=(), geolocation=(), microphone=${bot.voice ? '(self)' : '()'}`;
+}
+
 /**
  * Content Security Policy for the iframe document: same-origin resources only, no inline script,
  * and `frame-ancestors` limited to the app itself plus the bot's allowlist (ADR-0005).
  */
 export function embedContentSecurityPolicy(bot: Bot): string {
-  const ancestors = ["'self'", ...bot.security.allowedOrigins].join(' ');
   return [
     "default-src 'none'",
     "script-src 'self'",
@@ -116,7 +125,7 @@ export function embedContentSecurityPolicy(bot: Bot): string {
     "font-src 'self'",
     "base-uri 'none'",
     "form-action 'none'",
-    `frame-ancestors ${ancestors}`,
+    frameAncestors(bot),
   ].join('; ');
 }
 

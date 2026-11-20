@@ -67,6 +67,25 @@ describe('defineBot', () => {
     expect(bot.limits.maxOutputTokens).toBe(1024);
   });
 
+  it('takes a page of the app as embedPath, and nothing that could leave it (ADR-0018)', () => {
+    const base = { id: 'a', model: 'm', instructions: 'x' };
+    expect(defineBot(base).embedPath).toBeUndefined();
+    expect(defineBot({ ...base, embedPath: '/askdare/support' }).embedPath).toBe(
+      '/askdare/support',
+    );
+    for (const embedPath of [
+      'https://evil.example/x',
+      '//evil.example',
+      '/a/../b',
+      'askdare',
+      '/a?b=1',
+    ]) {
+      expect(() => defineBot({ ...base, embedPath })).toThrow(
+        /embedPath must be a path of this app/,
+      );
+    }
+  });
+
   it('defaults the widget config and keeps allowed origins unique', () => {
     const bot = defineBot({
       id: 'a',

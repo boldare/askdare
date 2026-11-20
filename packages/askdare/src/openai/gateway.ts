@@ -78,9 +78,9 @@ export function createOpenAIGateway(options: OpenAIGatewayOptions): ModelGateway
       }
     },
 
-    async listMessages(conversationId, signal, replies) {
+    async listMessages(conversationId, signal, replies, ui) {
       try {
-        return await listHistory(client, conversationId, signal, replies);
+        return await listHistory(client, conversationId, signal, replies, ui);
       } catch (error) {
         throw fromOpenAIError(error, false);
       }

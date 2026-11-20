@@ -23,7 +23,7 @@ import { chromium } from '@playwright/test';
 
 const repo = join(import.meta.dirname, '..');
 // The create-next-app of the Next.js version the repository tests against.
-const CREATE_NEXT_APP = 'create-next-app@16.4.3';
+const CREATE_NEXT_APP = 'create-next-app@16.4.6';
 const PNPM = 'pnpm@12.16.1';
 const MOCK_PORT = 4111;
 const APP_PORT = 3200;
@@ -121,6 +121,63 @@ export default function Help() {
 }
 `;
 
+/**
+ * The page a bot's embedPath would point to (ADR-0018), with the ejected default look. Opened
+ * directly here, where it works as a standalone chat; e2e/embed-root.spec.ts covers the iframe.
+ */
+const EMBED_PAGE = `import { EmbedRoot } from '@boldare/askdare/embed';
+import { getEmbedConfig } from '@boldare/askdare/next';
+import { Suspense } from 'react';
+import { bots } from '@/askdare.config';
+import { DefaultChat } from '@/components/askdare';
+
+type Search = Promise<Record<string, string | string[] | undefined>>;
+
+export default function Frame({ searchParams }: { searchParams: Search }) {
+  // The starter uses Cache Components: the request's data is read inside Suspense.
+  return (
+    <Suspense>
+      <Chat searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function Chat({ searchParams }: { searchParams: Search }) {
+  const config = getEmbedConfig({ bots, bot: 'support', searchParams: await searchParams });
+  return (
+    <div style={{ height: '100vh' }}>
+      <EmbedRoot config={config}>
+        <DefaultChat className="framed-chat" />
+      </EmbedRoot>
+    </div>
+  );
+}
+`;
+
+/** Sends one message through the page at an embedPath, opened on its own. */
+async function chatFramed(browser, bundler) {
+  const page = await browser.newPage();
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto(`http://localhost:${APP_PORT}/frame`);
+  if ((await page.locator('[data-askdare-embed]').count()) !== 1) {
+    throw new Error('The embed page has no EmbedRoot marker.');
+  }
+  const chat = page.locator('[data-askdare-root]');
+  const text = `Hello from the embed page (${bundler})`;
+  await chat.getByRole('textbox').fill(text);
+  await chat.getByRole('textbox').press('Enter');
+  await chat
+    .locator('[data-ask-part="message"][data-role="assistant"]')
+    .filter({ hasText: `You said: ${text}` })
+    .waitFor({ timeout: 20_000 });
+  // In EmbedRoot, DefaultChat owns the document: its title is the page's h1.
+  await chat.getByRole('heading', { level: 1 }).waitFor({ timeout: 5_000 });
+  await page.close();
+  if (errors.length > 0) throw new Error(`Errors on the page: ${errors.join('; ')}`);
+  console.log(`\n✓ The embed page answers in the ${bundler} build.`);
+}
+
 /** Sends one message through the chat inside the page, and checks it came with its styles. */
 async function chatInline(browser, bundler) {
   const page = await browser.newPage();
@@ -217,6 +274,8 @@ try {
   }
   mkdirSync(join(app, 'app/help'), { recursive: true });
   writeFileSync(join(app, 'app/help/page.tsx'), INLINE_PAGE);
+  mkdirSync(join(app, 'app/frame'), { recursive: true });
+  writeFileSync(join(app, 'app/frame/page.tsx'), EMBED_PAGE);
 
   // 5. Both bundlers: build (which type-checks the app, the ejected files included), start,
   // doctor and one message each way.
@@ -241,12 +300,13 @@ try {
     );
     await chat(browser, bundler);
     await chatInline(browser, bundler);
+    await chatFramed(browser, bundler);
     await stop(server);
     server = undefined;
   }
   ok = true;
   console.log(
-    '\nverify-packs: the packed packages install, build and chat in a fresh app, with the widget and the ejected UI.',
+    '\nverify-packs: the packed packages install, build and chat in a fresh app, with the widget, the ejected UI and an embed page.',
   );
 } catch (error) {
   console.error(`\nverify-packs failed: ${error instanceof Error ? error.message : error}`);

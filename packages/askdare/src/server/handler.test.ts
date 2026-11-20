@@ -284,6 +284,72 @@ describe('static routes', () => {
     expect(new TextDecoder().decode(await font.arrayBuffer())).toBe('wOF2font');
   });
 
+  describe("a bot's own page in the iframe (ADR-0018)", () => {
+    const framed = (gallery = false) =>
+      createRequestHandler({
+        bots: [
+          defineBot({ id: 'own', model: 'm', instructions: 'x', embedPath: '/askdare/own' }),
+          defineBot({
+            id: 'own-auto',
+            model: 'm',
+            instructions: 'x',
+            embedPath: '/askdare/auto',
+            widget: { locale: 'auto' },
+          }),
+        ],
+        basePath: '/api/chat',
+        assets,
+        gateway: () => gateway,
+        tokens: async () => tokens,
+        limits: createLimits({ store: memoryStore() }),
+        clientIp: () => 'test',
+        onError: () => {},
+        gallery,
+      });
+
+    it('sends the iframe there with only the language and the mode, never cached', async () => {
+      const fixed = await framed()(
+        new Request(`${BASE}/embed/own?lang=pl&mode=inline&gallery=welcome&x=<y>`),
+      );
+      expect(fixed.status).toBe(302);
+      // A bot with a fixed language keeps it, so the page needs no lang.
+      expect(fixed.headers.get('location')).toBe('/askdare/own?mode=inline');
+      expect(fixed.headers.get('cache-control')).toBe('no-store');
+
+      const fromPage = await framed()(
+        new Request(`${BASE}/embed/own-auto?lang=pl-PL&mode=floating`),
+      );
+      expect(fromPage.headers.get('location')).toBe('/askdare/auto?lang=pl-PL');
+      const fromBrowser = await framed()(
+        new Request(`${BASE}/embed/own-auto`, { headers: { 'accept-language': 'de-DE,de;q=0.9' } }),
+      );
+      expect(fromBrowser.headers.get('location')).toBe('/askdare/auto?lang=de-DE');
+    });
+
+    it("keeps askdare's page for the gallery and for bots without embedPath", async () => {
+      const gallery = await framed(true)(new Request(`${BASE}/embed/own?gallery=streaming`));
+      expect(gallery.status).toBe(200);
+      expect(await gallery.text()).toContain('"gallery":"streaming"');
+      expect((await handler(new Request(`${BASE}/embed/support`))).status).toBe(200);
+    });
+
+    it('refuses an embedPath inside the chat route', () => {
+      for (const embedPath of ['/api/chat', '/api/chat/embed/own']) {
+        expect(() =>
+          createRequestHandler({
+            bots: [defineBot({ id: 'own', model: 'm', instructions: 'x', embedPath })],
+            basePath: '/api/chat',
+            assets,
+            gateway: () => gateway,
+            tokens: async () => tokens,
+            limits: createLimits({ store: memoryStore() }),
+            clientIp: () => 'test',
+          }),
+        ).toThrow(/embedPath must be a page outside \/api\/chat/);
+      }
+    });
+  });
+
   it('ignores gallery parameters unless gallery mode is on', async () => {
     const html = await (
       await handler(new Request(`${BASE}/embed/support?gallery=streaming&preset=sage&scheme=dark`))
@@ -1015,6 +1081,62 @@ describe('conversation history and deletion', () => {
     const response = await withReplies(post('/history', { botId: 'support', resumeToken }, auth));
     const { messages } = (await response.json()) as { messages: { replies?: string[] }[] };
     expect(messages[0]?.replies).toEqual(['Book 9:00', 'Book 11:00']);
+  });
+
+  it("rebuilds every answer's cards from the bot's tools, and reads none without ui (ADR-0017)", async () => {
+    const tool = (ui: boolean) =>
+      defineTool({
+        name: 'find_slots',
+        description: 'd',
+        input: z.object({}),
+        execute: () => ({ slots: ['9:00'], cost: 3 }),
+        ...(ui ? { ui: (result: { slots: string[] }) => ({ slots: result.slots }) } : {}),
+      });
+    const readers: unknown[] = [];
+    const handler = (ui: boolean) =>
+      createRequestHandler({
+        bots: [
+          defineBot({ id: 'support', model: 'test-model', instructions: 'x', tools: [tool(ui)] }),
+        ],
+        basePath: '/api/chat',
+        assets,
+        gateway: () => ({
+          ...gateway,
+          listMessages: async (_id, _signal, _replies, reader) => {
+            readers.push(reader);
+            const cards = reader?.([
+              {
+                callId: 'c1',
+                name: 'find_slots',
+                arguments: '{}',
+                output: '{"slots":["9:00"],"cost":3}',
+              },
+            ]);
+            return [
+              {
+                id: 'msg_a',
+                role: 'assistant',
+                text: 'One slot.',
+                citations: [],
+                attachments: 0,
+                ...(cards?.length ? { ui: cards } : {}),
+              },
+            ];
+          },
+        }),
+        tokens: async () => tokens,
+        limits: createLimits({ store: memoryStore() }),
+        clientIp: () => 'test',
+        onError: () => {},
+      });
+    const { resumeToken, auth } = await grant(OWNER);
+    const response = await handler(true)(post('/history', { botId: 'support', resumeToken }, auth));
+    const { messages } = (await response.json()) as { messages: { ui?: unknown[] }[] };
+    expect(messages[0]?.ui).toEqual([
+      { callId: 'c1', name: 'find_slots', data: { slots: ['9:00'] } },
+    ]);
+    await handler(false)(post('/history', { botId: 'support', resumeToken }, auth));
+    expect(readers[1]).toBeUndefined();
   });
 
   it("prefers a tool's options to the model's suggestion after a reload", async () => {

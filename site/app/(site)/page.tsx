@@ -48,7 +48,7 @@ const FEATURES = [
   },
   {
     title: 'Your own tools',
-    text: 'Let the assistant check an order or a price. Arguments are validated with Zod, end to end.',
+    text: 'Let the assistant check an order or a price, and show the result as your own card. Zod validates the arguments.',
     href: '/docs/tools',
     more: 'Tools',
   },
@@ -60,7 +60,7 @@ const FEATURES = [
   },
   {
     title: 'Inside your React pages',
-    text: 'Or skip the iframe: render the chat in your own Next.js pages, ready-made or in your own markup.',
+    text: 'Render the chat in your own Next.js pages, ready-made or in your own markup, and show that page in the widget too.',
     href: '/docs/react',
     more: 'The chat inside your page',
   },

@@ -17,6 +17,13 @@ const SAMPLE_EVENTS: readonly ProtocolEvent[] = [
   },
   { type: 'citation', messageId: 'msg_1', index: 2, title: 'handbook.pdf' },
   { type: 'tool.status', messageId: 'msg_1', callId: 'call_1', name: 'getWeather', state: 'done' },
+  {
+    type: 'tool.ui',
+    messageId: 'msg_1',
+    callId: 'call_1',
+    name: 'find_slots',
+    data: { slots: ['9:00'] },
+  },
   { type: 'replies', messageId: 'msg_1', items: ['Yes, book it', 'Show prices'] },
   { type: 'message.end', messageId: 'msg_1', reason: 'completed' },
   { type: 'error', code: 'rate_limited', message: 'Too many messages.', retryAfterMs: 1500 },

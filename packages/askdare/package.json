@@ -49,6 +49,10 @@
       "types": "./dist/react.d.ts",
       "default": "./dist/react.js"
     },
+    "./embed": {
+      "types": "./dist/embed.d.ts",
+      "default": "./dist/embed.js"
+    },
     "./package.json": "./package.json"
   },
   "types": "./dist/index.d.ts",

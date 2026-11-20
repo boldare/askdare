@@ -214,6 +214,24 @@ export const bots = [
       css: BLDR_CSS,
     },
   }),
+  // The same assistant on the site's own page in the widget's iframe (ADR-0018): the chat route
+  // sends the iframe to /askdare/own-page, which draws the tool cards (components/tool-cards.tsx)
+  // that askdare's own iframe page can't. Its headers come from next.config.ts.
+  defineBot({
+    ...assistant,
+    id: 'own-page',
+    embedPath: '/askdare/own-page',
+    widget: {
+      locale: 'auto',
+      colorScheme: 'light',
+      title: 'Brightloop assistant',
+      subtitle: 'Demo · on the site’s own page',
+      greeting: 'Ask me the **time** anywhere, or an **exchange rate**',
+      starters: ['What time is it in Tokyo?', 'How many złoty is one euro?'],
+      launcherLabel: 'Ask Brightloop AI',
+      theme: 'aura',
+    },
+  }),
   // The docs answer questions about askdare from docs/ itself, once synced with
   // `node site/scripts/docs-kb.mjs` (DOCS_VECTOR_STORE_ID). The docs pages show it only then.
   defineBot({

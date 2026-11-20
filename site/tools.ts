@@ -20,6 +20,8 @@ export const currentTime = defineTool({
       return { error: `Unknown time zone "${timeZone}".` };
     }
   },
+  // What the visitor sees as a card (ADR-0017); components/tool-cards.tsx draws it.
+  ui: (result) => ('now' in result ? { timeZone: result.timeZone, now: result.now } : undefined),
 });
 
 /** Example calling a public API: ECB reference rates via Frankfurter (no key needed). */
@@ -44,4 +46,8 @@ export const exchangeRate = defineTool({
       ? { error: `No rate for ${base}/${quote}.` }
       : { base, quote, rate, date: data.date };
   },
+  ui: (result) =>
+    'rate' in result
+      ? { base: result.base, quote: result.quote, rate: result.rate, date: result.date }
+      : undefined,
 });

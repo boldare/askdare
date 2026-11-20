@@ -1,6 +1,6 @@
 ---
 name: askdare
-description: Add, configure or troubleshoot the @boldare/askdare AI chat in a Next.js app (defineBot, defineTool, createChatHandler, the widget script, the React chat inside a page, themes, knowledge base, reply options, the chat's language, answer ratings, usage reports, deployment). Use when the project depends on @boldare/askdare or the user asks for a website chatbot built on it.
+description: Add, configure or troubleshoot the @boldare/askdare AI chat in a Next.js app (defineBot, defineTool, createChatHandler, the widget script, the React chat inside a page, tool cards, your own page in the widget's iframe, themes, knowledge base, reply options, the chat's language, answer ratings, usage reports, deployment). Use when the project depends on @boldare/askdare or the user asks for a website chatbot built on it.
 ---
 
 # askdare
@@ -22,6 +22,8 @@ description: Add, configure or troubleshoot the @boldare/askdare AI chat in a Ne
 - The chat's language on the page, for a bot with `locale: 'auto'`: `askdare('configure', { locale: 'pl' })`, or `data-follow-lang` on the script tag to follow `<html lang>`. The chat reloads in the new language and keeps the conversation; your `instructions` get it as `context.locale`. See `docs/texts.md`.
 - Reply options (clickable answers under the latest reply): `widget.replies: 'suggest'` lets the model suggest them; `defineTool({ replies: (result) => [...] })` derives them from a tool's result. See `docs/reply-options.md`.
 - The chat inside a page of the same Next.js app (React 19): `getChatConfig` from `@boldare/askdare/next` in a Server Component, then `Root`, `DefaultChat`, the hooks (`useChat`, `useChatState`, `useMessage`) and the primitives from `@boldare/askdare/react` (see `docs/react.md`). To change the default components, run `npx @boldare/askdare add ui`; don't copy them from `node_modules` by hand.
+- Tool cards: `defineTool({ ui: (result) => data })` picks what the visitor may see of a result (plain JSON, at most 8 KB; only that reaches the browser), and `Root`'s `toolRenderers={{ tool_name: Component }}` draws it, typed with `Chat.ToolRendererProps<typeof tool>` and `import type`. Render `data` as text and URLs through `Chat.Link`. See `docs/react.md#tool-cards`.
+- Your own page in the widget's iframe: `defineBot({ embedPath: '/askdare/support' })`; the page lives in its own route group and root layout, renders `<EmbedRoot config={getEmbedConfig({ bots, bot, searchParams })}>` from `@boldare/askdare/embed` with `DefaultChat` inside, and gets `embedPageHeaders({ bots, bot })` from `proxy.ts` (not `next.config.ts` headers, which are fixed at build). Check with `askdare doctor --origin <site>`. See `docs/embedding.md#your-own-page-in-the-iframe`.
 - Styling: `widget.texts`, `widget.theme`, `widget.css` with `[data-ask-part="…"]` selectors and `--ask-*` tokens (see `docs/styling.md`).
 
 Never import from `@boldare/askdare/dist/…` or other internal paths.
@@ -37,6 +39,7 @@ Never import from `@boldare/askdare/dist/…` or other internal paths.
 - With `@boldare/askdare/react`: never render `message.text` as HTML (use `MessageText` or `Markdown`); sign a visitor out with `identity={null}`, since `undefined` keeps the current one; a page that passes `identity` must not be cached; on pages with third-party scripts, prefer the script-tag widget.
 - Tools: every Zod field is required (use `.nullable()`, not `.optional()`). Never take user IDs, emails or permissions from tool arguments; use the verified `context` (`visitorId`, `botId`, `locale`, `identity`, `signal`). Keep tools read-only.
 - Signed-in users: the site's backend signs an HS256 JWT with `IDENTITY_SECRET` (`sub`, `aud` = bot ID, `iat`, `exp`), and the page calls `askdare('identify', token)` (`null` on sign-out). See `docs/identity.md`.
+- Tool cards: `ui` must be pure (it runs again on every reload) and must return only fields a visitor may see; never render its `data` as HTML, and load images only from URLs the tool builds itself.
 - Reply options: at most 4, up to 80 characters each, plain text without links; anything else is dropped. A click only sends the option's text as the visitor's message, so write options the way a visitor would say them ("Cancel the order"), never as commands or IDs, and never treat a clicked option as more trusted than typed text.
 - More than one server instance (Vercel, several dynos) needs shared limits: `@boldare/askdare-upstash`.
 - Answer ratings (👍/👎) show only with `createChatHandler({ onFeedback })`; `widget.feedback: false` hides them for one bot. askdare stores no ratings: save the report in `onFeedback`. A rating's `comment` is visitor text: escape it wherever it is shown, and cover it in the privacy notice. See `docs/feedback.md`.

@@ -8,6 +8,7 @@ import {
 } from './events';
 import type { HistoryCitation, HistoryMessage, HistoryResponse } from './history';
 import { isReplyList } from './replies';
+import { isToolUi, isToolUiList } from './tool-ui';
 
 /*
  * The browser's protocol check: the rules of ./schemas.ts (zod, for the server and tests), at a
@@ -111,6 +112,17 @@ export function parseEvent(value: unknown): ProtocolEvent | undefined {
             state: value['state'],
           }
         : undefined;
+    case 'tool.ui':
+      // isToolUi checks the call ID, the name and the data's limits.
+      return messageId(id) && isToolUi(value)
+        ? {
+            type: 'tool.ui',
+            messageId: id,
+            callId: value['callId'] as string,
+            name: value['name'] as string,
+            data: value['data'],
+          }
+        : undefined;
     case 'replies':
       return messageId(id) && isReplyList(value['items'])
         ? { type: 'replies', messageId: id, items: [...value['items']] }
@@ -169,6 +181,8 @@ function historyMessageOf(value: unknown): HistoryMessage | undefined {
   if (value['feedback'] !== undefined && !feedback) return undefined;
   const { replies } = value;
   if (replies !== undefined && !isReplyList(replies)) return undefined;
+  const { ui } = value;
+  if (ui !== undefined && !isToolUiList(ui)) return undefined;
   return {
     id: value['id'],
     role: value['role'],
@@ -177,6 +191,9 @@ function historyMessageOf(value: unknown): HistoryMessage | undefined {
     attachments: value['attachments'],
     ...(feedback ? { feedback } : {}),
     ...(replies === undefined ? {} : { replies: [...replies] }),
+    ...(ui === undefined
+      ? {}
+      : { ui: ui.map(({ callId, name, data }) => ({ callId, name, data })) }),
   };
 }
 

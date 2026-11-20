@@ -1,4 +1,5 @@
 import type { FeedbackHandle } from '../protocol/events';
+import type { ToolUi } from '../protocol/tool-ui';
 import type { PageOptions } from './page-options';
 
 export interface Citation {
@@ -31,6 +32,11 @@ export interface ChatMessage {
    * is the latest message; a click sends the option as the visitor's own message.
    */
   readonly replies?: readonly string[] | undefined;
+  /**
+   * What the turn's tools picked from their results for the visitor to see (ADR-0017), in call
+   * order, at most four: plain JSON for the components registered with `toolRenderers`.
+   */
+  readonly ui?: readonly ToolUi[] | undefined;
 }
 
 export type Rating = 'up' | 'down';

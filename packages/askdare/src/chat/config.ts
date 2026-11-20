@@ -57,3 +57,11 @@ export interface ChatConfig {
   /** From `getChatConfig`, for a chat inside a page. The iframe links its own stylesheets. */
   readonly styles?: ChatStyles;
 }
+
+/** What `EmbedRoot` from `@boldare/askdare/embed` needs; `getEmbedConfig` builds it (ADR-0018). */
+export interface EmbedChatConfig extends ChatConfig {
+  /** Origins whose pages may hand the chat its connection to the loader (ADR-0005). */
+  readonly allowedOrigins: readonly string[];
+  /** `inline` inside an element of the host page, `floating` in the widget's panel. */
+  readonly mode: 'floating' | 'inline';
+}

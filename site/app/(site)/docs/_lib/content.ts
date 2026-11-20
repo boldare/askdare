@@ -95,7 +95,9 @@ const files = (): ReadonlyMap<string, string> => {
   const listed = new Set(NAV.flatMap((group) => group.pages));
   const missing = [...map.keys()].filter((slug) => !slug.startsWith('adr/') && !listed.has(slug));
   if (missing.length > 0) {
-    throw new Error(`docs: add ${missing.join(', ')} to NAV in site/app/docs/_lib/content.ts`);
+    throw new Error(
+      `docs: add ${missing.join(', ')} to NAV in site/app/(site)/docs/_lib/content.ts`,
+    );
   }
   return map;
 };

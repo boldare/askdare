@@ -1,4 +1,5 @@
 import {
+  type Context,
   createContext,
   type ReactElement,
   type ReactNode,
@@ -45,6 +46,26 @@ export interface Chat {
 }
 
 const StoreContext = createContext<ChatStore | null>(null);
+
+/**
+ * The chat is the whole document of the widget's iframe (`EmbedRoot`, ADR-0018): `close` asks the
+ * loader to close the panel; undefined when the page isn't in an iframe or in `inline` mode.
+ */
+export interface Frame {
+  readonly close: (() => void) | undefined;
+}
+
+/** Set by `EmbedRoot`; null in a chat inside a page. */
+export const FrameContext: Context<Frame | null> = createContext<Frame | null>(null);
+
+/**
+ * Inside `EmbedRoot`, on your own page in the widget's iframe (ADR-0018): the chat is the whole
+ * document, and `close` asks the loader to close the panel (undefined in `inline` mode or when the
+ * page isn't in the widget). Null everywhere else. Your own markup uses it for a close button.
+ */
+export function useFrame(): Frame | null {
+  return useContext(FrameContext);
+}
 const MessageContext = createContext<ChatMessage | null>(null);
 
 /** Provides a chat store to the primitives below. `Root` creates one; the iframe brings its own. */

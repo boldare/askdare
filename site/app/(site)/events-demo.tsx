@@ -3,6 +3,7 @@
 import './events.css';
 import * as Chat from '@boldare/askdare/react';
 import { type RefObject, useEffect, useId, useRef, useState } from 'react';
+import { toolRenderers } from '@/components/tool-cards';
 
 interface Logged {
   readonly id: number;
@@ -68,7 +69,13 @@ export function EventsDemo({
   return (
     <div className={className}>
       {near ? (
-        <Chat.Root config={config} onEvent={log} greeting={greeting} starters={starters}>
+        <Chat.Root
+          config={config}
+          onEvent={log}
+          greeting={greeting}
+          starters={starters}
+          toolRenderers={toolRenderers}
+        >
           <Chat.DefaultChat className={chatClassName} />
         </Chat.Root>
       ) : (

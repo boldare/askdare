@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ChatEvent } from '../chat/events';
-import type { PageOptions } from '../chat/page-options';
-import { createChatStore } from '../chat/store';
-import { echo, fakeServer, testClient, testConfig } from '../chat/testing/fake-server';
 import { bindBridge } from './bind-bridge';
+import type { ChatEvent } from './events';
 import type { HostBridge } from './host-bridge';
+import type { PageOptions } from './page-options';
+import { createChatStore } from './store';
+import { echo, fakeServer, testClient, testConfig } from './testing/fake-server';
 
 beforeEach(() => {
   vi.stubGlobal('document', Object.assign(new EventTarget(), { visibilityState: 'visible' }));

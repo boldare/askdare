@@ -12,6 +12,7 @@ import type { ChatEventListener } from '../chat/events';
 import { identityToken, type PageOptions, pageOptions } from '../chat/page-options';
 import { createChatStore } from '../chat/store';
 import { ChatProvider } from './context';
+import { type ToolRenderers, ToolRenderersProvider } from './tool-results';
 
 export interface RootProps {
   /** From `getChatConfig()` in a Server Component. */
@@ -32,7 +33,29 @@ export interface RootProps {
    * rating (ADR-0013). Metadata only, never the text. A new function doesn't restart the chat.
    */
   readonly onEvent?: ChatEventListener | undefined;
+  /**
+   * Your components for tools' results, by tool name (ADR-0017): each gets what the tool's `ui`
+   * returned and is drawn by `ToolResults`, in `DefaultChat` under the answer. Type them with
+   * `satisfies ToolRenderers<[typeof myTool]>`. Define the map outside your component (or
+   * memoize it): a new object on every render re-renders every card.
+   */
+  readonly toolRenderers?: ToolRenderers | undefined;
   readonly children?: ReactNode;
+}
+
+/** Refuses a config that would make the chat talk to, or load styles from, anywhere but its route. */
+export function checkConfig(config: ChatConfig): void {
+  if (!isBasePath(config.basePath)) {
+    throw new TypeError(
+      `[askdare] The chat's basePath must be a path on this app, like /api/chat; got "${config.basePath}".`,
+    );
+  }
+  // The stylesheets come from the same route: a config must not point them anywhere else.
+  for (const href of Object.values(config.styles ?? {})) {
+    if (!href.startsWith(`${config.basePath}/`) || href.includes('//') || href.includes('\\')) {
+      throw new TypeError(`[askdare] The chat's stylesheets must come from ${config.basePath}.`);
+    }
+  }
 }
 
 /**
@@ -46,19 +69,10 @@ export function Root({
   greeting,
   starters,
   onEvent,
+  toolRenderers,
   children,
 }: RootProps): ReactElement {
-  if (!isBasePath(config.basePath)) {
-    throw new TypeError(
-      `[askdare] The chat's basePath must be a path on this app, like /api/chat; got "${config.basePath}".`,
-    );
-  }
-  // The stylesheets come from the same route: a config must not point them anywhere else.
-  for (const href of Object.values(config.styles ?? {})) {
-    if (!href.startsWith(`${config.basePath}/`) || href.includes('//') || href.includes('\\')) {
-      throw new TypeError(`[askdare] The chat's stylesheets must come from ${config.basePath}.`);
-    }
-  }
+  checkConfig(config);
   const page: PageOptions = pageOptions({ greeting, starters, context });
   // One chat per bot and route: another language switches the same chat in place (ADR-0014).
   const id = `${config.basePath} ${config.botId}`;
@@ -110,5 +124,9 @@ export function Root({
     if (JSON.stringify(store.getSnapshot().page) !== key) store.configure(page);
   }, [key, store]);
 
-  return <ChatProvider store={store}>{children}</ChatProvider>;
+  return (
+    <ChatProvider store={store}>
+      <ToolRenderersProvider renderers={toolRenderers}>{children}</ToolRenderersProvider>
+    </ChatProvider>
+  );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import * as Chat from '@boldare/askdare/react';
+import { toolRenderers } from '@/components/tool-cards';
 
 function Heading() {
   const { bot, state, actions } = Chat.useChat();
@@ -23,6 +24,7 @@ function Bubble() {
     <Chat.Message>
       <small>{message.role === 'user' ? 'You' : 'Assistant'}</small>
       <Chat.MessageText />
+      <Chat.ToolResults />
       <Chat.Citations />
     </Chat.Message>
   );
@@ -31,7 +33,7 @@ function Bubble() {
 /** No theme and no default look: the page's CSS styles the parts. */
 export function PlainChat({ config }: { readonly config: Chat.ChatConfig }) {
   return (
-    <Chat.Root config={config} greeting="Ask in your own markup">
+    <Chat.Root config={config} greeting="Ask in your own markup" toolRenderers={toolRenderers}>
       <Chat.Panel className="plain-chat">
         <Heading />
         <Chat.Messages>

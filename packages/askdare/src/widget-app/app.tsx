@@ -1,8 +1,8 @@
 import { type ReactElement, useEffect, useMemo } from 'react';
+import type { HostBridge } from '../chat/host-bridge';
 import type { ChatStore } from '../chat/store';
 import { ChatProvider } from '../react/context';
 import { DefaultPanel } from '../react/skin';
-import type { HostBridge } from './host-bridge';
 
 export interface AppProps {
   readonly store: ChatStore;

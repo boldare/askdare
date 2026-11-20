@@ -6,9 +6,10 @@ import {
   IMAGE_TOKENS,
   PDF_PAGE_TOKENS,
 } from '../attachments/files';
+import { isInside } from '../base-path';
 import type { Bot } from '../bot/define-bot';
 import { AskdareError, type AskdareErrorOptions, toAskdareError } from '../errors';
-import type { ModelGateway, RepliesReader, TurnAttachment } from '../gateway';
+import type { ModelGateway, RepliesReader, TurnAttachment, UiReader } from '../gateway';
 import { canonicalLocale } from '../i18n/texts';
 import type { Limits } from '../limits/limits';
 import type { DoctorReport } from '../protocol/doctor';
@@ -17,7 +18,7 @@ import type { IdentityFailure, IdentityVerifier, VerifiedIdentity } from '../sec
 import { newVisitorId, type ResumeGrant, type TokenService } from '../security/tokens';
 import { PRESET_NAMES, type PresetName } from '../theme/presets';
 import { type ColorScheme, type ResolvedTheme, resolveTheme } from '../theme/theme';
-import { readToolReplies } from '../tools/define-tool';
+import { readToolReplies, readToolUi } from '../tools/define-tool';
 import { readSuggestedReplies } from '../tools/suggest-replies';
 import { detectAudio, languageHints, maxAudioBytes, worstCaseSeconds } from '../voice/audio';
 import {
@@ -25,6 +26,7 @@ import {
   type EmbedAssets,
   type EmbedView,
   embedContentSecurityPolicy,
+  embedPermissionsPolicy,
   GALLERY_STATES,
   type GalleryState,
   renderEmbedPage,
@@ -300,12 +302,29 @@ function repliesReader(bot: Bot): RepliesReader | undefined {
     (suggested ? readSuggestedReplies(calls) : undefined);
 }
 
+/** Reads each answer's UI payloads back from its turn's calls (ADR-0017); none without `ui`. */
+function uiReader(bot: Bot): UiReader | undefined {
+  if (!bot.tools.some((tool) => tool.ui)) return undefined;
+  return (calls) =>
+    readToolUi(bot.tools, calls, (tool) =>
+      console.error(`[askdare] ui of tool "${tool.name}" failed while reading the history.`),
+    );
+}
+
 /**
  * Framework-agnostic request handler behind `createChatHandler`. Serves the loader, the iframe
  * document and its assets, and the JSON/SSE API used by the iframe app (same-origin, no CORS).
  */
 export function createRequestHandler(config: HandlerConfig): RequestHandler {
   const bots = new Map(config.bots.map((bot) => [bot.id, bot]));
+  for (const bot of config.bots) {
+    // The iframe would be sent back into the route, or to one of its own answers.
+    if (bot.embedPath !== undefined && isInside(bot.embedPath, config.basePath)) {
+      throw new TypeError(
+        `[askdare] Bot "${bot.id}": embedPath must be a page outside ${config.basePath}, got "${bot.embedPath}".`,
+      );
+    }
+  }
   const report =
     config.onError ??
     ((error: AskdareError) => console.error(`[askdare] ${error.code}`, error.cause));
@@ -432,12 +451,28 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
 
   const serveEmbed = (botId: string, query: URLSearchParams, request: Request): Response => {
     const bot = findBot(botId);
+    // The site's own page (ADR-0018), with the visitor's language and the mode, nothing else. The
+    // gallery keeps askdare's page, whose fixtures it renders.
+    if (bot.embedPath !== undefined && !(config.gallery && query.has('gallery'))) {
+      const forward = new URLSearchParams();
+      if (bot.widget.locale === 'auto') forward.set('lang', localeFor(bot, query, request));
+      if (query.get('mode') === 'inline') forward.set('mode', 'inline');
+      const search = forward.toString();
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: search ? `${bot.embedPath}?${search}` : bot.embedPath,
+          'Referrer-Policy': 'strict-origin',
+          ...NO_STORE,
+        },
+      });
+    }
     const page = renderEmbedPage(bot, config.basePath, config.assets, viewFor(bot, query, request));
     return new Response(page, {
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
         'Content-Security-Policy': embedContentSecurityPolicy(bot),
-        'Permissions-Policy': `camera=(), geolocation=(), microphone=${bot.voice ? '(self)' : '()'}`,
+        'Permissions-Policy': embedPermissionsPolicy(bot),
         'Referrer-Policy': 'strict-origin',
         'Cross-Origin-Opener-Policy': 'same-origin',
         'X-Content-Type-Options': 'nosniff',
@@ -837,7 +872,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     const { bot, conversationId, tokens, owner } = await ownedConversation(request);
     let messages = await config
       .gateway()
-      .listMessages(conversationId, request.signal, repliesReader(bot));
+      .listMessages(conversationId, request.signal, repliesReader(bot), uiReader(bot));
     if (feedbackOn(bot)) {
       messages = await Promise.all(
         messages.map(async (message) =>
@@ -928,7 +963,20 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
                 fix: "Add the key of the bot's OpenAI project to the app's environment.",
               },
             ];
-        bots.push({ id: bot.id, checks, turnTimeoutMs: bot.limits.turnTimeoutMs });
+        bots.push({
+          id: bot.id,
+          checks,
+          turnTimeoutMs: bot.limits.turnTimeoutMs,
+          ...(bot.embedPath === undefined
+            ? {}
+            : {
+                embed: {
+                  path: bot.embedPath,
+                  allowedOrigins: bot.security.allowedOrigins,
+                  voice: bot.voice !== undefined,
+                },
+              }),
+        });
       }
       const report: DoctorReport = {
         development: config.development === true,

@@ -48,6 +48,13 @@ const suggests = (body, text) =>
   Boolean(body.tools?.some((tool) => tool.name === 'suggest_replies')) &&
   /\[options(-first)?\]/.test(text);
 
+/**
+ * A tool card (ADR-0017) for a message with "[card]": the model first calls the site's
+ * `get_current_time` tool, which runs without network access, then answers.
+ */
+const callsClock = (body, text) =>
+  text.includes('[card]') && Boolean(body.tools?.some((tool) => tool.name === 'get_current_time'));
+
 /** A function call no output answers yet, which the live API refuses to continue (spike S1). */
 const danglingCall = (items, input) => {
   const answered = new Set(
@@ -192,6 +199,18 @@ createServer(async (request, response) => {
       status: 'completed',
       content: parts,
     });
+    if (callsClock(body, userText)) {
+      const clock = {
+        id: `fc_${items.length}`,
+        type: 'function_call',
+        call_id: `call_${items.length}`,
+        name: 'get_current_time',
+        arguments: JSON.stringify({ timeZone: 'Europe/Warsaw' }),
+        status: 'completed',
+      };
+      items.push(clock);
+      return streamResponse(response, '', undefined, clock);
+    }
     const call = suggests(body, userText)
       ? {
           id: `fc_${items.length}`,

@@ -12,6 +12,14 @@ const VALID_EVENTS: readonly Record<string, unknown>[] = [
   { type: 'citation', messageId: 'm1', index: 2, title: 'Docs', url: 'https://example.com/a?b=1' },
   { type: 'tool.status', messageId: 'm1', callId: 'c1', name: 'get_time', state: 'running' },
   { type: 'replies', messageId: 'm1', items: ['Yes, book it', 'Show prices', 'Talk to a person'] },
+  {
+    type: 'tool.ui',
+    messageId: 'm1',
+    callId: 'c1',
+    name: 'find_slots',
+    data: { slots: [{ at: '9:00', free: true }], note: null },
+  },
+  { type: 'tool.ui', messageId: 'm1', callId: 'c2', name: 'get-time', data: '9:00' },
   { type: 'message.end', messageId: 'm1', reason: 'max_output_tokens' },
   {
     type: 'message.end',
@@ -153,6 +161,40 @@ describe('the browser validator', () => {
     expect(
       parseEvent({ type: 'replies', messageId: 'm1', items: ['Prices from €9.99', 'e.g. a demo'] }),
     ).toEqual({ type: 'replies', messageId: 'm1', items: ['Prices from €9.99', 'e.g. a demo'] });
+  });
+
+  it('is never more lenient than zod on tool UI payloads', () => {
+    const card = { callId: 'c1', name: 'find_slots', data: { slots: ['9:00'] } };
+    let deep: unknown = 'leaf';
+    for (let level = 0; level < 9; level += 1) deep = [deep];
+    const payloads: unknown[] = [
+      card,
+      { ...card, data: 'x'.repeat(9000) },
+      { ...card, data: deep },
+      { ...card, data: null },
+      { ...card, data: Number.POSITIVE_INFINITY },
+      { ...card, name: 'find slots' },
+      { ...card, callId: '' },
+    ];
+    for (const payload of payloads) {
+      const value = { type: 'tool.ui', messageId: 'm1', ...(payload as object) };
+      expectNoMoreLenient(parseEvent(value), protocolEventSchema.safeParse(value), value);
+      for (const ui of [[payload], [card, card], [card, payload]]) {
+        const history = { messages: [{ ...MESSAGE, ui }] };
+        expectNoMoreLenient(
+          parseHistory(history),
+          historyResponseSchema.safeParse(history),
+          history,
+        );
+      }
+    }
+    const offered = { messages: [{ ...MESSAGE, ui: [card] }] };
+    expect(parseHistory(offered)).toEqual(historyResponseSchema.parse(offered));
+    expect(parseEvent({ type: 'tool.ui', messageId: 'm1', ...card, extra: 1 })).toEqual({
+      type: 'tool.ui',
+      messageId: 'm1',
+      ...card,
+    });
   });
 
   it('is never more lenient than zod on history, and accepts a valid one', () => {

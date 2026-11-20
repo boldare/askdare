@@ -33,8 +33,8 @@ export {
   Recorder,
   Send,
 } from './composer';
-export type { Chat, ChatBot } from './context';
-export { useChat, useChatState, useMessage } from './context';
+export type { Chat, ChatBot, Frame } from './context';
+export { useChat, useChatState, useFrame, useMessage } from './context';
 export type { FeedbackButtonProps } from './feedback';
 export { FeedbackButton } from './feedback';
 export type { MarkdownProps } from './markdown';
@@ -58,3 +58,11 @@ export type { RootProps } from './root';
 export { Root } from './root';
 export type { ThemeProps } from './theme';
 export { Theme } from './theme';
+export type {
+  LinkProps,
+  ToolRendererProps,
+  ToolRenderers,
+  ToolResultsProps,
+  ToolUi,
+} from './tool-results';
+export { Link, ToolResults } from './tool-results';

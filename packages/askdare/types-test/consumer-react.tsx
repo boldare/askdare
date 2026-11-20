@@ -1,8 +1,10 @@
 // A user's page with the chat inside it, as far as the published types go (ADR-0011).
-import { defineBot } from '@boldare/askdare';
-import { type ChatConfig, getChatConfig } from '@boldare/askdare/next';
+import { defineBot, defineTool } from '@boldare/askdare';
+import { EmbedRoot } from '@boldare/askdare/embed';
+import { type ChatConfig, type EmbedChatConfig, getChatConfig } from '@boldare/askdare/next';
 import * as Chat from '@boldare/askdare/react';
 import { type ReactElement, useRef } from 'react';
+import { z } from 'zod';
 
 const bots = [defineBot({ id: 'support', model: 'a-current-model', instructions: 'Be brief.' })];
 
@@ -68,4 +70,65 @@ export function Headless(): ReactElement {
       </Chat.Theme>
     </Chat.Root>
   );
+}
+
+// Tool cards (ADR-0017): components typed from the tool with `import type`-style types only.
+const findSlots = defineTool({
+  name: 'find_slots',
+  description: 'Free slots.',
+  input: z.object({ day: z.string() }),
+  execute: () => ({ slots: [{ at: '9:00', seats: 2 }], cost: 3 }),
+  ui: (result) => ({ slots: result.slots.map((slot) => slot.at) }),
+});
+
+function SlotList({ data, name, callId }: Chat.ToolRendererProps<typeof findSlots>): ReactElement {
+  const slots: string[] = data.slots;
+  const tool: 'find_slots' = name;
+  return (
+    <Chat.Link href={`https://example.com/book/${callId}`}>
+      {tool}: {slots.join(', ')}
+    </Chat.Link>
+  );
+}
+
+function WrongCard({ data }: { readonly data: { readonly price: number } }): ReactElement {
+  return <p>{data.price}</p>;
+}
+
+// Without the tool's type, any name and `data: unknown`, which the component checks itself.
+function Untyped({ data, name }: Chat.ToolRendererProps): ReactElement {
+  const label: string = name;
+  return <p>{typeof data === 'string' ? data : label}</p>;
+}
+
+export const renderers = { find_slots: SlotList } satisfies Chat.ToolRenderers<[typeof findSlots]>;
+// @ts-expect-error a component for another payload
+export const wrong = { find_slots: WrongCard } satisfies Chat.ToolRenderers<[typeof findSlots]>;
+// @ts-expect-error a tool the list doesn't have
+export const unknownTool = { book_slot: SlotList } satisfies Chat.ToolRenderers<[typeof findSlots]>;
+
+export function WithCards(): ReactElement {
+  const ui: readonly Chat.ToolUi[] | undefined = Chat.useMessage().ui;
+  return (
+    <Chat.Root config={config} toolRenderers={{ ...renderers, other_tool: Untyped }}>
+      <Chat.MessageList>
+        <Chat.ToolResults className={ui ? 'cards' : undefined} />
+      </Chat.MessageList>
+      <Chat.DefaultChat />
+    </Chat.Root>
+  );
+}
+
+// The page at a bot's embedPath (ADR-0018).
+export function Framed({ embed }: { readonly embed: EmbedChatConfig }): ReactElement {
+  return (
+    <EmbedRoot config={embed} toolRenderers={renderers}>
+      <Chat.DefaultChat className="framed" />
+    </EmbedRoot>
+  );
+}
+
+export function NotAnEmbedConfig(): ReactElement {
+  // @ts-expect-error getChatConfig's config lacks the allowed origins and the mode
+  return <EmbedRoot config={config} />;
 }

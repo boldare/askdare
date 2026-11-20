@@ -1,8 +1,9 @@
 import type OpenAI from 'openai';
 import type { ConversationItem } from 'openai/resources/conversations/items';
-import type { RepliesReader, StoredCall } from '../gateway';
+import type { RepliesReader, StoredCall, UiReader } from '../gateway';
 import type { HistoryCitation, HistoryMessage } from '../protocol/history';
 import { normalizeReplies } from '../protocol/replies';
+import { isToolUiList, MAX_TOOL_UI, type ToolUi } from '../protocol/tool-ui';
 import { addSources, citationSource, type KnowledgeSources } from './citations';
 import { PAGE_CONTEXT_MARKER } from './page-context';
 import { isFailedOutput } from './tools';
@@ -66,25 +67,61 @@ export function toHistoryMessage(
   };
 }
 
+/** One turn of the loaded page: its calls with their outputs, and its last visible answer. */
+interface Turn {
+  readonly calls: StoredCall[];
+  /** Index in the messages, oldest first. */
+  answer: number | undefined;
+}
+
 /**
- * The function calls of the latest turn, oldest first, with their outputs: what came after the
- * visitor's last message. Older turns aren't read (ADR-0015). A call that failed while running has
- * no output, as in the live turn, where only successful calls define options.
+ * Splits the items, oldest first, into turns at each visitor message, and maps the visible ones
+ * to messages. A call that failed while running has no output, as in the live turn, where only
+ * successful calls define options and payloads. The oldest turn may start before the page does.
  */
-function latestTurnCalls(newestFirst: readonly ConversationItem[]): StoredCall[] {
+function readTurns(
+  oldestFirst: readonly ConversationItem[],
+  sources: KnowledgeSources,
+): { messages: HistoryMessage[]; turns: Turn[] } {
+  const messages: HistoryMessage[] = [];
+  const turns: Turn[] = [];
   const outputs = new Map<string, string>();
-  const calls: { name: string; arguments: string; callId: string }[] = [];
-  for (const item of newestFirst) {
-    if (item.type === 'message' && item.role === 'user') break;
+  let turn: Turn = { calls: [], answer: undefined };
+  const pending: { name: string; arguments: string; callId: string }[] = [];
+  const close = (): void => {
+    for (const call of pending) turn.calls.push({ ...call, output: outputs.get(call.callId) });
+    pending.length = 0;
+    turns.push(turn);
+  };
+  for (const item of oldestFirst) {
+    if (item.type === 'message' && item.role === 'user') {
+      close();
+      turn = { calls: [], answer: undefined };
+    }
     if (item.type === 'function_call_output' && item.call_id && typeof item.output === 'string') {
       if (!isFailedOutput(item.output)) outputs.set(item.call_id, item.output);
     } else if (item.type === 'function_call') {
-      calls.push({ name: item.name, arguments: item.arguments, callId: item.call_id });
+      pending.push({ name: item.name, arguments: item.arguments, callId: item.call_id });
     }
+    const message = toHistoryMessage(item, sources);
+    if (!message) continue;
+    messages.push(message);
+    if (message.role === 'assistant') turn.answer = messages.length - 1;
   }
-  return calls
-    .toReversed()
-    .map(({ callId, ...call }) => ({ ...call, output: outputs.get(callId) }));
+  close();
+  return { messages, turns };
+}
+
+/** The payloads a turn's calls define, within the limits; none when the reader fails. */
+function turnUi(reader: UiReader, calls: readonly StoredCall[]): readonly ToolUi[] | undefined {
+  if (calls.length === 0) return undefined;
+  try {
+    const ui = reader(calls).slice(0, MAX_TOOL_UI);
+    return isToolUiList(ui) ? ui : undefined;
+  } catch {
+    // A reader that can't read its calls loses the cards, never the conversation.
+    return undefined;
+  }
 }
 
 /**
@@ -96,6 +133,7 @@ export async function listHistory(
   conversationId: string,
   signal?: AbortSignal,
   replies?: RepliesReader,
+  ui?: UiReader,
 ): Promise<HistoryMessage[]> {
   const page = await client.conversations.items.list(
     conversationId,
@@ -103,24 +141,35 @@ export async function listHistory(
     { order: 'desc', limit: ITEM_LIMIT, include: ['file_search_call.results'] },
     signal ? { signal } : undefined,
   );
+  const oldestFirst = page.data.toReversed();
   const sources: KnowledgeSources = new Map();
   // Oldest first, so the newest search results win when a file was retagged in between.
-  for (const item of page.data.toReversed()) {
+  for (const item of oldestFirst) {
     if (item.type === 'file_search_call') addSources(item, sources);
   }
-  const messages = page.data.flatMap((item) => toHistoryMessage(item, sources) ?? []);
+  const { messages, turns } = readTurns(oldestFirst, sources);
+  // Every answer shows its turn's cards (ADR-0017).
+  if (ui) {
+    for (const { answer, calls } of turns) {
+      const message = answer === undefined ? undefined : messages[answer];
+      const payloads = message && turnUi(ui, calls);
+      if (answer !== undefined && message && payloads)
+        messages[answer] = { ...message, ui: payloads };
+    }
+  }
   // Only the latest answer offers options, and only while the visitor hasn't replied yet.
-  const [latest] = messages;
-  if (replies && latest?.role === 'assistant') {
+  const latest = messages.at(-1);
+  const last = turns.at(-1);
+  if (replies && latest?.role === 'assistant' && last) {
     let items: readonly string[] | undefined;
     try {
-      items = replies(latestTurnCalls(page.data));
+      items = replies(last.calls);
     } catch {
       // A source that can't read its call loses the options, never the conversation.
       items = undefined;
     }
     const offered = items && normalizeReplies(items);
-    if (offered) messages[0] = { ...latest, replies: offered };
+    if (offered) messages[messages.length - 1] = { ...latest, replies: offered };
   }
-  return messages.reverse();
+  return messages;
 }

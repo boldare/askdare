@@ -211,4 +211,48 @@ describe('recorded Responses API streams', () => {
     expect(JSON.stringify(events)).not.toContain('Warsaw');
     expect(textOf(events)).toBe('It is 12°C.');
   });
+
+  it("sends the recorded call's UI payload after its status, and only what ui picked (ADR-0017)", async () => {
+    let served = false;
+    server.use(
+      http.post(`${OPENAI_TEST_BASE_URL}/responses`, () => {
+        const first = !served;
+        served = true;
+        const stream = first ? fixture('function-call') : textStream('It is 12°C.');
+        return new HttpResponse(stream, { headers: { 'Content-Type': 'text/event-stream' } });
+      }),
+    );
+    const weatherBot = defineBot({
+      id: 'support',
+      model: 'gpt-6.1-terra',
+      instructions: 'Use tools.',
+      tools: [
+        defineTool({
+          name: 'get_weather',
+          description: 'Current weather for a city.',
+          input: z.object({ city: z.string() }),
+          execute: ({ city }) => ({ city, tempC: 12, station: 'internal-42' }),
+          ui: (result) => ({ tempC: result.tempC }),
+        }),
+      ],
+    });
+    const events: ProtocolEvent[] = [];
+    await gateway.runTurn({ ...request(events), bot: weatherBot });
+
+    const call = /"call_id":"(call_[A-Za-z0-9]+)"/.exec(fixture('function-call'))?.[1];
+    const kinds = events
+      .filter((event) => event.type === 'tool.status' || event.type === 'tool.ui')
+      .map((event) => (event.type === 'tool.status' ? event.state : event.type));
+    expect(kinds).toEqual(['running', 'done', 'tool.ui']);
+    expect(events.find((event) => event.type === 'tool.ui')).toEqual({
+      type: 'tool.ui',
+      messageId: 'msg_r',
+      callId: call,
+      name: 'get_weather',
+      data: { tempC: 12 },
+    });
+    const ui = events.findIndex((event) => event.type === 'tool.ui');
+    expect(events.findIndex((event) => event.type === 'text.delta')).toBeGreaterThan(ui);
+    expect(JSON.stringify(events)).not.toContain('internal-42');
+  });
 });

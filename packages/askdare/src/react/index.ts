@@ -24,7 +24,9 @@ export type {
   ErrorMessageProps,
   FeedbackButtonProps,
   FilesProps,
+  Frame,
   InputProps,
+  LinkProps,
   MarkdownProps,
   MessageFilesProps,
   MessageListProps,
@@ -41,6 +43,10 @@ export type {
   SentFile,
   StatusProps,
   ThemeProps,
+  ToolRendererProps,
+  ToolRenderers,
+  ToolResultsProps,
+  ToolUi,
   Translate,
 } from './headless';
 export {
@@ -52,6 +58,7 @@ export {
   FeedbackButton,
   Files,
   Input,
+  Link,
   Markdown,
   Message,
   MessageFiles,
@@ -65,8 +72,10 @@ export {
   Send,
   Status,
   Theme,
+  ToolResults,
   useChat,
   useChatState,
+  useFrame,
   useMessage,
 } from './headless';
 export type { DefaultChatComponents } from './skin';

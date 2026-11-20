@@ -28,8 +28,8 @@ A library runs inside its users' apps, so every supported combination of version
 - Every change carries a changeset.
 - The SSE protocol has its own version (`x-askdare-protocol`).
 - **The public surface is exactly:**
-  - `defineBot`, `defineTool`, `createChatHandler` (and `defineTheme`);
-  - `getChatConfig`, and everything `@boldare/askdare/react` exports: `Root`, `DefaultChat`, `Theme`, the hooks and the primitives (ADR-0011);
+  - `defineBot` (with its `embedPath` option, ADR-0018), `defineTool` (with its `replies` and `ui` options, and the `Name` and `Ui` type parameters of `Tool`, ADR-0017), `createChatHandler` (and `defineTheme`);
+  - `getChatConfig`, `getEmbedConfig` and `embedPageHeaders` (ADR-0018), and everything `@boldare/askdare/react` exports: `Root`, `DefaultChat`, `Theme`, the hooks and the primitives (ADR-0011);
   - the `data-askdare-root` attribute of the theme root;
   - the script tag's `data-*` attributes (`data-follow-lang` included) and the `askdare()` JS API, `identify`, `on`, `off` and `configure({ locale })` included (ADR-0014);
   - the chat event catalog and `Root`'s `onEvent` (ADR-0013);
@@ -37,7 +37,7 @@ A library runs inside its users' apps, so every supported combination of version
   - the identity token's claims, `IDENTITY_SECRET` and `context.identity` (ADR-0009);
   - `--ask-*` tokens, `data-ask-part` names and dictionary keys;
   - the shadow parts on the host page (`launcher`, `panel`, `unavailable`) and the host element's `data-askdare` attribute;
-  - the protocol version;
+  - the protocol version, and its events and history fields (`replies` from ADR-0015, `tool.ui` and `ui` from ADR-0017);
   - ports implemented by official add-ons: `RateLimitStore` (and `CounterHit`);
   - the `askdare` commands and their options (`init`, `doctor`, `kb sync`, `add ui`), but not their printed output or the `/doctor` report behind `doctor`. The files `add ui` copies are the user's code from then on: their content is not API;
 

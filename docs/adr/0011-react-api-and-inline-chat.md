@@ -24,7 +24,7 @@ The code splits into three layers in `packages/askdare/src/`:
 |---|---|---|
 | `chat/` | The browser core, without React: `ChatClient`, storage, the recorder, file preparation, the event reducer, the chat store and a fixture store for the gallery | `protocol/`, `i18n/` |
 | `react/` | Hooks, primitives and `skin/`, the default look. `skin/` is what `add ui` copies | `chat/` |
-| `widget-app/` | Only what belongs to the iframe: the entry point, the host bridge, `bindBridge` (the bridge wired to the store), `frame.css` and the gallery fixtures | `react/`, `chat/` |
+| `widget-app/` | Only what belongs to the iframe: the entry point, `frame.css` and the gallery fixtures. The host bridge, `bindBridge` and the language switch moved to `chat/` in 0.4, shared with `EmbedRoot` ([ADR-0018](0018-embed-path.md)) | `react/`, `chat/` |
 
 - **The store** (`createChatStore`) holds everything sending needs: the messages, the phase (`starting`, `loading`, `ready`), whether a turn runs, the error, the activity line, the draft, the files on their way, the dictation and the visitor's ratings. It has `subscribe`, `getSnapshot` and `getServerSnapshot` for `useSyncExternalStore`, the actions, and idempotent `start()` and `stop()`, so React's Strict Mode can run effects twice.
 - **Components keep only what is about the DOM:** the "new conversation?" question, files dragged over the chat, the height of the message field, focus, and the microphone level meter, which is written through a ref so it never re-renders.

@@ -2,12 +2,14 @@
 // ?variant= shows the host-page JavaScript API: custom (own button), inline, configure,
 // follow-lang (the chat follows the page's language).
 // ?lang= sets the page language, which a bot with locale 'auto' follows.
+// ?bot=own-page embeds the bot whose iframe shows the site's own page (embedPath, ADR-0018).
 import { createHmac } from 'node:crypto';
 import { createServer } from 'node:http';
 
 const APP_ORIGIN = process.env.APP_ORIGIN ?? 'http://localhost:3100';
 const PORTS = [Number(process.env.HOST_PORT ?? 4000), Number(process.env.FOREIGN_PORT ?? 4001)];
 const SRC = `${APP_ORIGIN}/api/chat/widget.js?bot=support`;
+const BOTS = ['support', 'own-page'];
 
 const VARIANTS = {
   default: `<script src="${SRC}" async></script>`,
@@ -70,20 +72,20 @@ const VARIANTS = {
 };
 
 /** What a site's backend does to sign a visitor in: an HS256 JWT with IDENTITY_SECRET (ADR-0009). */
-function identityToken(user, secret = process.env.IDENTITY_SECRET ?? '') {
+function identityToken(user, bot, secret = process.env.IDENTITY_SECRET ?? '') {
   const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
   const now = Math.floor(Date.now() / 1000);
-  const claims = { sub: user.id, name: user.name, aud: 'support', iat: now, exp: now + 600 };
+  const claims = { sub: user.id, name: user.name, aud: bot, iat: now, exp: now + 600 };
   const unsigned = `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode(claims)}`;
   return `${unsigned}.${createHmac('sha256', secret).update(unsigned).digest('base64url')}`;
 }
 
 /** Signs Ada in before the chat loads; `forged` signs with a secret the app doesn't know. */
-const identityVariant = (forged) => {
+const identityVariant = (forged, bot) => {
   const ada = { id: 'user-ada', name: 'Ada Lovelace' };
   const token = forged
-    ? identityToken(ada, 'a-secret-the-attacker-made-up-1234567890')
-    : identityToken(ada);
+    ? identityToken(ada, bot, 'a-secret-the-attacker-made-up-1234567890')
+    : identityToken(ada, bot);
   return `<script>
       window.askdare = window.askdare || function () {
         (window.askdare.q = window.askdare.q || []).push(arguments);
@@ -93,17 +95,18 @@ const identityVariant = (forged) => {
     <script src="${SRC}" async></script>`;
 };
 
-const body = (variant) =>
-  variant === 'identity' || variant === 'forged'
-    ? identityVariant(variant === 'forged')
-    : (VARIANTS[variant] ?? VARIANTS.default);
+const body = (variant, bot) =>
+  (variant === 'identity' || variant === 'forged'
+    ? identityVariant(variant === 'forged', bot)
+    : (VARIANTS[variant] ?? VARIANTS.default)
+  ).replaceAll(SRC, `${APP_ORIGIN}/api/chat/widget.js?bot=${bot}`);
 
-const page = (port, variant, lang) => `<!doctype html>
+const page = (port, variant, lang, bot) => `<!doctype html>
 <html${lang === 'none' ? '' : ` lang="${lang}"`}>
   <head><meta charset="utf-8"><title>Host page ${port}</title></head>
   <body>
     <h1>A third-party website on port ${port}</h1>
-    ${body(variant)}
+    ${body(variant, bot)}
   </body>
 </html>`;
 
@@ -114,10 +117,15 @@ for (const port of PORTS) {
       response.writeHead(404).end();
       return;
     }
-    const lang = /^([a-z]{2}(-[A-Z]{2})?|none)$/.test(url.searchParams.get('lang') ?? '')
-      ? url.searchParams.get('lang')
-      : 'en';
+    // What goes into the page's HTML is checked or one of our own names, never the query's text.
+    const asked = url.searchParams.get('lang') ?? '';
+    const lang = /^([a-z]{2}(-[A-Z]{2})?|none)$/.test(asked) ? asked : 'en';
+    const bot = BOTS.find((name) => name === url.searchParams.get('bot')) ?? 'support';
+    const variant =
+      [...Object.keys(VARIANTS), 'identity', 'forged'].find(
+        (name) => name === url.searchParams.get('variant'),
+      ) ?? 'default';
     response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-    response.end(page(port, url.searchParams.get('variant') ?? 'default', lang));
+    response.end(page(port, variant, lang, bot));
   }).listen(port, '127.0.0.1', () => console.log(`host page on http://127.0.0.1:${port}`));
 }

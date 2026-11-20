@@ -18,7 +18,7 @@ body:
     id: environment
     attributes:
       label: Next.js, Node.js and host
-      placeholder: "Next.js 16.4.3, Node.js 24, Vercel"
+      placeholder: "Next.js 16.4.6, Node.js 24, Vercel"
     validations:
       required: true
   - type: textarea

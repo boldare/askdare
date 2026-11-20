@@ -5,6 +5,7 @@ import {
   Panel,
   Status,
   useChat,
+  useFrame,
 } from '@boldare/askdare/react';
 import {
   type ComponentType,
@@ -33,23 +34,31 @@ export interface DefaultChatComponents {
 }
 
 export interface DefaultPanelProps {
-  /** Level of the chat's title (default 2); 1 makes the chat the page's main landmark. */
+  /**
+   * Level of the chat's title (default 2, or 1 inside `EmbedRoot`); 1 makes the chat the page's
+   * main landmark.
+   */
   readonly headingLevel?: 1 | 2 | 3 | 4 | 5;
-  /** Shows a close button, and Escape calls it too. */
+  /** Shows a close button, and Escape calls it too. Inside `EmbedRoot`, it closes the widget by default. */
   readonly onClose?: (() => void) | undefined;
   readonly components?: DefaultChatComponents | undefined;
 }
 
 /** The default look of the chat inside its frame: header, conversation and message field. */
 export function DefaultPanel({
-  headingLevel = 2,
-  onClose,
+  headingLevel: level,
+  onClose: close,
   components = {},
-  ownsDocument = false,
+  ownsDocument: owns = false,
 }: DefaultPanelProps & {
   /** The chat is the whole document, as in its iframe: Escape works wherever focus is. */
   readonly ownsDocument?: boolean;
 }): ReactElement {
+  // On a site's own page in the widget's iframe (EmbedRoot), the chat is the document there too.
+  const frame = useFrame();
+  const headingLevel = level ?? (frame ? 1 : 2);
+  const onClose = close ?? frame?.close;
+  const ownsDocument = owns || frame !== null;
   const { state, actions, bot, t } = useChat();
   const [confirming, setConfirming] = useState(false);
   /** Accepted, and the server is deleting the conversation: the question stays, busy, until then. */

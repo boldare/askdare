@@ -63,6 +63,26 @@ export const orderStatus = defineTool({
 
 [Reply options](reply-options.md) has more flows, options in several languages, and when to let the model suggest options instead.
 
+## Cards for the visitor
+
+A tool can also pick what the visitor may see of its result, for a card, a list or a table that your own React component draws under the answer ([ADR-0017](adr/0017-tool-renderers.md)):
+
+```ts
+export const findSlots = defineTool({
+  name: 'find_slots',
+  description: 'Free consultation slots on a day.',
+  input: z.object({ day: z.string() }),
+  execute: async ({ day }) => calendar.freeSlots(day),
+  ui: (result) => ({ day: result.day, slots: result.slots.map((slot) => slot.start) }),
+});
+```
+
+- **Only what `ui` returns reaches the browser,** never the result itself. Pick the fields a visitor may see: no internal IDs, costs or notes, nothing about other customers. The visitor can read the payload in their browser even where no component shows it.
+- **Keep `ui` pure.** It gets the result as the model received it, parsed back from JSON (a `Date` is a string by then), and runs again on every reload to bring the card back. The same result must give the same payload; a reload after a deploy shows what your current `ui` returns.
+- **Limits.** Return plain JSON of at most 8 KB and 8 levels of arrays and objects, or `undefined` or `null` for no card. A payload over a limit is dropped whole and the tool's name is logged. An answer shows at most 4, in call order. A call that failed, timed out or returned too much data shows none. If `ui` throws, the answer comes without that card and the error is logged.
+- **The model still sees the whole result** and writes about it as usual. If the card should speak for itself, say so in the tool's description or the bot's instructions.
+- **Drawing the card** is your React component, registered with `Root`'s `toolRenderers` in the chat inside your page ([Tool cards](react.md#tool-cards)). The payload's type comes from `ui`, and the tool's name stays a literal, so a page types its components from the tool with `import type`. In the script-tag widget, a bot draws them when its iframe shows your own page (`embedPath`, [Embedding](embedding.md#your-own-page-in-the-iframe)); askdare's own iframe page has no components to draw them with.
+
 ## Rules
 
 - **Every field is required.** OpenAI's strict mode demands it: use `.nullable()` instead of `.optional()`. `defineTool` fails at startup otherwise.

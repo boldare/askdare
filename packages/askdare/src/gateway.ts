@@ -3,6 +3,7 @@ import type { Bot, BotContext } from './bot/define-bot';
 import type { DoctorCheck } from './protocol/doctor';
 import type { MessageEndReason, ProtocolEvent } from './protocol/events';
 import type { HistoryMessage } from './protocol/history';
+import type { ToolUi } from './protocol/tool-ui';
 
 export interface TokenUsage {
   readonly inputTokens: number;
@@ -112,6 +113,8 @@ export interface TurnResult {
  * running.
  */
 export interface StoredCall {
+  /** Opaque; tells a turn's payloads apart. */
+  readonly callId?: string | undefined;
   readonly name: string;
   /** JSON, as the model wrote it. */
   readonly arguments: string;
@@ -123,6 +126,12 @@ export interface StoredCall {
  * back after a reload (ADR-0015). The server cleans them up as it does for a live turn.
  */
 export type RepliesReader = (calls: readonly StoredCall[]) => readonly string[] | undefined;
+
+/**
+ * Finds the UI payloads among one turn's calls, oldest first, so an answer's cards come back after
+ * a reload (ADR-0017). Read for every answer in the history, not only the latest.
+ */
+export type UiReader = (calls: readonly StoredCall[]) => readonly ToolUi[];
 
 /** What `askdare doctor` checks for one bot: the features it uses, with the server's key. */
 export interface DiagnoseRequest {
@@ -147,11 +156,15 @@ export interface ModelGateway {
   uploadFile(upload: UploadRequest): Promise<string>;
   /** Turns recorded speech into text. Nothing is stored. */
   transcribe(request: TranscriptionRequest): Promise<TranscriptionResult>;
-  /** Visible messages of a conversation, oldest first; the latest answer with its options. */
+  /**
+   * Visible messages of a conversation, oldest first; the latest answer with its options, and
+   * every answer with its turn's UI payloads.
+   */
   listMessages(
     conversationId: string,
     signal?: AbortSignal,
     replies?: RepliesReader,
+    ui?: UiReader,
   ): Promise<readonly HistoryMessage[]>;
   runTurn(request: TurnRequest): Promise<TurnResult>;
   /** Small live requests that show whether the key, model and stores work (`askdare doctor`). */

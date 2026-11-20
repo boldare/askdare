@@ -23,17 +23,14 @@ A change to what a release contains comes as a pull request to this file.
 
 Compaction left 0.3 after spike S5b; see Later.
 
-## 0.4: settle in
+## 0.4.0: settle in
 
-0.4 ships these three, in this order, one at a time in the Core lane:
+0.4.0 is ready for release. What it brings:
+- runtime language, step 2: texts per language in `defineBot`, `GET <basePath>/config/<bot>?lang=`, and the chat switching its language in place, keeping the conversation and an answer under way ([ADR-0014](docs/adr/0014-runtime-language.md));
+- tool cards: a tool picks what the visitor may see of its result with `defineTool({ ui })`, and React components draw it with `toolRenderers` ([ADR-0017](docs/adr/0017-tool-renderers.md));
+- your own page in the widget's iframe: `embedPath`, `EmbedRoot` from `@boldare/askdare/embed`, `getEmbedConfig` and `embedPageHeaders`, so the script-tag widget uses your components and draws your tool cards ([ADR-0018](docs/adr/0018-embed-path.md)).
 
-| Epic | Goal | Decision |
-|---|---|---|
-| Runtime language, step 2 | Switch the language in place, with texts per language in `defineBot` and `GET <basePath>/config/<bot>?lang=` | [ADR-0014](docs/adr/0014-runtime-language.md) |
-| `toolRenderers` | React components for tool results, building on the reply-options payload. A design note comes first. | [ADR-0008](docs/adr/0008-ui-customization-and-themes.md), [ADR-0015](docs/adr/0015-reply-options.md) |
-| `embedPath` | A custom UI inside the iframe, so the script-tag widget can use your own components and `toolRenderers`. A design note comes first. | [ADR-0005](docs/adr/0005-embedding-model.md), [ADR-0008](docs/adr/0008-ui-customization-and-themes.md) |
-
-The design notes for `toolRenderers` and `embedPath` are written in the Decisions lane while the language work runs. Admin left 0.4 to keep it small; see Later.
+Admin left 0.4 to keep it small; see Later.
 
 ## Later
 
@@ -71,8 +68,8 @@ Work runs in parallel lanes. Tasks that touch the **hot files** run one at a tim
 |---|---|---|
 | Organization | The roadmap and `tasks/` | No |
 | Deploy | What is left of the deploy buttons: the starter template repo for the Heroku button | No |
-| Decisions | ADRs and design notes, in parallel with everything. For 0.4: the `toolRenderers` and `embedPath` design notes | No |
-| Spikes | Experiments in `spikes/` | No |
-| Core | Runtime language step 2 (texts per language, then the `/config/<bot>` endpoint, then switching in place), then `toolRenderers`, then `embedPath` | **Yes**, one task at a time |
+| Decisions | ADRs and design notes, in parallel with everything. The 0.4 design notes are done (ADR-0017, ADR-0018) | No |
+| Spikes | Experiments in `spikes/`. For 0.4: S6, a `ModelGateway` for Claude | No |
+| Core | Nothing open until the next release is planned | **Yes**, one task at a time |
 
-Core work for 0.4 lands on `main` with `--no-ff`, or on an integration branch `release/0.4` if a task must not reach `main` before the release ([RELEASING.md](RELEASING.md)).
+Core work for 0.4 lands on `main` with `--no-ff`, or on an integration branch `release/0.4` if a task must not reach `main` before the release ([RELEASING.md](RELEASING.md)). `embedPath` was such a case: its server side (3b) waited on `release/0.4` for `EmbedRoot` (3c), and both reached `main` together.
