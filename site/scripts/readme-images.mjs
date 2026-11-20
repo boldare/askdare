@@ -242,6 +242,34 @@ const localeCode = await code(
   { locale: 'pl' })`,
   'js',
 );
+const cardCode = await code(
+  `defineTool({
+  ui: (rate) => ({
+    pair: 'EUR/PLN',
+    rate: rate.value,
+  }),
+})`,
+  'ts',
+);
+const renderersCode = await code(
+  `<Root toolRenderers={{
+  get_rate: RateCard,
+}}>`,
+  'tsx',
+);
+const embedCode = await code(
+  `defineBot({
+  embedPath: '/chat',
+})`,
+  'ts',
+);
+const textsCode = await code(
+  `widget: { texts: {
+  en: { /* … */ },
+  pl: { /* … */ },
+} }`,
+  'ts',
+);
 
 // ---------- The look: the site's Aura theme ----------
 
@@ -401,7 +429,7 @@ const check = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3
 const isNew = '<span class="new">New</span>';
 const features = () => `
   <style>
-    .features { width: 1280px; height: 1500px; padding: 56px 64px; }
+    .features { width: 1280px; height: 1820px; padding: 56px 64px; }
     .features h2 { font-size: 44px; }
     .grid {
       display: grid; grid-template-columns: 372px 1fr 1fr; grid-template-rows: 1fr 1fr;
@@ -436,7 +464,7 @@ const features = () => `
     .voice .pic { width: 318px; }
     .ratings .pic { left: 12px; bottom: 16px; width: 236px; }
     .replies .pic { left: 16px; bottom: 18px; max-width: 258px; }
-    .added .locale .shiki { bottom: 60px; }
+    .added .locale .shiki, .added .embed .shiki { bottom: 60px; }
     .deploy ol { position: absolute; right: 22px; bottom: 22px; left: 22px; display: grid; gap: 8px; list-style: none; counter-reset: step; }
     .deploy li { display: flex; align-items: center; gap: 10px; font-size: 13.5px; font-weight: 600; counter-increment: step; }
     .deploy li::before {
@@ -489,17 +517,28 @@ const features = () => `
         <ul class="names"><li>ready</li><li>open</li><li>message.sent</li><li>message.received</li><li>feedback</li></ul></div>
     </div>
     <div class="grid added">
-      <div class="tile card replies"><h3>Clickable answers ${isNew}</h3>
+      <div class="tile card replies"><h3>Clickable answers</h3>
         <p>The model suggests the next steps under its answer. A click sends one as the visitor's message.</p>
         <img class="pic" src="${shots.replies}" alt=""></div>
-      <div class="tile card tool-replies"><h3>Options from tools ${isNew}</h3>
+      <div class="tile card tool-replies"><h3>Options from tools</h3>
         <p>A tool turns its result into the next steps. The same result gives the same options.</p>${repliesCode}</div>
-      <div class="tile card locale"><h3>Language switch ${isNew}</h3>
-        <p>The page sets the chat's language. The chat reloads in it and keeps the conversation.</p>${localeCode}
+      <div class="tile card locale"><h3>Language switch</h3>
+        <p>The page sets the chat's language. The chat switches in place and keeps the conversation.</p>${localeCode}
         <ul class="names"><li>data-follow-lang</li></ul></div>
-      <div class="tile card deploy"><h3>One-click deploy ${isNew}</h3>
+      <div class="tile card deploy"><h3>One-click deploy</h3>
         <p>From the starter to a running chat on Vercel in about five minutes. No code to write.</p>
         <ol><li>Click Deploy</li><li>Paste your OpenAI key</li><li>Embed the script tag</li></ol></div>
+    </div>
+    <div class="grid added">
+      <div class="tile card cards"><h3>Tool cards ${isNew}</h3>
+        <p>A tool picks what the visitor may see of its result. Only that reaches the browser.</p>${cardCode}</div>
+      <div class="tile card renderers"><h3>Your components ${isNew}</h3>
+        <p>Your React components draw each tool's card under the answer, typed from the tool.</p>${renderersCode}</div>
+      <div class="tile card embed"><h3>Your widget page ${isNew}</h3>
+        <p>The widget on any site shows a page of your app, with your look and your cards.</p>${embedCode}
+        <ul class="names"><li>EmbedRoot</li></ul></div>
+      <div class="tile card texts"><h3>Texts per language ${isNew}</h3>
+        <p>Your own greeting and texts in every language the chat speaks.</p>${textsCode}</div>
     </div>
     <div class="strip"><strong>No database.</strong><ul class="tags">
       <li>Conversations live in OpenAI</li><li>Vercel or Heroku</li><li>Next.js 16</li><li>TypeScript</li><li>English and Polish</li>
@@ -546,7 +585,7 @@ async function render(html, { width, height, path, scale = 2 }) {
 
 await mkdir(assets, { recursive: true });
 await render(hero(), { width: 1280, height: 640, path: join(assets, 'askdare-hero.png') });
-await render(features(), { width: 1280, height: 1500, path: join(assets, 'askdare-features.png') });
+await render(features(), { width: 1280, height: 1820, path: join(assets, 'askdare-features.png') });
 await render(how(), { width: 1280, height: 640, path: join(assets, 'askdare-how-it-works.png') });
 await render(themes(), { width: 1280, height: 640, path: join(assets, 'askdare-themes.png') });
 // The link preview: square corners, at the size it is shown.
