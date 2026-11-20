@@ -1,3 +1,24 @@
+// ==== embed.d.ts ====
+
+import { d as EmbedChatConfig, i as ToolRenderers } from "./tool-results.js";
+import { ReactElement, ReactNode } from "react";
+interface EmbedRootProps {
+  /** From `getEmbedConfig()` in the page's Server Component. */
+  readonly config: EmbedChatConfig;
+  /** Your components for tools' results, by tool name, as on `Root` (ADR-0017). */
+  readonly toolRenderers?: ToolRenderers | undefined;
+  readonly children?: ReactNode;
+}
+/**
+ * `Root` for your own page in the widget's iframe (ADR-0018): the page at a bot's `embedPath`.
+ * It connects to the loader on the embedding site exactly as askdare's own iframe does: the
+ * visitor's identity, `askdare('configure')`, the events for `askdare('on')`, hiding and closing
+ * the panel, and language switches. Put `DefaultChat`, an ejected copy of it or your own markup
+ * inside; `DefaultChat` then owns the document and shows a close button. Render one per page.
+ */
+export declare function EmbedRoot({ config, toolRenderers, children }: EmbedRootProps): ReactElement;
+export type { EmbedChatConfig, EmbedRootProps };
+
 // ==== index.d.ts ====
 import { C as VisitorIdentity, S as ThemeVariants, _ as ColorScheme, a as BotContext, b as PresetName, c as BotSecurity, d as WidgetConfig, f as defineBot, g as defineTool, h as ToolDefinition, i as Bot, l as KnowledgeConfig, m as ToolContext, n as RateLimitStore, o as BotDefinition, p as Tool, r as AttachmentConfig, s as BotLimits, t as CounterHit, u as VoiceConfig, v as ThemeDefinition, x as ThemeTokens, y as defineTheme } from "./store.js";
 /**
@@ -66,6 +87,13 @@ interface ChatConfig {
   };
   /** From `getChatConfig`, for a chat inside a page. The iframe links its own stylesheets. */
   readonly styles?: ChatStyles;
+}
+/** What `EmbedRoot` from `@boldare/askdare/embed` needs; `getEmbedConfig` builds it (ADR-0018). */
+interface EmbedChatConfig extends ChatConfig {
+  /** Origins whose pages may hand the chat its connection to the loader (ADR-0005). */
+  readonly allowedOrigins: readonly string[];
+  /** `inline` inside an element of the host page, `floating` in the widget's panel. */
+  readonly mode: "floating" | "inline";
 }
 /**
  * Which proxy to trust when reading the client IP:
@@ -258,82 +286,63 @@ interface ChatConfigOptions {
  * ```
  */
 export declare function getChatConfig(options: ChatConfigOptions): ChatConfig;
-export type { ChatAttachments, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlers, ChatStyles, ChatTokenUsage, ChatToolCallReport, ChatUsageReport, ChatWidget, RouteHandler, TrustProxy };
+/** A page's search parameters, as Next.js hands them to it or as `URLSearchParams`. */
+type EmbedSearchParams = URLSearchParams | Readonly<Record<string, string | readonly string[] | undefined>>;
+interface EmbedConfigOptions {
+  /** The same bots as in `createChatHandler`. */
+  readonly bots: readonly Bot[];
+  /** The id of the bot whose `embedPath` this page is. */
+  readonly bot: string;
+  /** Path of the chat route, the same as in `createChatHandler`. Default `/api/chat`. */
+  readonly basePath?: string;
+  /** The page's search parameters: the chat route passes the language and the mode in them. */
+  readonly searchParams: EmbedSearchParams;
+}
+/**
+ * The configuration for the page at a bot's `embedPath` (ADR-0018), read in its Server Component
+ * from the language and the mode that the chat route passes in the URL:
+ *
+ * ```tsx
+ * // app/(askdare)/askdare/support/page.tsx
+ * const config = getEmbedConfig({ bots, bot: 'support', searchParams: await searchParams });
+ * return <Frame config={config} />; // a client component with <EmbedRoot> and <DefaultChat>
+ * ```
+ */
+export declare function getEmbedConfig(options: EmbedConfigOptions): EmbedChatConfig;
+/** One response header, in the shape of `headers()` in `next.config.ts`. */
+interface EmbedPageHeader {
+  readonly key: string;
+  readonly value: string;
+}
+/**
+ * The headers the page at a bot's `embedPath` must send, as askdare's own iframe page does
+ * (ADR-0018): who may frame it, the microphone only with voice input, and the referrer policy.
+ * Set them for the page's path in `next.config.ts`:
+ *
+ * ```ts
+ * async headers() {
+ *   return [{ source: '/askdare/support', headers: embedPageHeaders({ bots, bot: 'support' }) }];
+ * }
+ * ```
+ */
+export declare function embedPageHeaders(options: {
+  readonly bots: readonly Bot[];
+  readonly bot: string;
+}): EmbedPageHeader[];
+export type { ChatAttachments, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlers, ChatStyles, ChatTokenUsage, ChatToolCallReport, ChatUsageReport, ChatWidget, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, RouteHandler, TrustProxy };
 
 // ==== react.d.ts ====
 
+import { a as ToolResults, c as ChatConfig, f as PresetName, i as ToolRenderers, l as ChatStyles, n as LinkProps, o as ToolResultsProps, p as ThemeVariants, r as ToolRendererProps, s as ChatAttachments, t as Link, u as ChatWidget } from "./tool-results.js";
 import { ComponentProps, ComponentType, NamedExoticComponent, ReactElement, ReactNode, Ref } from "react";
-declare const PRESET_NAMES: readonly ["halo", "aura", "sage", "care"];
-type PresetName = (typeof PRESET_NAMES)[number];
-/** Component variants a preset picks; each becomes a `data-ask-*` attribute on the document. */
-interface ThemeVariants {
-  readonly avatar: "orb" | "icon" | "initials" | "none";
-  readonly welcome: "hero" | "persona" | "intro";
-  readonly launcher: "orb" | "circle" | "pill";
-  readonly bubbles: "filled" | "plain";
-  readonly surface: "solid" | "glass";
-  readonly density: "comfortable" | "compact";
-  readonly composer: "outline" | "gradient";
-  /** Where the latest answer's options show: under it, or in one row above the message field. */
-  readonly replies: "answer" | "composer";
-}
-/** What a visitor may attach, as the bot allows it. */
-interface ChatAttachments {
-  readonly images: boolean;
-  readonly pdf: boolean;
-  readonly maxBytes: number;
-  readonly maxPerMessage: number;
-  readonly maxPdfPages: number;
-}
-/** A bot's public widget settings, in the visitor's language. */
-interface ChatWidget {
-  readonly title: string;
-  readonly subtitle: string;
-  readonly greeting: string;
-  readonly placeholder: string;
-  /** The language this visitor sees. */
-  readonly locale: string;
-  readonly starters: readonly string[];
-  readonly avatar: string | undefined;
-  readonly launcherLabel: string;
-  readonly disclosure: false | {
-    readonly privacyUrl: string | undefined;
-  };
-  readonly preset: PresetName;
-  readonly variants: ThemeVariants;
-  /** `auto` follows the visitor's system setting. */
-  readonly colorScheme: "auto" | "light" | "dark";
-  /** Every text in the visitor's language, overrides applied; plural keys included. */
-  readonly texts: Readonly<Record<string, string>>;
-}
-/** Stylesheets of a chat inside a page, served by the chat route (ADR-0011). */
-interface ChatStyles {
-  /** The bot's tokens for both color schemes, then its own `widget.css`. */
-  readonly theme: string;
-  /** The default look; only `DefaultChat` loads it. */
-  readonly skin: string;
-  /** `@font-face` rules of the built-in themes; browsers fetch only the fonts in use. */
-  readonly fonts: string;
-}
-/** What the browser needs to run one bot's chat. Public: it never holds secrets (ADR-0008). */
-interface ChatConfig {
-  readonly protocolVersion: number;
-  /** Path of the chat route, such as `/api/chat`. Same origin only (ADR-0011). */
-  readonly basePath: string;
-  readonly botId: string;
-  readonly widget: ChatWidget;
-  /** Whether the bot accepts a description of the page it is on. */
-  readonly pageContext: boolean;
-  /** Whether the bot lets visitors rate answers. Answers carry a handle when the route takes ratings. */
-  readonly feedback: boolean;
-  /** Absent when attachments are off. */
-  readonly attachments?: ChatAttachments;
-  /** Absent when voice input is off. The model stays on the server. */
-  readonly voice?: {
-    readonly maxSeconds: number;
-  };
-  /** From `getChatConfig`, for a chat inside a page. The iframe links its own stylesheets. */
-  readonly styles?: ChatStyles;
+/** One tool call's payload, as the `tool.ui` event and the history carry it. */
+interface ToolUi {
+  /** The call, as in `tool.status`. Opaque. */
+  readonly callId: string;
+  /** The tool's name, which picks the renderer. */
+  readonly name: string;
+  /** Whatever the tool's `ui` returned: plain JSON, never `null`. */
+  readonly data: unknown;
 }
 /** Parts of the default look you can replace. They take no props: read the chat with the hooks. */
 interface DefaultChatComponents {
@@ -345,9 +354,12 @@ interface DefaultChatComponents {
   readonly Footer?: ComponentType;
 }
 interface DefaultPanelProps {
-  /** Level of the chat's title (default 2); 1 makes the chat the page's main landmark. */
+  /**
+   * Level of the chat's title (default 2, or 1 inside `EmbedRoot`); 1 makes the chat the page's
+   * main landmark.
+   */
   readonly headingLevel?: 1 | 2 | 3 | 4 | 5;
-  /** Shows a close button, and Escape calls it too. */
+  /** Shows a close button, and Escape calls it too. Inside `EmbedRoot`, it closes the widget by default. */
   readonly onClose?: (() => void) | undefined;
   readonly components?: DefaultChatComponents | undefined;
 }
@@ -380,15 +392,6 @@ interface FeedbackHandle {
   readonly handle: string;
   /** Stable for the answer across reloads, so the client can remember its rating. Hex. */
   readonly key: string;
-}
-/** One tool call's payload, as the `tool.ui` event and the history carry it. */
-interface ToolUi {
-  /** The call, as in `tool.status`. Opaque. */
-  readonly callId: string;
-  /** The tool's name, which picks the renderer. */
-  readonly name: string;
-  /** Whatever the tool's `ui` returned: plain JSON, never `null`. */
-  readonly data: unknown;
 }
 /**
  * What a page may set with askdare('configure') or the props of `Root`, checked again here. The
@@ -694,6 +697,19 @@ interface Chat {
   /** A text in the visitor's language by its key, such as `composer.send`. */
   readonly t: Translate;
 }
+/**
+ * The chat is the whole document of the widget's iframe (`EmbedRoot`, ADR-0018): `close` asks the
+ * loader to close the panel; undefined when the page isn't in an iframe or in `inline` mode.
+ */
+interface Frame {
+  readonly close: (() => void) | undefined;
+}
+/**
+ * Inside `EmbedRoot`, on your own page in the widget's iframe (ADR-0018): the chat is the whole
+ * document, and `close` asks the loader to close the panel (undefined in `inline` mode or when the
+ * page isn't in the widget). Null everywhere else. Your own markup uses it for a close button.
+ */
+export declare function useFrame(): Frame | null;
 /** The whole chat: its state, actions, bot settings and texts. Re-renders on every change. */
 export declare function useChat(): Chat;
 /**
@@ -785,54 +801,6 @@ type QuickRepliesProps = ComponentProps<"div">;
  * options. Either way the options go away as soon as the visitor sends anything.
  */
 export declare function QuickReplies(props: QuickRepliesProps): ReactElement | null;
-/**
- * What a tool's `ui` returns, read from its type (`typeof myTool`) with `import type`, so no server
- * code reaches the page. Structural, so the page needs only the tool's type.
- */
-type ToolData<T> = T extends {
-  readonly ui?: ((output: never) => infer Ui) | undefined;
-} ? Exclude<Ui, null | undefined> : never;
-/** Any tool: without a type argument, a component gets `data: unknown` and any name. */
-interface AnyTool {
-  readonly name: string;
-  readonly ui?: ((output: never) => unknown) | undefined;
-}
-/** What a component registered for a tool gets (ADR-0017). */
-interface ToolRendererProps<T extends {
-  readonly name: string;
-} = AnyTool> {
-  /** What the tool's `ui` picked from its result: plain JSON. Render it as text, never as HTML. */
-  readonly data: ToolData<T>;
-  /** The tool's name. */
-  readonly name: T["name"];
-  /** The call, stable for the answer. */
-  readonly callId: string;
-}
-/**
- * Components by tool name for `Root`'s `toolRenderers`. Without a type argument, any component per
- * name; with your tools, each component checked against its tool's payload:
- * `{ find_slots: SlotList } satisfies ToolRenderers<[typeof findSlots]>`.
- */
-type ToolRenderers<Tools extends readonly {
-  readonly name: string;
-}[] = never> = [Tools] extends [never] ? Readonly<Record<string, ComponentType<ToolRendererProps<never>>>> : { readonly [T in Tools[number] as T["name"]]?: ComponentType<ToolRendererProps<T>>; };
-type ToolResultsProps = ComponentProps<"div">;
-/**
- * The current message's tool payloads (ADR-0017), each drawn by the component registered for its
- * tool in `Root`'s `toolRenderers`, in call order: a group (`tool-results`) of cards
- * (`tool-result`, with `data-ask-tool`). A payload without a component shows nothing, and when
- * `toolRenderers` is set the console says so once per tool. Use it inside `MessageList`.
- */
-export declare function ToolResults(props: ToolResultsProps): ReactElement | null;
-type LinkProps = Omit<ComponentProps<"a">, "href" | "target" | "rel"> & {
-  readonly href: string;
-};
-/**
- * A link for a URL from a tool's payload: only `https:`, `http:` and `mailto:`, opened in a new
- * tab, as links in answers are. Any other URL (`javascript:`, `data:`, a relative path) renders
- * the text alone.
- */
-export declare function Link({ href, children, ...props }: LinkProps): ReactElement;
 interface RootProps {
   /** From `getChatConfig()` in a Server Component. */
   readonly config: ChatConfig;
@@ -866,7 +834,7 @@ interface RootProps {
  * take what `askdare('identify')` and `askdare('configure')` take, checked the same way.
  */
 export declare function Root({ config, identity, context, greeting, starters, onEvent, toolRenderers, children }: RootProps): ReactElement;
-export type { AttachButtonProps, Chat, ChatActions, ChatAttachments, ChatBot, ChatConfig, ChatEvent, ChatEventListener, ChatEventType, ChatMessage, ChatPhase, ChatState, ChatStyles, ChatWidget, Citation, CitationsProps, ComposerProps, DefaultChatComponents, DefaultChatProps, DictateButtonProps, Dictation, ErrorMessageProps, FeedbackButtonProps, FilesProps, InputProps, LinkProps, MarkdownProps, MessageFilesProps, MessageListProps, MessageProps, MessageTextProps, MessagesProps, PanelProps, PendingFile, QuickRepliesProps, Rating, RecorderProps, RootProps, SendProps, SentFile, StatusProps, ThemeProps, ToolRendererProps, ToolRenderers, ToolResultsProps, ToolUi, Translate };
+export { type AttachButtonProps, type Chat, type ChatActions, type ChatAttachments, type ChatBot, type ChatConfig, type ChatEvent, type ChatEventListener, type ChatEventType, type ChatMessage, type ChatPhase, type ChatState, type ChatStyles, type ChatWidget, type Citation, type CitationsProps, type ComposerProps, type DefaultChatComponents, type DefaultChatProps, type DictateButtonProps, type Dictation, type ErrorMessageProps, type FeedbackButtonProps, type FilesProps, type Frame, type InputProps, Link, type LinkProps, type MarkdownProps, type MessageFilesProps, type MessageListProps, type MessageProps, type MessageTextProps, type MessagesProps, type PanelProps, type PendingFile, type QuickRepliesProps, type Rating, type RecorderProps, type RootProps, type SendProps, type SentFile, type StatusProps, type ThemeProps, type ToolRendererProps, type ToolRenderers, ToolResults, type ToolResultsProps, type ToolUi, type Translate };
 
 // ==== store.d.ts ====
 import { z } from "zod";
@@ -1306,6 +1274,13 @@ interface BotDefinition {
   readonly voice?: VoiceConfig | undefined;
   readonly security?: BotSecurity;
   readonly widget?: WidgetConfig;
+  /**
+   * A page of this app to show in the widget's iframe instead of askdare's own, such as
+   * `/askdare/support` (ADR-0018): the chat route redirects the iframe there. Render it with
+   * `EmbedRoot` from `@boldare/askdare/embed` and `getEmbedConfig`, and send `embedPageHeaders`
+   * with it. Off when absent: askdare's page, which needs nothing from you.
+   */
+  readonly embedPath?: string | undefined;
 }
 interface Bot {
   readonly id: string;
@@ -1321,6 +1296,7 @@ interface Bot {
     readonly allowedOrigins: readonly string[];
   };
   readonly widget: BotWidget;
+  readonly embedPath: string | undefined;
 }
 /**
  * Declares a chatbot. Validates eagerly so misconfiguration fails at startup, not on the first
@@ -1349,3 +1325,135 @@ interface RateLimitStore {
   readonly shared: boolean;
 }
 export { VisitorIdentity as C, ThemeVariants as S, ColorScheme as _, BotContext as a, PresetName as b, BotSecurity as c, WidgetConfig as d, defineBot as f, defineTool as g, ToolDefinition as h, Bot as i, KnowledgeConfig as l, ToolContext as m, RateLimitStore as n, BotDefinition as o, Tool as p, AttachmentConfig as r, BotLimits as s, CounterHit as t, VoiceConfig as u, ThemeDefinition as v, ThemeTokens as x, defineTheme as y };
+
+// ==== tool-results.d.ts ====
+
+import { ComponentProps, ComponentType, ReactElement } from "react";
+declare const PRESET_NAMES: readonly ["halo", "aura", "sage", "care"];
+type PresetName = (typeof PRESET_NAMES)[number];
+/** Component variants a preset picks; each becomes a `data-ask-*` attribute on the document. */
+interface ThemeVariants {
+  readonly avatar: "orb" | "icon" | "initials" | "none";
+  readonly welcome: "hero" | "persona" | "intro";
+  readonly launcher: "orb" | "circle" | "pill";
+  readonly bubbles: "filled" | "plain";
+  readonly surface: "solid" | "glass";
+  readonly density: "comfortable" | "compact";
+  readonly composer: "outline" | "gradient";
+  /** Where the latest answer's options show: under it, or in one row above the message field. */
+  readonly replies: "answer" | "composer";
+}
+/** What a visitor may attach, as the bot allows it. */
+interface ChatAttachments {
+  readonly images: boolean;
+  readonly pdf: boolean;
+  readonly maxBytes: number;
+  readonly maxPerMessage: number;
+  readonly maxPdfPages: number;
+}
+/** A bot's public widget settings, in the visitor's language. */
+interface ChatWidget {
+  readonly title: string;
+  readonly subtitle: string;
+  readonly greeting: string;
+  readonly placeholder: string;
+  /** The language this visitor sees. */
+  readonly locale: string;
+  readonly starters: readonly string[];
+  readonly avatar: string | undefined;
+  readonly launcherLabel: string;
+  readonly disclosure: false | {
+    readonly privacyUrl: string | undefined;
+  };
+  readonly preset: PresetName;
+  readonly variants: ThemeVariants;
+  /** `auto` follows the visitor's system setting. */
+  readonly colorScheme: "auto" | "light" | "dark";
+  /** Every text in the visitor's language, overrides applied; plural keys included. */
+  readonly texts: Readonly<Record<string, string>>;
+}
+/** Stylesheets of a chat inside a page, served by the chat route (ADR-0011). */
+interface ChatStyles {
+  /** The bot's tokens for both color schemes, then its own `widget.css`. */
+  readonly theme: string;
+  /** The default look; only `DefaultChat` loads it. */
+  readonly skin: string;
+  /** `@font-face` rules of the built-in themes; browsers fetch only the fonts in use. */
+  readonly fonts: string;
+}
+/** What the browser needs to run one bot's chat. Public: it never holds secrets (ADR-0008). */
+interface ChatConfig {
+  readonly protocolVersion: number;
+  /** Path of the chat route, such as `/api/chat`. Same origin only (ADR-0011). */
+  readonly basePath: string;
+  readonly botId: string;
+  readonly widget: ChatWidget;
+  /** Whether the bot accepts a description of the page it is on. */
+  readonly pageContext: boolean;
+  /** Whether the bot lets visitors rate answers. Answers carry a handle when the route takes ratings. */
+  readonly feedback: boolean;
+  /** Absent when attachments are off. */
+  readonly attachments?: ChatAttachments;
+  /** Absent when voice input is off. The model stays on the server. */
+  readonly voice?: {
+    readonly maxSeconds: number;
+  };
+  /** From `getChatConfig`, for a chat inside a page. The iframe links its own stylesheets. */
+  readonly styles?: ChatStyles;
+}
+/** What `EmbedRoot` from `@boldare/askdare/embed` needs; `getEmbedConfig` builds it (ADR-0018). */
+interface EmbedChatConfig extends ChatConfig {
+  /** Origins whose pages may hand the chat its connection to the loader (ADR-0005). */
+  readonly allowedOrigins: readonly string[];
+  /** `inline` inside an element of the host page, `floating` in the widget's panel. */
+  readonly mode: "floating" | "inline";
+}
+/**
+ * What a tool's `ui` returns, read from its type (`typeof myTool`) with `import type`, so no server
+ * code reaches the page. Structural, so the page needs only the tool's type.
+ */
+type ToolData<T> = T extends {
+  readonly ui?: ((output: never) => infer Ui) | undefined;
+} ? Exclude<Ui, null | undefined> : never;
+/** Any tool: without a type argument, a component gets `data: unknown` and any name. */
+interface AnyTool {
+  readonly name: string;
+  readonly ui?: ((output: never) => unknown) | undefined;
+}
+/** What a component registered for a tool gets (ADR-0017). */
+interface ToolRendererProps<T extends {
+  readonly name: string;
+} = AnyTool> {
+  /** What the tool's `ui` picked from its result: plain JSON. Render it as text, never as HTML. */
+  readonly data: ToolData<T>;
+  /** The tool's name. */
+  readonly name: T["name"];
+  /** The call, stable for the answer. */
+  readonly callId: string;
+}
+/**
+ * Components by tool name for `Root`'s `toolRenderers`. Without a type argument, any component per
+ * name; with your tools, each component checked against its tool's payload:
+ * `{ find_slots: SlotList } satisfies ToolRenderers<[typeof findSlots]>`.
+ */
+type ToolRenderers<Tools extends readonly {
+  readonly name: string;
+}[] = never> = [Tools] extends [never] ? Readonly<Record<string, ComponentType<ToolRendererProps<never>>>> : { readonly [T in Tools[number] as T["name"]]?: ComponentType<ToolRendererProps<T>>; };
+type ToolResultsProps = ComponentProps<"div">;
+/**
+ * The current message's tool payloads (ADR-0017), each drawn by the component registered for its
+ * tool in `Root`'s `toolRenderers`, in call order: a group (`tool-results`) of cards
+ * (`tool-result`, with `data-ask-tool`). A payload without a component shows nothing, and when
+ * `toolRenderers` is set the console says so once per tool. Use it inside `MessageList`.
+ */
+declare function ToolResults(props: ToolResultsProps): ReactElement | null;
+type LinkProps = Omit<ComponentProps<"a">, "href" | "target" | "rel"> & {
+  readonly href: string;
+};
+/**
+ * A link for a URL from a tool's payload: only `https:`, `http:` and `mailto:`, opened in a new
+ * tab, as links in answers are. Any other URL (`javascript:`, `data:`, a relative path) renders
+ * the text alone.
+ */
+declare function Link({ href, children, ...props }: LinkProps): ReactElement;
+export { ToolResults as a, ChatConfig as c, EmbedChatConfig as d, PresetName as f, ToolRenderers as i, ChatStyles as l, LinkProps as n, ToolResultsProps as o, ThemeVariants as p, ToolRendererProps as r, ChatAttachments as s, Link as t, ChatWidget as u };

@@ -28,8 +28,8 @@ A library runs inside its users' apps, so every supported combination of version
 - Every change carries a changeset.
 - The SSE protocol has its own version (`x-askdare-protocol`).
 - **The public surface is exactly:**
-  - `defineBot`, `defineTool` (with its `replies` and `ui` options, and the `Name` and `Ui` type parameters of `Tool`, ADR-0017), `createChatHandler` (and `defineTheme`);
-  - `getChatConfig`, and everything `@boldare/askdare/react` exports: `Root`, `DefaultChat`, `Theme`, the hooks and the primitives (ADR-0011);
+  - `defineBot` (with its `embedPath` option, ADR-0018), `defineTool` (with its `replies` and `ui` options, and the `Name` and `Ui` type parameters of `Tool`, ADR-0017), `createChatHandler` (and `defineTheme`);
+  - `getChatConfig`, `getEmbedConfig` and `embedPageHeaders` (ADR-0018), and everything `@boldare/askdare/react` exports: `Root`, `DefaultChat`, `Theme`, the hooks and the primitives (ADR-0011);
   - the `data-askdare-root` attribute of the theme root;
   - the script tag's `data-*` attributes (`data-follow-lang` included) and the `askdare()` JS API, `identify`, `on`, `off` and `configure({ locale })` included (ADR-0014);
   - the chat event catalog and `Root`'s `onEvent` (ADR-0013);

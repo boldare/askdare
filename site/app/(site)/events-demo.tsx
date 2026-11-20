@@ -3,7 +3,7 @@
 import './events.css';
 import * as Chat from '@boldare/askdare/react';
 import { type RefObject, useEffect, useId, useRef, useState } from 'react';
-import { toolRenderers } from './tool-cards';
+import { toolRenderers } from '@/components/tool-cards';
 
 interface Logged {
   readonly id: number;

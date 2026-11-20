@@ -22,8 +22,9 @@ The constraints:
 ### Configuration: a bot option, followed by a redirect
 
 - **`defineBot({ embedPath: '/askdare/support' })`**, server configuration only. `defineBot` accepts a path on the same app: it starts with one `/`, has no `//`, `\`, query or fragment, and isn't inside the chat route's `basePath`. Each bot that wants its own page sets it; others keep the library's page.
-- **The loader doesn't change.** It still opens `<basePath>/embed/<bot>?lang=&mode=`. For a bot with `embedPath`, the route answers that request with a `302` to `embedPath`, keeping `lang` and `mode` and nothing else, with `Cache-Control: no-store`. The language switch that reloads the iframe (ADR-0014, step 1) goes through the same redirect. The gallery (`?gallery=`) and the `/config` route stay on the library's page.
+- **The loader keeps its URL.** It still opens `<basePath>/embed/<bot>?lang=&mode=`. For a bot with `embedPath`, the route answers that request with a `302` to `embedPath`, keeping `lang` and `mode` and nothing else, with `Cache-Control: no-store`. The language switch that reloads the iframe (ADR-0014, step 1) goes through the same redirect. The gallery (`?gallery=`) and the `/config` route stay on the library's page.
 - **Same origin only.** The redirect never leaves the app, so the loader's handshake (`postMessage` to the app's origin, `event.source === iframe.contentWindow`) works unchanged.
+- **A page that runs late asks for the handshake** (added during implementation, task 3c). The loader sends `askdare:init` once, when the iframe has loaded. askdare's own page runs its script before that; a Next.js page may hydrate after it (WebKit does so reliably), and would never connect. So `EmbedRoot`'s bridge posts `{ v: 1, type: 'askdare:hello' }` to its parent, addressed to the app's origin and each allowed origin, while it has no handshake. The loader answers a hello only from its own iframe (`event.source === iframe.contentWindow`) still on the app (`event.origin === appOrigin`), with a new `askdare:init` exactly as on load. The bridge in hello mode takes the newest handshake, so a hello that crosses the load handshake can't leave the two sides on different ports. askdare's own page never says hello and keeps the first handshake, as before. It costs the loader 53 bytes (5,016 of 5,120).
 
 ### The page at `embedPath`
 
@@ -41,7 +42,7 @@ The constraints:
   - `Permissions-Policy: camera=(), geolocation=(), microphone=(self)` with voice, `microphone=()` without;
   - `Referrer-Policy: strict-origin`.
 
-  The docs set them in `next.config.ts` `headers()` for the page's path. The library's full CSP (`script-src 'self'`, no inline script) isn't among them: a Next page needs inline scripts, so the app's own CSP applies there, as for the chat inside a page (ADR-0011).
+  The docs set them per request in `proxy.ts`. `headers()` in `next.config.ts` works only when the allowed origins are known when the app is built: Next.js evaluates it at build time, so origins read from the environment where the app runs (as the starter's `ASKDARE_ALLOWED_ORIGINS`) would be missing, and the widget couldn't open on those sites (found during implementation; `doctor` reports it). The library's full CSP (`script-src 'self'`, no inline script) isn't among them: a Next page needs inline scripts, so the app's own CSP applies there, as for the chat inside a page (ADR-0011).
 - **`Cross-Origin-Opener-Policy`** is left out: it has no effect on a framed document, and an app may set its own.
 
 ### `doctor`
@@ -60,7 +61,15 @@ A failing check names the missing header and points to `embedPageHeaders`.
 - **`proxy.ts`** (auth redirects, i18n rewrites, bot protection) runs for the page. The docs show excluding the path in the proxy's `matcher`. `doctor`'s `200` check catches a redirect to a login page.
 - **Scripts in the iframe** run with the chat route's origin, so they can read the visitor's tokens, as in the chat inside a page. The separate root layout keeps third-party scripts out; the docs say the page must not load any.
 - **Without the headers**, any site can frame the page (clickjacking) and the microphone policy is the app's. `doctor` fails on a missing or wider `frame-ancestors`.
-- **Caching.** The page reads `searchParams`, so it renders per request; the docs say not to cache it.
+- **Caching.** The page reads `searchParams`, so it renders per request; the docs say not to cache it. With Cache Components (the starter's setting) that read must sit inside `<Suspense>`, or the build fails; the docs' example does so, and `verify-packs` builds it in the starter (found during implementation).
+
+## Evidence
+
+Built in tasks 3b and 3c (November 2026), on `release/0.4`:
+- **e2e** (`e2e/embed-root.spec.ts`, Chromium, Firefox and WebKit): from a host page on another origin, the widget of the site's `own-page` bot opens `/askdare/own-page`, draws a tool card, follows `askdare('identify')`, `configure`, `on` and a language switch, and closes from its button; a host page outside the allowlist can't frame it. All library iframe tests and visual baselines pass unchanged.
+- **WebKit** delivered the load handshake before the page's scripts ran, every time; without the hello the chat never connected there.
+- **`doctor`** against the dev server passed the page with the headers and named `embedPageHeaders` when they were missing.
+- **Sizes** (gzipped): the loader 5,016 of 5,120 bytes; a page with `EmbedRoot` and the hooks 11,174 bytes (budget 14,336); `react.js` 32,037 bytes.
 
 ## Consequences
 
@@ -69,7 +78,7 @@ A failing check names the missing header and points to `embedPageHeaders`.
   - the `@boldare/askdare/embed` entry with `EmbedRoot`, and its size budget;
   - `getEmbedConfig` and `embedPageHeaders` in `@boldare/askdare/next`;
   - the `data-askdare-embed` marker that `doctor` looks for.
-- **The loader and the library's iframe don't change,** so their size budgets and visual baselines stay as they are.
+- **The loader answers one new message,** the hello, and the library's iframe doesn't change: its visual baselines stay as they are.
 - **Tool cards and ejected skins reach the widget** on every site that embeds it, for bots that opt in.
 - **The site owns more:** the page's layout, headers and proxy exclusions. A mistake there weakens the iframe's isolation, which is why `doctor` checks it and why the library's page stays the default.
 - **The bridge stays one implementation,** now running in the library's iframe (Preact) and in the site's page (React); it is tested under both.
@@ -77,6 +86,7 @@ A failing check names the missing header and points to `embedPageHeaders`.
 
 ## Alternatives considered
 
+- **Holding the handshake only in the page's own script** (`holdHandshake`, kept as a first line of defence). It can't help when the scripts run after the load event, which WebKit showed they do.
 - **The loader builds the page's URL** (an `embedPath` in the launcher look it already inlines). It costs loader bytes the budget doesn't have, and puts a server decision in the browser. The redirect costs no bytes and keeps the route in charge.
 - **A Next rewrite or the proxy serving the page at `<basePath>/embed/<bot>`.** It needs configuration in every app, and a rewrite into the route's own path collides with the handler.
 - **The library rendering the site's components in its own page** (importing them into the prebuilt iframe app). The iframe app is built once, inside the package; it can't bundle a site's code.

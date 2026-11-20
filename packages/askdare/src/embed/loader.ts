@@ -406,6 +406,20 @@ function boot(): void {
       );
       if (configured) port.postMessage(configured);
     };
+    // A chat page that runs after its load event, such as the site's own page at a bot's
+    // embedPath (ADR-0018), asks for the handshake: only our iframe, still on our app, is answered.
+    addEventListener('message', (event) => {
+      const data = event.data as { v?: number; type?: string } | null;
+      if (
+        iframe &&
+        event.source === iframe.contentWindow &&
+        event.origin === appOrigin &&
+        data?.v === 1 &&
+        data.type === 'askdare:hello'
+      ) {
+        connect(iframe);
+      }
+    });
 
     const open = (focus = true): void => {
       const opening = !inline && !isOpen();

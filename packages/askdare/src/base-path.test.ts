@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isBasePath } from './base-path';
+import { isBasePath, isEmbedPath, isInside } from './base-path';
 
 describe('isBasePath', () => {
   it('takes a path on the app itself', () => {
@@ -20,5 +20,29 @@ describe('isBasePath', () => {
       '/api\\chat',
     ];
     expect(refused.filter(isBasePath)).toEqual([]);
+  });
+});
+
+describe('isEmbedPath', () => {
+  it('takes a page of the app, and refuses dot segments and everything isBasePath refuses', () => {
+    expect(['/askdare/support', '/chat-frame', '/a/b.c'].every(isEmbedPath)).toBe(true);
+    const refused = [
+      '/askdare/../api/chat',
+      '/./x',
+      '/..',
+      '//evil.example',
+      '/x?y=1',
+      '/x#y',
+      'x',
+    ];
+    expect(refused.filter(isEmbedPath)).toEqual([]);
+  });
+});
+
+describe('isInside', () => {
+  it('matches the path itself and what is below it, not a longer name', () => {
+    expect(isInside('/api/chat', '/api/chat')).toBe(true);
+    expect(isInside('/api/chat/embed/x', '/api/chat')).toBe(true);
+    expect(isInside('/api/chatroom', '/api/chat')).toBe(false);
   });
 });

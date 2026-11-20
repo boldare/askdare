@@ -24,6 +24,7 @@ export type {
   ErrorMessageProps,
   FeedbackButtonProps,
   FilesProps,
+  Frame,
   InputProps,
   LinkProps,
   MarkdownProps,
@@ -74,6 +75,7 @@ export {
   ToolResults,
   useChat,
   useChatState,
+  useFrame,
   useMessage,
 } from './headless';
 export type { DefaultChatComponents } from './skin';

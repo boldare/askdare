@@ -1,5 +1,5 @@
-import type { ChatStore } from '../chat/store';
 import type { HostBridge } from './host-bridge';
+import type { ChatStore } from './store';
 
 /**
  * Connects the iframe's chat store to the loader on the host page: per-page greeting, starters

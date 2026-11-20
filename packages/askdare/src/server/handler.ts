@@ -6,6 +6,7 @@ import {
   IMAGE_TOKENS,
   PDF_PAGE_TOKENS,
 } from '../attachments/files';
+import { isInside } from '../base-path';
 import type { Bot } from '../bot/define-bot';
 import { AskdareError, type AskdareErrorOptions, toAskdareError } from '../errors';
 import type { ModelGateway, RepliesReader, TurnAttachment, UiReader } from '../gateway';
@@ -25,6 +26,7 @@ import {
   type EmbedAssets,
   type EmbedView,
   embedContentSecurityPolicy,
+  embedPermissionsPolicy,
   GALLERY_STATES,
   type GalleryState,
   renderEmbedPage,
@@ -315,6 +317,14 @@ function uiReader(bot: Bot): UiReader | undefined {
  */
 export function createRequestHandler(config: HandlerConfig): RequestHandler {
   const bots = new Map(config.bots.map((bot) => [bot.id, bot]));
+  for (const bot of config.bots) {
+    // The iframe would be sent back into the route, or to one of its own answers.
+    if (bot.embedPath !== undefined && isInside(bot.embedPath, config.basePath)) {
+      throw new TypeError(
+        `[askdare] Bot "${bot.id}": embedPath must be a page outside ${config.basePath}, got "${bot.embedPath}".`,
+      );
+    }
+  }
   const report =
     config.onError ??
     ((error: AskdareError) => console.error(`[askdare] ${error.code}`, error.cause));
@@ -441,12 +451,28 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
 
   const serveEmbed = (botId: string, query: URLSearchParams, request: Request): Response => {
     const bot = findBot(botId);
+    // The site's own page (ADR-0018), with the visitor's language and the mode, nothing else. The
+    // gallery keeps askdare's page, whose fixtures it renders.
+    if (bot.embedPath !== undefined && !(config.gallery && query.has('gallery'))) {
+      const forward = new URLSearchParams();
+      if (bot.widget.locale === 'auto') forward.set('lang', localeFor(bot, query, request));
+      if (query.get('mode') === 'inline') forward.set('mode', 'inline');
+      const search = forward.toString();
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: search ? `${bot.embedPath}?${search}` : bot.embedPath,
+          'Referrer-Policy': 'strict-origin',
+          ...NO_STORE,
+        },
+      });
+    }
     const page = renderEmbedPage(bot, config.basePath, config.assets, viewFor(bot, query, request));
     return new Response(page, {
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
         'Content-Security-Policy': embedContentSecurityPolicy(bot),
-        'Permissions-Policy': `camera=(), geolocation=(), microphone=${bot.voice ? '(self)' : '()'}`,
+        'Permissions-Policy': embedPermissionsPolicy(bot),
         'Referrer-Policy': 'strict-origin',
         'Cross-Origin-Opener-Policy': 'same-origin',
         'X-Content-Type-Options': 'nosniff',
@@ -937,7 +963,20 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
                 fix: "Add the key of the bot's OpenAI project to the app's environment.",
               },
             ];
-        bots.push({ id: bot.id, checks, turnTimeoutMs: bot.limits.turnTimeoutMs });
+        bots.push({
+          id: bot.id,
+          checks,
+          turnTimeoutMs: bot.limits.turnTimeoutMs,
+          ...(bot.embedPath === undefined
+            ? {}
+            : {
+                embed: {
+                  path: bot.embedPath,
+                  allowedOrigins: bot.security.allowedOrigins,
+                  voice: bot.voice !== undefined,
+                },
+              }),
+        });
       }
       const report: DoctorReport = {
         development: config.development === true,

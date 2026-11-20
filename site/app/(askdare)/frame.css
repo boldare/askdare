@@ -1,0 +1,10 @@
+/* The chat fills the widget's iframe, as askdare's own page does. */
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+.framed-chat {
+  height: 100%;
+}
