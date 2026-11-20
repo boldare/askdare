@@ -235,6 +235,100 @@ describe('askdare doctor', () => {
       expect(narrow.text).toContain(
         "✗ https://www.example.com may not frame /askdare/support, so the widget can't open there.",
       );
+
+      output = [];
+      const withoutSelf = await run(
+        withPage(
+          () =>
+            new Response(GOOD_HTML, {
+              headers: {
+                'content-security-policy': 'frame-ancestors https://www.example.com',
+                'permissions-policy': 'microphone=()',
+              },
+            }),
+        ),
+      );
+      expect(withoutSelf.text).toContain(
+        `✗ ${URL_BASE} may not frame /askdare/support, so the widget can't open there.`,
+      );
+
+      output = [];
+      const denied = await run(
+        withPage(
+          () =>
+            new Response(GOOD_HTML, {
+              headers: {
+                ...headersOf(embedPageHeaders({ bots, bot: 'support' })),
+                'x-frame-options': 'DENY',
+              },
+            }),
+        ),
+      );
+      expect(denied.text).toContain(
+        '✗ X-Frame-Options on /askdare/support stops sites from embedding it.',
+      );
+    });
+
+    it('checks --origin against the page, and that the route redirects at all', async () => {
+      const good = withPage(
+        () =>
+          new Response(GOOD_HTML, {
+            headers: headersOf(embedPageHeaders({ bots, bot: 'support' })),
+          }),
+      );
+      const failures = await doctor({
+        root,
+        url: URL_BASE,
+        basePath: '/api/chat',
+        origin: 'https://evil.example',
+        shell: {},
+        fetch: async (input, init) => good(new Request(input, init)),
+        print: (line) => output.push(line),
+      });
+      expect(failures).toBe(1);
+      expect(output.join('\n')).toContain(
+        "✗ https://evil.example may not embed the chat: it isn't in the bot's security.allowedOrigins.",
+      );
+
+      output = [];
+      // Something in front of the route answers the chat page itself, so the iframe never moves.
+      const stuck = await run(async (request) =>
+        new URL(request.url).pathname === '/api/chat/embed/support'
+          ? new Response('<html></html>', { status: 200 })
+          : good(request),
+      );
+      expect(stuck.text).toContain(
+        `✗ ${URL_BASE}/api/chat/embed/support doesn't send the widget to /askdare/support.`,
+      );
+    });
+
+    it('accepts any microphone rule that keeps the app for a bot with voice, and warns without one', async () => {
+      const voiceBots = [
+        defineBot({
+          id: 'support',
+          model: 'gpt-test',
+          instructions: 'x',
+          voice: { model: 'transcribe-test' },
+          embedPath: '/askdare/support',
+        }),
+      ];
+      const page = (microphone: string) => async (request: Request) =>
+        new URL(request.url).pathname === '/askdare/support'
+          ? new Response(GOOD_HTML, {
+              headers: {
+                'content-security-policy': "frame-ancestors 'self'",
+                'permissions-policy': `camera=(), microphone=${microphone}`,
+              },
+            })
+          : app({ bots: voiceBots, development: true })(request);
+      for (const allowed of ['(self)', '(self "https://www.example.com")', '*']) {
+        output = [];
+        expect((await run(page(allowed))).text).not.toContain('dictation');
+      }
+      output = [];
+      expect((await run(page('()'))).text).toContain(
+        "! /askdare/support doesn't allow the microphone, so dictation won't start.",
+      );
     });
   });
 

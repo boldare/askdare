@@ -306,7 +306,11 @@ async function embedPage(
   const sources = ancestors[0] ?? [];
   const allowed = new Set(["'self'", appOrigin, ...embed.allowedOrigins]);
   const wider = sources.filter((source) => !allowed.has(source));
-  const absent = embed.allowedOrigins.filter((item) => !sources.includes(item));
+  // The app's own pages need it too: the widget there opens the same page.
+  const absent = [
+    ...(mayFrame(sources, appOrigin, appOrigin) ? [] : [appOrigin]),
+    ...embed.allowedOrigins.filter((item) => !sources.includes(item)),
+  ];
   if (page.headers.has('x-frame-options')) {
     checks.push(fail(`X-Frame-Options on ${embed.path} stops sites from embedding it.`, fix));
   } else if (ancestors.length !== 1) {
@@ -349,7 +353,7 @@ async function embedPage(
     checks.push(
       fail(`${embed.path} doesn't keep the microphone off for a bot without voice input.`, fix),
     );
-  } else if (embed.voice && microphone !== '(self)') {
+  } else if (embed.voice && !/\bself\b|\*/.test(microphone ?? '')) {
     checks.push(warn(`${embed.path} doesn't allow the microphone, so dictation won't start.`, fix));
   }
   if (page.headers.has('set-cookie')) {

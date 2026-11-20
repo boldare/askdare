@@ -153,7 +153,7 @@ To check that a site may embed the chat, run `npx @boldare/askdare doctor --orig
 
 ### Your own page in the iframe
 
-By default the widget's iframe shows askdare's own page, which needs nothing from you. With `embedPath`, it shows a page of your app instead, so the widget on other sites can use your own components and [tool cards](react.md#tool-cards) ([ADR-0018](adr/0018-embed-path.md)). The chat route redirects the iframe to that path, with the visitor's language (`lang`, for a bot with `locale: 'auto'`) and the mode (`mode=inline`) in the query; the loader on the embedding site doesn't change.
+By default the widget's iframe shows askdare's own page, which needs nothing from you. With `embedPath`, it shows a page of your app instead, so the widget on other sites can use your own components and [tool cards](react.md#tool-cards) ([ADR-0018](adr/0018-embed-path.md)). The chat route redirects the iframe to that path, with the visitor's language (`lang`, for a bot with `locale: 'auto'`) and the mode (`mode=inline`) in the query; the loader on the embedding site doesn't change. The redirect goes to `embedPath` exactly as you write it, so in an app with `basePath` in `next.config.ts` include that prefix (`/help/askdare/support`).
 
 The page must send the headers askdare's own page sends. `@boldare/askdare/next` gives you both halves:
 - `getEmbedConfig({ bots, bot, searchParams })` reads the language and the mode from the page's search parameters and returns the bot's public configuration, its allowed origins and the mode.

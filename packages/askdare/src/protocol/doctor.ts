@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isEmbedPath } from '../base-path';
 
 /** One finding of `askdare doctor`. Never contains secrets or OpenAI error messages. */
 export interface DoctorCheck {
@@ -49,7 +50,7 @@ export const doctorReportSchema: z.ZodType<DoctorReport> = z.object({
         turnTimeoutMs: z.number().int().positive().optional(),
         embed: z
           .object({
-            path: z.string().regex(/^(\/[a-zA-Z0-9._~-]+)+$/),
+            path: z.string().refine(isEmbedPath),
             allowedOrigins: z.array(z.string().max(300)).max(50),
             voice: z.boolean(),
           })
