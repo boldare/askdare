@@ -61,7 +61,7 @@ A failing check names the missing header and points to `embedPageHeaders`.
 - **`proxy.ts`** (auth redirects, i18n rewrites, bot protection) runs for the page. The docs show excluding the path in the proxy's `matcher`. `doctor`'s `200` check catches a redirect to a login page.
 - **Scripts in the iframe** run with the chat route's origin, so they can read the visitor's tokens, as in the chat inside a page. The separate root layout keeps third-party scripts out; the docs say the page must not load any.
 - **Without the headers**, any site can frame the page (clickjacking) and the microphone policy is the app's. `doctor` fails on a missing or wider `frame-ancestors`.
-- **Caching.** The page reads `searchParams`, so it renders per request; the docs say not to cache it.
+- **Caching.** The page reads `searchParams`, so it renders per request; the docs say not to cache it. With Cache Components (the starter's setting) that read must sit inside `<Suspense>`, or the build fails; the docs' example does so, and `verify-packs` builds it in the starter (found during implementation).
 
 ## Evidence
 
@@ -69,7 +69,7 @@ Built in tasks 3b and 3c (November 2026), on `release/0.4`:
 - **e2e** (`e2e/embed-root.spec.ts`, Chromium, Firefox and WebKit): from a host page on another origin, the widget of the site's `own-page` bot opens `/askdare/own-page`, draws a tool card, follows `askdare('identify')`, `configure`, `on` and a language switch, and closes from its button; a host page outside the allowlist can't frame it. All library iframe tests and visual baselines pass unchanged.
 - **WebKit** delivered the load handshake before the page's scripts ran, every time; without the hello the chat never connected there.
 - **`doctor`** against the dev server passed the page with the headers and named `embedPageHeaders` when they were missing.
-- **Sizes** (gzipped): the loader 5,016 of 5,120 bytes; a page with `EmbedRoot` and the hooks 11,117 bytes (budget 14,336); `react.js` 32,011 bytes.
+- **Sizes** (gzipped): the loader 5,016 of 5,120 bytes; a page with `EmbedRoot` and the hooks 11,174 bytes (budget 14,336); `react.js` 32,037 bytes.
 
 ## Consequences
 

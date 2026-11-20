@@ -14,7 +14,7 @@ interface EmbedRootProps {
  * It connects to the loader on the embedding site exactly as askdare's own iframe does: the
  * visitor's identity, `askdare('configure')`, the events for `askdare('on')`, hiding and closing
  * the panel, and language switches. Put `DefaultChat`, an ejected copy of it or your own markup
- * inside; `DefaultChat` then owns the document and shows a close button.
+ * inside; `DefaultChat` then owns the document and shows a close button. Render one per page.
  */
 export declare function EmbedRoot({ config, toolRenderers, children }: EmbedRootProps): ReactElement;
 export type { EmbedChatConfig, EmbedRootProps };

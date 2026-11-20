@@ -32,3 +32,33 @@ export function switchLocale(
     });
   });
 }
+
+/** This page's URL in `locale`, so a reload, by the visitor or after an error, keeps it. */
+function withLang(locale: string): URL {
+  const url = new URL(location.href);
+  url.searchParams.set('lang', locale);
+  return url;
+}
+
+/**
+ * Follows the page's language in the chat's iframe, askdare's own page or a site's (ADR-0014,
+ * ADR-0018): in place when it can, else by reloading with the new `lang`. `unbind` disconnects the
+ * chat first, so the page hears an answer under way as stopped before the reload cuts it off.
+ */
+export function followLocale(
+  store: Pick<ChatStore, 'setLocale' | 'language' | 'config'>,
+  bridge: Pick<HostBridge, 'onLocale'>,
+  unbind: () => void,
+): () => void {
+  return switchLocale(store, bridge, {
+    reload(locale) {
+      unbind();
+      location.replace(withLang(locale));
+    },
+    switched(locale, language) {
+      document.documentElement.lang = language;
+      document.title = store.config.widget.title;
+      history.replaceState(history.state, '', withLang(locale));
+    },
+  });
+}

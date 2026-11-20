@@ -127,14 +127,22 @@ export default function Help() {
  */
 const EMBED_PAGE = `import { EmbedRoot } from '@boldare/askdare/embed';
 import { getEmbedConfig } from '@boldare/askdare/next';
+import { Suspense } from 'react';
 import { bots } from '@/askdare.config';
 import { DefaultChat } from '@/components/askdare';
 
-export default async function Frame({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
+type Search = Promise<Record<string, string | string[] | undefined>>;
+
+export default function Frame({ searchParams }: { searchParams: Search }) {
+  // The starter uses Cache Components: the request's data is read inside Suspense.
+  return (
+    <Suspense>
+      <Chat searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function Chat({ searchParams }: { searchParams: Search }) {
   const config = getEmbedConfig({ bots, bot: 'support', searchParams: await searchParams });
   return (
     <div style={{ height: '100vh' }}>

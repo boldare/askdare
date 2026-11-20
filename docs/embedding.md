@@ -249,15 +249,24 @@ export default function FrameLayout({ children }: { readonly children: React.Rea
 ```tsx
 // app/(askdare)/askdare/support/page.tsx
 import { getEmbedConfig } from '@boldare/askdare/next';
+import { Suspense } from 'react';
 import { bots } from '@/askdare.config';
 import { FramedChat } from './framed-chat';
 
-export default async function Page({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  return <FramedChat config={getEmbedConfig({ bots, bot: 'support', searchParams: await searchParams })} />;
+type Search = Promise<Record<string, string | string[] | undefined>>;
+
+export default function Page({ searchParams }: { searchParams: Search }) {
+  // With Cache Components (as in the starter), the request's data is read inside Suspense.
+  return (
+    <Suspense>
+      <Chat searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function Chat({ searchParams }: { searchParams: Search }) {
+  const config = getEmbedConfig({ bots, bot: 'support', searchParams: await searchParams });
+  return <FramedChat config={config} />;
 }
 ```
 

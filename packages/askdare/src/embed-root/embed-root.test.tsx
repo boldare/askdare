@@ -198,6 +198,52 @@ describe('EmbedRoot', () => {
     expect(await screen.findByText('Slots: 9:00')).toBeTruthy();
   });
 
+  it("follows the page's language in place, and keeps it in the URL for a reload", async () => {
+    const server = fakeServer();
+    vi.stubGlobal('fetch', server.fetch);
+    const loader = framed();
+    const origin = 'https://lang.example';
+    const { EmbedRoot, DefaultChat } = await load();
+    render(
+      <EmbedRoot config={config({ allowedOrigins: [origin] })}>
+        <DefaultChat />
+      </EmbedRoot>,
+    );
+    act(() => loader.init(origin));
+    await waitFor(() => expect(loader.received).toContainEqual({ v: 1, type: 'ready' }));
+    act(() => loader.send({ type: 'locale', locale: 'pl', inPlace: 1 }));
+    await waitFor(() => expect(document.documentElement.lang).toBe('pl'));
+    expect(new URL(location.href).searchParams.get('lang')).toBe('pl');
+    expect(await screen.findByText('Greeting in pl')).toBeTruthy();
+  });
+
+  it('keeps what the visitor typed before the page hydrated', async () => {
+    vi.stubGlobal('fetch', fakeServer().fetch);
+    const { EmbedRoot, DefaultChat } = await load();
+    const { renderToString } = await import('react-dom/server');
+    const { hydrateRoot } = await import('react-dom/client');
+    const page = (
+      <EmbedRoot config={config()}>
+        <DefaultChat />
+      </EmbedRoot>
+    );
+    const container = document.createElement('div');
+    container.innerHTML = renderToString(page);
+    document.body.append(container);
+    const field = container.querySelector('textarea') as HTMLTextAreaElement;
+    field.value = 'Typed early';
+    await act(async () => {
+      hydrateRoot(container, page);
+    });
+    await waitFor(() =>
+      expect(
+        (container.querySelector('[data-ask-part="send"]') as HTMLButtonElement).disabled,
+      ).toBe(false),
+    );
+    expect(field.value).toBe('Typed early');
+    container.remove();
+  });
+
   it('refuses a config that points anywhere but its own route', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const { EmbedRoot } = await load();

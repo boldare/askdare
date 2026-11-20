@@ -25,6 +25,8 @@ export type HostMessage =
 
 /** Handshakes that arrived before the chat connected, kept by `holdHandshake`. */
 const held: MessageEvent[] = [];
+/** Stops holding: the first `connectToHost` takes over, and nothing is kept after it. */
+let release = (): void => {};
 
 /**
  * Keeps the loader's handshake if it arrives before `connectToHost` runs: the loader sends it once,
@@ -34,12 +36,14 @@ const held: MessageEvent[] = [];
  */
 export function holdHandshake(): void {
   if (typeof window === 'undefined' || window.parent === window) return;
-  window.addEventListener('message', (event: MessageEvent) => {
+  const hold = (event: MessageEvent): void => {
     const data = event.data as Partial<HostMessage> | null;
     if (event.source === window.parent && data?.v === 1 && data.type === 'askdare:init') {
       held.push(event);
     }
-  });
+  };
+  window.addEventListener('message', hold);
+  release = () => window.removeEventListener('message', hold);
 }
 
 /** How long to wait for the loader before the first request, when it never says hello. */
@@ -134,6 +138,7 @@ export function connectToHost(
   };
   if (embedded) {
     window.addEventListener('message', onMessage);
+    release();
     for (const event of held.splice(0)) onMessage(event);
     // Only to the origins that may embed the chat: nothing reaches any other page.
     if (options.hello && !port) {
