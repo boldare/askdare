@@ -58,3 +58,23 @@ test('the chat inside a page', async ({ page }) => {
   });
   await expect(chat).toHaveScreenshot('inline-welcome.png');
 });
+
+// A tool card (ADR-0017) under an answer inside a page: the site's component, spaced by the skin.
+test('a tool card inside a page', async ({ page }) => {
+  await page.setViewportSize({ width: 960, height: 900 });
+  await page.goto('http://localhost:3100/inline');
+  const chat = page.locator('.inline-chat');
+  await chat.getByRole('textbox').fill('What time is it? [card]');
+  await chat.getByRole('textbox').press('Enter');
+  const reply = chat.locator('[data-ask-part="message"][data-role="assistant"]').last();
+  await expect(reply).toHaveAttribute('data-status', 'done');
+  await expect(reply.locator('[data-ask-part="tool-result"]')).toHaveCount(1);
+  await page.evaluate(() => document.fonts.ready);
+  await page.addStyleTag({
+    content: '.inline-chat { position: fixed; top: 0; left: 0; width: 832px; }',
+  });
+  // The time and the conversation ID in the echo change on every run.
+  await expect(reply).toHaveScreenshot('inline-tool-card.png', {
+    mask: [reply.locator('[data-card-time]'), reply.locator('[data-ask-part="bubble"]')],
+  });
+});

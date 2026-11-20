@@ -785,6 +785,49 @@ type QuickRepliesProps = ComponentProps<"div">;
  * options. Either way the options go away as soon as the visitor sends anything.
  */
 export declare function QuickReplies(props: QuickRepliesProps): ReactElement | null;
+/**
+ * What a tool's `ui` returns, read from its type (`typeof myTool`) with `import type`, so no server
+ * code reaches the page. Structural, so the page needs only the tool's type.
+ */
+type ToolData<T> = T extends {
+  readonly ui?: ((output: never) => infer Ui) | undefined;
+} ? NonNullable<Ui> : never;
+/** What a component registered for a tool gets (ADR-0017). */
+interface ToolRendererProps<T extends {
+  readonly name: string;
+} = never> {
+  /** What the tool's `ui` picked from its result: plain JSON. Render it as text, never as HTML. */
+  readonly data: ToolData<T>;
+  /** The tool's name. */
+  readonly name: T["name"];
+  /** The call, stable for the answer. */
+  readonly callId: string;
+}
+/**
+ * Components by tool name for `Root`'s `toolRenderers`. Without a type argument, any component per
+ * name; with your tools, each component checked against its tool's payload:
+ * `{ find_slots: SlotList } satisfies ToolRenderers<[typeof findSlots]>`.
+ */
+type ToolRenderers<Tools extends readonly {
+  readonly name: string;
+}[] = never> = [Tools] extends [never] ? Readonly<Record<string, ComponentType<ToolRendererProps>>> : { readonly [T in Tools[number] as T["name"]]?: ComponentType<ToolRendererProps<T>>; };
+type ToolResultsProps = ComponentProps<"div">;
+/**
+ * The current message's tool payloads (ADR-0017), each drawn by the component registered for its
+ * tool in `Root`'s `toolRenderers`, in call order: a group (`tool-results`) of cards
+ * (`tool-result`, with `data-ask-tool`). A payload without a component shows nothing, and when
+ * `toolRenderers` is set the console says so once per tool. Use it inside `MessageList`.
+ */
+export declare function ToolResults(props: ToolResultsProps): ReactElement | null;
+type LinkProps = Omit<ComponentProps<"a">, "href" | "target" | "rel"> & {
+  readonly href: string;
+};
+/**
+ * A link for a URL from a tool's payload: only `https:`, `http:` and `mailto:`, opened in a new
+ * tab, as links in answers are. Any other URL (`javascript:`, `data:`, a relative path) renders
+ * the text alone.
+ */
+export declare function Link({ href, children, ...props }: LinkProps): ReactElement;
 interface RootProps {
   /** From `getChatConfig()` in a Server Component. */
   readonly config: ChatConfig;
@@ -804,14 +847,20 @@ interface RootProps {
    * rating (ADR-0013). Metadata only, never the text. A new function doesn't restart the chat.
    */
   readonly onEvent?: ChatEventListener | undefined;
+  /**
+   * Your components for tools' results, by tool name (ADR-0017): each gets what the tool's `ui`
+   * returned and is drawn by `ToolResults`, in `DefaultChat` under the answer. Type them with
+   * `satisfies ToolRenderers<[typeof myTool]>`.
+   */
+  readonly toolRenderers?: ToolRenderers | undefined;
   readonly children?: ReactNode;
 }
 /**
  * Runs one bot's chat for the components inside it, without rendering any element. Its props
  * take what `askdare('identify')` and `askdare('configure')` take, checked the same way.
  */
-export declare function Root({ config, identity, context, greeting, starters, onEvent, children }: RootProps): ReactElement;
-export type { AttachButtonProps, Chat, ChatActions, ChatAttachments, ChatBot, ChatConfig, ChatEvent, ChatEventListener, ChatEventType, ChatMessage, ChatPhase, ChatState, ChatStyles, ChatWidget, Citation, CitationsProps, ComposerProps, DefaultChatComponents, DefaultChatProps, DictateButtonProps, Dictation, ErrorMessageProps, FeedbackButtonProps, FilesProps, InputProps, MarkdownProps, MessageFilesProps, MessageListProps, MessageProps, MessageTextProps, MessagesProps, PanelProps, PendingFile, QuickRepliesProps, Rating, RecorderProps, RootProps, SendProps, SentFile, StatusProps, ThemeProps, Translate };
+export declare function Root({ config, identity, context, greeting, starters, onEvent, toolRenderers, children }: RootProps): ReactElement;
+export type { AttachButtonProps, Chat, ChatActions, ChatAttachments, ChatBot, ChatConfig, ChatEvent, ChatEventListener, ChatEventType, ChatMessage, ChatPhase, ChatState, ChatStyles, ChatWidget, Citation, CitationsProps, ComposerProps, DefaultChatComponents, DefaultChatProps, DictateButtonProps, Dictation, ErrorMessageProps, FeedbackButtonProps, FilesProps, InputProps, LinkProps, MarkdownProps, MessageFilesProps, MessageListProps, MessageProps, MessageTextProps, MessagesProps, PanelProps, PendingFile, QuickRepliesProps, Rating, RecorderProps, RootProps, SendProps, SentFile, StatusProps, ThemeProps, ToolRendererProps, ToolRenderers, ToolResultsProps, ToolUi, Translate };
 
 // ==== store.d.ts ====
 import { z } from "zod";

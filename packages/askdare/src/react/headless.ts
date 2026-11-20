@@ -58,3 +58,11 @@ export type { RootProps } from './root';
 export { Root } from './root';
 export type { ThemeProps } from './theme';
 export { Theme } from './theme';
+export type {
+  LinkProps,
+  ToolRendererProps,
+  ToolRenderers,
+  ToolResultsProps,
+  ToolUi,
+} from './tool-results';
+export { Link, ToolResults } from './tool-results';
