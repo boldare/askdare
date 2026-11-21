@@ -128,6 +128,23 @@ describe('askdare doctor', () => {
     expect(text).toContain('0 problems, 1 warning.');
   });
 
+  it('mentions a bot without the AI notice as information, not a problem', async () => {
+    const quiet = createBot({
+      id: 'quiet',
+      model: 'gpt-test',
+      instructions: 'x',
+      widget: { disclosure: false },
+    });
+    const { failures, text } = await run(app({ development: true, bots: [quiet] }));
+    expect(failures).toBe(0);
+    expect(text).toContain('i The AI notice is off (widget.disclosure: false).');
+    expect(text).toContain('art. 50');
+    expect(text).toContain('All good.');
+    // A bot that keeps the notice gets no such line.
+    output = [];
+    expect((await run(app({ development: true }))).text).not.toContain('AI notice');
+  });
+
   it('warns about production settings that only fit one instance', async () => {
     const { text } = await run(app({ gallery: true }));
     expect(text).toContain('! The state gallery is on.');

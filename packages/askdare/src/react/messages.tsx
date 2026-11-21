@@ -5,6 +5,7 @@ import {
   type Ref,
   useEffect,
   useRef,
+  useState,
 } from 'react';
 import type { ChatMessage, PendingFile, SentFile } from '../chat/state';
 import { pluralText } from '../i18n/format';
@@ -22,12 +23,26 @@ const hasContent = (message: ChatMessage): boolean =>
 
 export type MessagesProps = ComponentProps<'div'>;
 
+/** Visually hidden, but read by screen readers. */
+const hidden = {
+  position: 'absolute',
+  width: 1,
+  height: 1,
+  overflow: 'hidden',
+  clipPath: 'inset(50%)',
+  whiteSpace: 'nowrap',
+} as const;
+
 /**
- * The conversation: a live region that follows the latest message as it streams. Holds the
- * welcome, the `MessageList` and the `Status`.
+ * The conversation, following the latest message as it streams. Holds the welcome, the
+ * `MessageList` and the `Status`. It is a log but not a live region: text growing inside a node is
+ * read in fragments or not at all, so a finished answer is announced once, through a status region
+ * next to it.
  */
 export function Messages({ ref, ...props }: MessagesProps): ReactElement {
   const own = useRef<HTMLDivElement>(null);
+  const streaming = useRef<string>(undefined);
+  const [finished, setFinished] = useState('');
   const loading = useChatState((state) => state.phase === 'loading');
   const latest = useChatState((state) => state.messages.at(-1));
   const commenting = useChatState((state) => state.commenting);
@@ -36,18 +51,36 @@ export function Messages({ ref, ...props }: MessagesProps): ReactElement {
   // biome-ignore lint/correctness/useExhaustiveDependencies: commenting changes what is below the latest message
   useEffect(() => {
     const log = own.current;
-    if (log && latest) log.scrollTop = log.scrollHeight;
+    if (!log || !latest) return;
+    log.scrollTop = log.scrollHeight;
+    if (latest.role !== 'assistant') return;
+    if (latest.status === 'streaming') {
+      if (streaming.current !== latest.id) setFinished('');
+      streaming.current = latest.id;
+    } else if (streaming.current === latest.id) {
+      // Only answers that streamed in this visit: a restored conversation is not read out.
+      streaming.current = undefined;
+      // The rendered answer, so Markdown syntax is not read out.
+      const bubbles = log.querySelectorAll('[data-ask-part="bubble"]');
+      if (latest.status === 'done' && latest.text !== '') {
+        setFinished(bubbles[bubbles.length - 1]?.textContent || latest.text);
+      }
+    }
   }, [latest, commenting]);
   return (
-    <div
-      data-ask-part="messages"
-      role="log"
-      aria-live="polite"
-      aria-relevant="additions"
-      aria-busy={loading}
-      {...props}
-      ref={useMergedRef(own, ref)}
-    />
+    <>
+      <div
+        data-ask-part="messages"
+        role="log"
+        aria-live="off"
+        aria-busy={loading}
+        {...props}
+        ref={useMergedRef(own, ref)}
+      />
+      <div data-ask-part="announcement" role="status" style={hidden}>
+        {finished}
+      </div>
+    </>
   );
 }
 

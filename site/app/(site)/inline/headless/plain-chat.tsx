@@ -47,6 +47,7 @@ export function PlainChat({ config }: { readonly config: Chat.ChatConfig }) {
           <Chat.Input />
           <Chat.Send>Send</Chat.Send>
         </Chat.Composer>
+        <Chat.Disclosure />
       </Chat.Panel>
     </Chat.Root>
   );

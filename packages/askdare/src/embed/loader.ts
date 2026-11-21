@@ -480,6 +480,15 @@ function boot(): void {
     }
 
     launcher.addEventListener('click', () => (isOpen() ? close() : open()));
+    // A full-screen chat (a phone, or a page zoomed to 400%) covers the page, so focus that leaves it
+    // would land on something hidden (WCAG 2.4.11): it goes back to the chat until it is closed.
+    if (!inline) {
+      document.addEventListener('focusin', (event) => {
+        if (event.target !== host && isOpen() && matchMedia('(max-width: 480px)').matches) {
+          iframe?.focus();
+        }
+      });
+    }
     (container ?? document.body ?? document.documentElement).append(host);
     // An inline chat is part of the page: it must not take focus or scroll the page on load.
     if (inline) open(false);

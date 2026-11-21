@@ -75,7 +75,7 @@ limits: { store: upstashStore(), requireSharedStore: process.env.NODE_ENV === 'p
   - Clients with data-residency or zero-retention requirements need the planned own-storage add-on.
 - **Disclosures:**
   - Publish a privacy notice that names OpenAI (and Upstash, if used) as processors.
-  - Tell visitors they are talking to an AI. The chat says so under the message field by default; add `widget.disclosure.privacyUrl` to link your privacy notice ([Styling](styling.md#1-configuration)).
+  - Tell visitors they are talking to an AI (EU AI Act, art. 50). The chat says so under the message field by default; add `widget.disclosure.privacyUrl` to link your privacy notice ([Styling](styling.md#1-configuration)). In your own markup, or your own page in the widget's iframe, place the `Disclosure` primitive ([React](react.md#your-own-markup)). `askdare doctor` lists bots with `disclosure: false`, so you can confirm each one is deliberate.
 - **Compliance:** [Compliance](compliance.md) goes through the AI Act's disclosure duty, the GDPR (the DPA with OpenAI, retention and deletion), data residency, the resume token in a chat inside your page, accessibility and hosts other than Vercel and Heroku.
 
 ## 7. Final check

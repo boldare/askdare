@@ -158,6 +158,7 @@ export function PlainChat({ config }: { config: Chat.ChatConfig }) {
           <Chat.Recorder />
           <Chat.Send>Send</Chat.Send>
         </Chat.Composer>
+        <Chat.Disclosure />
       </Chat.Panel>
     </Chat.Root>
   );
@@ -166,11 +167,13 @@ export function PlainChat({ config }: { config: Chat.ChatConfig }) {
 
 Without `Theme` and `DefaultChat`, no stylesheet of the chat loads: the look is all yours.
 
+**Keep the AI notice.** Visitors must be told they are talking to an AI (EU AI Act, art. 50; see [Compliance](compliance.md#1-telling-visitors-they-talk-to-an-ai)). `DefaultChat` shows it under the message field. In your own markup, place `Disclosure`. In development, `Root` notes once in the console when the chat rendered without one. Set `widget.disclosure: false` in `defineBot` when your page already tells visitors; that hides `Disclosure` and silences the note.
+
 | Primitive | Element | What it does |
 | --- | --- | --- |
 | `Theme` | `div` | Sets the bot's tokens (`--ask-*`) and theme variants for everything inside, and loads the theme and its fonts. Takes `colorScheme`. |
 | `Panel` | `section` | The chat's frame, a region named after the bot. Files dropped on it are attached. |
-| `Messages` | `div` | The conversation, as a live region that follows the latest message. |
+| `Messages` | `div` | The conversation, a `log` that follows the latest message. Next to it, a visually hidden `status` (`data-ask-part="announcement"`) announces each finished answer once to screen readers. |
 | `MessageList` | none | Renders its children once per message. |
 | `Message` | `div` | One message, with `data-role` and `data-status`. |
 | `MessageText` | `div` | The text: the visitor's as typed, an answer as Markdown, typing dots before the first word. |
@@ -191,6 +194,7 @@ Without `Theme` and `DefaultChat`, no stylesheet of the chat loads: the look is 
 | `Status` | `p` | What the assistant is doing before it writes, or that a conversation is loading. |
 | `ErrorMessage` | `p` | The latest problem, in the visitor's language. |
 | `HumanCheck` | `div` | The Cloudflare Turnstile challenge, while a new session waits for it. Renders nothing for a bot without `security.humanVerifier`; a chat whose bot has one must render it ([Configuration](configuration.md#human-check)). |
+| `Disclosure` | `p` | The AI notice (`disclosure.text`), with a link to `widget.disclosure.privacyUrl` when the bot has one. Children replace the text with your own wording. Renders nothing with `disclosure: false`. |
 
 Primitives that have nothing to show render nothing, so you can place them without conditions.
 
