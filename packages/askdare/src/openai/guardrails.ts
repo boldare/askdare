@@ -1,7 +1,8 @@
 import type OpenAI from 'openai';
 import type { ConversationItem } from 'openai/resources/conversations/items';
+import type { ResponseInputItem } from 'openai/resources/responses/responses';
 import type { Bot } from '../bot/define-bot';
-import type { ModerationRequest, ModerationResult } from '../gateway';
+import type { AnswerVerdict, ModerationRequest, ModerationResult } from '../gateway';
 
 /**
  * Classifies texts with the moderation endpoint, `POST /v1/moderations`
@@ -29,47 +30,55 @@ export async function moderate(
   return { flagged, categories: [...categories] };
 }
 
-const WITHHELD = '[askdare:withheld]';
-const REPLACED = '[askdare:replaced]';
-const SEPARATOR = '\n---\n';
+/**
+ * The fixed developer notes that settle a checked answer. They carry no content: a replacement
+ * is stored after its note as an assistant message, so text derived from model output never
+ * gains developer authority.
+ */
+const NOTES = {
+  allowed: "[askdare:allowed]\nThe site's checks passed your previous answer.",
+  withheld:
+    "[askdare:withheld]\nThe site's content policy withheld your previous answer: the visitor never saw it. Don't repeat it.",
+  replaced:
+    "[askdare:replaced]\nThe site's content policy replaced your previous answer with the assistant message that follows; the visitor saw only that one.",
+} as const satisfies Record<AnswerVerdict['action'], string>;
 
-/** The developer message that records a withheld or replaced answer in the conversation. */
-export function withheldNote(replacement: string | undefined): string {
-  return replacement === undefined
-    ? `${WITHHELD}\nThe site's content policy withheld your previous answer: the visitor never saw it. Don't repeat it.`
-    : `${REPLACED}\nThe site's content policy replaced your previous answer. The visitor saw only the text below.${SEPARATOR}${replacement}`;
-}
+/** The note a verdict writes, for tests and for reading history. */
+export const guardNote = (action: AnswerVerdict['action']): string => NOTES[action];
 
-/** Appends the note after the turn's items, so the next turn's model call reads it too. */
-export async function withholdAnswer(
+/**
+ * Appends what the checks decided after the turn's items, so history shows the answer only once
+ * it is settled (ADR-0022) and the next model call reads the note too.
+ */
+export async function settleAnswer(
   client: OpenAI,
   conversationId: string,
-  replacement: string | undefined,
+  verdict: AnswerVerdict,
   signal?: AbortSignal,
 ): Promise<void> {
+  const items: ResponseInputItem[] = [{ role: 'developer', content: NOTES[verdict.action] }];
+  if (verdict.action === 'replaced') items.push({ role: 'assistant', content: verdict.text });
   await client.conversations.items.create(
     conversationId,
-    { items: [{ role: 'developer', content: withheldNote(replacement) }] },
+    { items },
     signal ? { signal } : undefined,
   );
 }
 
 /**
- * A note written by `withholdAnswer`: `withheld`, or the text that replaced the answer. Only
- * developer messages count, which only the server writes; a visitor can't forge one.
+ * A note written by `settleAnswer`. Only developer messages count, which only the server writes;
+ * neither a visitor nor the model can forge one.
  */
-export function readWithheldNote(
-  item: ConversationItem,
-): { readonly replacement: string | undefined } | undefined {
+export function readGuardNote(item: ConversationItem): AnswerVerdict['action'] | undefined {
   if (item.type !== 'message' || item.role !== 'developer') return undefined;
   let text = '';
   for (const part of item.content) {
     if (part.type === 'input_text') text += part.text;
   }
-  if (text.startsWith(`${WITHHELD}\n`)) return { replacement: undefined };
-  if (!text.startsWith(`${REPLACED}\n`)) return undefined;
-  const start = text.indexOf(SEPARATOR);
-  return { replacement: start === -1 ? '' : text.slice(start + SEPARATOR.length) };
+  for (const action of ['allowed', 'withheld', 'replaced'] as const) {
+    if (text === NOTES[action]) return action;
+  }
+  return undefined;
 }
 
 /** The key that wraps a tool's result as untrusted data (`toolResults: 'untrusted'`). */

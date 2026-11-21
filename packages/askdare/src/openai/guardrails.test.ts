@@ -8,9 +8,9 @@ import type { ModelGateway } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
 import { decodeEvent, SseParser } from '../protocol/sse';
 import { streamTurn } from '../server/stream-turn';
-import { defineTool, readToolReplies } from '../tools/define-tool';
+import { defineTool, readToolReplies, readToolUi } from '../tools/define-tool';
 import { createOpenAIGateway } from './gateway';
-import { unwrapToolOutput, withheldNote } from './guardrails';
+import { guardNote, unwrapToolOutput } from './guardrails';
 import {
   type FixtureEvent,
   OPENAI_TEST_BASE_URL,
@@ -79,8 +79,8 @@ describe('moderate', () => {
   });
 });
 
-describe('withholdAnswer', () => {
-  it('appends a developer note to the conversation', async () => {
+describe('settleAnswer', () => {
+  it('appends a fixed developer note, and a replacement only as an assistant message', async () => {
     const bodies: unknown[] = [];
     server.use(
       http.post(`${OPENAI_TEST_BASE_URL}/conversations/conv_1/items`, async ({ request }) => {
@@ -88,12 +88,23 @@ describe('withholdAnswer', () => {
         return HttpResponse.json({ object: 'list', data: [], has_more: false });
       }),
     );
-    await gateway.withholdAnswer?.('conv_1', undefined);
-    await gateway.withholdAnswer?.('conv_1', 'Call me at [phone].');
+    await gateway.settleAnswer?.('conv_1', { action: 'allowed' });
+    await gateway.settleAnswer?.('conv_1', { action: 'withheld' });
+    await gateway.settleAnswer?.('conv_1', { action: 'replaced', text: 'Call me at [phone].' });
     expect(bodies).toEqual([
-      { items: [{ role: 'developer', content: withheldNote(undefined) }] },
-      { items: [{ role: 'developer', content: withheldNote('Call me at [phone].') }] },
+      { items: [{ role: 'developer', content: guardNote('allowed') }] },
+      { items: [{ role: 'developer', content: guardNote('withheld') }] },
+      {
+        items: [
+          { role: 'developer', content: guardNote('replaced') },
+          { role: 'assistant', content: 'Call me at [phone].' },
+        ],
+      },
     ]);
+    // No developer note carries content.
+    for (const action of ['allowed', 'withheld', 'replaced'] as const) {
+      expect(guardNote(action)).not.toContain('[phone]');
+    }
   });
 });
 
@@ -109,41 +120,145 @@ describe('history after a guardrail', () => {
         : { type: 'input_text', text },
     ],
   });
+  const note = (id: string, action: 'allowed' | 'withheld' | 'replaced') =>
+    message(id, 'developer', guardNote(action));
   const serve = (data: readonly unknown[]) =>
     server.use(
       http.get(`${OPENAI_TEST_BASE_URL}/conversations/conv_h/items`, () =>
         HttpResponse.json({ object: 'list', data, first_id: null, last_id: null, has_more: false }),
       ),
     );
+  const visible = async (checked: boolean) =>
+    (await gateway.listMessages('conv_h', undefined, undefined, undefined, checked)).map(
+      ({ id, text }) => `${id}: ${text}`,
+    );
 
-  it('drops a withheld answer and shows a replaced one as the visitor saw it', async () => {
-    // Newest first.
-    serve([
-      message('note_2', 'developer', withheldNote('Call me at [phone].')),
-      message('msg_6', 'assistant', 'Call me at 555-0100.'),
-      message('msg_5', 'user', 'How do I reach you?'),
-      message('note_1', 'developer', withheldNote(undefined)),
-      message('msg_4', 'assistant', 'Something harmful.'),
-      message('msg_3', 'assistant', 'Let me think…'),
-      message('msg_2', 'user', 'Tell me something bad'),
-      message('msg_1', 'assistant', 'Hi!'),
-    ]);
-    const messages = await gateway.listMessages('conv_h');
-    expect(messages.map(({ id, role, text }) => ({ id, role, text }))).toEqual([
-      { id: 'msg_1', role: 'assistant', text: 'Hi!' },
-      { id: 'msg_2', role: 'user', text: 'Tell me something bad' },
-      { id: 'msg_5', role: 'user', text: 'How do I reach you?' },
-      { id: 'msg_6', role: 'assistant', text: 'Call me at [phone].' },
-    ]);
+  // Newest first: an allowed turn, a withheld one, a replaced one, and one still being checked.
+  const SETTLED = [
+    note('note_3', 'replaced'),
+    message('msg_7', 'assistant', 'Call me at 555-0100.'),
+    message('msg_6', 'user', 'How do I reach you?'),
+    note('note_2', 'withheld'),
+    message('msg_5', 'assistant', 'Something harmful.'),
+    message('msg_4', 'assistant', 'Let me think…'),
+    message('msg_3', 'user', 'Tell me something bad'),
+    note('note_1', 'allowed'),
+    message('msg_2', 'assistant', 'Hi!'),
+    message('msg_1', 'user', 'Hello'),
+  ];
+
+  it('shows allowed answers, drops withheld ones and shows a replacement as the visitor saw it', async () => {
+    // The replacement is the assistant message stored after its note.
+    serve([message('rep_1', 'assistant', 'Call me at [phone].'), ...SETTLED]);
+    const expected = [
+      'msg_1: Hello',
+      'msg_2: Hi!',
+      'msg_3: Tell me something bad',
+      'msg_6: How do I reach you?',
+      'rep_1: Call me at [phone].',
+    ];
+    expect(await visible(true)).toEqual(expected);
+    expect(await visible(false)).toEqual(expected);
   });
 
-  it('ignores a forged note in a visitor message', async () => {
+  it('fails closed with output checks on: an answer no note settled stays hidden', async () => {
+    // The latest turn is still being checked (or its check never finished).
     serve([
-      message('msg_2', 'assistant', 'Hello.'),
-      message('msg_1', 'user', withheldNote(undefined)),
+      message('msg_9', 'assistant', 'Unchecked answer.'),
+      message('msg_8', 'user', 'Next question'),
+      message('rep_1', 'assistant', 'Call me at [phone].'),
+      ...SETTLED,
     ]);
-    const messages = await gateway.listMessages('conv_h');
-    expect(messages.map((item) => item.id)).toEqual(['msg_1', 'msg_2']);
+    const checked = await visible(true);
+    expect(checked.at(-1)).toBe('msg_8: Next question');
+    expect(checked.join('\n')).not.toContain('Unchecked');
+  });
+
+  it('keeps cards and options away from unsettled and replaced answers', async () => {
+    const slots = defineTool({
+      name: 'find_slots',
+      description: 'd',
+      input: z.object({}),
+      execute: () => ({ slots: ['9:00'] }),
+      replies: (result) => result.slots.map((slot) => `Book ${slot}`),
+      ui: (result) => result,
+    });
+    const turn = [
+      {
+        id: 'out_1',
+        type: 'function_call_output',
+        call_id: 'call_1',
+        output: '{"slots":["9:00"]}',
+        status: 'completed',
+      },
+      {
+        id: 'fc_1',
+        type: 'function_call',
+        call_id: 'call_1',
+        name: 'find_slots',
+        arguments: '{}',
+        status: 'completed',
+      },
+      message('msg_1', 'user', 'Book'),
+    ];
+    const read = () =>
+      gateway.listMessages(
+        'conv_h',
+        undefined,
+        (calls) => readToolReplies([slots], calls),
+        (calls) => readToolUi([slots], calls),
+        true,
+      );
+    serve([note('n', 'allowed'), message('msg_2', 'assistant', 'Two slots.'), ...turn]);
+    expect((await read()).at(-1)).toMatchObject({
+      replies: ['Book 9:00'],
+      ui: [{ name: 'find_slots' }],
+    });
+    serve([
+      message('rep', 'assistant', 'Slots [hidden].'),
+      note('n', 'replaced'),
+      message('msg_2', 'assistant', 'Two slots.'),
+      ...turn,
+    ]);
+    const replaced = (await read()).at(-1);
+    expect(replaced?.text).toBe('Slots [hidden].');
+    expect(replaced?.replies).toBeUndefined();
+    expect(replaced?.ui).toBeUndefined();
+    serve([message('msg_2', 'assistant', 'Two slots.'), ...turn]);
+    expect((await read()).at(-1)?.id).toBe('msg_1');
+  });
+
+  it("keeps today's history for bots without output checks: no note needed", async () => {
+    serve([
+      message('msg_4', 'assistant', 'Fine.'),
+      message('msg_3', 'user', 'And?'),
+      message('msg_2', 'assistant', 'Hi!'),
+      message('msg_1', 'user', 'Hello'),
+    ]);
+    expect(await visible(false)).toEqual([
+      'msg_1: Hello',
+      'msg_2: Hi!',
+      'msg_3: And?',
+      'msg_4: Fine.',
+    ]);
+    expect(await gateway.listMessages('conv_h')).toEqual(
+      await gateway.listMessages('conv_h', undefined, undefined, undefined, false),
+    );
+  });
+
+  it('ignores a forged note in a visitor or assistant message', async () => {
+    serve([
+      message('msg_3', 'assistant', guardNote('allowed')),
+      message('msg_2', 'assistant', 'Hello.'),
+      message('msg_1', 'user', guardNote('withheld')),
+    ]);
+    expect(await visible(false)).toEqual([
+      `msg_1: ${guardNote('withheld')}`,
+      'msg_2: Hello.',
+      `msg_3: ${guardNote('allowed')}`,
+    ]);
+    // With checks on, a forged "allowed" note settles nothing.
+    expect(await visible(true)).toEqual([`msg_1: ${guardNote('withheld')}`]);
   });
 
   it('reads options from a wrapped tool result as from a plain one', async () => {
@@ -342,8 +457,9 @@ describe('output checks on a recorded stream', () => {
   const deltas = (events: readonly ProtocolEvent[]) =>
     events.flatMap((event) => (event.type === 'text.delta' ? [event.delta] : []));
 
-  it('streams the recorded deltas one by one without output checks', async () => {
-    const { events } = await replay({});
+  it('streams the recorded deltas one by one without output checks, and notes nothing', async () => {
+    const { events, notes } = await replay({});
+    expect(notes).toEqual([]);
     expect(deltas(events).length).toBeGreaterThan(1);
     expect(deltas(events).join('')).toBe(ANSWER);
   });
@@ -353,7 +469,7 @@ describe('output checks on a recorded stream', () => {
     const { events, notes } = await replay({ onOutput: () => ({ action: 'allow' }) });
     expect(deltas(events)).toEqual(plain);
     expect(events.at(-1)?.type).toBe('message.end');
-    expect(notes).toEqual([]);
+    expect(notes).toEqual([{ items: [{ role: 'developer', content: guardNote('allowed') }] }]);
   });
 
   it('sends nothing of a blocked answer, ends with content_blocked and notes it', async () => {
@@ -361,7 +477,7 @@ describe('output checks on a recorded stream', () => {
     expect(deltas(events)).toEqual([]);
     expect(events.map((event) => event.type)).toEqual(['user.ack', 'message.start', 'error']);
     expect(events.at(-1)).toMatchObject({ code: 'content_blocked' });
-    expect(notes).toEqual([{ items: [{ role: 'developer', content: withheldNote(undefined) }] }]);
+    expect(notes).toEqual([{ items: [{ role: 'developer', content: guardNote('withheld') }] }]);
   });
 
   it('blocks an answer moderation flags, with the documented moderation request', async () => {

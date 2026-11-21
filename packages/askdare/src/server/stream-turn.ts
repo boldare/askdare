@@ -48,6 +48,14 @@ export interface StreamTurnOptions {
   readonly issueFeedback?:
     | ((conversationId: string, itemId: string) => Promise<FeedbackHandle>)
     | undefined;
+  /**
+   * Takes the conversation for this turn, so no second turn runs on it at once; resolves to the
+   * release, called once the turn has ended. Throws `rate_limited` when another turn holds it.
+   * Set for bots with output checks, whose history depends on each turn's note (ADR-0022).
+   */
+  readonly lockConversation?:
+    | ((conversationId: string) => Promise<() => Promise<void>>)
+    | undefined;
   /** Holds the budget for one more model call before a tool round; see `TurnRequest`. */
   readonly reserveCall?: (() => Promise<boolean>) | undefined;
   /** Server-side reporting hook. Receives client-safe errors with internals in `cause`. */
@@ -166,6 +174,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
       let finishReason: MessageEndReason | undefined;
       let outcome: ChatUsageReport['outcome'] = 'completed';
       let errorCode: ErrorCode | undefined;
+      let release: (() => Promise<void>) | undefined;
 
       const guard: GuardOptions = {
         bot,
@@ -177,6 +186,9 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
       const run = async (): Promise<void> => {
         // Nothing has been spent upstream yet.
         if (visitorLeft()) return;
+        if (conversationId !== undefined && options.lockConversation) {
+          release = await options.lockConversation(conversationId);
+        }
         // Before a conversation exists: a blocked first message leaves nothing behind.
         const text = checksInput(bot.guardrails)
           ? await guardInput(options.text, options.pageContext, guard)
@@ -187,6 +199,8 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
             { botId: bot.id, visitorId: options.visitorId },
             deadline,
           );
+          // Before its handle leaves the server, so no other turn can reach it first.
+          if (options.lockConversation) release = await options.lockConversation(conversationId);
           const resumeToken = await options.issueResumeToken(conversationId);
           if (visitorLeft()) {
             // They never received its handle, so nobody could reach or delete it later.
@@ -223,8 +237,9 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         });
         finishReason = result.reason;
         options.settle?.(result.usage, conversationId);
-        const replies = result.replies && normalizeReplies(result.replies);
-        if (holding) await releaseAnswer(conversationId, replies ?? []);
+        const proposed = result.replies && normalizeReplies(result.replies);
+        const released = holding ? await releaseAnswer(conversationId, proposed ?? []) : 'allowed';
+        const replies = released === 'allowed' ? proposed : undefined;
         // A resumed conversation gets a fresh handle: its 30 days count from the last message.
         // Best effort: the old handle stays valid until it expires.
         const resumeToken = options.conversationId
@@ -232,7 +247,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           : undefined;
         // Best effort too: an answer without a handle just can't be rated.
         const feedback =
-          result.answerItemId && options.issueFeedback
+          result.answerItemId && options.issueFeedback && released === 'allowed'
             ? await options
                 .issueFeedback(conversationId, result.answerItemId)
                 .catch(() => undefined)
@@ -248,33 +263,48 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
       };
 
       /**
-       * Checks the held answer, then sends it, sends its replacement in place of its text, or
-       * blocks the turn. A withheld or replaced answer is noted in the conversation, so a reload
-       * shows what the visitor saw (best effort: if that fails, a reload shows the original).
+       * Checks the held answer, notes the verdict in the conversation and sends what passed: the
+       * answer as it was, or the replacement alone (no cards, and the caller drops the options:
+       * they came with the answer the checks rejected). A blocked answer throws. History shows an
+       * answer only once its note is stored (ADR-0022), so a failed note hides it on reload.
        */
-      const releaseAnswer = async (id: string, replies: readonly string[]): Promise<void> => {
+      const releaseAnswer = async (
+        id: string,
+        replies: readonly string[],
+      ): Promise<'allowed' | 'replaced'> => {
         const answer = held.flatMap((event) => (event.type === 'text.delta' ? [event.delta] : []));
         const outcome = await guardOutput(answer.join(''), replies, guard);
-        if (outcome.action !== 'allow') {
-          await gateway
-            .withholdAnswer?.(id, outcome.action === 'redact' ? outcome.text : undefined, deadline)
-            .catch((error: unknown) => {
-              console.error(
-                `[askdare] could not note the withheld answer in the conversation: ${hookError(error)}`,
-              );
-            });
+        const noted = (
+          gateway.settleAnswer?.(
+            id,
+            outcome.action === 'allow'
+              ? { action: 'allowed' }
+              : outcome.action === 'redact'
+                ? { action: 'replaced', text: outcome.text }
+                : { action: 'withheld' },
+            deadline,
+          ) ?? Promise.resolve()
+        ).catch((error: unknown) => {
+          console.error(
+            `[askdare] could not note the checked answer in the conversation, so a reload hides it: ${hookError(error)}`,
+          );
+        });
+        if (outcome.action === 'block') {
+          await noted;
+          throw blockedError(outcome, 'output');
         }
-        if (outcome.action === 'block') throw blockedError(outcome, 'output');
         let replaced = false;
         for (const event of held) {
-          if (outcome.action === 'redact' && event.type === 'text.delta') {
-            if (!replaced) emit({ ...event, delta: outcome.text });
+          if (outcome.action !== 'redact') emit(event);
+          else if (event.type === 'citation') emit(event);
+          else if (event.type === 'text.delta' && !replaced) {
+            emit({ ...event, delta: outcome.text });
             replaced = true;
-          } else {
-            emit(event);
           }
         }
         held.length = 0;
+        await noted;
+        return outcome.action === 'redact' ? 'replaced' : 'allowed';
       };
 
       /** Hands the report to the hook once the stream is closed, so it never delays the answer. */
@@ -325,6 +355,11 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           });
         })
         .finally(finish)
+        .then(async () => {
+          await release?.().catch((error: unknown) => {
+            console.error(`[askdare] could not release the conversation: ${hookError(error)}`);
+          });
+        })
         .then(sendReport);
       try {
         options.waitUntil?.(work);

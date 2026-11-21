@@ -8,6 +8,7 @@ import {
 } from '../attachments/files';
 import { isInside } from '../base-path';
 import type { Bot } from '../bot/define-bot';
+import { checksOutput } from '../bot/guardrails';
 import { AskdareError, type AskdareErrorOptions, forLog, toAskdareError } from '../errors';
 import type { ModelGateway, RepliesReader, TurnAttachment, UiReader } from '../gateway';
 import { canonicalLocale } from '../i18n/texts';
@@ -683,6 +684,9 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
         ? (id, itemId) => feedbackHandle(tokens, bot, { visitorId, key }, id, itemId)
         : undefined,
       reserveCall: () => reservation.extend(),
+      lockConversation: checksOutput(bot.guardrails)
+        ? (id) => config.limits.lockConversation(bot, id)
+        : undefined,
       onError: report,
       explain: config.explain,
       heartbeatIntervalMs: config.heartbeatIntervalMs,
@@ -872,7 +876,13 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     const { bot, conversationId, tokens, owner } = await ownedConversation(request);
     let messages = await config
       .gateway()
-      .listMessages(conversationId, request.signal, repliesReader(bot), uiReader(bot));
+      .listMessages(
+        conversationId,
+        request.signal,
+        repliesReader(bot),
+        uiReader(bot),
+        checksOutput(bot.guardrails),
+      );
     if (feedbackOn(bot)) {
       messages = await Promise.all(
         messages.map(async (message) =>

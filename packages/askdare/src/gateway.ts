@@ -147,6 +147,12 @@ export interface ModerationResult {
   readonly categories: readonly string[];
 }
 
+/** What output checks decided about an answer, as stored in its conversation. */
+export type AnswerVerdict =
+  | { readonly action: 'allowed' }
+  | { readonly action: 'withheld' }
+  | { readonly action: 'replaced'; readonly text: string };
+
 /** What `askdare doctor` checks for one bot: the features it uses, with the server's key. */
 export interface DiagnoseRequest {
   readonly model: string;
@@ -179,17 +185,19 @@ export interface ModelGateway {
     signal?: AbortSignal,
     replies?: RepliesReader,
     ui?: UiReader,
+    /** For bots with output checks: show only answers a note settled (ADR-0022). */
+    checked?: boolean,
   ): Promise<readonly HistoryMessage[]>;
   runTurn(request: TurnRequest): Promise<TurnResult>;
   /** Classifies texts for `moderation` (ADR-0019). Absent: moderation is unavailable and skipped. */
   moderate?(request: ModerationRequest): Promise<ModerationResult>;
   /**
-   * Records in the conversation that the latest answer was withheld from the visitor, or replaced
-   * by `replacement`, so the history shows what the visitor saw and the model doesn't repeat it.
+   * Records what output checks decided about the latest answer, so the history shows only answers
+   * that passed, or their replacement, and the model doesn't repeat a withheld one (ADR-0022).
    */
-  withholdAnswer?(
+  settleAnswer?(
     conversationId: string,
-    replacement: string | undefined,
+    verdict: AnswerVerdict,
     signal?: AbortSignal,
   ): Promise<void>;
   /** Small live requests that show whether the key, model and stores work (`askdare doctor`). */

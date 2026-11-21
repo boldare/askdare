@@ -56,6 +56,11 @@ export interface Limits {
   checkSession(bot: Bot, keys: SessionLimitKeys): Promise<void>;
   /** Enforces rates, then atomically reserves tokens against every budget. */
   beginTurn(bot: Bot, keys: TurnLimitKeys): Promise<TurnReservation>;
+  /**
+   * Takes a conversation for one turn and resolves to its release; `rate_limited` while another
+   * turn holds it. The hold expires on its own shortly after the turn's deadline.
+   */
+  lockConversation(bot: Bot, conversationId: string): Promise<() => Promise<void>>;
   /** History reads and deletions: no tokens, but they still cost upstream calls. */
   checkConversationAccess(bot: Bot, visitorId: string): Promise<void>;
   /** Ratings of answers, which each reach the app's `onFeedback`. */
@@ -261,6 +266,26 @@ export function createLimits(options: LimitsOptions): Limits {
           ]);
         },
       };
+    },
+
+    async lockConversation(bot, conversationId) {
+      const key = `ask:cf:${conversationId}`;
+      // Past the deadline, in case a process dies mid-turn and never releases it.
+      const windowMs = bot.limits.turnTimeoutMs + MINUTE;
+      const release = async (): Promise<void> => {
+        await store.hit(key, windowMs, -1);
+      };
+      const { count } = await store.hit(key, windowMs, 1);
+      if (count > 1) {
+        await release();
+        throw new AskdareError('rate_limited', {
+          retryAfterMs: 5_000,
+          message:
+            'The previous answer in this conversation is still on its way. Please wait a moment.',
+          key: 'error.rate_limited',
+        });
+      }
+      return release;
     },
 
     async beginTurn(bot, keys) {
