@@ -2,7 +2,7 @@
 import { after } from 'next/server.js';
 import { isBasePath } from '../base-path';
 import type { Bot } from '../bot/define-bot';
-import { AskdareError } from '../errors';
+import { AskdareError, forLog } from '../errors';
 import type { ModelGateway } from '../gateway';
 import {
   FONT_FILES,
@@ -184,7 +184,7 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
     }
     const line = `[askdare] ${error.code}: ${explanation ?? error.message} (see ${TROUBLESHOOTING})`;
     if (error.cause === undefined) console.error(line);
-    else console.error(line, error.cause);
+    else console.error(line, forLog(error.cause));
   };
   /** A setup mistake (a weak secret) is the operator's to fix, not an internal error. */
   const setupError = (error: unknown): unknown =>

@@ -8,7 +8,7 @@ import {
 } from '../attachments/files';
 import { isInside } from '../base-path';
 import type { Bot } from '../bot/define-bot';
-import { AskdareError, type AskdareErrorOptions, toAskdareError } from '../errors';
+import { AskdareError, type AskdareErrorOptions, forLog, toAskdareError } from '../errors';
 import type { ModelGateway, RepliesReader, TurnAttachment, UiReader } from '../gateway';
 import { canonicalLocale } from '../i18n/texts';
 import type { Limits } from '../limits/limits';
@@ -327,7 +327,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
   }
   const report =
     config.onError ??
-    ((error: AskdareError) => console.error(`[askdare] ${error.code}`, error.cause));
+    ((error: AskdareError) => console.error(`[askdare] ${error.code}`, forLog(error.cause)));
 
   const findBot = (botId: string): Bot => {
     const bot = bots.get(botId);

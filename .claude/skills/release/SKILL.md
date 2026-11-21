@@ -34,7 +34,7 @@ The repository is in Changesets pre-release mode (`.changeset/pre.json`, tag `rc
 - For the release (such as 0.1.0): `pnpm changeset pre exit`, then `pnpm changeset version`, and it goes out under `latest`.
 - For the next minor's candidates (such as 0.2.0-rc.0): only after that release, `pnpm changeset pre enter rc` in a pull request of its own. Merged into a repository still in pre mode, the work is numbered as another candidate of the previous version (a dry run showed `0.1.0-rc.5`).
 - Go through `RELEASING.md` before and after every release.
-- Before every release candidate: `pnpm check`, `pnpm e2e`, `pnpm e2e:browsers`, `pnpm test:visual` and the tarball check (`pnpm verify:packs`).
+- Before every release candidate: CI green on the commit (check, end-to-end in three browsers, Linux visual baselines, the starter's build) and the nightly canary green (it runs the tarball check, `pnpm verify:packs`). Locally, `pnpm test:visual` for the macOS baselines.
 
 ## Publishing (only with the user's explicit approval)
 

@@ -111,6 +111,23 @@ describe('askdare doctor', () => {
     expect(text).not.toContain('sk-test');
   });
 
+  it("prints a model's shutdown date as a warning, not a problem", async () => {
+    const retiring = {
+      diagnose: async ({ model }) => [
+        {
+          status: 'warn',
+          title: `Model ${model} is scheduled to shut down on 2099-12-11.`,
+          fix: 'Change model in defineBot to the replacement OpenAI recommends: https://developers.openai.com/api/docs/deprecations',
+        },
+      ],
+    } as Pick<ModelGateway, 'diagnose'> as ModelGateway;
+    const { failures, text } = await run(app({ development: true, gateway: () => retiring }));
+    expect(failures).toBe(0);
+    expect(text).toContain('! Model gpt-test is scheduled to shut down on 2099-12-11.');
+    expect(text).toContain('→ Change model in defineBot to the replacement OpenAI recommends');
+    expect(text).toContain('0 problems, 1 warning.');
+  });
+
   it('warns about production settings that only fit one instance', async () => {
     const { text } = await run(app({ gallery: true }));
     expect(text).toContain('! The state gallery is on.');

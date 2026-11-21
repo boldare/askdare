@@ -74,7 +74,8 @@ pnpm changeset      # describe a change to a published package
 pnpm e2e            # build site/ and run Playwright against a mocked OpenAI
 pnpm e2e:browsers   # the embedding, page API and a11y specs in Firefox and WebKit
 pnpm verify:packs   # pack the packages and try them in a fresh create-next-app
-pnpm test:visual    # pixel baselines of the theme gallery
+pnpm test:visual    # pixel baselines of the theme gallery (your OS's baselines)
+scripts/visual-linux.sh  # the -linux baselines CI compares, made in Docker
 pnpm smoke          # live test against OpenAI (needs OPENAI_API_KEY and SMOKE_MODEL)
 ```
 
@@ -104,7 +105,7 @@ Releases are made by CI from `main`, never from a laptop:
 
 - Dependabot opens dependency updates on Mondays. One that changes a published package's dependencies (not devDependencies) needs a changeset before it merges.
 - Release candidates of each minor version go out as `0.N.0-rc.M` under the npm tag `rc`, while the repository is in pre-release mode (`.changeset/pre.json`).
-- Before a release candidate, run `pnpm check`, `pnpm e2e`, `pnpm e2e:browsers`, `pnpm test:visual` and `pnpm verify:packs`, which installs the packed packages into a fresh Next.js app.
+- Before a release candidate, CI must be green on the commit and the nightly canary green (it runs `pnpm verify:packs`, which installs the packed packages into a fresh Next.js app). Locally, run `pnpm test:visual` for the macOS baselines.
 - For the release itself (such as 0.1.0), run `pnpm changeset pre exit` in a pull request of its own. For the next minor's candidates, run `pnpm changeset pre enter rc` once the release is out: otherwise Changesets numbers the new work as another candidate of the previous version.
 
 Before and after every release, go through the [release checklist](RELEASING.md). The details are in the `release` skill (`.claude/skills/release/SKILL.md`).
