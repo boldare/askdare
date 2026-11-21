@@ -1,0 +1,21 @@
+{
+  "model": "gpt-6.1-terra",
+  "p5": {
+    "deltas": 400,
+    "perEventInsertMs": 186,
+    "perEventAvgMs": 0.46,
+    "batchedMs": 12,
+    "flushes": 20,
+    "resumeReadMs": 2.2,
+    "resumedEvents": 150,
+    "notifyMs": 6.1,
+    "sweptRows": 800
+  },
+  "cleanup": {},
+  "usage": {
+    "input": 0,
+    "cached": 0,
+    "output": 0,
+    "usdApprox": 0
+  }
+}
