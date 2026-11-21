@@ -187,6 +187,39 @@ describe('in-memory store warning', () => {
   });
 });
 
+describe('limits.requireSharedStore', () => {
+  it('refuses to start with the in-memory store, or another store that is not shared', () => {
+    expect(() => createChatHandler({ bots: [bot], limits: { requireSharedStore: true } })).toThrow(
+      /requireSharedStore.*not shared/,
+    );
+    expect(() =>
+      createChatHandler({
+        bots: [bot],
+        limits: { requireSharedStore: true, store: memoryStore() },
+      }),
+    ).toThrow(TypeError);
+  });
+
+  it('starts with a shared store, without the warning', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const handlers = createChatHandler({
+      bots: [bot],
+      limits: { requireSharedStore: true, store: { ...memoryStore(), shared: true } },
+    });
+    expect(handlers.POST).toBeTypeOf('function');
+    expect(warnLog).not.toHaveBeenCalled();
+  });
+
+  it('is off by default and when false: the in-memory store still runs, with the warning', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    expect(() => createChatHandler({ bots: [bot] })).not.toThrow();
+    expect(() =>
+      createChatHandler({ bots: [bot], limits: { requireSharedStore: false } }),
+    ).not.toThrow();
+    expect(warnLog).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('secret resolution', () => {
   it('reads CHAT_SECRET from the environment', async () => {
     const { POST } = createChatHandler({ bots: [bot] });

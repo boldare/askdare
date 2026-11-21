@@ -496,3 +496,111 @@ describe('ChatClient.identify', () => {
     });
   });
 });
+
+describe('ChatClient with a human check', () => {
+  /** A /session that wants `humanToken: 'human'` unless it renews an access token it still knows. */
+  function guardedFetch(): {
+    fetch: typeof fetch;
+    sessions: Record<string, unknown>[];
+    live: Set<string>;
+  } {
+    const sessions: Record<string, unknown>[] = [];
+    const live = new Set<string>();
+    const impl = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      if (!String(input).endsWith('/session')) {
+        return new Response(sse([]), { headers: streamHeaders });
+      }
+      const body = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
+      sessions.push(body);
+      const renewing = typeof body['accessToken'] === 'string' && live.has(body['accessToken']);
+      if (!renewing && body['humanToken'] !== 'human') {
+        return Response.json(
+          { error: { code: 'unauthorized', message: 'Not human.', key: 'error.humanCheck' } },
+          { status: 401 },
+        );
+      }
+      const accessToken = `token-${sessions.length}`;
+      live.add(accessToken);
+      // Already expired, so every message renews it.
+      return Response.json({ accessToken, expiresAt: Date.now() / 1000 - 1, resumable: false });
+    };
+    return { fetch: impl as typeof fetch, sessions, live };
+  }
+
+  function guardedClient(
+    fetchImpl: typeof fetch,
+    humanToken: () => Promise<string>,
+    translate?: (key: string) => string | undefined,
+  ): ChatClient {
+    return new ChatClient({
+      basePath: '/api/chat',
+      botId: 'support',
+      locale: 'en',
+      storage: memoryStorage(),
+      fetch: fetchImpl,
+      humanToken,
+      ...(translate ? { translate } : {}),
+    });
+  }
+
+  it('asks for a token for a new session only, and renews without one', async () => {
+    const { fetch, sessions } = guardedFetch();
+    let asked = 0;
+    const chat = guardedClient(fetch, async () => {
+      asked += 1;
+      return 'human';
+    });
+    const events: ProtocolEvent[] = [];
+    await chat.send({ text: 'Hi' }, (event) => events.push(event));
+    await chat.send({ text: 'Again' }, (event) => events.push(event));
+    expect(events.filter((event) => event.type === 'error')).toEqual([]);
+    expect(asked).toBe(1);
+    expect(sessions[0]).toMatchObject({ humanToken: 'human' });
+    expect(sessions[1]).toMatchObject({ accessToken: 'token-1' });
+    expect(sessions[1]).not.toHaveProperty('humanToken');
+  });
+
+  it('starts afresh with a new check when the session is too old to renew', async () => {
+    const { fetch, sessions, live } = guardedFetch();
+    let asked = 0;
+    const chat = guardedClient(fetch, async () => {
+      asked += 1;
+      return 'human';
+    });
+    await chat.send({ text: 'Hi' }, () => {});
+    live.clear(); // past the renewal grace
+    const events: ProtocolEvent[] = [];
+    await chat.send({ text: 'Again' }, (event) => events.push(event));
+    expect(events.filter((event) => event.type === 'error')).toEqual([]);
+    expect(asked).toBe(2);
+    expect(sessions.slice(1)).toEqual([
+      { botId: 'support', accessToken: 'token-1' },
+      { botId: 'support', humanToken: 'human' },
+    ]);
+  });
+
+  it('shows a localized error when the visitor fails the check, and sends nothing', async () => {
+    const { fetch, sessions } = guardedFetch();
+    const chat = guardedClient(
+      fetch,
+      async () => {
+        throw new Error('failed');
+      },
+      (key) => (key === 'error.humanCheck' ? 'Not confirmed.' : undefined),
+    );
+    const events: ProtocolEvent[] = [];
+    await chat.send({ text: 'Hi' }, (event) => events.push(event));
+    expect(events).toEqual([
+      { type: 'error', code: 'unauthorized', key: 'error.humanCheck', message: 'Not confirmed.' },
+    ]);
+    expect(sessions).toHaveLength(0);
+  });
+
+  it('never asks without the option, as in 0.4', async () => {
+    const { fetch, calls } = fakeFetch({
+      messages: () => new Response(sse([]), { headers: streamHeaders }),
+    });
+    await client(fetch).send({ text: 'Hi' }, () => {});
+    expect(calls[0]?.body).toEqual({ botId: 'support' });
+  });
+});

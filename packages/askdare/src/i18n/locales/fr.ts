@@ -56,6 +56,8 @@ export const FR: Dictionary = {
   'launcher.open': 'Ouvrir le chat',
   'launcher.close': 'Fermer le chat',
   'launcher.unavailable': 'Le chat n’a pas pu se charger. Veuillez réessayer plus tard.',
+  'humanCheck.label': 'Vérification que vous êtes humain',
+  'error.humanCheck': 'Nous n’avons pas pu confirmer que vous êtes humain. Veuillez réessayer.',
   'error.connection': 'Problème de connexion. Veuillez réessayer.',
   'error.history': 'Impossible de charger la conversation précédente.',
   'error.updated': 'L’assistant a été mis à jour. Veuillez recharger la page.',

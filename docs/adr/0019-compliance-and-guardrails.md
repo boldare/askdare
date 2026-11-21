@@ -45,7 +45,8 @@ Hosted competitors (Intercom Fin, Chatbase) and toolkits (AI SDK, assistant-ui) 
    - It is checked only when a session is created, as ADR-0004 described.
    - Bots without a verifier work exactly as today.
    - The iframe's CSP is widened only for bots that configure one. The loader doesn't change.
-5. **In-memory rate limits keep working in production.** The existing warning stays. An opt-in `limits.requireSharedStore: true` makes the handler refuse to start without a shared store, for teams that want that guarantee. The option's final name is settled in the task.
+   - As built in 0.5: `security.humanVerifier: turnstile({ siteKey })` in `defineBot`, with `TURNSTILE_SECRET_KEY`. The chat renders the challenge (`HumanCheck`, in the default look) when it needs a new session; renewing a live session needs no new check. The CSP adds `https://challenges.cloudflare.com` to `script-src` and `frame-src`. A failed token answers `unauthorized`; a check that can't run refuses the session (fails closed).
+5. **In-memory rate limits keep working in production.** The existing warning stays. An opt-in `limits.requireSharedStore: true` makes the handler refuse to start without a shared store, for teams that want that guarantee. The name was kept in 0.5: `createChatHandler` throws as the route loads, in any environment, when the option is on and the store isn't shared.
 6. **Accessibility target:** the widget and the default skin target WCAG 2.2 AA, with a dated conformance statement in `docs/accessibility.md`. Finished answers are announced once to screen readers. This changes no option and restricts nothing.
 
 ## Consequences

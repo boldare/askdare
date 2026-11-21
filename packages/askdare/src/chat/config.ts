@@ -56,6 +56,17 @@ export interface ChatConfig {
   readonly voice?: { readonly maxSeconds: number };
   /** From `getChatConfig`, for a chat inside a page. The iframe links its own stylesheets. */
   readonly styles?: ChatStyles;
+  /**
+   * Absent unless the bot has `security.humanVerifier`: the challenge the chat shows before a new
+   * session starts, rendered by `HumanCheck`.
+   */
+  readonly humanCheck?: ChatHumanCheck;
+}
+
+/** A human check the chat must pass before it connects; public, the site key only. */
+export interface ChatHumanCheck {
+  readonly provider: 'turnstile';
+  readonly siteKey: string;
 }
 
 /** What `EmbedRoot` from `@boldare/askdare/embed` needs; `getEmbedConfig` builds it (ADR-0018). */

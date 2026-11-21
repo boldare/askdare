@@ -78,6 +78,13 @@ export interface ChatStore {
   readonly language: string | undefined;
   /** The chat was hidden: the microphone goes off. */
   hide(): void;
+  /**
+   * Hands the human check's token to the session waiting for it, or null when the challenge
+   * failed. Called by `HumanCheck`.
+   */
+  answerHumanCheck(token: string | null): void;
+  /** `HumanCheck` registers while mounted; returns an unregister. */
+  attachHumanCheck(): () => void;
   /** The microphone's loudness from 0 to 1 while recording. */
   level(): number | undefined;
   /**
@@ -170,6 +177,26 @@ export function createChatStore(
   // Both change when the language switches in place; everything reads the current ones.
   let config = initialConfig;
   let t = translator(config.widget.texts);
+  /** The session waiting for the visitor to pass the human check, if any (ADR-0019). */
+  let humanCheck: { resolve(token: string): void; reject(error: Error): void } | undefined;
+  /** Mounted `HumanCheck` components; without one, the check can never be passed. */
+  let checkers = 0;
+  const requestHumanCheck = (): Promise<string> =>
+    new Promise<string>((resolve, reject) => {
+      humanCheck?.reject(new Error('replaced'));
+      humanCheck = { resolve, reject };
+      if (checkers === 0) {
+        console.warn('[askdare] Render <HumanCheck />: this bot needs a human check to connect.');
+      }
+      set({ humanCheck: true });
+    });
+  const answerHumanCheck = (token: string | null): void => {
+    const waiting = humanCheck;
+    humanCheck = undefined;
+    if (state.humanCheck) set({ humanCheck: false });
+    if (token) waiting?.resolve(token);
+    else waiting?.reject(new Error('The human check failed.'));
+  };
   const client =
     options.client ??
     new ChatClient({
@@ -179,6 +206,7 @@ export function createChatStore(
       storage: browserStorage(),
       translate: (key, params) =>
         config.widget.texts[key] === undefined ? undefined : t(key as TextKey, params),
+      ...(config.humanCheck ? { humanToken: requestHumanCheck } : {}),
     });
   const recorder = options.recorder ?? { canRecord, startRecording };
   const voice = config.voice;
@@ -198,6 +226,7 @@ export function createChatStore(
     page: options.page ?? {},
     ratings: {},
     commenting: undefined,
+    humanCheck: false,
   };
   let state = initial;
   const listeners = new Set<() => void>();
@@ -651,6 +680,8 @@ export function createChatStore(
       turn?.abort();
       turn = undefined;
       discardRecording();
+      // A session waiting for the human check gives up; the next request asks again.
+      answerHumanCheck(null);
       // Uploads still running stop with their files; files already uploaded stay for the next run.
       if (uploads.size > 0) {
         cancelUploads(uploads.keys());
@@ -703,6 +734,15 @@ export function createChatStore(
 
     hide() {
       discardRecording();
+    },
+
+    answerHumanCheck,
+
+    attachHumanCheck() {
+      checkers += 1;
+      return () => {
+        checkers -= 1;
+      };
     },
 
     level: () => recording?.level(),

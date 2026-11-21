@@ -39,12 +39,13 @@ A library runs inside its users' apps, so every supported combination of version
   - the shadow parts on the host page (`launcher`, `panel`, `unavailable`) and the host element's `data-askdare` attribute;
   - the protocol version, and its events and history fields (`replies` from ADR-0015, `tool.ui` and `ui` from ADR-0017);
   - ports implemented by official add-ons: `RateLimitStore` (and `CounterHit`);
+  - the human check (ADR-0019): `security.humanVerifier`, the `HumanVerifier` port (with `HumanChallenge` and `HumanCheckContext`), the `turnstile()` adapter and `TURNSTILE_SECRET_KEY`, and `limits.requireSharedStore` of `createChatHandler`;
   - the `askdare` commands and their options (`init`, `doctor`, `kb sync`, `add ui`), but not their printed output or the `/doctor` report behind `doctor`. The files `add ui` copies are the user's code from then on: their content is not API;
 
   Everything else is internal.
 - **Guards** (published for users in [Support](../support.md)):
   - a `.d.ts` snapshot (`packages/askdare/api/askdare.api.txt`) fails the check when the published types change, until it is updated on purpose with a changeset; a consumer project type-checks the published `.d.ts` with TypeScript 5.9, 6.0 and 7.0;
-  - size budgets fail the build: loader 5 KB, chat app 50 KB, its styles 8 KB, each preset's fonts 82 KB, and `@boldare/askdare/react` 32 KB in an app's bundle, or 12 KB for a page that uses only `Root` and `useChat` (gzipped);
+  - size budgets fail the build: loader 5 KB, chat app 50 KB, its styles 8 KB, each preset's fonts 82 KB, and `@boldare/askdare/react` 33 KB in an app's bundle (32 KB until the human check of ADR-0019 added about 400 bytes), or 12 KB for a page that uses only `Root` and `useChat` (gzipped);
   - a nightly canary runs the checks and browser tests against `next@canary` and `openai@latest` (with the mocked OpenAI API);
   - a daily live smoke test runs on a cheap model in a dedicated, spend-capped OpenAI project, so a retired model or a changed API fails there.
 

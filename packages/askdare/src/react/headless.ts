@@ -37,6 +37,8 @@ export type { Chat, ChatBot, Frame } from './context';
 export { useChat, useChatState, useFrame, useMessage } from './context';
 export type { FeedbackButtonProps } from './feedback';
 export { FeedbackButton } from './feedback';
+export type { HumanCheckProps } from './human-check';
+export { HumanCheck } from './human-check';
 export type { MarkdownProps } from './markdown';
 export { Markdown } from './markdown';
 export type {

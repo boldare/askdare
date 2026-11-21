@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { isEmbedPath } from '../base-path';
 import { canonicalLocale, TEXT_KEYS, type TextKey, textLocale, textsFor } from '../i18n/texts';
+import type { HumanVerifier } from '../security/human-verifier';
 import type { VisitorIdentity } from '../security/identity';
 import { PRESET_NAMES, type PresetName } from '../theme/presets';
 import {
@@ -65,6 +66,12 @@ export interface BotSecurity {
    * always allowed. Enforced by the browser through `frame-ancestors` (ADR-0004, ADR-0005).
    */
   readonly allowedOrigins?: readonly string[];
+  /**
+   * Asks for a human check before a new session starts, such as `turnstile({ siteKey })`
+   * (ADR-0019). The chat shows the challenge, and the iframe's CSP allows its provider. Renewals
+   * of a live session aren't checked again. Off when absent.
+   */
+  readonly humanVerifier?: HumanVerifier | undefined;
 }
 
 export interface KnowledgeConfig {
@@ -248,7 +255,10 @@ export interface Bot extends BotHandle {
   readonly knowledge: Required<KnowledgeConfig> | undefined;
   readonly attachments: Required<AttachmentConfig> | undefined;
   readonly voice: Required<VoiceConfig> | undefined;
-  readonly security: { readonly allowedOrigins: readonly string[] };
+  readonly security: {
+    readonly allowedOrigins: readonly string[];
+    readonly humanVerifier: HumanVerifier | undefined;
+  };
   readonly widget: BotWidget;
 }
 
@@ -426,7 +436,22 @@ const definitionSchema = z.object({
       maxSeconds: z.number().int().min(5).max(300).optional(),
     })
     .optional(),
-  security: z.object({ allowedOrigins: z.array(origin).max(50).optional() }).optional(),
+  security: z
+    .object({
+      allowedOrigins: z.array(origin).max(50).optional(),
+      humanVerifier: z
+        .custom<HumanVerifier>(
+          (value) =>
+            typeof value === 'object' &&
+            value !== null &&
+            typeof (value as HumanVerifier).verify === 'function' &&
+            (value as HumanVerifier).challenge?.provider === 'turnstile' &&
+            /^[A-Za-z0-9_-]{1,100}$/.test(String((value as HumanVerifier).challenge?.siteKey)),
+          'must be created with turnstile() or implement HumanVerifier',
+        )
+        .optional(),
+    })
+    .optional(),
   embedPath: z
     .string()
     .refine(isEmbedPath, 'must be a path of this app like /askdare/support')
@@ -573,6 +598,7 @@ export function createBot(definition: BotDefinition): Bot {
       : undefined,
     security: Object.freeze({
       allowedOrigins: Object.freeze([...new Set(definition.security?.allowedOrigins ?? [])]),
+      humanVerifier: definition.security?.humanVerifier,
     }),
     embedPath: definition.embedPath,
     widget: Object.freeze({

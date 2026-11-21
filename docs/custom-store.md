@@ -59,6 +59,8 @@ askdare uses refunds to give back a reservation. A turn reserves an estimate aga
 - When `shared` is `false` and `NODE_ENV` is `production`, `createChatHandler` logs a warning as the route loads: `[askdare] Rate limits are kept in memory, per instance. With more than one instance, use a shared store such as @boldare/askdare-upstash.`
 - `npx @boldare/askdare doctor` warns that rate limits and budgets are kept per instance, unless the app runs in development.
 
+With `limits: { requireSharedStore: true }`, `createChatHandler` throws instead, as the route loads, when the store's `shared` is `false` ([Handler limits](configuration.md#handler-limits)). Turn it on in production when per-instance limits would be a bug, not a trade-off.
+
 Set `shared: true` only when every instance reaches the same counters, such as a database they all connect to. A store that keeps counters inside the process is `shared: false`, even if you wrote it.
 
 ## Example: PostgreSQL

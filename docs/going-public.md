@@ -21,6 +21,7 @@ openssl rand -base64 32   # use the output as CHAT_SECRET
 | `CHAT_SECRET` | yes | At least 32 random characters. Never commit it. |
 | `CHAT_SECRET_PREVIOUS` | during rotation | Comma-separated former secrets |
 | `IDENTITY_SECRET` | for signed-in visitors | Shared with your site's backend only; never in a page or in git |
+| `TURNSTILE_SECRET_KEY` | for a human check | The Turnstile widget's secret key; see step 3 |
 | `ASKDARE_DISABLED` | no | Set `true` to switch every bot off. It takes effect when the app restarts with the new value: on Vercel, redeploy; on Heroku, changing a config var restarts the dynos. |
 
 **To rotate the secret:**
@@ -32,6 +33,7 @@ openssl rand -base64 32   # use the output as CHAT_SECRET
 - **`security.allowedOrigins`:** the exact sites allowed to embed the widget, such as `https://www.example.com`. No paths and no wildcards. The app's own origin is always allowed.
 - **`limits`:** start with the defaults and tune `dailyTokens` (per bot) and `dailyTokensPerIp` to your budget. Add `limits: { globalDailyTokens }` to `createChatHandler` to cap all bots together. These budgets are the main cost control; the OpenAI hard limit is the backstop.
 - **Instructions:** they must contain **no secrets**. Assume visitors can make the model reveal them.
+- **Human check (optional):** limits bound what one address can spend, not what many addresses can. For a public chat that attracts scripted abuse, add `security.humanVerifier: turnstile({ siteKey })` and set `TURNSTILE_SECRET_KEY`. Visitors then pass Cloudflare Turnstile when a session starts ([Configuration](configuration.md#human-check)). Create the widget in the Cloudflare dashboard with your app's host name, not the sites that embed the chat: the challenge runs in the chat's iframe, on your app's origin. Name Cloudflare in your privacy notice.
 
 ## 4. Rate limits across instances
 
@@ -44,6 +46,12 @@ export const { GET, POST, DELETE } = createChatHandler({
   bots,
   limits: { store: upstashStore() }, // UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN
 });
+```
+
+To make sure a production deployment never runs with per-instance counters, add `requireSharedStore`. The route then refuses to load without a shared store, instead of logging a warning:
+
+```ts
+limits: { store: upstashStore(), requireSharedStore: process.env.NODE_ENV === 'production' },
 ```
 
 **Client IP:**
@@ -75,7 +83,8 @@ export const { GET, POST, DELETE } = createChatHandler({
 - [ ] Restricted key, model allowlist and a hard spend limit, with a tested alert.
 - [ ] `CHAT_SECRET` is random, at least 32 characters, and not in git.
 - [ ] `allowedOrigins` lists only your sites.
-- [ ] Shared store configured if you run more than one instance.
+- [ ] Shared store configured if you run more than one instance, and `requireSharedStore` on if that must never be forgotten.
+- [ ] If the chat is public and anonymous, you decided whether it needs a human check, and tested it with Cloudflare's test keys.
 - [ ] Instructions contain no secrets.
 - [ ] Privacy notice, retention decision and AI disclosure are in place, checked against [Compliance](compliance.md).
 - [ ] If visitors rate answers, your notice covers their comments, and `onFeedback` keeps them no longer than you need.
