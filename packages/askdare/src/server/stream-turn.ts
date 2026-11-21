@@ -1,5 +1,5 @@
 import type { Bot, BotContext } from '../bot/define-bot';
-import { AskdareError, TurnAbortedError, toAskdareError } from '../errors';
+import { AskdareError, forLog, TurnAbortedError, toAskdareError } from '../errors';
 import type { ModelGateway, TokenUsage, ToolCallRecord, TurnAttachment } from '../gateway';
 import type {
   ErrorCode,
@@ -70,7 +70,7 @@ function defaultId(): string {
 }
 
 function logError(error: AskdareError): void {
-  console.error(`[askdare] turn failed: ${error.code}`, error.cause);
+  console.error(`[askdare] turn failed: ${error.code}`, forLog(error.cause));
 }
 
 /** What a failing hook is logged as: its error's name, never its message, which may hold data. */

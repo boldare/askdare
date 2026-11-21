@@ -94,6 +94,19 @@ The same check reports every invalid setting as `Invalid bot "<id>": <setting> <
 
 Problems with `CHAT_SECRET` and `IDENTITY_SECRET` are also `bot_unavailable`: they stop the chat from opening a session. In development the chat shows the reason; the table in the next entry lists them.
 
+## A model is shutting down
+
+**You see** a warning from `npx @boldare/askdare doctor`:
+
+```text
+  ! Model <model> is scheduled to shut down on 2026-12-11.
+    → Change model in defineBot to the replacement OpenAI recommends: https://developers.openai.com/api/docs/deprecations
+```
+
+**Why:** OpenAI has announced a shutdown date for the bot's model, or for the transcription model of a bot with `voice` (then the fix names `voice.model`). The model still works, so this is a warning and `doctor` still exits with `0`. The date comes from the OpenAI API; askdare keeps no list of models. After that date the model stops working and the chat answers with [The assistant is unavailable](#the-assistant-is-unavailable).
+
+**Fix:** look up the model on OpenAI's [deprecations page](https://developers.openai.com/api/docs/deprecations), which names its recommended replacement. Set the new model (for example in `ASKDARE_MODEL`, or `voice.model` in `defineBot`), test the bot, and redeploy before the date. Run `doctor` against each deployed app, since every environment may use a different model.
+
 ## Connection problem
 
 **You see** "Connection problem. Please try again." when sending a message, or "Could not load the previous conversation." when the chat opens.

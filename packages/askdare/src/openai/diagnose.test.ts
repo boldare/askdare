@@ -80,6 +80,94 @@ describe('diagnose', () => {
     ]);
   });
 
+  it('warns about a chat or transcription model with a shutdown date and keeps checking', async () => {
+    server.use(
+      http.get(url('/models/gpt-old'), () =>
+        HttpResponse.json({
+          id: 'gpt-old',
+          object: 'model',
+          created: 0,
+          owned_by: 'openai',
+          shutdown_date: '2099-12-11',
+        }),
+      ),
+      http.get(url('/models/transcribe-old'), () =>
+        HttpResponse.json({
+          id: 'transcribe-old',
+          object: 'model',
+          created: 0,
+          owned_by: 'openai',
+          shutdown_date: '2099-02-26T00:00:00Z',
+        }),
+      ),
+      ...healthy,
+    );
+    const checks = await gateway.diagnose({
+      model: 'gpt-old',
+      transcriptionModel: 'transcribe-old',
+      attachments: false,
+    });
+    const deprecations = 'https://developers.openai.com/api/docs/deprecations';
+    expect(checks.filter((check) => check.status !== 'ok')).toEqual([
+      {
+        status: 'warn',
+        title: 'Model gpt-old is scheduled to shut down on 2099-12-11.',
+        fix: `Change model in defineBot to the replacement OpenAI recommends: ${deprecations}`,
+      },
+      {
+        status: 'warn',
+        title: 'Model transcribe-old is scheduled to shut down on 2099-02-26.',
+        fix: `Change voice.model in defineBot to the replacement OpenAI recommends: ${deprecations}`,
+      },
+    ]);
+    // A warning, not a failure: the model still works, so the other checks run.
+    expect(calls).toContain('POST /responses');
+    expect(calls).toContain('POST /audio/transcriptions');
+  });
+
+  it('treats a null or missing shutdown date as no shutdown', async () => {
+    server.use(
+      http.get(url('/models/gpt-test'), () =>
+        HttpResponse.json({
+          id: 'gpt-test',
+          object: 'model',
+          created: 0,
+          owned_by: 'openai',
+          shutdown_date: null,
+        }),
+      ),
+      ...healthy,
+    );
+    const checks = await gateway.diagnose({
+      model: 'gpt-test',
+      transcriptionModel: 'transcribe-test',
+      attachments: false,
+    });
+    expect(checks).toContainEqual({ status: 'ok', title: 'Model gpt-test is available.' });
+    expect(checks).toContainEqual({ status: 'ok', title: 'Model transcribe-test is available.' });
+    expect(checks.every((check) => check.status === 'ok')).toBe(true);
+  });
+
+  it('keeps an unexpected shutdown date out of the report', async () => {
+    server.use(
+      http.get(url('/models/:model'), () =>
+        HttpResponse.json({
+          id: 'gpt-test',
+          object: 'model',
+          created: 0,
+          owned_by: 'openai',
+          shutdown_date: 'soon <script>',
+        }),
+      ),
+      ...healthy,
+    );
+    const [model] = await gateway.diagnose({ model: 'gpt-test', attachments: false });
+    expect(model).toMatchObject({
+      status: 'warn',
+      title: 'Model gpt-test has an announced shutdown date.',
+    });
+  });
+
   it('stops at a rejected key and never repeats what OpenAI said about it', async () => {
     server.use(http.get(url('/models/:model'), () => error(401, 'invalid_api_key')));
     const checks = await gateway.diagnose(everything);

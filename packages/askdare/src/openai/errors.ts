@@ -5,14 +5,11 @@ import {
   APIUserAbortError,
   NotFoundError,
 } from 'openai';
-import { AskdareError, scrub, TurnAbortedError } from '../errors';
+import { AskdareError, loggableMessage, TurnAbortedError } from '../errors';
 
-/**
- * What OpenAI said, for logs and the developer: status, code and request ID, with any API key in
- * the message cut down to its prefix (a 401 quotes part of the key).
- */
+/** What OpenAI said, for logs and the developer: status, code, request ID and a loggable message. */
 function redacted(error: APIError): Error {
-  const copy = new Error(scrub(error.message));
+  const copy = new Error(loggableMessage(error.message));
   copy.name = error.name;
   return Object.assign(copy, {
     status: error.status,
@@ -46,9 +43,9 @@ export function fromOpenAIError(error: unknown, deadlineExceeded: boolean): Erro
       : new TurnAbortedError('Turn aborted by the caller.', { cause: error });
   }
   if (error instanceof APIConnectionTimeoutError)
-    return new AskdareError('timeout', { cause: error });
+    return new AskdareError('timeout', { cause: redacted(error) });
   if (error instanceof APIConnectionError)
-    return new AskdareError('upstream_error', { cause: error });
+    return new AskdareError('upstream_error', { cause: redacted(error) });
   if (error instanceof NotFoundError) {
     // Verified live (spike S1): a misconfigured model answers 404 `model_not_found`, a deleted
     // conversation answers 404 "Conversation with id '…' not found". Only the latter resets the chat.
