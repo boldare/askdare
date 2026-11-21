@@ -88,7 +88,15 @@ function readTurns(
   const outputs = new Map<string, string>();
   let turn: Turn = { calls: [], answer: undefined };
   const pending: { name: string; arguments: string; callId: string }[] = [];
+  // Text marked as commentary that no later answer replaced: then it was the answer, written
+  // before the reply options (stored items have lost their phase so far, but may keep it).
+  let unanswered: HistoryMessage | undefined;
   const close = (): void => {
+    if (unanswered && turn.answer === undefined) {
+      messages.push(unanswered);
+      turn.answer = messages.length - 1;
+    }
+    unanswered = undefined;
     for (const call of pending) turn.calls.push({ ...call, output: outputs.get(call.callId) });
     pending.length = 0;
     turns.push(turn);
@@ -103,8 +111,13 @@ function readTurns(
     } else if (item.type === 'function_call') {
       pending.push({ name: item.name, arguments: item.arguments, callId: item.call_id });
     }
+    if (item.type === 'message' && item.role === 'assistant' && item.phase === 'commentary') {
+      unanswered = toHistoryMessage({ ...item, phase: null }, sources);
+      continue;
+    }
     const message = toHistoryMessage(item, sources);
     if (!message) continue;
+    if (message.role === 'assistant') unanswered = undefined;
     messages.push(message);
     if (message.role === 'assistant') turn.answer = messages.length - 1;
   }

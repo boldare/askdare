@@ -124,6 +124,43 @@ describe('listMessages', () => {
     ]);
   });
 
+  it('shows commentary as the answer when no answer followed it, as before reply options', async () => {
+    const say = (id: string, text: string, phase?: 'commentary') => ({
+      id,
+      type: 'message',
+      role: 'assistant',
+      status: 'completed',
+      ...(phase ? { phase } : {}),
+      content: [{ type: 'output_text', text, annotations: [], logprobs: [] }],
+    });
+    const ask = (id: string, text: string) => ({
+      id,
+      type: 'message',
+      role: 'user',
+      status: 'completed',
+      content: [{ type: 'input_text', text }],
+    });
+    const newestFirst = [
+      say('a2', 'Answer two.'),
+      say('n2', 'Let me check.', 'commentary'),
+      ask('u2', 'Second?'),
+      say('a1', 'Answer one.', 'commentary'),
+      ask('u1', 'First?'),
+    ];
+    server.use(
+      http.get(`${OPENAI_TEST_BASE_URL}/conversations/conv_1/items`, () =>
+        HttpResponse.json({ object: 'list', data: newestFirst, has_more: false }),
+      ),
+    );
+    const messages = await gateway.listMessages('conv_1');
+    expect(messages.map((message) => message.text)).toEqual([
+      'First?',
+      'Answer one.',
+      'Second?',
+      'Answer two.',
+    ]);
+  });
+
   it('links file citations to the title and URL stored with the searched file', async () => {
     const result = (fileId: string, title: string, url: string) => ({
       file_id: fileId,
