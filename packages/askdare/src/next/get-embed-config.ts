@@ -1,4 +1,4 @@
-import type { Bot } from '../bot/define-bot';
+import { type Bot, type BotHandle, botOf } from '../bot/define-bot';
 import type { EmbedChatConfig } from '../chat/config';
 import { embedPermissionsPolicy, frameAncestors } from '../server/embed-page';
 import { getChatConfig } from './get-chat-config';
@@ -10,7 +10,7 @@ export type EmbedSearchParams =
 
 export interface EmbedConfigOptions {
   /** The same bots as in `createChatHandler`. */
-  readonly bots: readonly Bot[];
+  readonly bots: readonly BotHandle[];
   /** The id of the bot whose `embedPath` this page is. */
   readonly bot: string;
   /** Path of the chat route, the same as in `createChatHandler`. Default `/api/chat`. */
@@ -25,8 +25,9 @@ const first = (params: EmbedSearchParams, name: string): string | undefined => {
 };
 
 /** The bot with this id, for a page that serves it. */
-function embeddedBot(bots: readonly Bot[], id: string, caller: string): Bot {
-  const bot = bots.find((candidate) => candidate.id === id);
+function embeddedBot(bots: readonly BotHandle[], id: string, caller: string): Bot {
+  const handle = bots.find((candidate) => candidate.id === id);
+  const bot = handle && botOf(handle);
   if (!bot) throw new TypeError(`[askdare] ${caller}: there is no bot "${id}".`);
   return bot;
 }
@@ -74,7 +75,7 @@ export interface EmbedPageHeader {
  * ```
  */
 export function embedPageHeaders(options: {
-  readonly bots: readonly Bot[];
+  readonly bots: readonly BotHandle[];
   readonly bot: string;
 }): EmbedPageHeader[] {
   const bot = embeddedBot(options.bots, options.bot, 'embedPageHeaders');

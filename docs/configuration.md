@@ -233,7 +233,7 @@ The text defaults come from the built-in dictionary of the configured language. 
 
 | Option | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `bots` | `readonly Bot[]` | required | At least one bot. IDs must be unique. |
+| `bots` | `readonly BotHandle[]` | required | At least one bot from `defineBot`. IDs must be unique. |
 | `basePath` | `string` | `'/api/chat'` | Path of the catch-all route. One or more segments of letters, digits, `.`, `_`, `~` or `-`, each after a `/`. No trailing slash. |
 | `openaiApiKey` | `string` | `process.env.OPENAI_API_KEY` | The OpenAI API key. |
 | `secret` | `string` | `process.env.CHAT_SECRET` | Encrypts session tokens and attachment handles. At least 32 characters, with at least 12 different ones. Use `openssl rand -base64 32`. |

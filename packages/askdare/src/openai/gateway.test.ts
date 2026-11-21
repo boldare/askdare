@@ -2,7 +2,7 @@ import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { defineBot } from '../bot/define-bot';
+import { createBot } from '../bot/define-bot';
 import { AskdareError, TurnAbortedError } from '../errors';
 import type { ModelGateway, TurnRequest } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
@@ -31,7 +31,7 @@ beforeAll(() => {
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-const bot = defineBot({
+const bot = createBot({
   id: 'support',
   model: 'test-model',
   instructions: ({ locale }) => `Answer in ${locale}.`,
@@ -383,7 +383,7 @@ describe('runTurn', () => {
         capture,
       ),
     );
-    const knowledgeBot = defineBot({
+    const knowledgeBot = createBot({
       id: 'kb',
       model: 'test-model',
       instructions: 'Use the documents.',
@@ -426,7 +426,7 @@ describe('runTurn', () => {
     const capture: CapturedRequest = { body: undefined };
     server.use(responsesHandler(textTurnEvents(['Hi']), {}, capture));
     const { request } = turn({
-      bot: defineBot({
+      bot: createBot({
         id: 'kb',
         model: 'test-model',
         instructions: 'Use the documents.',
@@ -454,7 +454,7 @@ describe('runTurn', () => {
     server.use(responsesHandler(textTurnEvents(['From the PDF alone.']), {}, capture));
     const reservations: boolean[] = [];
     const { request } = turn({
-      bot: defineBot({
+      bot: createBot({
         id: 'tools',
         model: 'test-model',
         instructions: 'Use tools.',

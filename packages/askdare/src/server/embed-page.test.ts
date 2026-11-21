@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { defineBot } from '../bot/define-bot';
+import { createBot } from '../bot/define-bot';
 import { defineTool } from '../tools/define-tool';
 import { type EmbedAssets, embedConfig, renderEmbedPage } from './embed-page';
 
 describe('embedConfig', () => {
   it('sends the browser only the public part of a bot (ADR-0008)', () => {
-    const bot = defineBot({
+    const bot = createBot({
       id: 'support',
       model: 'model-that-stays-on-the-server',
       instructions: 'Instructions that stay on the server.',
@@ -46,10 +46,10 @@ describe('renderEmbedPage', () => {
     skinCssFile: 'skin.333.css',
   };
   const page = (
-    widget: NonNullable<Parameters<typeof defineBot>[0]['widget']>,
+    widget: NonNullable<Parameters<typeof createBot>[0]['widget']>,
     visitor = 'en',
   ): string => {
-    const bot = defineBot({ id: 'support', model: 'm', instructions: 'x', widget });
+    const bot = createBot({ id: 'support', model: 'm', instructions: 'x', widget });
     const locale = bot.widget.locale === 'auto' ? visitor : bot.widget.locale;
     return renderEmbedPage(bot, '/api/chat', assets, {
       locale,

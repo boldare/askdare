@@ -38,7 +38,7 @@ The first release that meets the AI Act's transparency duty and WCAG 2.2 AA out 
 - **Bot protection, opt-in:** the Turnstile `HumanVerifier` deferred in ADR-0004, and an option that refuses to start without a shared rate-limit store.
 - **Languages:** German, French, Spanish, Italian and Czech.
 - **A compliance guide:** retention, the DPA, data residency, the resume-token trade-off in inline mode, and hosts other than Vercel (Docker, `next start`, OpenNext).
-- **Public API clean-up before it hardens** (ADR-0020): resolved `Bot` shapes go internal, error codes become importable values, `PROTOCOL_VERSION` is listed, and `zod` becomes optional for script-tag-only sites.
+- **Public API clean-up before it hardens** (ADR-0020): resolved `Bot` shapes go internal, error codes become importable values, and `PROTOCOL_VERSION` is listed. `zod` stays a required peer, because `defineBot` validates with it (ADR-0021).
 - **OpenAI upkeep:** handle the deprecated `truncation: 'auto'`. It is kept until OpenAI announces a shutdown date, so long conversations aren't cut short, and an overflow maps to a clear error.
 
 ## 0.6: own your data

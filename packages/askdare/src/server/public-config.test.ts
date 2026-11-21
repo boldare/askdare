@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { defineBot } from '../bot/define-bot';
+import { createBot } from '../bot/define-bot';
 import { getChatConfig } from '../next/get-chat-config';
 import { defineTool } from '../tools/define-tool';
 import { themeAsset } from './embed-page';
 import { publicConfig } from './public-config';
 
-const bot = defineBot({
+const bot = createBot({
   id: 'support',
   model: 'model-that-stays-on-the-server',
   instructions: 'Instructions that stay on the server.',
@@ -65,7 +65,7 @@ describe('getChatConfig', () => {
     const polish = getChatConfig({ bots: [bot], bot: 'support', locale: 'pl-PL' });
     expect(polish.widget.locale).toBe('pl-PL');
     expect(polish.widget.texts['composer.send']).toBe('Wyślij');
-    const fixed = defineBot({ id: 'de', model: 'm', instructions: 'x', widget: { locale: 'de' } });
+    const fixed = createBot({ id: 'de', model: 'm', instructions: 'x', widget: { locale: 'de' } });
     expect(getChatConfig({ bots: [fixed], bot: 'de', locale: 'pl' }).widget.locale).toBe('de');
   });
 
@@ -103,7 +103,7 @@ describe('getChatConfig', () => {
   });
 
   it('gives each language its own texts, and keeps the sets out of the config', () => {
-    const multi = defineBot({
+    const multi = createBot({
       id: 'multi',
       model: 'm',
       instructions: 'x',

@@ -2,7 +2,7 @@ import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { type Bot, defineBot } from '../bot/define-bot';
+import { type Bot, createBot } from '../bot/define-bot';
 import type { ModelGateway } from '../gateway';
 import type { ProtocolEvent, ToolUiEvent } from '../protocol/events';
 import { defineTool, type Tool } from '../tools/define-tool';
@@ -110,7 +110,7 @@ function serve(steps: readonly FixtureEvent[][]): void {
 }
 
 async function run(tools: readonly Tool[], maxSteps = 4): Promise<ProtocolEvent[]> {
-  const bot: Bot = defineBot({
+  const bot: Bot = createBot({
     id: 'support',
     model: 'm',
     instructions: 'Help.',

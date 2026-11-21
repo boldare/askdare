@@ -2,7 +2,7 @@ import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { type Bot, type BotDefinition, defineBot } from '../bot/define-bot';
+import { type Bot, type BotDefinition, createBot } from '../bot/define-bot';
 import type { ModelGateway, StepRecord, ToolCallRecord, TurnRequest, TurnResult } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
 import { defineTool } from '../tools/define-tool';
@@ -40,7 +40,7 @@ const echo = defineTool({
 });
 
 function suggesting(definition: Partial<BotDefinition> = {}): Bot {
-  return defineBot({
+  return createBot({
     id: 'support',
     model: 'm',
     instructions: 'Help.',
@@ -168,12 +168,12 @@ const outputs = (body: Record<string, unknown> | undefined) =>
     ({ type, call_id, output }) => ({ type, call_id, output: JSON.parse(output) as unknown }),
   );
 
-describe('defineBot', () => {
+describe('createBot', () => {
   it('keeps reply options off by default and away from browsers', () => {
-    expect(defineBot({ id: 'a', model: 'm', instructions: 'x' }).widget.replies).toBe('off');
+    expect(createBot({ id: 'a', model: 'm', instructions: 'x' }).widget.replies).toBe('off');
     expect(suggesting().widget.replies).toBe('suggest');
     expect(() =>
-      defineBot({
+      createBot({
         id: 'a',
         model: 'm',
         instructions: 'x',
@@ -189,7 +189,7 @@ describe('defineBot', () => {
       input: z.object({ items: z.array(z.string()) }),
       execute: () => 'ok',
     });
-    expect(() => defineBot({ id: 'a', model: 'm', instructions: 'x', tools: [impostor] })).toThrow(
+    expect(() => createBot({ id: 'a', model: 'm', instructions: 'x', tools: [impostor] })).toThrow(
       /reserved name suggest_replies/,
     );
   });
@@ -198,7 +198,7 @@ describe('defineBot', () => {
 describe('suggest_replies', () => {
   it('is offered only to bots that opted in, after their tools, in strict mode', async () => {
     const plain = serve([textTurnEvents(['Hi'])]);
-    await run(defineBot({ id: 'plain', model: 'm', instructions: 'x', tools: [echo] }));
+    await run(createBot({ id: 'plain', model: 'm', instructions: 'x', tools: [echo] }));
     expect(plain.bodies[0]?.['tools']).toEqual([expect.objectContaining({ name: 'echo' })]);
 
     const opted = serve([textTurnEvents(['Hi'])]);
