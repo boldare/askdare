@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defineBot } from '../bot/define-bot';
+import { createBot } from '../bot/define-bot';
 import { themeAttributes, themeStylesheet } from './css';
 import { PRESETS } from './presets';
 import { defineTheme, resolveTheme, themeWarnings } from './theme';
@@ -77,7 +77,7 @@ describe('theme stylesheet', () => {
 
 describe('bot widget texts', () => {
   it('accepts partial overrides, plural forms included, and rejects unknown keys', () => {
-    const bot = defineBot({
+    const bot = createBot({
       id: 'a',
       model: 'm',
       instructions: 'x',
@@ -92,7 +92,7 @@ describe('bot widget texts', () => {
     expect(bot.widget.placeholder).toBe('Zapytaj o cennik…');
     expect(bot.widget.texts['message.attachments.few']).toBe('{count} pliki');
     expect(() =>
-      defineBot({
+      createBot({
         id: 'a',
         model: 'm',
         instructions: 'x',
@@ -100,14 +100,14 @@ describe('bot widget texts', () => {
       }),
     ).toThrow(/widget\.texts/);
     expect(() =>
-      defineBot({ id: 'a', model: 'm', instructions: 'x', widget: { locale: 'en-US-US' } }),
+      createBot({ id: 'a', model: 'm', instructions: 'x', widget: { locale: 'en-US-US' } }),
     ).toThrow(/widget\.locale/);
   });
 });
 
 describe('bot widget', () => {
   it('validates starters and the avatar, and resolves the theme', () => {
-    const bot = defineBot({
+    const bot = createBot({
       id: 'a',
       model: 'm',
       instructions: 'x',
@@ -116,10 +116,10 @@ describe('bot widget', () => {
     expect(bot.widget).toMatchObject({ starters: ['Pricing?'], avatar: '/ola.webp' });
     expect(bot.widget.theme).toMatchObject({ preset: 'aura', colorScheme: 'dark' });
     expect(() =>
-      defineBot({ id: 'a', model: 'm', instructions: 'x', widget: { avatar: '//x.io/a.png' } }),
+      createBot({ id: 'a', model: 'm', instructions: 'x', widget: { avatar: '//x.io/a.png' } }),
     ).toThrow(/widget\.avatar/);
     expect(() =>
-      defineBot({ id: 'a', model: 'm', instructions: 'x', widget: { starters: ['', 'x'] } }),
+      createBot({ id: 'a', model: 'm', instructions: 'x', widget: { starters: ['', 'x'] } }),
     ).toThrow(/widget\.starters/);
   });
 });

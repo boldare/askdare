@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { defineBot } from '../bot/define-bot';
+import { createBot } from '../bot/define-bot';
 import { defineTool } from '../tools/define-tool';
 import { getClientIp, normalizeIp } from './client-ip';
 import { createLimits } from './limits';
 import { memoryStore } from './store';
 import { rateLimitStoreContract } from './store-contract';
 
-const bot = defineBot({
+const bot = createBot({
   id: 'support',
   model: 'm',
   instructions: 'x',
@@ -234,7 +234,7 @@ describe('exhausted budgets', () => {
       now: () => clock,
       onExhausted: (message) => told.push(message),
     });
-    const small = defineBot({
+    const small = createBot({
       id: 'support',
       model: 'm',
       instructions: 'x',
@@ -262,7 +262,7 @@ describe('exhausted budgets', () => {
 });
 
 describe('attachments', () => {
-  const toolBot = defineBot({
+  const toolBot = createBot({
     id: 'support',
     model: 'm',
     instructions: 'x',
@@ -287,7 +287,7 @@ describe('attachments', () => {
   });
 
   it("refuses a tool round the budget can't cover, and settles against what it held", async () => {
-    const tight = defineBot({
+    const tight = createBot({
       id: 'support',
       model: 'm',
       instructions: 'x',
@@ -318,7 +318,7 @@ describe('attachments', () => {
 
   it('caps uploads per visitor, per IP and per bot per day', async () => {
     const { limits, advance } = setup();
-    const uploadBot = defineBot({
+    const uploadBot = createBot({
       id: 'support',
       model: 'm',
       instructions: 'x',
@@ -342,7 +342,7 @@ describe('attachments', () => {
 });
 
 describe('voice', () => {
-  const voiceBot = defineBot({
+  const voiceBot = createBot({
     id: 'support',
     model: 'm',
     instructions: 'x',

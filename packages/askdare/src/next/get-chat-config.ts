@@ -1,5 +1,5 @@
 import { isBasePath } from '../base-path';
-import type { Bot } from '../bot/define-bot';
+import { type BotHandle, botOf } from '../bot/define-bot';
 import type { ChatConfig } from '../chat/config';
 // Names only: the stylesheets themselves stay out of the page's server bundle.
 import { FONTS_CSS_FILE, SKIN_CSS_FILE } from '../generated/asset-names';
@@ -9,7 +9,7 @@ import { publicConfig } from '../server/public-config';
 
 export interface ChatConfigOptions {
   /** The same bots as in `createChatHandler`. */
-  readonly bots: readonly Bot[];
+  readonly bots: readonly BotHandle[];
   /** The id of the bot to show. */
   readonly bot: string;
   /** Path of the chat route, the same as in `createChatHandler`. Default `/api/chat`. */
@@ -36,7 +36,8 @@ export function getChatConfig(options: ChatConfigOptions): ChatConfig {
   if (!isBasePath(basePath)) {
     throw new TypeError(`[askdare] basePath must look like /api/chat, got "${basePath}".`);
   }
-  const bot = options.bots.find((candidate) => candidate.id === options.bot);
+  const handle = options.bots.find((candidate) => candidate.id === options.bot);
+  const bot = handle && botOf(handle);
   if (!bot) throw new TypeError(`[askdare] getChatConfig: there is no bot "${options.bot}".`);
   const locale =
     bot.widget.locale === 'auto'

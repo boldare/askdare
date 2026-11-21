@@ -1,7 +1,7 @@
 // The .js suffix: Next.js has no exports map, so plain Node ESM can't resolve `next/server`.
 import { after } from 'next/server.js';
 import { isBasePath } from '../base-path';
-import type { Bot } from '../bot/define-bot';
+import { type BotHandle, botOf } from '../bot/define-bot';
 import { AskdareError, forLog } from '../errors';
 import type { ModelGateway } from '../gateway';
 import {
@@ -30,7 +30,7 @@ import { hookError } from '../server/stream-turn';
 import type { ChatUsageReport } from '../server/usage-report';
 
 export interface ChatHandlerOptions {
-  readonly bots: readonly Bot[];
+  readonly bots: readonly BotHandle[];
   /** Path of the catch-all route. Default `/api/chat` (route file `app/api/chat/[...path]/route.ts`). */
   readonly basePath?: string;
   /** Default `process.env.OPENAI_API_KEY`. */
@@ -191,7 +191,7 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
     error instanceof TypeError ? new AskdareError('bot_unavailable', { cause: error }) : error;
 
   const handle = createRequestHandler({
-    bots: options.bots,
+    bots: options.bots.map(botOf),
     basePath,
     // A turn outlives a visitor who disconnects; on serverless hosts this keeps the function alive.
     waitUntil: keepAlive,

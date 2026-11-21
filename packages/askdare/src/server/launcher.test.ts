@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { defineBot } from '../bot/define-bot';
+import { createBot } from '../bot/define-bot';
 import { LOADER_JS } from '../generated/assets';
 import { launcherLook, loaderWithLook } from './launcher';
 
-const hostile = defineBot({
+const hostile = createBot({
   id: 'sage-bot',
   model: 'm',
   instructions: 'x',
@@ -36,14 +36,14 @@ describe('loaderWithLook (real built loader)', () => {
   });
 
   it("includes only the requested bot's look", () => {
-    const other = defineBot({ id: 'internal', model: 'm', instructions: 'x' });
+    const other = createBot({ id: 'internal', model: 'm', instructions: 'x' });
     expect(loaderWithLook(LOADER_JS, hostile)).not.toContain('internal');
     expect(loaderWithLook(LOADER_JS, other)).not.toContain('sage-bot');
     expect(loaderWithLook(LOADER_JS, undefined)).toContain('JSON.parse("{}")');
   });
 
   it('gives the launcher each language its own texts', () => {
-    const multi = defineBot({
+    const multi = createBot({
       id: 'multi',
       model: 'm',
       instructions: 'x',
@@ -56,7 +56,7 @@ describe('loaderWithLook (real built loader)', () => {
     expect(look.texts['en']?.label).toBe('Questions?');
     expect(look.texts['pl']?.label).toBe('Pytania?');
     // A language without a dictionary gets its own entry, keyed as the loader looks it up.
-    const regional = defineBot({
+    const regional = createBot({
       id: 'regional',
       model: 'm',
       instructions: 'x',
@@ -71,7 +71,7 @@ describe('loaderWithLook (real built loader)', () => {
     expect(looks['nl']?.open).toBe('Open chat');
     expect(looks['pl']?.label).toBe('Hej');
     // A fixed locale without a dictionary shows its own set in the English entry it uses.
-    const dutch = defineBot({
+    const dutch = createBot({
       id: 'nl',
       model: 'm',
       instructions: 'x',

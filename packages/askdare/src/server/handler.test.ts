@@ -1,7 +1,7 @@
 import { SignJWT } from 'jose';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { defineBot } from '../bot/define-bot';
+import { createBot } from '../bot/define-bot';
 import { AskdareError } from '../errors';
 import type {
   DiagnoseRequest,
@@ -42,7 +42,7 @@ const assets: EmbedAssets = {
   skinCssFile: 'skin.333.css',
 };
 
-const bot = defineBot({
+const bot = createBot({
   id: 'support',
   model: 'test-model',
   instructions: 'Be brief.',
@@ -51,7 +51,7 @@ const bot = defineBot({
   widget: { title: 'Help </script><script>alert(1)</script>' },
 });
 
-const filesBot = defineBot({
+const filesBot = createBot({
   id: 'files',
   model: 'test-model',
   instructions: 'Read the files.',
@@ -59,14 +59,14 @@ const filesBot = defineBot({
   attachments: { pdf: false, maxBytes: 2_000, maxPerMessage: 2 },
 });
 
-const voiceBot = defineBot({
+const voiceBot = createBot({
   id: 'voice',
   model: 'test-model',
   instructions: 'Listen.',
   voice: { model: 'gpt-transcribe', maxSeconds: 10 },
 });
 
-const multilingualBot = defineBot({
+const multilingualBot = createBot({
   id: 'multilingual',
   model: 'test-model',
   instructions: 'Help.',
@@ -78,7 +78,7 @@ const multilingualBot = defineBot({
   },
 });
 
-const secretiveBot = defineBot({
+const secretiveBot = createBot({
   id: 'secretive',
   model: 'secret-model',
   instructions: 'SECRET-INSTRUCTIONS',
@@ -96,7 +96,7 @@ const secretiveBot = defineBot({
   attachments: {},
 });
 
-const tightVoiceBot = defineBot({
+const tightVoiceBot = createBot({
   id: 'tight-voice',
   model: 'test-model',
   instructions: 'Listen.',
@@ -104,7 +104,7 @@ const tightVoiceBot = defineBot({
   limits: { voiceSecondsPerIpPerDay: 60 },
 });
 
-const docsBot = defineBot({
+const docsBot = createBot({
   id: 'docs',
   model: 'test-model',
   instructions: 'Read the documents.',
@@ -288,8 +288,8 @@ describe('static routes', () => {
     const framed = (gallery = false) =>
       createRequestHandler({
         bots: [
-          defineBot({ id: 'own', model: 'm', instructions: 'x', embedPath: '/askdare/own' }),
-          defineBot({
+          createBot({ id: 'own', model: 'm', instructions: 'x', embedPath: '/askdare/own' }),
+          createBot({
             id: 'own-auto',
             model: 'm',
             instructions: 'x',
@@ -337,7 +337,7 @@ describe('static routes', () => {
       for (const embedPath of ['/api/chat', '/api/chat/embed/own']) {
         expect(() =>
           createRequestHandler({
-            bots: [defineBot({ id: 'own', model: 'm', instructions: 'x', embedPath })],
+            bots: [createBot({ id: 'own', model: 'm', instructions: 'x', embedPath })],
             basePath: '/api/chat',
             assets,
             gateway: () => gateway,
@@ -415,7 +415,7 @@ describe('static routes', () => {
 });
 
 describe('GET /config/<bot>', () => {
-  const texts = defineBot({
+  const texts = createBot({
     id: 'texts',
     model: 'secret-model',
     instructions: 'SECRET-INSTRUCTIONS',
@@ -428,7 +428,7 @@ describe('GET /config/<bot>', () => {
       },
     },
   });
-  const fixed = defineBot({ id: 'fixed', model: 'm', instructions: 'x', widget: { locale: 'pl' } });
+  const fixed = createBot({ id: 'fixed', model: 'm', instructions: 'x', widget: { locale: 'pl' } });
   let configHandler: RequestHandler;
   beforeAll(() => {
     configHandler = createRequestHandler({
@@ -773,7 +773,7 @@ describe('doctor', () => {
 });
 
 describe('locale', () => {
-  it('accepts every tag defineBot accepts, extensions included', async () => {
+  it('accepts every tag createBot accepts, extensions included', async () => {
     const access = (await tokens.issueAccess('support', `v_${'c3'.repeat(16)}`)).token;
     const response = await handler(
       post(
@@ -799,7 +799,7 @@ describe('limits', () => {
   it('answers 429 with Retry-After when a visitor sends too fast', async () => {
     const limited = createRequestHandler({
       bots: [
-        defineBot({
+        createBot({
           id: 'support',
           model: 'm',
           instructions: 'x',
@@ -1036,7 +1036,7 @@ describe('conversation history and deletion', () => {
   });
 
   it("rebuilds the latest answer's options from the bot's tools", async () => {
-    const booking = defineBot({
+    const booking = createBot({
       id: 'support',
       model: 'test-model',
       instructions: 'x',
@@ -1096,7 +1096,7 @@ describe('conversation history and deletion', () => {
     const handler = (ui: boolean) =>
       createRequestHandler({
         bots: [
-          defineBot({ id: 'support', model: 'test-model', instructions: 'x', tools: [tool(ui)] }),
+          createBot({ id: 'support', model: 'test-model', instructions: 'x', tools: [tool(ui)] }),
         ],
         basePath: '/api/chat',
         assets,
@@ -1140,7 +1140,7 @@ describe('conversation history and deletion', () => {
   });
 
   it("prefers a tool's options to the model's suggestion after a reload", async () => {
-    const both = defineBot({
+    const both = createBot({
       id: 'support',
       model: 'test-model',
       instructions: 'x',
@@ -1235,7 +1235,7 @@ describe('conversation history and deletion', () => {
 describe('feedback', () => {
   const OWNER = `v_${'3c'.repeat(16)}`;
   const INTRUDER = `v_${'4d'.repeat(16)}`;
-  const quietBot = defineBot({
+  const quietBot = createBot({
     id: 'quiet',
     model: 'test-model',
     instructions: 'x',

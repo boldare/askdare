@@ -3,7 +3,7 @@ import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { defineBot } from '../bot/define-bot';
+import { createBot } from '../bot/define-bot';
 import type { ModelGateway, StepRecord } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
 import { defineTool } from '../tools/define-tool';
@@ -31,7 +31,7 @@ beforeAll(() => {
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-const bot = defineBot({ id: 'support', model: 'gpt-6.1-terra', instructions: 'Be brief.' });
+const bot = createBot({ id: 'support', model: 'gpt-6.1-terra', instructions: 'Be brief.' });
 
 function request(events: ProtocolEvent[]) {
   return {
@@ -181,7 +181,7 @@ describe('recorded Responses API streams', () => {
         return new HttpResponse(stream, { headers: { 'Content-Type': 'text/event-stream' } });
       }),
     );
-    const weatherBot = defineBot({
+    const weatherBot = createBot({
       id: 'support',
       model: 'gpt-6.1-terra',
       instructions: 'Use tools.',
@@ -222,7 +222,7 @@ describe('recorded Responses API streams', () => {
         return new HttpResponse(stream, { headers: { 'Content-Type': 'text/event-stream' } });
       }),
     );
-    const weatherBot = defineBot({
+    const weatherBot = createBot({
       id: 'support',
       model: 'gpt-6.1-terra',
       instructions: 'Use tools.',

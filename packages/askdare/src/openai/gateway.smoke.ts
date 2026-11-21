@@ -12,7 +12,7 @@ import { crc32, deflateSync } from 'node:zlib';
 import OpenAI, { NotFoundError } from 'openai';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { defineBot } from '../bot/define-bot';
+import { createBot } from '../bot/define-bot';
 import type { ProtocolEvent } from '../protocol/events';
 import { defineTool } from '../tools/define-tool';
 import { readSuggestedReplies } from '../tools/suggest-replies';
@@ -76,7 +76,7 @@ function textPdf(text: string): Uint8Array {
 describe.skipIf(!apiKey || !model)('OpenAI gateway (live)', () => {
   it('runs a text turn in a new conversation and cleans up', async () => {
     const gateway = createOpenAIGateway({ apiKey: apiKey ?? '', maxRetries: 1 });
-    const bot = defineBot({
+    const bot = createBot({
       id: 'smoke',
       model: model ?? '',
       instructions: 'Reply with exactly one word: pong.',
@@ -108,7 +108,7 @@ describe.skipIf(!apiKey || !model)('OpenAI gateway (live)', () => {
 
   it('suggest_replies: offers options, keeps the answer visible and the next turn working', async () => {
     const gateway = createOpenAIGateway({ apiKey: apiKey ?? '', maxRetries: 1 });
-    const bot = defineBot({
+    const bot = createBot({
       id: 'smoke',
       model: model ?? '',
       instructions:
@@ -156,7 +156,7 @@ describe.skipIf(!apiKey || !model)('OpenAI gateway (live)', () => {
     'searches the knowledge base on the last step and cites the source page',
     async () => {
       const gateway = createOpenAIGateway({ apiKey: apiKey ?? '', maxRetries: 1 });
-      const bot = defineBot({
+      const bot = createBot({
         id: 'smoke',
         model: model ?? '',
         instructions: 'Answer from the documents you can search and cite them.',
@@ -208,7 +208,7 @@ describe.skipIf(!apiKey || !model)('OpenAI gateway (live)', () => {
 
   it('reads an attached image and PDF, then deletes both with the conversation', async () => {
     const gateway = createOpenAIGateway({ apiKey: apiKey ?? '', maxRetries: 1 });
-    const bot = defineBot({
+    const bot = createBot({
       id: 'smoke',
       model: model ?? '',
       instructions: 'Answer in one short sentence.',
