@@ -36,7 +36,7 @@ defineBot({
 
 - You can change the wording with `widget.texts` (`disclosure.text`, `disclosure.privacy`). See [Styling](styling.md#1-configuration) and [Texts](texts.md).
 - `disclosure: false` hides it. Do that only when your page already tells visitors they are talking to an AI.
-- **If you build your own markup** with the primitives of `@boldare/askdare/react` ([React](react.md#your-own-markup)), or show your own page in the widget's iframe ([Embedding](embedding.md#your-own-page-in-the-iframe)), the note is yours to render. In 0.5, a `Disclosure` primitive, a warning in development when it is missing and a `doctor` warning for `disclosure: false` make sure it isn't dropped by accident.
+- **If you build your own markup** with the primitives of `@boldare/askdare/react` ([React](react.md#your-own-markup)), or show your own page in the widget's iframe ([Embedding](embedding.md#your-own-page-in-the-iframe)), place it with the `Disclosure` primitive, which follows the same `widget.disclosure` setting and texts. In development, `Root` and `EmbedRoot` note once in the console when the chat rendered without a `Disclosure`, and `askdare doctor` lists each bot with `disclosure: false` as information, not a failure. Neither forces the notice on you: `disclosure: false` silences both.
 
 **Marking of generated content.** Article 50(2) asks providers of systems that generate synthetic text, images, audio or video to mark the outputs in a machine-readable format. askdare doesn't add such marks to answers. Systems on the market before 2 August 2026 have until 2 December 2026 (Article 111(4), added by the Digital Omnibus). Whether Article 50(2) covers a chat's answers, and who carries it, is a question for your legal advisers; the codes of practice under Article 50(7) are where the practice is being worked out.
 
@@ -113,7 +113,7 @@ An attacker who copies the token can continue the conversation from anywhere and
 
 The [European Accessibility Act](https://eur-lex.europa.eu/eli/dir/2019/882/oj/eng) (Directive (EU) 2019/882) applies from 28 June 2025. Among other services, it covers e-commerce services offered to consumers; microenterprises that provide services are exempt (Article 4(5)). The harmonised standard, ETSI EN 301 549, moved to WCAG 2.2 in version V4.1.1 (2026-09).
 
-askdare's widget and default skin target WCAG 2.2 AA, and every release runs axe in Chromium, Firefox and WebKit ([Support](support.md)). A dated conformance statement, with its scope, method and known limitations, is coming in 0.5 as `docs/accessibility.md`. If you build your own markup or restyle the chat, its accessibility is yours to check.
+askdare's widget and default skin target WCAG 2.2 AA, and every change runs axe with the WCAG 2.2 AA rules in Chromium, Firefox and WebKit and on a phone viewport ([Support](support.md)). The dated conformance statement, with its scope, method, the manual review and the known limitations, is [Accessibility](accessibility.md). If you build your own markup or restyle the chat, its accessibility is yours to check.
 
 ## 6. Moderation and guardrails
 

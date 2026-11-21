@@ -12,7 +12,11 @@ import type { ChatEventListener } from '../chat/events';
 import { identityToken, type PageOptions, pageOptions } from '../chat/page-options';
 import { createChatStore } from '../chat/store';
 import { ChatProvider } from './context';
+import { noteMissingDisclosure } from './disclosure';
 import { type ToolRenderers, ToolRenderersProvider } from './tool-results';
+
+// Replaced by the app's bundler. Declared here because the React entry builds without Node's types.
+declare const process: { readonly env: { readonly NODE_ENV?: string | undefined } };
 
 export interface RootProps {
   /** From `getChatConfig()` in a Server Component. */
@@ -102,6 +106,8 @@ export function Root({
     // answer under way ended.
     const stopEvents = store.onEvent((event) => listener.current?.(event));
     store.start();
+    // After the children's first render, so a Disclosure among them has marked the chat.
+    if (process.env.NODE_ENV !== 'production') noteMissingDisclosure(store);
     return () => {
       store.stop();
       stopEvents();

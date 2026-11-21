@@ -145,8 +145,12 @@ test('sends an image and a PDF, and deletes them with the conversation', async (
     .toEqual(filesBefore);
 });
 
-test('dictates into the message field without sending', async ({ page, browserName }) => {
+test('dictates into the message field without sending', async ({ page, browserName, isMobile }) => {
   test.skip(browserName === 'webkit', "Playwright's WebKit has no fake microphone");
+  test.skip(
+    isMobile,
+    'a full-screen chat hides the launcher on a phone; it closes from its own button',
+  );
   await page.goto(ALLOWED_HOST);
   const chat = await openChat(page);
   await chat.getByRole('button', { name: 'Dictate a message' }).click();
@@ -213,7 +217,12 @@ test('closes from inside the iframe with Escape and returns focus', async ({
 
 test('opens and closes without motion when the visitor asks for reduced motion', async ({
   page,
+  isMobile,
 }) => {
+  test.skip(
+    isMobile,
+    'a full-screen chat hides the launcher on a phone; it closes from its own button',
+  );
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto(ALLOWED_HOST);
   const launcher = page.locator('[part="launcher"]');

@@ -28,6 +28,20 @@ export default defineConfig({
         },
       },
     },
+    {
+      // A phone (touch, a narrow viewport, the full-screen panel): the embedding, accessibility and
+      // the chat inside a page. Part of `pnpm e2e`.
+      name: 'mobile',
+      testMatch: /(embed|a11y|inline|replies)\.spec\.ts/,
+      use: {
+        ...devices['Pixel 7'],
+        // The fake microphone of the chromium project, for dictation.
+        permissions: ['microphone'],
+        launchOptions: {
+          args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
+        },
+      },
+    },
     // The embedding, the page API, accessibility and the chat inside a page in the other engines
     // (`pnpm e2e:browsers`).
     {

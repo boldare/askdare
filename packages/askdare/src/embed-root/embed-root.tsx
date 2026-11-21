@@ -5,8 +5,12 @@ import { connectToHost, type HostBridge, holdHandshake } from '../chat/host-brid
 import { createChatStore } from '../chat/store';
 import { followLocale } from '../chat/switch-locale';
 import { ChatProvider, type Frame, FrameContext } from '../react/context';
+import { noteMissingDisclosure } from '../react/disclosure';
 import { checkConfig } from '../react/root';
 import { type ToolRenderers, ToolRenderersProvider } from '../react/tool-results';
+
+// Replaced by the app's bundler. Declared here because the React entry builds without Node's types.
+declare const process: { readonly env: { readonly NODE_ENV?: string | undefined } };
 
 // From the moment this module loads: the loader sends its handshake once, when the iframe has
 // loaded, which can come before the page hydrates and EmbedRoot connects.
@@ -48,6 +52,8 @@ export function EmbedRoot({ config, toolRenderers, children }: EmbedRootProps): 
     // Starts the chat once the loader has handed over the visitor's identity.
     const unbind = bindBridge(store, connection);
     const stopLocale = followLocale(store, connection, unbind);
+    // After the children's first render, so a Disclosure among them has marked the chat.
+    if (process.env.NODE_ENV !== 'production') noteMissingDisclosure(store);
     if (connection.embedded && !inline) {
       setClose(() => () => {
         store.hide();

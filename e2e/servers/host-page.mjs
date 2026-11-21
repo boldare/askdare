@@ -103,7 +103,11 @@ const body = (variant, bot) =>
 
 const page = (port, variant, lang, bot) => `<!doctype html>
 <html${lang === 'none' ? '' : ` lang="${lang}"`}>
-  <head><meta charset="utf-8"><title>Host page ${port}</title></head>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Host page ${port}</title>
+  </head>
   <body>
     <h1>A third-party website on port ${port}</h1>
     ${body(variant, bot)}

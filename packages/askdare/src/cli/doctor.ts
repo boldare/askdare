@@ -37,14 +37,20 @@ export interface DoctorOptions {
   readonly print: (line: string) => void;
 }
 
+/** A check, or `info`: something to know about that is neither a warning nor a problem. */
+type Finding =
+  | DoctorCheck
+  | { readonly status: 'info'; readonly title: string; readonly fix?: string | undefined };
+
 interface Section {
   readonly title: string;
-  readonly checks: DoctorCheck[];
+  readonly checks: Finding[];
 }
 
 const ok = (title: string): DoctorCheck => ({ status: 'ok', title });
 const warn = (title: string, fix?: string): DoctorCheck => ({ status: 'warn', title, fix });
 const fail = (title: string, fix?: string): DoctorCheck => ({ status: 'fail', title, fix });
+const info = (title: string, fix?: string): Finding => ({ status: 'info', title, fix });
 
 const PROXY_FIX =
   "Exclude askdare's routes in proxy.ts, e.g. matcher: ['/((?!api/chat|_next/static|_next/image).*)'].";
@@ -558,13 +564,21 @@ async function live(
         ...bot.checks,
         ...(await headers(fetcher, base, bot.id, options.origin, bot.embed)),
         ...timeout(bot, routeSeconds),
+        ...(bot.disclosure === false
+          ? [
+              info(
+                'The AI notice is off (widget.disclosure: false).',
+                'Fine when your page already tells visitors they are talking to an AI (EU AI Act, art. 50).',
+              ),
+            ]
+          : []),
       ],
     });
   }
   return sections;
 }
 
-const MARK = { ok: '✓', warn: '!', fail: '✗' } as const;
+const MARK = { ok: '✓', info: 'i', warn: '!', fail: '✗' } as const;
 
 /** localhost and loopback addresses: the app runs on this machine, with the env files here. */
 export function isLocal(url: string): boolean {

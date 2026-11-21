@@ -66,6 +66,7 @@ export function Headless(): ReactElement {
             <Chat.Recorder />
             <Chat.Send>Send</Chat.Send>
           </Chat.Composer>
+          <Chat.Disclosure className="note">Answers come from an AI.</Chat.Disclosure>
         </Chat.Panel>
       </Chat.Theme>
     </Chat.Root>
