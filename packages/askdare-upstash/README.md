@@ -47,6 +47,17 @@ A database created through the Vercel Marketplace sets `KV_REST_API_URL` and `KV
 
 Counters expire with their window, so the database needs no cleanup. Check the setup with `npx @boldare/askdare doctor`: it no longer warns about limits kept in memory.
 
+For bots with guardrails that check answers, the same database also holds each conversation's one-turn-at-a-time hold, which expires on its own.
+
+To make sure production never runs on per-instance counters by mistake, add `requireSharedStore`: the route then refuses to load unless the store is shared.
+
+```ts
+limits: {
+  store: upstashStore(),
+  requireSharedStore: process.env.NODE_ENV === 'production',
+},
+```
+
 ## Requirements
 
 `@boldare/askdare` in the range of its peer dependency (each askdare release brings a matching add-on release), `@upstash/redis` 1.35 or later, and Node.js 22 or later.

@@ -123,12 +123,13 @@ Without `--env-file`, `doctor` reads the environment the way `next dev` does: va
 | `--origin` | The site is the app itself or is in the bot's `security.allowedOrigins`. | |
 | Your own page | Only with `embedPath`: the chat page redirects to it, and the page answers without a redirect (a login or a `proxy.ts` rewrite), renders `EmbedRoot`, has exactly one `frame-ancestors` that lists the app and every allowed origin and nothing more, and keeps the microphone off for a bot without voice input. The fixes name `embedPageHeaders`. | |
 | Timeout | The route's `maxDuration` is at least the bot's `limits.turnTimeoutMs` plus 15 seconds. Otherwise it's a warning. | |
+| AI notice | A bot with `widget.disclosure: false` gets an information line, neither a warning nor a problem: fine when your page already tells visitors they are talking to an AI ([Compliance](compliance.md#1-telling-visitors-they-talk-to-an-ai)). | |
 
 `doctor` also says when OpenAI rejects the key, or when the project is out of credit. Each run makes a few small OpenAI requests per bot, and everything it creates is deleted straight away. The app accepts one run at a time, and at most 3 a minute.
 
 ### Output
 
-`✓` is fine, `!` is a warning and `✗` is a problem. A line starting with `→` says what to do:
+`✓` is fine, `i` is information, `!` is a warning and `✗` is a problem. A line starting with `→` says what to do:
 
 ```text
 askdare doctor

@@ -270,6 +270,35 @@ const textsCode = await code(
 } }`,
   'ts',
 );
+const moderationCode = await code(
+  `defineBot({
+  moderation: {
+    model,
+    check: 'both',
+  },
+})`,
+  'ts',
+);
+const hooksCode = await code(
+  `onOutput: (text) =>
+  leaks(text)
+    ? { action: 'block' }
+    : undefined,`,
+  'ts',
+);
+const humanCode = await code(
+  `security: {
+  humanVerifier:
+    turnstile({ siteKey }),
+}`,
+  'ts',
+);
+const languagesCode = await code(
+  `widget: {
+  locale: 'auto',
+}`,
+  'ts',
+);
 
 // ---------- The look: the site's Aura theme ----------
 
@@ -429,7 +458,7 @@ const check = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3
 const isNew = '<span class="new">New</span>';
 const features = () => `
   <style>
-    .features { width: 1280px; height: 1820px; padding: 56px 64px; }
+    .features { width: 1280px; height: 2140px; padding: 56px 64px; }
     .features h2 { font-size: 44px; }
     .grid {
       display: grid; grid-template-columns: 372px 1fr 1fr; grid-template-rows: 1fr 1fr;
@@ -464,7 +493,8 @@ const features = () => `
     .voice .pic { width: 318px; }
     .ratings .pic { left: 12px; bottom: 16px; width: 236px; }
     .replies .pic { left: 16px; bottom: 18px; max-width: 258px; }
-    .added .locale .shiki, .added .embed .shiki { bottom: 60px; }
+    .added .locale .shiki, .added .embed .shiki, .added .human .shiki { bottom: 60px; }
+    .added .languages .shiki { bottom: 84px; }
     .deploy ol { position: absolute; right: 22px; bottom: 22px; left: 22px; display: grid; gap: 8px; list-style: none; counter-reset: step; }
     .deploy li { display: flex; align-items: center; gap: 10px; font-size: 13.5px; font-weight: 600; counter-increment: step; }
     .deploy li::before {
@@ -530,18 +560,30 @@ const features = () => `
         <ol><li>Click Deploy</li><li>Paste your OpenAI key</li><li>Embed the script tag</li></ol></div>
     </div>
     <div class="grid added">
-      <div class="tile card cards"><h3>Tool cards ${isNew}</h3>
+      <div class="tile card cards"><h3>Tool cards</h3>
         <p>A tool picks what the visitor may see of its result. Only that reaches the browser.</p>${cardCode}</div>
-      <div class="tile card renderers"><h3>Your components ${isNew}</h3>
+      <div class="tile card renderers"><h3>Your components</h3>
         <p>Your React components draw each tool's card under the answer, typed from the tool.</p>${renderersCode}</div>
-      <div class="tile card embed"><h3>Your widget page ${isNew}</h3>
+      <div class="tile card embed"><h3>Your widget page</h3>
         <p>The widget on any site shows a page of your app, with your look and your cards.</p>${embedCode}
         <ul class="names"><li>EmbedRoot</li></ul></div>
-      <div class="tile card texts"><h3>Texts per language ${isNew}</h3>
+      <div class="tile card texts"><h3>Texts per language</h3>
         <p>Your own greeting and texts in every language the chat speaks.</p>${textsCode}</div>
     </div>
+    <div class="grid added">
+      <div class="tile card moderation"><h3>Moderation ${isNew}</h3>
+        <p>OpenAI moderation of visitors' messages, of answers, or both. Opt-in.</p>${moderationCode}</div>
+      <div class="tile card hooks"><h3>Your rules ${isNew}</h3>
+        <p>Allow, block or redact each message and answer. A blocked answer never reaches the browser.</p>${hooksCode}</div>
+      <div class="tile card human"><h3>Human check ${isNew}</h3>
+        <p>Visitors pass Cloudflare Turnstile before a chat starts.</p>${humanCode}
+        <ul class="names"><li>HumanCheck</li></ul></div>
+      <div class="tile card languages"><h3>Seven languages ${isNew}</h3>
+        <p>Czech, German, Spanish, French and Italian join English and Polish.</p>${languagesCode}
+        <ul class="names"><li>cs</li><li>de</li><li>en</li><li>es</li><li>fr</li><li>it</li><li>pl</li></ul></div>
+    </div>
     <div class="strip"><strong>No database.</strong><ul class="tags">
-      <li>Conversations live in OpenAI</li><li>Vercel or Heroku</li><li>Next.js 16</li><li>TypeScript</li><li>Seven languages</li>
+      <li>Conversations live in OpenAI</li><li>Vercel or Heroku</li><li>Next.js 16</li><li>TypeScript</li><li>WCAG 2.2 AA</li>
     </ul></div>
   </div>`;
 
@@ -585,7 +627,7 @@ async function render(html, { width, height, path, scale = 2 }) {
 
 await mkdir(assets, { recursive: true });
 await render(hero(), { width: 1280, height: 640, path: join(assets, 'askdare-hero.png') });
-await render(features(), { width: 1280, height: 1820, path: join(assets, 'askdare-features.png') });
+await render(features(), { width: 1280, height: 2140, path: join(assets, 'askdare-features.png') });
 await render(how(), { width: 1280, height: 640, path: join(assets, 'askdare-how-it-works.png') });
 await render(themes(), { width: 1280, height: 640, path: join(assets, 'askdare-themes.png') });
 // The link preview: square corners, at the size it is shown.
