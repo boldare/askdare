@@ -64,6 +64,13 @@ export default defineConfig({
       use: { ...devices['Desktop Safari'] },
     },
     {
+      // Safari on an iPhone: WebKit with touch, a narrow viewport and the full-screen panel. It
+      // replaces the manual check in Safari on iOS before a release (`pnpm e2e:browsers`).
+      name: 'iphone',
+      testMatch: /(embed|a11y|inline|replies)\.spec\.ts/,
+      use: { ...devices['iPhone 15'] },
+    },
+    {
       // Pixel baselines of the theme gallery (`pnpm test:visual`). They depend on the OS's font
       // rendering, so baselines are kept per platform (the file name ends in -darwin or -linux).
       name: 'visual',

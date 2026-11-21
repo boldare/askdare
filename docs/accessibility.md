@@ -2,17 +2,17 @@
 
 This is askdare's accessibility conformance statement. It says what the widget and its default look aim for, how that was checked, and what is known not to work yet. Why askdare cares, and what the European Accessibility Act asks of your site, is in [Compliance](compliance.md#5-accessibility).
 
-**Last reviewed: 2026-11-21**, against the 0.5 development line (after 0.4.0). The statement is reviewed again before each minor release and whenever the chat's markup changes.
+**Last reviewed: 2026-11-21**, against the 0.5 development line (after 0.4.0). The statement is updated whenever the chat's markup changes.
 
 ## Status
 
 askdare targets [WCAG 2.2](https://www.w3.org/TR/WCAG22/) Level AA, the level that [ETSI EN 301 549 V4.1.1](https://www.etsi.org/deliver/etsi_en/301500_301599/301549/04.01.01_60/en_301549v040101p.pdf) asks for web content.
 
-- **Automated checks:** no failures (axe-core, every built-in theme and state, four browser setups).
+- **Automated checks:** no failures (axe-core, every built-in theme and state, five browser setups including Safari's engine on an iPhone viewport).
 - **Manual review of the WCAG 2.2 criteria axe can't check:** no failures in the chat. One known limitation, with a fix for full-screen chats; see [2.4.11](#manual-review).
-- **Screen readers:** **pending manual verification.** VoiceOver and NVDA haven't been run against this version yet.
+- **Screen readers:** not tested by hand. askdare doesn't run manual checks with VoiceOver or NVDA; the tests check what screen readers rely on instead (roles, names, live regions, and the finished answer announced once).
 
-Until the screen-reader checks are done, askdare doesn't claim full conformance: the status is **partially conformant, verification in progress**.
+With the known limitations below and no screen-reader testing, the status is **partially conformant**.
 
 ## Scope
 
@@ -58,19 +58,7 @@ The WCAG 2.2 criteria that automated tools can't decide were reviewed by hand on
 | 2.5.7 Dragging Movements | Passes | Nothing needs dragging. Files can be dropped onto the chat, and the attach button does the same with a single click or tap. |
 | 2.5.8 Target Size (Minimum) | Passes | axe's `target-size` rule in every state and on a phone. The launcher is at least 56 by 56 px. |
 | 3.2.6 Consistent Help | Passes for the chat; the rest is your site's | The launcher sits in the same corner of every page that loads `widget.js`, and the chat is the same on each. Which pages load it, and any `::part(launcher)` rule that moves it, are your choice: to meet 3.2.6 on your site, keep it in the same place on every page that has it. |
-| 3.3.8 Accessible Authentication (Minimum) | Not applicable today | The chat asks for no password, code or puzzle. Signed-in visitors are identified by your backend, without anything for them to type. Bot protection (planned for 0.5) must be checked again when it lands. |
-
-### Screen readers: pending manual verification
-
-These checks are planned and **not done yet**:
-
-| Screen reader | Browser | Status |
-| --- | --- | --- |
-| VoiceOver on macOS | Safari | Pending |
-| VoiceOver on iOS | Safari | Pending |
-| NVDA on Windows | Firefox and Chrome | Pending |
-
-What each check covers: opening the chat from the launcher and closing it; sending a message; that the activity ("Searching documents…") and the finished answer are each announced once; that errors are announced; the reply options, rating buttons and the follow-up comment; attachments; dictation; the "Start over" question; and the language of the built-in texts.
+| 3.3.8 Accessible Authentication (Minimum) | Passes | The chat asks for no password or code. Signed-in visitors are identified by your backend, without anything for them to type. The optional human check (Cloudflare Turnstile) is not a puzzle: it usually passes without interaction, and at most asks for one click on a checkbox. |
 
 ## How the chat works with assistive technology
 
@@ -83,7 +71,7 @@ What each check covers: opening the chat from the launcher and closing it; sendi
 
 ## Known limitations
 
-- **Screen readers aren't verified yet** (see above).
+- **Screen readers aren't tested by hand.** Problems found with VoiceOver, NVDA or TalkBack are fixed as bugs; please report them.
 - **On a wide screen, the open chat floats over your page.** It is a non-modal dialog in a corner. If a visitor tabs out of it into your page, the element that gets focus may sit behind the chat (2.4.11). Escape closes it while focus is in the chat, and the launcher closes it from the page. A chat that fills the screen doesn't have this problem, since focus stays in it.
 - **The launcher can cover your page's content.** It is fixed to a corner of the window, so an element of your page that scrolls under it can be partly hidden when it gets focus. Leave room for it at the bottom of your page, or move it with `::part(launcher)` ([Styling](styling.md)).
 - **The finished answer is announced in full.** A long answer is long to listen to; a screen reader's own "stop speaking" key interrupts it. Its copy stays in the hidden region until the next answer, so reading the whole page in order meets the latest answer twice.
