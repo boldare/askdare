@@ -165,6 +165,6 @@ To do several of these, call them one after another in a single `onFeedback`.
 
 ## Texts and styling
 
-- **Texts:** `feedback.label`, `feedback.up`, `feedback.down`, `feedback.comment`, `feedback.send` and `feedback.skip`, in English and Polish. Override them with `widget.texts` like any other ([Texts](texts.md)).
+- **Texts:** `feedback.label`, `feedback.up`, `feedback.down`, `feedback.comment`, `feedback.send` and `feedback.skip`, in every built-in language. Override them with `widget.texts` like any other ([Texts](texts.md)).
 - **Parts:** `feedback` (the two buttons), `feedback-button` (with `data-rating="up"` or `"down"`, and `aria-pressed`), `feedback-comment`, `feedback-comment-input`, `feedback-comment-actions`, `feedback-skip` and `feedback-send` ([Styling](styling.md)).
 - **In your own markup:** `FeedbackButton` from `@boldare/askdare/react`, and `actions.rate(messageId, rating, comment?)` with `state.commenting` for the question after a 👎.

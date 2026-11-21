@@ -19,7 +19,7 @@ Set it up with `npx @boldare/askdare init` and verify it with `npx @boldare/askd
 - [Voice input](docs/voice-input.md): dictation and its limits
 - [Styling](docs/styling.md): texts, languages, AI disclosure, custom CSS, `askdare('open' | 'configure')`, inline mode
 - [React](docs/react.md): the chat inside a page of your own app with `@boldare/askdare/react`: `getChatConfig`, `Root`, `DefaultChat`, hooks and primitives, tool cards (`toolRenderers`, `ToolResults`, `Link`), CSS resets, CSP, `add ui`
-- [Texts](docs/texts.md): every text key with its English and Polish default, plurals, adding a language, switching the chat's language on the page (`askdare('configure', { locale })`, `data-follow-lang`)
+- [Texts](docs/texts.md): every text key with its default in each built-in language (en, cs, de, es, fr, it, pl), plurals, adding a language, switching the chat's language on the page (`askdare('configure', { locale })`, `data-follow-lang`)
 - [Themes](docs/themes.md): Halo, Aura, Sage and Care, tokens and variants
 - [Deployment](docs/deployment.md): Vercel, Heroku, proxies, shared limits
 - [Going public](docs/going-public.md): OpenAI project, secrets, limits, privacy checklist

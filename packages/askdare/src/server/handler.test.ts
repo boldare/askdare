@@ -477,8 +477,8 @@ describe('GET /config/<bot>', () => {
   });
 
   it('names the language the texts are written in', async () => {
-    // French has no dictionary and no set of the bot's: its texts are English.
-    expect((await get('/config/texts?lang=fr')).headers.get('content-language')).toBe('en');
+    // Swedish has no dictionary and no set of the bot's: its texts are English.
+    expect((await get('/config/texts?lang=sv')).headers.get('content-language')).toBe('en');
   });
 
   it('keeps a fixed locale whatever lang says', async () => {

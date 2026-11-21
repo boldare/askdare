@@ -225,7 +225,7 @@ Everything in `widget` is sent to browsers. Never put secrets in it. [Styling](s
 | `colorScheme` | `'auto' \| 'light' \| 'dark'` | `'auto'` | `'auto'` follows the visitor's system setting. |
 | `css` | `string` | none | Your own CSS, up to 50,000 characters. It loads after the theme. |
 
-The text defaults come from the built-in dictionary of the configured language. The table shows the English ones, which `'auto'` also uses. Texts ship in English and Polish.
+The text defaults come from the built-in dictionary of the configured language. The table shows the English ones, which `'auto'` also uses. Texts ship in English, Czech, German, Spanish, French, Italian and Polish.
 
 ## `createChatHandler`
 

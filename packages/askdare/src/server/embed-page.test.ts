@@ -59,19 +59,19 @@ describe('renderEmbedPage', () => {
   };
 
   it('marks a translation into a language without a dictionary with its own lang', () => {
-    expect(page({ locale: 'de', texts: { 'header.title': 'Assistent' } })).toContain('lang="de"');
+    expect(page({ locale: 'nl', texts: { 'header.title': 'Assistent' } })).toContain('lang="nl"');
     // Untranslated, the interface is English, and says so.
-    expect(page({ locale: 'de' })).toContain('lang="en"');
+    expect(page({ locale: 'nl' })).toContain('lang="en"');
     expect(page({ locale: 'pl-PL' })).toContain('lang="pl-PL"');
-    expect(page({ locale: 'de', texts: { de: { 'header.title': 'Assistent' } } })).toContain(
-      'lang="de"',
+    expect(page({ locale: 'nl', texts: { nl: { 'header.title': 'Assistent' } } })).toContain(
+      'lang="nl"',
     );
     // With auto, a visitor whose language has a set gets it, and its lang.
-    const auto = { locale: 'auto', texts: { de: { 'header.title': 'Assistent' } } } as const;
-    expect(page(auto, 'de-AT')).toContain('lang="de-AT"');
-    expect(page(auto, 'fr')).toContain('lang="en"');
+    const auto = { locale: 'auto', texts: { nl: { 'header.title': 'Assistent' } } } as const;
+    expect(page(auto, 'nl-BE')).toContain('lang="nl-BE"');
+    expect(page(auto, 'sv')).toContain('lang="en"');
     // A set for another language doesn't translate this one.
-    expect(page({ locale: 'de', texts: { pl: { 'header.title': 'Asystent' } } })).toContain(
+    expect(page({ locale: 'nl', texts: { pl: { 'header.title': 'Asystent' } } })).toContain(
       'lang="en"',
     );
   });
