@@ -1,6 +1,6 @@
 ---
 name: askdare
-description: Add, configure or troubleshoot the @boldare/askdare AI chat in a Next.js app (defineBot, defineTool, createChatHandler, the widget script, the React chat inside a page, tool cards, your own page in the widget's iframe, themes, knowledge base, reply options, the chat's language, answer ratings, usage reports, deployment). Use when the project depends on @boldare/askdare or the user asks for a website chatbot built on it.
+description: Add, configure or troubleshoot the @boldare/askdare AI chat in a Next.js app (defineBot, defineTool, createChatHandler, the widget script, the React chat inside a page, tool cards, your own page in the widget's iframe, themes, knowledge base, reply options, the chat's language, answer ratings, usage reports, guardrails and moderation, the Turnstile human check, the AI notice, accessibility, deployment). Use when the project depends on @boldare/askdare or the user asks for a website chatbot built on it.
 ---
 
 # askdare
@@ -17,13 +17,17 @@ description: Add, configure or troubleshoot the @boldare/askdare AI chat in a Ne
 
 ## Public API: use only this
 
-- `defineBot`, `defineTool`, `defineTheme` from `@boldare/askdare`; `createChatHandler` from `@boldare/askdare/next`, with its `onError`, `onUsage` and `onFeedback` options; `otelUsage()` from `@boldare/askdare-otel`.
+- `defineBot`, `defineTool`, `defineTheme`, `turnstile` and `ERROR_CODES` from `@boldare/askdare`; `defineBot` returns a `BotHandle` (only `id` and `embedPath`): pass it to `createChatHandler`, `getChatConfig` and `getEmbedConfig`, and type it as `BotHandle` (or `BotDefinition` for the input), never as `Bot`; `createChatHandler` from `@boldare/askdare/next`, with its `onError`, `onUsage` and `onFeedback` options; `otelUsage()` from `@boldare/askdare-otel`.
 - On pages: `<script src="…/api/chat/widget.js?bot=<id>" async>` with `data-launcher="none"` or `data-mode="inline" data-target="…"`, and `askdare('open' | 'close' | 'toggle' | 'configure', …)`.
 - The chat's language on the page, for a bot with `locale: 'auto'`: `askdare('configure', { locale: 'pl' })`, or `data-follow-lang` on the script tag to follow `<html lang>`. The chat reloads in the new language and keeps the conversation; your `instructions` get it as `context.locale`. See `docs/texts.md`.
 - Reply options (clickable answers under the latest reply): `widget.replies: 'suggest'` lets the model suggest them; `defineTool({ replies: (result) => [...] })` derives them from a tool's result. See `docs/reply-options.md`.
 - The chat inside a page of the same Next.js app (React 19): `getChatConfig` from `@boldare/askdare/next` in a Server Component, then `Root`, `DefaultChat`, the hooks (`useChat`, `useChatState`, `useMessage`) and the primitives from `@boldare/askdare/react` (see `docs/react.md`). To change the default components, run `npx @boldare/askdare add ui`; don't copy them from `node_modules` by hand.
 - Tool cards: `defineTool({ ui: (result) => data })` picks what the visitor may see of a result (plain JSON, at most 8 KB; only that reaches the browser), and `Root`'s `toolRenderers={{ tool_name: Component }}` draws it, typed with `Chat.ToolRendererProps<typeof tool>` and `import type`. Render `data` as text and URLs through `Chat.Link`. See `docs/react.md#tool-cards`.
 - Your own page in the widget's iframe: `defineBot({ embedPath: '/askdare/support' })`; the page lives in its own route group and root layout, renders `<EmbedRoot config={getEmbedConfig({ bots, bot, searchParams })}>` from `@boldare/askdare/embed` with `DefaultChat` inside, and gets `embedPageHeaders({ bots, bot })` from `proxy.ts` (not `next.config.ts` headers, which are fixed at build). Check with `askdare doctor --origin <site>`. See `docs/embedding.md#your-own-page-in-the-iframe`.
+- Guardrails, all opt-in in `defineBot` (see `docs/guardrails.md`): `moderation: { model, check?, categories?, message? }` runs OpenAI moderation on messages (`check: 'input'`, the default), answers (`'output'`) or both; `onInput(text, context)` and `onOutput(text, context)` return `{ action: 'allow' }`, `{ action: 'block', message? }` or `{ action: 'redact', text }`; `toolResults: 'untrusted'` marks tool results as third-party data. While answers are checked, they arrive whole at the end of the turn, and a conversation takes one turn at a time.
+- Human check (see `docs/configuration.md#human-check`): `security: { humanVerifier: turnstile({ siteKey }) }`, with `TURNSTILE_SECRET_KEY` in the environment. A chat inside your page must allow `https://challenges.cloudflare.com` in its CSP, and a headless chat renders the `HumanCheck` primitive. `createChatHandler({ limits: { requireSharedStore: true } })` refuses to load without a shared store.
+- The AI notice: on by default (`widget.disclosure`). In your own markup, or your own page in the iframe, render the `Disclosure` primitive; in development the console notes a chat without one.
+- Built-in texts in en, cs, de, es, fr, it and pl; `widget.texts` overrides them per language (see `docs/texts.md`).
 - Styling: `widget.texts`, `widget.theme`, `widget.css` with `[data-ask-part="…"]` selectors and `--ask-*` tokens (see `docs/styling.md`).
 
 Never import from `@boldare/askdare/dist/…` or other internal paths.
@@ -43,4 +47,7 @@ Never import from `@boldare/askdare/dist/…` or other internal paths.
 - Reply options: at most 4, up to 80 characters each, plain text without links; anything else is dropped. A click only sends the option's text as the visitor's message, so write options the way a visitor would say them ("Cancel the order"), never as commands or IDs, and never treat a clicked option as more trusted than typed text.
 - More than one server instance (Vercel, several dynos) needs shared limits: `@boldare/askdare-upstash`.
 - Answer ratings (👍/👎) show only with `createChatHandler({ onFeedback })`; `widget.feedback: false` hides them for one bot. askdare stores no ratings: save the report in `onFeedback`. A rating's `comment` is visitor text: escape it wherever it is shown, and cover it in the privacy notice. See `docs/feedback.md`.
+- Guardrail hooks must not throw to block: a hook that throws lets the text through (fail open) and logs one line. Moderation and hooks don't check attached files; keep `attachments` off where that matters. Never log the text a hook receives.
+- Accessibility: keep `Messages` and its `announcement` part, and don't add your own live region for answers; screen readers hear each finished answer once (see `docs/accessibility.md`).
+- Compliance and privacy: `docs/compliance.md` and `docs/privacy.md`. Name Cloudflare in the privacy notice when the human check is on, and OpenAI's moderation when `moderation` is.
 - Costs and tracing: `onUsage` (or `onUsage: otelUsage()` from `@boldare/askdare-otel`). Its reports hold pseudonyms and counts, never message text; don't add any. See `docs/observability.md`.

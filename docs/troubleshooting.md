@@ -23,10 +23,10 @@ The codes are stable. The texts are the English defaults; the widget shows them 
 | Code | HTTP | The chat says | See |
 | --- | --- | --- | --- |
 | `invalid_input` | 400 | "The request was invalid.", or a specific text such as "Messages can be up to {max} characters." | [Attachments are rejected](#attachments-are-rejected) |
-| `unauthorized` | 401 | "Authentication is required." | [Session expired](#session-expired) |
+| `unauthorized` | 401 | "Authentication is required.", or "We couldn’t confirm you’re human. Please try again." | [Session expired](#session-expired), [The human check fails](#the-human-check-fails) |
 | `session_expired` | 401 | "Your session has expired. Please try again." | [Session expired](#session-expired) |
 | `not_found` | 404 | "Not found.", or "This conversation is no longer available." | [The conversation is gone](#the-conversation-is-gone) |
-| `content_blocked` | 422 | "This message cannot be processed." | askdare doesn't send this code in this version |
+| `content_blocked` | 422 | "This message cannot be processed.", or your own text | [Guardrails](guardrails.md): moderation or a hook blocked the message or the answer |
 | `rate_limited` | 429 | "Too many messages. Please wait a moment.", or a specific text | [Too many messages](#too-many-messages) |
 | `budget_exceeded` | 429 | "The assistant is unavailable for the rest of the day." | [Unavailable for the rest of the day](#unavailable-for-the-rest-of-the-day) |
 | `internal_error` | 500 | "Something went wrong. Please try again." | The server log; also [In-memory rate limits](#in-memory-rate-limits) |
@@ -177,6 +177,8 @@ Two limits have their own text:
 - "This conversation is too long. Please start a new one." means the conversation reached `maxTurns`, or outgrew the model's context window (OpenAI answered `context_length_exceeded`).
 - "Another dictation is still being transcribed. Please try again in a moment." means too many dictations are being transcribed at once.
 
+For a bot that checks answers (`onOutput`, or `moderation` of output), a conversation takes one turn at a time: a message sent while the previous answer is still being written or checked, such as from a second tab, gets `rate_limited` ([Guardrails](guardrails.md#streaming-while-answers-are-checked)).
+
 **Fix:**
 - Wait for the window to pass, or restart `next dev`: the default counters live in the server's memory.
 - Raise the limits in development only:
@@ -241,6 +243,18 @@ When a whole bot's budget or the global one runs out, the server log says so onc
 **Why:** sessions last 15 minutes. The widget renews them by itself and repeats a refused request once, so visitors rarely see these texts. When they do, the renewed session was refused too. The usual cause is instances that don't share the same `CHAT_SECRET`: a session from one instance is unreadable on another, for example during a deployment that changed the secret.
 
 **Fix:** use the same `CHAT_SECRET` on every instance. When you change it, move the old value to `CHAT_SECRET_PREVIOUS` first ([Going public](going-public.md#2-secrets-and-environment)). Then reload the page.
+
+## The human check fails
+
+Only for a bot with `security.humanVerifier` ([Configuration](configuration.md#human-check)).
+
+**You see** "We couldn’t confirm you’re human. Please try again." (`unauthorized`), the check never appears, or every session is refused with `upstream_error` or `bot_unavailable`.
+
+**Why and fix:**
+- **The token failed**, expired or was used before: the visitor gets a new challenge with the next message. A token solved for another bot or another widget on the same site key is refused too, since its `action` differs.
+- **The widget doesn't load:** a chat inside your page needs `https://challenges.cloudflare.com` in `script-src` and `frame-src` of your page's Content Security Policy. The widget's iframe adds it by itself ([Embedding](embedding.md#what-your-app-sends-back)). Check also that your domain is in the widget's hostname list in the Cloudflare dashboard.
+- **Every session is refused:** `TURNSTILE_SECRET_KEY` is missing or wrong, or Cloudflare can't be reached. The check fails closed, and `onError` (or the server log) says which.
+- **With `hostnames`:** an app behind a proxy that serves it under another name fails every check. Add that name, or leave `hostnames` out.
 
 ## The conversation is gone
 

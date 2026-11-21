@@ -19,27 +19,7 @@ askdare is the website chatbot a team owns in code: self-hosted in their Next.js
 - **0.2.0, the chat inside your page:** the headless React API and inline chat (ADR-0011), `add ui`, answer ratings, `onUsage` and the OpenTelemetry add-on (ADR-0012), browser events (ADR-0013).
 - **0.3.0, talk in more ways:** one-click deploy for Vercel, reply options (ADR-0015), runtime language step 1 (ADR-0014).
 - **0.4.0, settle in:** texts per language and switching language in place (ADR-0014), tool cards with `toolRenderers` (ADR-0017), your own page in the widget's iframe with `embedPath` and `EmbedRoot` (ADR-0018).
-
-## 0.4.x: hygiene
-
-Patches only, so no public API changes. They pay down what a fresh audit found (November 2026):
-- error logs that can carry upstream response bodies;
-- Markdown parsing that grows quadratically while an answer streams;
-- unit tests for the modules that lack them (OpenAI error mapping, citations, the handler factory, the CLI);
-- CI that builds the starter, runs `verify-packs` nightly, runs visual tests on Linux, adds Node 26 and widens the canary;
-- `doctor` warning when a configured model has a shutdown date.
-
-## 0.5: compliance-ready
-
-The first release that meets the AI Act's transparency duty and WCAG 2.2 AA out of the box.
-- **AI disclosure everywhere** (AI Act art. 50, in force since 2026-08-02). The widget already shows it. This release adds it to the headless and inline paths, and `doctor` flags `disclosure: false`.
-- **Accessibility:** a WCAG 2.2 AA audit, a streamed answer and its end announced to screen readers, mobile-viewport browser tests, and a published conformance statement.
-- **Moderation and guardrails, all opt-in:** input and output moderation, `onInput` and `onOutput` hooks to block or redact, and tool results marked as untrusted for the model. Nothing changes for a bot that doesn't turn them on (ADR-0019).
-- **Bot protection, opt-in:** the Turnstile `HumanVerifier` deferred in ADR-0004, and an option that refuses to start without a shared rate-limit store.
-- **Languages:** German, French, Spanish, Italian and Czech.
-- **A compliance guide:** retention, the DPA, data residency, the resume-token trade-off in inline mode, and hosts other than Vercel (Docker, `next start`, OpenNext).
-- **Public API clean-up before it hardens** (ADR-0020): resolved `Bot` shapes go internal, error codes become importable values, and `PROTOCOL_VERSION` is listed. `zod` stays a required peer, because `defineBot` validates with it (ADR-0021).
-- **OpenAI upkeep:** handle the deprecated `truncation: 'auto'`. It is kept until OpenAI announces a shutdown date, so long conversations aren't cut short, and an overflow maps to a clear error.
+- **0.5.0, compliance-ready:** the AI notice everywhere with the `Disclosure` primitive, WCAG 2.2 AA with a conformance statement, opt-in moderation and guardrails (ADR-0019, ADR-0022), an optional Turnstile human check and `limits.requireSharedStore` (ADR-0023), built-in Czech, German, Spanish, French and Italian, a compliance guide, and the public API clean-up: `BotHandle`, exported `ERROR_CODES`, Node.js 26 (ADR-0020, ADR-0021). Also the 0.4.x hygiene: error logs without visitor text, faster streaming Markdown, `doctor` warning about model shutdown dates, and a clear error for context overflow.
 
 ## 0.6: own your data
 
@@ -108,11 +88,11 @@ Work runs in parallel lanes. Tasks that touch the **hot files** run one at a tim
 | Lane | What runs in it | Hot files |
 |---|---|---|
 | Organization | The roadmap and `tasks/` | No |
-| Hygiene | 0.4.x patches: logs, Markdown, tests, `doctor` | No |
+| Hygiene | 0.5.x patches | No |
 | CI | Workflows, visual baselines, the starter check | No |
-| Decisions | ADRs, as decisions come up (0019 and 0020 accepted for 0.5) | No |
-| Docs | The compliance guide, the accessibility statement | No |
+| Decisions | ADRs, as decisions come up (0019 to 0023 accepted for 0.5) | No |
+| Docs | Guides for new features, the compliance guide, the accessibility statement | No |
 | Spikes | S6, a second model provider (Claude and Open Responses) | No |
-| Core | 0.5 work that touches hot files, one task at a time | **Yes** |
+| Core | 0.6 work that touches hot files, one task at a time | **Yes** |
 
-Patches for 0.4.x land on `main` with `--no-ff` and ship as they are ready. Breaking 0.5 work goes to an integration branch `release/0.5` until the release ([RELEASING.md](RELEASING.md)).
+Patches for 0.5.x land on `main` with `--no-ff` and ship as they are ready. Breaking 0.6 work goes to an integration branch `release/0.6` until the release ([RELEASING.md](RELEASING.md)).

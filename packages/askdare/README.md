@@ -38,9 +38,19 @@ export const bots = [
 
 ## What you get
 
-[![What it does: answers from your documents with citations, your own tools, images and PDFs, voice input, secure by default, the chat inside your own page with React, thumbs-up and thumbs-down ratings of answers, observability with OpenTelemetry, and chat events for analytics. Also clickable answers suggested by the model, reply options from your tools, switching the chat's language from the page, and a one-click deploy. New in 0.4: tool cards, drawn by your own React components, your own page inside the widget, and texts per language. No database.](https://raw.githubusercontent.com/boldare/askdare/main/.github/assets/askdare-features.png)](https://askdare.vercel.app/#features)
+[![What it does: answers from your documents with citations, your own tools, images and PDFs, voice input, secure by default, the chat inside your own page with React, thumbs-up and thumbs-down ratings of answers, observability with OpenTelemetry, and chat events for analytics. Also clickable answers suggested by the model, reply options from your tools, switching the chat's language from the page, a one-click deploy, tool cards drawn by your own React components, your own page inside the widget, and texts per language. New in 0.5: guardrails with OpenAI moderation and your own rules, a human check with Cloudflare Turnstile, seven built-in languages, and WCAG 2.2 AA. No database.](https://raw.githubusercontent.com/boldare/askdare/main/.github/assets/askdare-features.png)](https://askdare.vercel.app/#features)
 
-[Knowledge base](https://askdare.vercel.app/docs/knowledge-base) · [Tools](https://askdare.vercel.app/docs/tools) · [Tool cards](https://askdare.vercel.app/docs/react#tool-cards) · [Reply options](https://askdare.vercel.app/docs/reply-options) · [Attachments](https://askdare.vercel.app/docs/attachments) · [Voice input](https://askdare.vercel.app/docs/voice-input) · [The chat inside your page (React)](https://askdare.vercel.app/docs/react) · [Your own page in the widget](https://askdare.vercel.app/docs/embedding#your-own-page-in-the-iframe) · [Answer ratings](https://askdare.vercel.app/docs/feedback) · [Security](https://github.com/boldare/askdare/blob/main/THREAT_MODEL.md)
+[Knowledge base](https://askdare.vercel.app/docs/knowledge-base) · [Tools](https://askdare.vercel.app/docs/tools) · [Tool cards](https://askdare.vercel.app/docs/react#tool-cards) · [Reply options](https://askdare.vercel.app/docs/reply-options) · [Attachments](https://askdare.vercel.app/docs/attachments) · [Voice input](https://askdare.vercel.app/docs/voice-input) · [The chat inside your page (React)](https://askdare.vercel.app/docs/react) · [Your own page in the widget](https://askdare.vercel.app/docs/embedding#your-own-page-in-the-iframe) · [Answer ratings](https://askdare.vercel.app/docs/feedback) · [Guardrails](https://askdare.vercel.app/docs/guardrails) · [Accessibility](https://askdare.vercel.app/docs/accessibility) · [Security](https://github.com/boldare/askdare/blob/main/THREAT_MODEL.md)
+
+**New in 0.5:**
+
+- **Guardrails**, all opt-in: OpenAI moderation of messages and answers, your own `onInput` and `onOutput` rules to block or redact, and tool results marked as untrusted. See [Guardrails](https://askdare.vercel.app/docs/guardrails).
+- **Bot protection**: an optional human check with Cloudflare Turnstile (`security.humanVerifier`), and `limits.requireSharedStore` to refuse a deployment without shared limits. See [Configuration](https://askdare.vercel.app/docs/configuration#human-check).
+- **Seven languages built in**: Czech, German, Spanish, French and Italian join English and Polish. See [Texts](https://askdare.vercel.app/docs/texts).
+- **WCAG 2.2 AA**: finished answers are read out once, a full-screen chat keeps the focus, and a dated [accessibility statement](https://askdare.vercel.app/docs/accessibility).
+- **Compliance**: the `Disclosure` primitive for the AI notice in your own markup, and a [guide](https://askdare.vercel.app/docs/compliance) to what the AI Act, the GDPR and the European Accessibility Act ask of a website chatbot.
+- **Also**: `doctor` warns about model shutdown dates, smoother streaming of long answers, error logs without visitor text, and a clear error when a conversation outgrows the model's context. `defineBot` returns a `BotHandle`, `ERROR_CODES` is exported, and Node.js 26 is supported. See the [changelog](https://github.com/boldare/askdare/blob/main/packages/askdare/CHANGELOG.md).
+
 
 ## Themes
 
@@ -54,7 +64,7 @@ The guides are on [askdare.vercel.app/docs](https://askdare.vercel.app/docs), wi
 
 - **Start:** [Getting started](https://askdare.vercel.app/docs/getting-started) · [Embedding the chat](https://askdare.vercel.app/docs/embedding) · [Command line](https://askdare.vercel.app/docs/cli)
 - **Look and language:** [Themes](https://askdare.vercel.app/docs/themes) · [Styling](https://askdare.vercel.app/docs/styling) · [Texts](https://askdare.vercel.app/docs/texts) · [The chat inside your page (React)](https://askdare.vercel.app/docs/react)
-- **Going live:** [Deployment](https://askdare.vercel.app/docs/deployment) · [Going-public checklist](https://askdare.vercel.app/docs/going-public) · [Costs](https://askdare.vercel.app/docs/costs) · [Observability](https://askdare.vercel.app/docs/observability) · [Chat events](https://askdare.vercel.app/docs/events) · [Answer ratings](https://askdare.vercel.app/docs/feedback) · [Privacy](https://askdare.vercel.app/docs/privacy)
+- **Going live:** [Deployment](https://askdare.vercel.app/docs/deployment) · [Going-public checklist](https://askdare.vercel.app/docs/going-public) · [Guardrails](https://askdare.vercel.app/docs/guardrails) · [Costs](https://askdare.vercel.app/docs/costs) · [Observability](https://askdare.vercel.app/docs/observability) · [Chat events](https://askdare.vercel.app/docs/events) · [Answer ratings](https://askdare.vercel.app/docs/feedback) · [Privacy](https://askdare.vercel.app/docs/privacy) · [Compliance](https://askdare.vercel.app/docs/compliance) · [Accessibility](https://askdare.vercel.app/docs/accessibility)
 - **Reference:** [Configuration](https://askdare.vercel.app/docs/configuration) · [Troubleshooting](https://askdare.vercel.app/docs/troubleshooting) · [Support matrix](https://askdare.vercel.app/docs/support)
 - **AI coding agents:** `llms.txt` and the `askdare` skill ship in the package ([how to use them](https://askdare.vercel.app/docs/getting-started#working-with-an-ai-coding-agent))
 
@@ -67,7 +77,7 @@ The guides are on [askdare.vercel.app/docs](https://askdare.vercel.app/docs), wi
 
 ## Requirements
 
-Node.js 22 or later, Next.js 16 with the App Router on the Node.js runtime, React 19 and zod 4.1 or later.
+Node.js 22, 24 or 26, Next.js 16 with the App Router on the Node.js runtime, React 19 and zod 4.1 or later.
 
 ## License
 

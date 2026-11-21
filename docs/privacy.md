@@ -13,6 +13,8 @@ This page lists what data the chat handles, where it goes and how long it stays,
 | Model responses | OpenAI | OpenAI's retention for stored responses |
 | Uploaded images and PDFs | OpenAI, as files in your project | 30 days, or until the conversation is deleted |
 | Dictations | Sent to OpenAI for transcription | askdare keeps no audio |
+| Messages and answers to check, with [`moderation`](guardrails.md#moderation) | Sent to OpenAI's moderation endpoint | OpenAI's retention; askdare keeps no scores |
+| A human-check token and what Cloudflare's widget collects, with [`security.humanVerifier`](configuration.md#human-check) | Cloudflare | Cloudflare's retention |
 | IP addresses, visitor IDs, conversation IDs | Rate-limit counters, in your server's memory or in Upstash | IP addresses up to 2 days, conversation IDs up to 30 days |
 | An HMAC of the visitor or user ID (`safety_identifier`) | Sent to OpenAI with every model request | OpenAI's retention |
 | Error reports | Your server log, or your `onError` function | Your hosting's log retention |
@@ -109,6 +111,15 @@ Everything below lives in the OpenAI project whose key the app uses. Name OpenAI
 - Your tools' definitions and, when the model calls them, their results. With `widget.replies: 'suggest'`, also the definition of the built-in `suggest_replies` tool, which holds no personal data.
 - The `safety_identifier`, and `prompt_cache_key: "askdare:<bot id>"`, which holds no personal data.
 
+### Moderation
+
+Only for a bot with [`moderation`](guardrails.md#moderation): askdare sends the text it checks to OpenAI's moderation endpoint (`POST /v1/moderations`), with the same API key, as a separate request.
+
+- With `check: 'input'` (the default), that is each visitor message, after your `onInput` hook, and the page context for bots with `pageContext: true`. With `'output'`, each complete answer; with `'both'`, both.
+- Attached files aren't sent to moderation.
+- askdare keeps no scores. When moderation blocks a message, the report to `onError` names the categories, never the text.
+- For bots that check answers, askdare also adds a short fixed note without content to the conversation after each check (`[askdare:allowed]`, `[askdare:withheld]` or `[askdare:replaced]`), and a replacement text from `onOutput` as an answer. A withheld answer stays in the conversation until it is deleted. See [Guardrails](guardrails.md#what-is-stored-and-logged).
+
 ### Conversations
 
 - Conversations are stored with OpenAI's Conversations API, in your project, **until they are deleted** ([ADR-0003](adr/0003-conversation-state.md)). Each one carries the bot ID and the visitor ID as metadata (`askdare_bot`, `askdare_visitor`).
@@ -135,7 +146,18 @@ The recording goes to OpenAI's transcription API and nowhere else, and askdare s
 
 ### Zero Data Retention
 
-askdare doesn't use Zero Data Retention. OpenAI grants it only after approval, and its data controls page lists the Conversations API as not eligible. Clients who need zero retention or data residency need the planned own-storage add-on.
+askdare doesn't use Zero Data Retention. OpenAI grants it only after approval, and its data controls page lists the Conversations API as not eligible. If you need zero retention or data residency, you need the planned own-storage add-on.
+
+## At Cloudflare
+
+Only for a bot with a [human check](configuration.md#human-check) (`security.humanVerifier: turnstile(…)`). Otherwise nothing goes to Cloudflare.
+
+- When the chat needs a new session, it loads Cloudflare Turnstile's script from `challenges.cloudflare.com` into the chat's document: the iframe on your app's origin, or your page for a chat inside it. The widget runs in the visitor's browser and sends Cloudflare what it needs to tell a person from a bot, such as the visitor's IP address and signals from the browser. What it collects and how long Cloudflare keeps it is set by [Cloudflare's privacy policy](https://www.cloudflare.com/privacypolicy/).
+- The script runs with the chat's access, so it could read what is on screen and the resume token ([Configuration](configuration.md#human-check)).
+- Your server sends the token the widget returned to Cloudflare's siteverify endpoint, with your secret key. askdare sends nothing else: no message, no visitor ID.
+- The session token then carries the time the visitor passed the check, for 24 hours of renewals. askdare stores nothing else about it.
+
+Name Cloudflare as a processor in your privacy notice when the human check is on, and check whether your consent rules cover its widget.
 
 ## AI disclosure
 
@@ -161,6 +183,7 @@ The note exists for the transparency duty in Article 50 of the EU AI Act: people
 | Who | When | What they receive |
 | --- | --- | --- |
 | OpenAI | Always | Everything under [At OpenAI](#at-openai) |
+| Cloudflare | With `security.humanVerifier: turnstile(…)` | The visitor's browser runs the Turnstile widget; your server sends its token. See [At Cloudflare](#at-cloudflare) |
 | Upstash | With `@boldare/askdare-upstash` | Rate-limit counters, whose names hold IP addresses, visitor IDs and conversation IDs |
 | Your hosting provider, such as Vercel or Heroku | Always | Every request to the app, with IP addresses, and the server log |
 | Your error monitoring | With `onError` | Error reports, without message contents or API keys |
@@ -187,7 +210,8 @@ There is no previous-secret setting for `IDENTITY_SECRET`. When you change it:
 
 ## For your privacy notice
 
-- [ ] Name OpenAI, and Upstash if you use it, as processors, and your hosting provider.
+- [ ] Name OpenAI, and Upstash and Cloudflare if you use them, as processors, and your hosting provider.
+- [ ] If you turn on `moderation`, say that messages or answers are also checked by OpenAI's moderation.
 - [ ] Say that conversations, including what visitors type and attach, are stored by OpenAI until deleted, and how visitors delete them.
 - [ ] Describe the `localStorage` entries and their purpose: the conversation, and the ratings if you use `onFeedback`.
 - [ ] If you collect ratings, say that visitors' comments reach you and how long you keep them.
