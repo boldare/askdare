@@ -117,7 +117,7 @@ askdare's widget and default skin target WCAG 2.2 AA, and every release runs axe
 
 ## 6. Moderation and guardrails
 
-Coming in 0.5: opt-in moderation of visitors' messages and of answers, hooks to block or redact them, and tool results passed to the model as untrusted data ([ADR-0019](adr/0019-compliance-and-guardrails.md)). Until then, OpenAI's own safety systems apply, and refused answers end with the `content_blocked` error.
+Coming in 0.5, all opt-in: moderation of visitors' messages and of answers, hooks to block or redact them, and tool results passed to the model as untrusted data ([ADR-0019](adr/0019-compliance-and-guardrails.md)). Until then, OpenAI's own safety systems apply, and refused answers end with the `content_blocked` error.
 
 ## 7. Bot protection
 

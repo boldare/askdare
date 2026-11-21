@@ -22,33 +22,44 @@ Hosted competitors (Intercom Fin, Chatbase) and toolkits (AI SDK, assistant-ui) 
 
 ## Decision
 
-1. **The AI disclosure is part of every supported way to build the chat.**
+**Principle: everything is configurable, and nothing restricts an existing setup.**
+- Each control below is an option.
+- Upgrading to 0.5 changes nothing for a bot that doesn't turn a new option on.
+- Defaults keep today's behaviour.
+- askdare informs (docs, `doctor`, development warnings that can be silenced) but never blocks a visitor or refuses to start unless the operator turned on an option that does.
+
+1. **The AI disclosure is available on every supported way to build the chat.**
    - A `Disclosure` primitive joins `@boldare/askdare/react`, and the skin uses it.
-   - In development, `Root` warns once if the chat rendered without it while `disclosure` isn't `false`.
-   - `askdare doctor` reports `disclosure: false` as a warning that names art. 50.
-   - Turning it off stays possible, because the host page may already say so, but never silently.
+   - `widget.disclosure` keeps working as today: shown by default in the skin, with `false` to hide it and `privacyUrl` to link a notice. Its text can be replaced per language like any other text.
+   - In development, `Root` notes once in the console if the chat rendered without a `Disclosure` while `disclosure` isn't `false`. Setting `disclosure: false`, or rendering your own notice, silences it.
+   - `askdare doctor` mentions `disclosure: false` as information, not a failure.
 2. **Guardrails are server-side, opt-in and isolated like every other hook (ADR-0012).**
-   - `moderation` in `defineBot` runs OpenAI moderation on input, output or both. It is off by default, because it adds latency and cost.
-   - `onInput` and `onOutput` hooks return allow, block (with a text for the visitor) or a redacted message.
-   - A blocked turn ends with `content_blocked`.
-   - Nothing blocked or redacted is logged as content.
-   - For output, the hook sees the finished answer. Whether the stream holds answers back while output checks are on, or retracts a blocked one, is settled in the task with a recorded-stream test, and documented.
-3. **Tool results reach the model marked as untrusted data,** inside a wrapper the instructions refer to, so text inside a tool result isn't followed as instructions.
-4. **The `HumanVerifier` port is built,** with a Cloudflare Turnstile adapter, checked only when a session is created, as ADR-0004 described. The iframe's CSP is widened only for bots that configure a verifier. The loader doesn't change.
-5. **In-memory rate limits fail closed in production.** The handler refuses to start with the in-memory store when `NODE_ENV` is `production`, unless the operator sets a shared store or explicitly opts in (for single-instance hosts). The option's name is settled in the task.
-6. **Accessibility target:** the widget and the default skin target WCAG 2.2 AA, with a dated conformance statement in `docs/accessibility.md`. Finished answers are announced once to screen readers.
+   - `moderation` in `defineBot` runs OpenAI moderation on input, output or both. It is off by default. Which categories block, and what the visitor sees, are options.
+   - `onInput` and `onOutput` hooks, when set, return allow, block (with a text for the visitor) or a redacted message. With no hook, every message passes as today.
+   - A blocked turn ends with `content_blocked`. Nothing blocked or redacted is logged as content.
+   - For output, the hook sees the finished answer. Whether the stream holds answers back while output checks are on, or retracts a blocked one, is settled in the task with a recorded-stream test, and documented. It only applies to bots that turn output checks on.
+3. **Marking tool results as untrusted is an option,** `toolResults: 'untrusted'` in `defineBot`, off by default.
+   - When on, results reach the model inside a wrapper the instructions refer to, so text inside a tool result isn't followed as instructions.
+   - The docs recommend it for tools that return third-party text.
+4. **The `HumanVerifier` port is built and optional,** with a Cloudflare Turnstile adapter.
+   - It is checked only when a session is created, as ADR-0004 described.
+   - Bots without a verifier work exactly as today.
+   - The iframe's CSP is widened only for bots that configure one. The loader doesn't change.
+5. **In-memory rate limits keep working in production.** The existing warning stays. An opt-in `limits.requireSharedStore: true` makes the handler refuse to start without a shared store, for teams that want that guarantee. The option's final name is settled in the task.
+6. **Accessibility target:** the widget and the default skin target WCAG 2.2 AA, with a dated conformance statement in `docs/accessibility.md`. Finished answers are announced once to screen readers. This changes no option and restricts nothing.
 
 ## Consequences
 
-- A team deploying askdare gets a disclosure, a conformance statement and a compliance guide without custom work.
-- `defineBot` and the public API grow: `moderation`, `onInput`, `onOutput`, a verifier option, and the `Disclosure` primitive. Each is listed in ADR-0006's surface through the 0.5 snapshot.
-- Fail-closed limits are a breaking change for production deployments on the in-memory store. The changeset names the one-line fix.
-- Moderation adds a model call per checked message. `docs/costs.md` has to say so.
+- A team deploying askdare gets a disclosure, a conformance statement and a compliance guide without custom work, and turns on the stricter controls it needs.
+- The public API grows: `defineBot` gets `moderation`, `onInput`, `onOutput`, `toolResults` and a verifier option, `limits` gets `requireSharedStore`, and the React entry gets the `Disclosure` primitive. Each is listed in ADR-0006's surface through the 0.5 snapshot.
+- None of this is a breaking change. A minor changeset per feature is enough.
+- Moderation, when on, adds a model call per checked message. `docs/costs.md` has to say so.
+- Secure-by-default is weaker than it could be: a public bot without a shared store, verifier or moderation still runs. `docs/going-public.md` and `doctor` point to each option instead.
 - askdare doesn't certify legal compliance. The docs give the means and say which decisions stay with the operator.
 
 ## Alternatives considered
 
 - **Leave compliance to each app:** that is the situation today. It works for experts and fails silently for everyone else, and it gives up one of the most concrete reasons to choose askdare.
-- **Moderation on by default:** safer, but it adds cost and latency to every turn and can refuse harmless questions. We prefer an explicit choice, made visible in `doctor` and `docs/going-public.md`.
+- **Strict defaults** (moderation, untrusted tool results and a required shared store, all on): safer for a careless deployment, but they add cost and latency, can refuse harmless questions and break working setups on upgrade. We prefer explicit choices, made visible in `doctor` and `docs/going-public.md`.
 - **Client-side guardrails:** the client is untrusted (ADR-0004), so a guard there can always be bypassed.
 - **Keep deferring Turnstile:** limits alone don't stop distributed abuse of a public chat, and a client with a public site will ask for a human check.

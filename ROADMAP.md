@@ -34,8 +34,8 @@ Patches only, so no public API changes. They pay down what a fresh audit found (
 The first release that meets the AI Act's transparency duty and WCAG 2.2 AA out of the box.
 - **AI disclosure everywhere** (AI Act art. 50, in force since 2026-08-02). The widget already shows it. This release adds it to the headless and inline paths, and `doctor` flags `disclosure: false`.
 - **Accessibility:** a WCAG 2.2 AA audit, a streamed answer and its end announced to screen readers, mobile-viewport browser tests, and a published conformance statement.
-- **Moderation and guardrails:** input and output moderation, `onInput` and `onOutput` hooks to block or redact, and tool results marked as untrusted for the model (proposed in ADR-0019).
-- **Bot protection:** the Turnstile `HumanVerifier` deferred in ADR-0004, and in-memory rate limits refusing to run in production (fail-closed) instead of only warning.
+- **Moderation and guardrails, all opt-in:** input and output moderation, `onInput` and `onOutput` hooks to block or redact, and tool results marked as untrusted for the model. Nothing changes for a bot that doesn't turn them on (proposed in ADR-0019).
+- **Bot protection, opt-in:** the Turnstile `HumanVerifier` deferred in ADR-0004, and an option that refuses to start without a shared rate-limit store.
 - **Languages:** German, French, Spanish, Italian and Czech.
 - **A compliance guide:** retention, the DPA, data residency, the resume-token trade-off in inline mode, and hosts other than Vercel (Docker, `next start`, OpenNext).
 - **Public API clean-up before it hardens** (proposed in ADR-0020): resolved `Bot` shapes go internal, error codes become importable values, `PROTOCOL_VERSION` is listed, and `zod` becomes optional for script-tag-only sites.
