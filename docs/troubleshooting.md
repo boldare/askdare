@@ -174,7 +174,7 @@ If the console says "Load the widget as widget.js?bot=<bot id>.", the script tag
 Every limit is in [Configuration](configuration.md#limits). Some are fixed: 12 session renewals per returning visitor per hour, 20 history loads or deletions per visitor per minute, and 2 dictations per IP and 10 per bot being transcribed at once. Windows start with the first request, so a limit of one hour lasts one hour from then.
 
 Two limits have their own text:
-- "This conversation is too long. Please start a new one." means the conversation reached `maxTurns`.
+- "This conversation is too long. Please start a new one." means the conversation reached `maxTurns`, or outgrew the model's context window (OpenAI answered `context_length_exceeded`).
 - "Another dictation is still being transcribed. Please try again in a moment." means too many dictations are being transcribed at once.
 
 **Fix:**

@@ -154,7 +154,7 @@ The model decides most of the bill, which is why askdare never picks one for you
 A conversation is stored by OpenAI, and every message sends the whole conversation to the model as input. Each message therefore costs more than the one before.
 
 - `maxTurns` (default 50) ends a conversation: the visitor is asked to start a new one.
-- askdare sends `truncation: 'auto'`. When a conversation outgrows the model's context window, OpenAI drops the oldest items instead of failing.
+- askdare sends `truncation: 'auto'`. When a conversation outgrows the model's context window, OpenAI drops the oldest items instead of failing. OpenAI has deprecated the parameter but announced no shutdown date; askdare keeps sending it until then. If OpenAI ever refuses an overflowing conversation, the visitor sees "This conversation is too long. Please start a new one."
 - askdare doesn't compact or summarize conversations. OpenAI's server-side compaction isn't planned for a release yet: in spikes [S5](https://github.com/boldare/askdare/blob/main/spikes/s5-compaction/README.md) and S5b it cut answers off, ran on every turn and lost prompt caching ([ADR-0003](adr/0003-conversation-state.md)).
 - Attached files and your tools' results stay in the conversation, so every later message reads them again. Keep tool results small ([Tools](tools.md)).
 

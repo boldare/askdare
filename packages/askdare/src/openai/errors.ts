@@ -61,6 +61,14 @@ export function fromOpenAIError(error: unknown, deadlineExceeded: boolean): Erro
     return new AskdareError('upstream_error', { cause: redacted(error) });
   }
   if (error instanceof APIError) {
+    if (error.status === 400 && error.code === 'context_length_exceeded') {
+      // The conversation outgrew the model's context window: only a new conversation helps.
+      return new AskdareError('invalid_input', {
+        message: 'This conversation is too long. Please start a new one.',
+        key: 'error.conversationTooLong',
+        cause: redacted(error),
+      });
+    }
     if (error.status === 401 || error.status === 403) {
       return new AskdareError('bot_unavailable', { cause: redacted(error) });
     }
