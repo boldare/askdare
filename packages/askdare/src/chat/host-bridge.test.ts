@@ -44,8 +44,8 @@ describe('the bridge to the loader', () => {
     const identities: (string | null)[] = [];
     bridge.onIdentify((token) => identities.push(token));
     await bridge.handshake;
-    await settled();
-    expect(received).toEqual([{ v: 1, type: 'ready' }]);
+    // The reply crosses a MessageChannel, whose delivery can take more than one timer tick.
+    await vi.waitFor(() => expect(received).toEqual([{ v: 1, type: 'ready' }]));
     expect(identities).toEqual(['eyJ.e30.sig']);
   });
 
@@ -94,12 +94,10 @@ describe('asking the loader for the handshake (ADR-0018)', () => {
     await settled();
     // The loader answered the hello after its load handshake: the newer port wins.
     const second = hello(parent, origin);
-    await settled();
+    await vi.waitFor(() => expect(second).toEqual([{ v: 1, type: 'ready' }]));
     expect(first).toEqual([{ v: 1, type: 'ready' }]);
-    expect(second).toEqual([{ v: 1, type: 'ready' }]);
     bridge.close();
-    await settled();
-    expect(second).toContainEqual({ v: 1, type: 'close' });
+    await vi.waitFor(() => expect(second).toContainEqual({ v: 1, type: 'close' }));
     expect(first).not.toContainEqual({ v: 1, type: 'close' });
   });
 
@@ -110,10 +108,9 @@ describe('asking the loader for the handshake (ADR-0018)', () => {
     connectToHost([origin]);
     expect(parent.postMessage).not.toHaveBeenCalled();
     const first = hello(parent, origin);
-    await settled();
+    await vi.waitFor(() => expect(first).toEqual([{ v: 1, type: 'ready' }]));
     const second = hello(parent, origin);
     await settled();
-    expect(first).toEqual([{ v: 1, type: 'ready' }]);
     expect(second).toEqual([]);
   });
 });
