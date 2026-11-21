@@ -113,7 +113,7 @@ An attacker who copies the token can continue the conversation from anywhere and
 
 The [European Accessibility Act](https://eur-lex.europa.eu/eli/dir/2019/882/oj/eng) (Directive (EU) 2019/882) applies from 28 June 2025. Among other services, it covers e-commerce services offered to consumers; microenterprises that provide services are exempt (Article 4(5)). The harmonised standard, ETSI EN 301 549, moved to WCAG 2.2 in version V4.1.1 (2026-09).
 
-askdare's widget and default skin target WCAG 2.2 AA, and every release runs axe in Chromium, Firefox and WebKit ([Support](support.md)). A dated conformance statement, with its scope, method and known limitations, is coming in 0.5 as `docs/accessibility.md`. If you build your own markup or restyle the chat, its accessibility is yours to check.
+askdare's widget and default skin target WCAG 2.2 AA, and every change runs axe with the WCAG 2.2 AA rules in Chromium, Firefox and WebKit and on a phone viewport ([Support](support.md)). The dated conformance statement, with its scope, method, the manual review and the known limitations, is [Accessibility](accessibility.md). If you build your own markup or restyle the chat, its accessibility is yours to check.
 
 ## 6. Moderation and guardrails
 

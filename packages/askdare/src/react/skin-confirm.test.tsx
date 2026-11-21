@@ -7,6 +7,9 @@ import { Root } from './headless';
 import { StartOverQuestion } from './skin/confirm';
 import { DefaultPanel } from './skin/panel';
 
+/** The answer's bubble, not its copy in the screen-reader announcement. */
+const ANSWER = { ignore: 'script, style, [data-ask-part="announcement"]' };
+
 beforeEach(() => {
   localStorage.clear();
   vi.stubGlobal('fetch', fakeServer().fetch);
@@ -117,7 +120,7 @@ describe('Escape on the start-over question', () => {
       expect(screen.getByRole('button', { name: 'Send' }).hasAttribute('disabled')).toBe(false),
     );
     fireEvent.keyDown(field, { key: 'Enter' });
-    await screen.findByText('You said: Hello');
+    await screen.findByText('You said: Hello', ANSWER);
     fireEvent.click(screen.getByRole('button', { name: 'Start a new conversation' }));
     return screen.getByRole('alertdialog');
   }
@@ -129,7 +132,7 @@ describe('Escape on the start-over question', () => {
     expect(dialog.isConnected).toBe(false);
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(onClose).not.toHaveBeenCalled();
-    expect(screen.getByText('You said: Hello')).toBeTruthy();
+    expect(screen.getByText('You said: Hello', ANSWER)).toBeTruthy();
     await waitFor(() =>
       expect(document.activeElement).toBe(
         screen.getByRole('button', { name: 'Start a new conversation' }),
