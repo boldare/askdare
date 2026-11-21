@@ -155,6 +155,45 @@ The list holds at most 50 origins. Duplicates are dropped. A wrong entry fails w
 
 To check that a site may embed the chat, run `npx @boldare/askdare doctor --origin https://www.example.com`.
 
+#### Human check
+
+`security.humanVerifier` asks visitors to pass a human check before a new chat session starts ([ADR-0019](adr/0019-compliance-and-guardrails.md), [ADR-0023](adr/0023-human-check-and-react-budget.md)). It is off when absent, and a bot without it works as before. askdare ships one verifier, for [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/):
+
+```ts
+import { defineBot, turnstile } from '@boldare/askdare';
+
+defineBot({
+  // …
+  security: {
+    allowedOrigins,
+    // The site key is public; the secret key comes from TURNSTILE_SECRET_KEY.
+    humanVerifier: turnstile({ siteKey: '0x4AAAAAAA…' }),
+  },
+});
+```
+
+| `turnstile()` option | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `siteKey` | `string` | required | The widget's site key from the Cloudflare dashboard. Browsers receive it. |
+| `secretKey` | `string` | `process.env.TURNSTILE_SECRET_KEY` | The widget's secret key, read at the first check, so `next build` doesn't need it. Never commit it. |
+| `hostnames` | `string[]` | not checked | Host names the challenge may have been solved on, compared with siteverify's `hostname`: your chat route's app, such as `['www.example.com']`. Off by default: the widget's hostname list in the Cloudflare dashboard already limits where it runs, and a proxy that serves the app under another name would be refused. |
+
+How it works:
+
+- When the chat needs a new session (the first message, a stored conversation to load, an upload), it shows the Turnstile widget in the chat (`HumanCheck`, part `human-check`) and waits for its token. In Turnstile's managed mode most visitors only see it for a moment. A page that calls `askdare('identify')` with a token (or `Root` with `identity`) opens the session at once, to find that user's conversation, so signed-in visitors see the check as the chat loads; anonymous visitors see it at their first action.
+- Turnstile retries a failed challenge or a network error by itself, every 8 seconds; the chat gives up at the third error and shows `error.humanCheck`.
+- `POST /session` sends the token to Cloudflare's siteverify endpoint, after the session rate limit. A token that fails, has expired or was already used answers `unauthorized`, with the text `error.humanCheck`; the next message shows a new challenge.
+- The chat renders the widget with the bot's id as Turnstile's `action` (cut to 32 characters), and the server refuses a token whose `action` differs, such as one solved for another bot or another widget on the same site key. Cloudflare's test secret keys return no `action` and the hostname `example.com`, so with them neither the action nor `hostnames` is checked.
+- Renewing a live session (an access token at most an hour past its expiry) needs no new check, for **24 hours** after the check was passed. Then, and for sessions that never passed one (such as sessions from before the bot turned the check on), the visitor passes it again and keeps their session. A visitor who comes back later with a stored conversation passes the check again.
+- If Cloudflare can't be reached, or rejects the secret key, the session is refused (`upstream_error` or `bot_unavailable`) and `onError` receives it: the check fails closed.
+- The iframe's Content Security Policy adds `https://challenges.cloudflare.com` to `script-src` and `frame-src`, for this bot only ([Embedding](embedding.md#what-your-app-sends-back)). The loader on the host page doesn't change.
+- A chat inside your page (`Root`, `DefaultChat`) or your own page in the iframe (`embedPath`) runs under your page's policy: allow the same origin there. A headless chat must render `HumanCheck`, or it can't connect; the console says so.
+- **Cloudflare's script runs with your app's access.** `api.js` is loaded from `challenges.cloudflare.com` into the chat's document: the iframe, on your app's origin, or your own page for a chat inside it. There it can do what your own scripts can, such as read the conversation on screen and the resume token in storage. Cloudflare changes the script without notice, so it can't carry Subresource Integrity, and askdare loads it without. Turning the check on means trusting Cloudflare with that.
+
+Test it with Cloudflare's [test keys](https://developers.cloudflare.com/turnstile/troubleshooting/testing/), such as the site key `1x00000000000000000000AA` with the secret key `1x0000000000000000000000000000000AA`, which always pass.
+
+To check tokens another way, pass your own object with the `HumanVerifier` type: `challenge` is what the chat renders (only `{ provider: 'turnstile', siteKey }` in 0.5), and `verify(token, { botId, signal })` resolves `true` for a person and `false` for a token that fails. Throw when the check can't run; the session is then refused.
+
 ### Your own page in the iframe
 
 By default the widget's iframe shows askdare's own page, which needs nothing from you. With `embedPath`, it shows a page of your app instead, so the widget on other sites can use your own components and [tool cards](react.md#tool-cards) ([ADR-0018](adr/0018-embed-path.md)). The chat route redirects the iframe to that path, with the visitor's language (`lang`, for a bot with `locale: 'auto'`) and the mode (`mode=inline`) in the query; the loader on the embedding site doesn't change. The redirect goes to `embedPath` exactly as you write it, so in an app with `basePath` in `next.config.ts` include that prefix (`/help/askdare/support`).
@@ -260,6 +299,7 @@ A wrong `basePath`, a duplicate bot ID or an empty `bots` list throws a `TypeErr
 | `store` | `RateLimitStore` | in memory, per process | Counter storage for rate limits and budgets. With more than one instance, use a shared store such as `@boldare/askdare-upstash`. See [Custom rate-limit store](custom-store.md). |
 | `trustProxy` | `'auto' \| 'vercel' \| 'heroku' \| number` | `'auto'` | How to read the client IP behind your proxy. |
 | `globalDailyTokens` | `number` | unlimited | Input plus output tokens per UTC day, across all bots of this handler. Reaching it answers `budget_exceeded`. |
+| `requireSharedStore` | `boolean` | `false` | `true` makes `createChatHandler` throw as the route loads unless `store` is shared (`shared: true`), instead of only warning in production. For example `process.env.NODE_ENV === 'production'`, so development keeps the in-memory store. Note that `next build` loads the route with `NODE_ENV=production`. |
 
 ### `trustProxy`
 
@@ -398,6 +438,7 @@ It must be a literal in the route file. It is the longest a streamed answer may 
 | `CHAT_SECRET` | `createChatHandler`, `npx @boldare/askdare doctor` | Default for `secret`. Required. `doctor` signs its request to your app with it. |
 | `CHAT_SECRET_PREVIOUS` | `createChatHandler`, `npx @boldare/askdare doctor` | Former secrets, comma-separated. Default for `previousSecrets`. |
 | `IDENTITY_SECRET` | `createChatHandler`, `npx @boldare/askdare doctor` | Default for `identitySecret`. Optional: without it, identity is off. |
+| `TURNSTILE_SECRET_KEY` | `turnstile()` | Default for `secretKey`, read at the first human check. Needed only for a bot with `security.humanVerifier: turnstile(…)`. |
 | `ASKDARE_DISABLED` | `createChatHandler` | The kill switch. When it is exactly `true`, every bot answers `bot_unavailable`. askdare reads it on every request. |
 | `KB_VECTOR_STORE_ID` | `npx @boldare/askdare kb sync` | The vector store to sync, unless you pass `--store`. |
 | `ASKDARE_MODEL` | `npx @boldare/askdare doctor` | `doctor` reports it when it is missing or empty and your `askdare.config` uses it. The server doesn't read it; your config does. |

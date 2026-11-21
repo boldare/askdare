@@ -1,6 +1,7 @@
 import { type Bot, languageTexts } from '../bot/define-bot';
 import type { ChatConfig, ChatWidget } from '../chat/config';
 import { textLocale } from '../i18n/texts';
+import { CHALLENGE_ORIGINS } from '../security/human-verifier';
 
 const uiLanguage = (locale: string): string =>
   locale.toLowerCase().split('-')[0] === textLocale(locale) ? locale : textLocale(locale);
@@ -112,12 +113,16 @@ export function embedPermissionsPolicy(bot: Bot): string {
 
 /**
  * Content Security Policy for the iframe document: same-origin resources only, no inline script,
- * and `frame-ancestors` limited to the app itself plus the bot's allowlist (ADR-0005).
+ * and `frame-ancestors` limited to the app itself plus the bot's allowlist (ADR-0005). A bot with
+ * a human check also allows its provider's script and frame, and only that (ADR-0019).
  */
 export function embedContentSecurityPolicy(bot: Bot): string {
+  const verifier = bot.security.humanVerifier;
+  const challenge = verifier ? CHALLENGE_ORIGINS[verifier.challenge.provider] : undefined;
   return [
     "default-src 'none'",
-    "script-src 'self'",
+    challenge ? `script-src 'self' ${challenge}` : "script-src 'self'",
+    ...(challenge ? [`frame-src ${challenge}`] : []),
     "style-src 'self'",
     "connect-src 'self'",
     // blob: previews the visitor's own files before they are sent.

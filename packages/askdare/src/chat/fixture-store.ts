@@ -42,6 +42,7 @@ export function createFixtureStore(botConfig: ChatConfig, fixture: Fixture): Cha
     page: {},
     ratings: fixture.ratings ?? {},
     commenting: fixture.commenting,
+    humanCheck: false,
   };
   const initial = state;
   const listeners = new Set<() => void>();
@@ -81,6 +82,8 @@ export function createFixtureStore(botConfig: ChatConfig, fixture: Fixture): Cha
     setLocale: async () => false,
     language: undefined,
     hide: () => {},
+    answerHumanCheck: () => {},
+    attachHumanCheck: () => () => {},
     level: () => undefined,
     onFocus,
     onEvent: () => () => {},

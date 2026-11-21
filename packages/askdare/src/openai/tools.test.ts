@@ -264,11 +264,20 @@ describe('tool loop', () => {
   });
 
   it('runs parallel calls concurrently', async () => {
+    // Counts calls in flight rather than timing them, so a slow CI machine can't fail it.
+    let running = 0;
+    let most = 0;
     const wait = defineTool({
       name: 'wait',
       description: 'd',
       input: z.object({}),
-      execute: () => new Promise((resolve) => setTimeout(() => resolve('ok'), 80)),
+      execute: async () => {
+        running += 1;
+        most = Math.max(most, running);
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        running -= 1;
+        return 'ok';
+      },
     });
     steps(
       callStep([
@@ -277,9 +286,8 @@ describe('tool loop', () => {
       ]),
       textTurnEvents(['ok']),
     );
-    const started = performance.now();
     await run(makeBot([wait]));
-    expect(performance.now() - started).toBeLessThan(150);
+    expect(most).toBe(2);
   });
 
   it('replaces oversized results with an error', async () => {

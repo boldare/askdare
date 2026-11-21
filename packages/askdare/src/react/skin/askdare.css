@@ -1090,6 +1090,14 @@
     }
   }
 
+  /* ---------- Human check (Turnstile draws its own frame inside) ---------- */
+
+  [data-ask-part="human-check"]:where([data-ask-skin] *) {
+    display: flex;
+    justify-content: center;
+    margin: 0 calc(var(--ask-space) * 1.5) var(--ask-space);
+  }
+
   /* ---------- Errors ---------- */
 
   [data-ask-part="error"]:where([data-ask-skin] *) {

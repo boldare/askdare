@@ -37,6 +37,11 @@ export interface ChatClientOptions {
     key: string,
     params?: Readonly<Record<string, string | number>>,
   ) => string | undefined;
+  /**
+   * For a bot with a human check: a fresh token from its challenge, asked for when a session
+   * starts without one to renew. Rejects when the visitor couldn't pass it.
+   */
+  readonly humanToken?: () => Promise<string>;
 }
 
 interface Session {
@@ -181,6 +186,18 @@ export class ChatClient {
     // Single-page apps may repeat it on every route change: only a change costs a request.
     if (token === this.#identity) return false;
     this.#identity = token;
+    // Signing out with no session: nothing to replace, and a bot with a human check shouldn't
+    // challenge before the visitor does anything. The next session carries the sign-out.
+    if (
+      token === null &&
+      this.#options.humanToken &&
+      !this.#session &&
+      !this.#opening &&
+      !this.#renewal &&
+      !this.#identityKey
+    ) {
+      return false;
+    }
     this.#identityChanged = true;
     await this.#opening?.catch(() => undefined);
     const before = this.#resumeKey();
@@ -472,12 +489,14 @@ export class ChatClient {
   }
 
   /** Not tied to one caller's signal, because other callers may be waiting for the same session. */
-  async #openSession(): Promise<Session> {
+  async #openSession(stale?: string): Promise<Session> {
     const resumeToken = this.#options.storage.get(this.#resumeKey());
     // The previous access token keeps the same visitor, so files uploaded before a renewal stay theirs.
-    const accessToken = this.#session?.accessToken ?? this.#renewal;
+    const accessToken = stale ?? this.#session?.accessToken ?? this.#renewal;
     const identityToken = this.#identity;
     const sentFrom = this.#resumeKey();
+    // A renewal needs no human check; a new session, or one the server won't renew, does (ADR-0023).
+    const humanToken = accessToken && !stale ? undefined : await this.#humanToken();
     const response = await this.#fetch(`${this.#options.basePath}/session`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -486,8 +505,17 @@ export class ChatClient {
         ...(resumeToken ? { resumeToken } : {}),
         ...(accessToken ? { accessToken } : {}),
         ...(identityToken === undefined ? {} : { identityToken }),
+        ...(humanToken ? { humanToken } : {}),
       }),
     });
+    if (response.status === 401 && accessToken && !stale && this.#options.humanToken) {
+      // The server won't renew this session without a new human check (too old, or the check
+      // too long ago). Drop the token now, so no later attempt sends it again, and check once,
+      // still with it, so the server can keep the visitor.
+      this.#session = undefined;
+      this.#renewal = undefined;
+      return this.#openSession(accessToken);
+    }
     // A refused session says nothing about the stored conversation: keep it.
     if (!response.ok) throw new SessionRefused(await this.#errorFromResponse(response, false));
     const body = (await response.json()) as {
@@ -518,6 +546,22 @@ export class ChatClient {
     }
     this.#session = { accessToken: body.accessToken, expiresAt: body.expiresAt };
     return this.#session;
+  }
+
+  /** A token from the bot's human check, or undefined for a bot without one. */
+  async #humanToken(): Promise<string | undefined> {
+    if (!this.#options.humanToken) return undefined;
+    try {
+      return await this.#options.humanToken();
+    } catch {
+      throw new SessionRefused(
+        this.#error(
+          'unauthorized',
+          'error.humanCheck',
+          'We couldn’t confirm you’re human. Please try again.',
+        ),
+      );
+    }
   }
 
   /** What to show for a request that threw: the server's reason for refusing a session, if any. */

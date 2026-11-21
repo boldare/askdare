@@ -52,6 +52,8 @@ export const IT: Dictionary = {
   'launcher.open': 'Apri la chat',
   'launcher.close': 'Chiudi la chat',
   'launcher.unavailable': 'Impossibile caricare la chat. Riprova più tardi.',
+  'humanCheck.label': 'Verifichiamo che tu sia una persona',
+  'error.humanCheck': 'Non è stato possibile verificare che tu sia una persona. Riprova.',
   'error.connection': 'Problema di connessione. Riprova.',
   'error.history': 'Impossibile caricare la conversazione precedente.',
   'error.updated': 'L’assistente è stato aggiornato. Ricarica la pagina.',

@@ -14,7 +14,7 @@ Legal texts and OpenAI's terms were checked on 2026-11-21 against the sources at
 | [The conversation handle in the browser](#4-the-conversation-handle-in-the-browser) | Keeps it in the widget's iframe | Whether to show the chat inside your own pages |
 | [Accessibility](#5-accessibility) (European Accessibility Act) | Targets WCAG 2.2 AA | Your site's own conformance |
 | [Moderation and guardrails](#6-moderation-and-guardrails) | Opt-in OpenAI moderation, hooks to block or redact messages and answers, untrusted tool results | Which of them your bot needs, and what blocked visitors see |
-| [Bot protection](#7-bot-protection) | Coming in 0.5 | |
+| [Bot protection](#7-bot-protection) | Rate limits and daily budgets by default; an optional human check with Cloudflare Turnstile | Whether your chat needs the human check, and naming Cloudflare in your privacy notice if it does |
 | [Hosting](#8-hosting-outside-vercel-and-heroku) | Supports the Node.js runtime only | Where it runs, and that host's logs |
 
 ## 1. Telling visitors they talk to an AI
@@ -126,7 +126,10 @@ A blocked turn ends with the `content_blocked` error, and nothing blocked or red
 
 ## 7. Bot protection
 
-Coming in 0.5: an optional human check with Cloudflare Turnstile when a chat session starts ([ADR-0019](adr/0019-compliance-and-guardrails.md)). Until then, the rate limits and daily token budgets bound what an abuser can spend ([Going public](going-public.md#3-bot-configuration), [Costs](costs.md)).
+By default, rate limits and daily token budgets bound what an abuser can spend ([Going public](going-public.md#3-bot-configuration), [Costs](costs.md)). Two options make that stricter, and both are off until you turn them on ([ADR-0019](adr/0019-compliance-and-guardrails.md)):
+
+- **A human check.** With `security.humanVerifier: turnstile({ siteKey })`, visitors pass Cloudflare Turnstile before a chat session starts, and the server checks the token with Cloudflare ([Configuration](configuration.md#human-check)). Turnstile runs Cloudflare's script in the chat, with the chat's access to the page it runs in (the widget's iframe, or your own page for a chat inside it), and sends Cloudflare data about the visitor's browser, including the IP address, so Cloudflare becomes a processor to name in your privacy notice. Anonymous visitors meet the check at their first action (a message, an upload, or loading a stored conversation); on a page that signs visitors in with `askdare('identify')`, the check shows as the chat loads. Whether the check needs consent where you operate, for example under the ePrivacy rules on reading from a visitor's device, is for your legal advisers. askdare never sends Cloudflare the conversation or the visitor's identity.
+- **Shared counters required.** With `limits: { requireSharedStore: true }`, the route refuses to start without a shared store, so limits can't silently become per instance ([Custom rate-limit store](custom-store.md#the-shared-flag)).
 
 ## 8. Hosting outside Vercel and Heroku
 

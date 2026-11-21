@@ -1,6 +1,6 @@
 // ==== embed.d.ts ====
 
-import { d as EmbedChatConfig, i as ToolRenderers } from "./tool-results.js";
+import { f as EmbedChatConfig, i as ToolRenderers } from "./tool-results.js";
 import { ReactElement, ReactNode } from "react";
 interface EmbedRootProps {
   /** From `getEmbedConfig()` in the page's Server Component. */
@@ -75,6 +75,8 @@ declare const EN: {
   readonly "launcher.open": "Open chat";
   readonly "launcher.close": "Close chat";
   readonly "launcher.unavailable": "The chat couldn’t load. Please try again later.";
+  readonly "humanCheck.label": "Checking that you’re human";
+  readonly "error.humanCheck": "We couldn’t confirm you’re human. Please try again.";
   readonly "error.connection": "Connection problem. Please try again.";
   readonly "error.history": "Could not load the previous conversation.";
   readonly "error.updated": "The assistant was updated. Please reload the page.";
@@ -113,6 +115,38 @@ declare const EN: {
 declare const PLURAL_BASES: readonly ["message.attachments"];
 declare const PLURAL_FORMS: readonly ["zero", "one", "two", "few", "many", "other"];
 type TextKey = keyof typeof EN | `${(typeof PLURAL_BASES)[number]}.${(typeof PLURAL_FORMS)[number]}`;
+/**
+ * The challenge the chat shows before a new session starts. Public: it is sent to browsers, so it
+ * holds the site key and never the secret.
+ */
+interface HumanChallenge {
+  /** Which widget the chat renders. Cloudflare Turnstile is the only one in 0.5. */
+  readonly provider: "turnstile";
+  /** The widget's public site key. */
+  readonly siteKey: string;
+}
+/** What a verifier gets with each token. */
+interface HumanCheckContext {
+  /** The bot the session is for. */
+  readonly botId: string;
+  /** Aborts when the check takes too long or the visitor goes away; pass it to `fetch`. */
+  readonly signal: AbortSignal;
+}
+/**
+ * Checks that a new session comes from a person (ADR-0004, ADR-0019). The chat renders
+ * `challenge`, and `/session` passes the token it got to `verify`. Renewals of a live session
+ * aren't checked again. Build one with `turnstile()`, or implement it to check the token some
+ * other way.
+ */
+interface HumanVerifier {
+  readonly challenge: HumanChallenge;
+  /**
+   * Resolves true when the token proves a person, false when it doesn't (invalid, expired or
+   * already used): the visitor is asked to try again. Throw when the check itself can't run, such
+   * as a missing secret or an outage: the session is refused and `onError` hears about it.
+   */
+  verify(token: string, context: HumanCheckContext): Promise<boolean>;
+}
 /** A signed-in user, as the site's backend vouched for it (ADR-0009). */
 interface VisitorIdentity {
   /** The site's own user ID: the JWT's `sub`. */
@@ -375,6 +409,12 @@ interface BotSecurity {
    * always allowed. Enforced by the browser through `frame-ancestors` (ADR-0004, ADR-0005).
    */
   readonly allowedOrigins?: readonly string[];
+  /**
+   * Asks for a human check before a new session starts, such as `turnstile({ siteKey })`
+   * (ADR-0019). The chat shows the challenge, and the iframe's CSP allows its provider. Renewals
+   * of a live session aren't checked again. Off when absent.
+   */
+  readonly humanVerifier?: HumanVerifier | undefined;
 }
 interface KnowledgeConfig {
   /** Vector store filled by `askdare kb sync`, usually `process.env.KB_VECTOR_STORE_ID`. */
@@ -542,16 +582,42 @@ declare const ERROR_CODES: readonly ["invalid_input", "unauthorized", "session_e
 type ErrorCode = (typeof ERROR_CODES)[number];
 declare const MESSAGE_END_REASONS: readonly ["completed", "max_steps", "max_output_tokens", "timeout", "content_filter", "aborted"];
 type MessageEndReason = (typeof MESSAGE_END_REASONS)[number];
-export { ThemeVariants as A, ToolDefinition as C, defineTheme as D, ThemeDefinition as E, PresetName as O, ToolContext as S, ColorScheme as T, GuardHook as _, RateLimitStore as a, ModerationConfig as b, BotDefinition as c, BotSecurity as d, KnowledgeConfig as f, GuardContext as g, defineBot as h, CounterHit as i, VisitorIdentity as j, ThemeTokens as k, BotHandle as l, WidgetConfig as m, ErrorCode as n, AttachmentConfig as o, VoiceConfig as p, MessageEndReason as r, BotContext as s, ERROR_CODES as t, BotLimits as u, GuardVerdict as v, defineTool as w, Tool as x, GuardrailOptions as y };
+export { ThemeVariants as A, ToolDefinition as C, defineTheme as D, ThemeDefinition as E, HumanChallenge as M, HumanCheckContext as N, PresetName as O, HumanVerifier as P, ToolContext as S, ColorScheme as T, GuardHook as _, RateLimitStore as a, ModerationConfig as b, BotDefinition as c, BotSecurity as d, KnowledgeConfig as f, GuardContext as g, defineBot as h, CounterHit as i, VisitorIdentity as j, ThemeTokens as k, BotHandle as l, WidgetConfig as m, ErrorCode as n, AttachmentConfig as o, VoiceConfig as p, MessageEndReason as r, BotContext as s, ERROR_CODES as t, BotLimits as u, GuardVerdict as v, defineTool as w, Tool as x, GuardrailOptions as y };
 
 // ==== index.d.ts ====
-import { A as ThemeVariants, C as ToolDefinition, D as defineTheme, E as ThemeDefinition, O as PresetName, S as ToolContext, T as ColorScheme, _ as GuardHook, a as RateLimitStore, b as ModerationConfig, c as BotDefinition, d as BotSecurity, f as KnowledgeConfig, g as GuardContext, h as defineBot, i as CounterHit, j as VisitorIdentity, k as ThemeTokens, l as BotHandle, m as WidgetConfig, n as ErrorCode, o as AttachmentConfig, p as VoiceConfig, s as BotContext, t as ERROR_CODES, u as BotLimits, v as GuardVerdict, w as defineTool, x as Tool, y as GuardrailOptions } from "./events.js";
+import { A as ThemeVariants, C as ToolDefinition, D as defineTheme, E as ThemeDefinition, M as HumanChallenge, N as HumanCheckContext, O as PresetName, P as HumanVerifier, S as ToolContext, T as ColorScheme, _ as GuardHook, a as RateLimitStore, b as ModerationConfig, c as BotDefinition, d as BotSecurity, f as KnowledgeConfig, g as GuardContext, h as defineBot, i as CounterHit, j as VisitorIdentity, k as ThemeTokens, l as BotHandle, m as WidgetConfig, n as ErrorCode, o as AttachmentConfig, p as VoiceConfig, s as BotContext, t as ERROR_CODES, u as BotLimits, v as GuardVerdict, w as defineTool, x as Tool, y as GuardrailOptions } from "./events.js";
 /**
  * Version of the SSE wire protocol between the askdare server and its clients.
  * Bumped on any breaking change to event names or payloads (ADR-0006).
  */
 export declare const PROTOCOL_VERSION: 1;
-export { type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type CounterHit, ERROR_CODES, type ErrorCode, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type KnowledgeConfig, type ModerationConfig, type PresetName, type RateLimitStore, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
+interface TurnstileOptions {
+  /** The widget's site key from the Cloudflare dashboard. Public: browsers receive it. */
+  readonly siteKey: string;
+  /**
+   * The widget's secret key. Default `process.env.TURNSTILE_SECRET_KEY`, read at the first check,
+   * so building the app never needs it.
+   */
+  readonly secretKey?: string;
+  /**
+   * Host names the challenge may have been solved on, compared with siteverify's `hostname`, such
+   * as `['www.example.com']`: the host of your chat route's app. Off by default, because the
+   * dashboard's hostname list already limits where the widget runs, and a proxy that serves the
+   * app under another name would be refused. Skipped with Cloudflare's test secret keys.
+   */
+  readonly hostnames?: readonly string[];
+}
+/**
+ * A `HumanVerifier` backed by Cloudflare Turnstile: the chat shows the Turnstile widget before a
+ * new session starts, and the server checks its token with Cloudflare's siteverify endpoint.
+ *
+ * ```ts
+ * // The site key is public; the secret key comes from TURNSTILE_SECRET_KEY.
+ * security: { humanVerifier: turnstile({ siteKey: '0x4AAAAAAA…' }) }
+ * ```
+ */
+export declare function turnstile(options: TurnstileOptions): HumanVerifier;
+export { type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type CounterHit, ERROR_CODES, type ErrorCode, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type HumanChallenge, type HumanCheckContext, type HumanVerifier, type KnowledgeConfig, type ModerationConfig, type PresetName, type RateLimitStore, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type TurnstileOptions, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
 
 // ==== next.d.ts ====
 import { A as ThemeVariants, O as PresetName, a as RateLimitStore, j as VisitorIdentity, l as BotHandle, n as ErrorCode, r as MessageEndReason } from "./events.js";
@@ -612,6 +678,16 @@ interface ChatConfig {
   };
   /** From `getChatConfig`, for a chat inside a page. The iframe links its own stylesheets. */
   readonly styles?: ChatStyles;
+  /**
+   * Absent unless the bot has `security.humanVerifier`: the challenge the chat shows before a new
+   * session starts, rendered by `HumanCheck`.
+   */
+  readonly humanCheck?: ChatHumanCheck;
+}
+/** A human check the chat must pass before it connects; public, the site key only. */
+interface ChatHumanCheck {
+  readonly provider: "turnstile";
+  readonly siteKey: string;
 }
 /** What `EmbedRoot` from `@boldare/askdare/embed` needs; `getEmbedConfig` builds it (ADR-0018). */
 interface EmbedChatConfig extends ChatConfig {
@@ -762,6 +838,12 @@ interface ChatHandlerLimitsOptions {
   readonly trustProxy?: TrustProxy;
   /** Input plus output tokens per UTC day across all bots. Unlimited by default. */
   readonly globalDailyTokens?: number;
+  /**
+   * Refuse to start without a shared `store`, instead of warning in production that limits are
+   * per instance (ADR-0019). For example `process.env.NODE_ENV === 'production'`, so development
+   * keeps the in-memory store. Default `false`.
+   */
+  readonly requireSharedStore?: boolean;
 }
 type RouteHandler = (request: Request) => Promise<Response>;
 interface ChatHandlers {
@@ -849,11 +931,11 @@ export declare function embedPageHeaders(options: {
   readonly bots: readonly BotHandle[];
   readonly bot: string;
 }): EmbedPageHeader[];
-export type { ChatAttachments, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlers, ChatStyles, ChatTokenUsage, ChatToolCallReport, ChatUsageReport, ChatWidget, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, RouteHandler, TrustProxy };
+export type { ChatAttachments, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlers, ChatHumanCheck, ChatStyles, ChatTokenUsage, ChatToolCallReport, ChatUsageReport, ChatWidget, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, RouteHandler, TrustProxy };
 
 // ==== react.d.ts ====
 
-import { a as ToolResults, c as ChatConfig, f as PresetName, i as ToolRenderers, l as ChatStyles, n as LinkProps, o as ToolResultsProps, p as ThemeVariants, r as ToolRendererProps, s as ChatAttachments, t as Link, u as ChatWidget } from "./tool-results.js";
+import { a as ToolResults, c as ChatConfig, d as ChatWidget, i as ToolRenderers, l as ChatHumanCheck, m as ThemeVariants, n as LinkProps, o as ToolResultsProps, p as PresetName, r as ToolRendererProps, s as ChatAttachments, t as Link, u as ChatStyles } from "./tool-results.js";
 import { ComponentProps, ComponentType, NamedExoticComponent, ReactElement, ReactNode, Ref } from "react";
 /** One tool call's payload, as the `tool.ui` event and the history carry it. */
 interface ToolUi {
@@ -995,6 +1077,8 @@ interface ChatState {
   readonly ratings: Readonly<Record<string, Rating>>;
   /** The id of the answer just rated 👎, while the chat asks what went wrong. */
   readonly commenting: string | undefined;
+  /** The chat waits for the visitor to pass the bot's human check before it connects. */
+  readonly humanCheck: boolean;
 }
 /**
  * What happened in the chat, for the page's analytics and reactions (ADR-0013). Metadata only:
@@ -1085,6 +1169,8 @@ declare const EN: {
   readonly "launcher.open": "Open chat";
   readonly "launcher.close": "Close chat";
   readonly "launcher.unavailable": "The chat couldn’t load. Please try again later.";
+  readonly "humanCheck.label": "Checking that you’re human";
+  readonly "error.humanCheck": "We couldn’t confirm you’re human. Please try again.";
   readonly "error.connection": "Connection problem. Please try again.";
   readonly "error.history": "Could not load the previous conversation.";
   readonly "error.updated": "The assistant was updated. Please reload the page.";
@@ -1256,6 +1342,13 @@ interface FeedbackButtonProps extends ComponentProps<"button"> {
  * be rated. After 👎 the chat's `state.commenting` names the answer to ask about.
  */
 export declare function FeedbackButton({ rating, onClick, ...props }: FeedbackButtonProps): ReactElement | null;
+type HumanCheckProps = Omit<ComponentProps<"div">, "children">;
+/**
+ * The bot's human check (`security.humanVerifier`), shown while the chat waits for it before it
+ * connects; nothing otherwise. The default look includes it; a headless chat whose bot has a check
+ * must render it, or it can't connect.
+ */
+export declare function HumanCheck(props: HumanCheckProps): ReactElement | null;
 /**
  * Renders model output as markdown (GFM) without ever producing raw HTML: marked only tokenizes,
  * and each token becomes an element here. HTML in the source is dropped, links are limited to
@@ -1363,7 +1456,7 @@ interface RootProps {
  * take what `askdare('identify')` and `askdare('configure')` take, checked the same way.
  */
 export declare function Root({ config, identity, context, greeting, starters, onEvent, toolRenderers, children }: RootProps): ReactElement;
-export { type AttachButtonProps, type Chat, type ChatActions, type ChatAttachments, type ChatBot, type ChatConfig, type ChatEvent, type ChatEventListener, type ChatEventType, type ChatMessage, type ChatPhase, type ChatState, type ChatStyles, type ChatWidget, type Citation, type CitationsProps, type ComposerProps, type DefaultChatComponents, type DefaultChatProps, type DictateButtonProps, type Dictation, type DisclosureProps, type ErrorMessageProps, type FeedbackButtonProps, type FilesProps, type Frame, type InputProps, Link, type LinkProps, type MarkdownProps, type MessageFilesProps, type MessageListProps, type MessageProps, type MessageTextProps, type MessagesProps, type PanelProps, type PendingFile, type QuickRepliesProps, type Rating, type RecorderProps, type RootProps, type SendProps, type SentFile, type StatusProps, type ThemeProps, type ToolRendererProps, type ToolRenderers, ToolResults, type ToolResultsProps, type ToolUi, type Translate };
+export { type AttachButtonProps, type Chat, type ChatActions, type ChatAttachments, type ChatBot, type ChatConfig, type ChatEvent, type ChatEventListener, type ChatEventType, type ChatHumanCheck, type ChatMessage, type ChatPhase, type ChatState, type ChatStyles, type ChatWidget, type Citation, type CitationsProps, type ComposerProps, type DefaultChatComponents, type DefaultChatProps, type DictateButtonProps, type Dictation, type DisclosureProps, type ErrorMessageProps, type FeedbackButtonProps, type FilesProps, type Frame, type HumanCheckProps, type InputProps, Link, type LinkProps, type MarkdownProps, type MessageFilesProps, type MessageListProps, type MessageProps, type MessageTextProps, type MessagesProps, type PanelProps, type PendingFile, type QuickRepliesProps, type Rating, type RecorderProps, type RootProps, type SendProps, type SentFile, type StatusProps, type ThemeProps, type ToolRendererProps, type ToolRenderers, ToolResults, type ToolResultsProps, type ToolUi, type Translate };
 
 // ==== tool-results.d.ts ====
 
@@ -1439,6 +1532,16 @@ interface ChatConfig {
   };
   /** From `getChatConfig`, for a chat inside a page. The iframe links its own stylesheets. */
   readonly styles?: ChatStyles;
+  /**
+   * Absent unless the bot has `security.humanVerifier`: the challenge the chat shows before a new
+   * session starts, rendered by `HumanCheck`.
+   */
+  readonly humanCheck?: ChatHumanCheck;
+}
+/** A human check the chat must pass before it connects; public, the site key only. */
+interface ChatHumanCheck {
+  readonly provider: "turnstile";
+  readonly siteKey: string;
 }
 /** What `EmbedRoot` from `@boldare/askdare/embed` needs; `getEmbedConfig` builds it (ADR-0018). */
 interface EmbedChatConfig extends ChatConfig {
@@ -1495,4 +1598,4 @@ type LinkProps = Omit<ComponentProps<"a">, "href" | "target" | "rel"> & {
  * the text alone.
  */
 declare function Link({ href, children, ...props }: LinkProps): ReactElement;
-export { ToolResults as a, ChatConfig as c, EmbedChatConfig as d, PresetName as f, ToolRenderers as i, ChatStyles as l, LinkProps as n, ToolResultsProps as o, ThemeVariants as p, ToolRendererProps as r, ChatAttachments as s, Link as t, ChatWidget as u };
+export { ToolResults as a, ChatConfig as c, ChatWidget as d, EmbedChatConfig as f, ToolRenderers as i, ChatHumanCheck as l, ThemeVariants as m, LinkProps as n, ToolResultsProps as o, PresetName as p, ToolRendererProps as r, ChatAttachments as s, Link as t, ChatStyles as u };

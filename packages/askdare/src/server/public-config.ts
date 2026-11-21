@@ -51,5 +51,14 @@ export function publicConfig(bot: Bot, basePath: string, view: PublicView = {}):
     },
     ...(bot.attachments ? { attachments: bot.attachments } : {}),
     ...(bot.voice ? { voice: { maxSeconds: bot.voice.maxSeconds } } : {}),
+    // The site key alone, whatever else a custom verifier carries.
+    ...(bot.security.humanVerifier
+      ? {
+          humanCheck: {
+            provider: bot.security.humanVerifier.challenge.provider,
+            siteKey: bot.security.humanVerifier.challenge.siteKey,
+          },
+        }
+      : {}),
   };
 }

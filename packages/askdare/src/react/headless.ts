@@ -1,7 +1,7 @@
 // The headless part of @boldare/askdare/react: hooks and primitives without the default look.
 // The skin imports only this (as '@boldare/askdare/react'), so an ejected copy compiles against
 // the published entry (ADR-0011).
-export type { ChatAttachments, ChatConfig, ChatWidget } from '../chat/config';
+export type { ChatAttachments, ChatConfig, ChatHumanCheck, ChatWidget } from '../chat/config';
 export type { ChatEvent, ChatEventListener, ChatEventType } from '../chat/events';
 export type { Translate } from '../chat/reducer';
 export type {
@@ -39,6 +39,8 @@ export type { DisclosureProps } from './disclosure';
 export { Disclosure } from './disclosure';
 export type { FeedbackButtonProps } from './feedback';
 export { FeedbackButton } from './feedback';
+export type { HumanCheckProps } from './human-check';
+export { HumanCheck } from './human-check';
 export type { MarkdownProps } from './markdown';
 export { Markdown } from './markdown';
 export type {

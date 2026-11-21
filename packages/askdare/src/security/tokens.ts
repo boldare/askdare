@@ -48,6 +48,12 @@ export interface AccessGrant {
   readonly identity?: VerifiedIdentity | undefined;
 }
 
+/** What a renewal learns from the previous access token. */
+export interface RenewalGrant extends AccessGrant {
+  /** When the visitor passed the bot's human check (Unix seconds); absent when never (ADR-0023). */
+  readonly humanCheckedAt?: number | undefined;
+}
+
 export interface ResumeGrant {
   readonly visitorId: string;
   readonly conversationId: string;
@@ -82,6 +88,8 @@ export interface TokenService {
     botId: string,
     visitorId: string,
     identity?: VerifiedIdentity | undefined,
+    /** When the visitor passed the bot's human check, in Unix seconds; carried across renewals. */
+    humanCheckedAt?: number | undefined,
   ): Promise<IssuedToken>;
   /** Throws `unauthorized` or `session_expired`. */
   verifyAccess(token: string, botId: string): Promise<AccessGrant>;
@@ -89,7 +97,7 @@ export interface TokenService {
    * For session renewal: accepts an access token up to 1 hour past its expiry, so a visitor keeps
    * their identity (and their uploaded files) before they have a conversation. Throws `unauthorized`.
    */
-  verifyRenewal(token: string, botId: string): Promise<AccessGrant>;
+  verifyRenewal(token: string, botId: string): Promise<RenewalGrant>;
   /**
    * A stable pseudonym for an ID: an HMAC with a key from CHAT_SECRET, so guessing the ID doesn't
    * reveal it. It changes when the secret rotates.
@@ -213,15 +221,18 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
   }
 
   return {
-    issueAccess: (botId, visitorId, identity) =>
+    issueAccess: (botId, visitorId, identity, humanCheckedAt) =>
       issue(
         ACCESS_TYP,
         botId,
         visitorId,
         // A signed-in session ends with the identity token, then renews with the page's latest one.
         identity ? Math.max(1, Math.min(accessTtl, identity.expiresAt - now())) : accessTtl,
-        // An object, not a JSON string: escaping it twice would bloat the token.
-        identity ? { idn: { ...identity.identity }, ixp: identity.expiresAt } : {},
+        {
+          // An object, not a JSON string: escaping it twice would bloat the token.
+          ...(identity ? { idn: { ...identity.identity }, ixp: identity.expiresAt } : {}),
+          ...(humanCheckedAt === undefined ? {} : { hv: humanCheckedAt }),
+        },
       ),
 
     async verifyAccess(token, botId) {
@@ -245,7 +256,12 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
         if (typeof payload.sub !== 'string' || !VISITOR_ID.test(payload.sub)) {
           throw new AskdareError('unauthorized');
         }
-        return { visitorId: payload.sub, identity: identityOf(payload, now()) };
+        const { hv } = payload;
+        return {
+          visitorId: payload.sub,
+          identity: identityOf(payload, now()),
+          ...(typeof hv === 'number' && Number.isFinite(hv) ? { humanCheckedAt: hv } : {}),
+        };
       } catch (error) {
         throw new AskdareError('unauthorized', { cause: error });
       }
