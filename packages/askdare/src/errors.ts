@@ -78,3 +78,39 @@ export function toAskdareError(error: unknown): AskdareError {
 export function scrub(text: string): string {
   return text.replace(/\b(sk|rk)-[A-Za-z0-9_-]{6,}/g, (key) => `${key.slice(0, 3)}…`);
 }
+
+/** Longer quoted values in an error message may be the visitor's text, not configuration. */
+const LONG_QUOTE = /(['"`])[^'"`]{33,}\1/g;
+const MAX_MESSAGE = 300;
+
+/**
+ * An error message fit for a log line: API keys cut down to their prefix (a 401 quotes part of the
+ * key), quoted values longer than 32 characters replaced (a 400 can quote the value it rejected,
+ * which may be what the visitor wrote), and the whole capped. Model names, parameters and IDs stay.
+ */
+export function loggableMessage(message: string): string {
+  const text = scrub(message).replace(LONG_QUOTE, (_, quote: string) => `${quote}[…]${quote}`);
+  return text.length > MAX_MESSAGE ? `${text.slice(0, MAX_MESSAGE)}…` : text;
+}
+
+/**
+ * The cause of an error as the server logs it when no `onError` is set (ADR-0004: no content in
+ * logs): an `Error` keeps its name, stack frames and status, code and request ID, with its message
+ * passed through {@link loggableMessage}; a string is cleaned the same way; anything else is
+ * logged as its type only.
+ */
+export function forLog(cause: unknown): unknown {
+  if (cause === undefined) return undefined;
+  if (typeof cause === 'string') return loggableMessage(cause);
+  if (!(cause instanceof Error)) return `[${typeof cause}]`;
+  const copy = new Error(loggableMessage(cause.message));
+  copy.name = cause.name;
+  const frames = (cause.stack ?? '').split('\n').filter((line) => /^\s+at /.test(line));
+  copy.stack = [`${copy.name}: ${copy.message}`, ...frames].join('\n');
+  const { status, code, requestId } = cause as Error & Record<string, unknown>;
+  return Object.assign(copy, {
+    ...(status === undefined ? {} : { status }),
+    ...(code === undefined ? {} : { code }),
+    ...(requestId === undefined ? {} : { requestId }),
+  });
+}
