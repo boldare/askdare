@@ -1,5 +1,20 @@
 # @boldare/askdare
 
+## 0.5.0
+
+### Minor Changes
+
+- 1b94b92: Built-in texts in Czech, German, Spanish, French and Italian, next to English and Polish. `widget.locale` set to one of these languages, or `'auto'` on a page or browser in one of them, now shows the chat and the launcher in that language with no `widget.texts` of your own. Your overrides still win. Other languages keep showing English.
+
+### Patch Changes
+
+- 8744972: New guide, `docs/compliance.md`: what the AI Act, the GDPR and the European Accessibility Act ask of a website chatbot, what askdare does about each, and the decisions left to you. It covers the AI disclosure, OpenAI's DPA, retention and deletion, `safety_identifier`, OpenAI's data residency (which doesn't cover the Conversations API askdare uses), the resume token in a chat inside your page, and hosts other than Vercel and Heroku (Docker, `next start`, OpenNext; no Edge runtime). It isn't legal advice.
+- b5f3c44: A conversation that outgrows the model's context window now ends with "This conversation is too long. Please start a new one." (`invalid_input`, key `error.conversationTooLong`) instead of a generic "temporarily unavailable" error, should OpenAI ever refuse it. askdare keeps sending the deprecated `truncation: 'auto'` until OpenAI announces a shutdown date, so long conversations keep working as before.
+- 6aacbb8: `askdare doctor` warns when OpenAI has announced a shutdown date for a bot's model or its transcription model, with the date from the OpenAI API and a link to OpenAI's deprecations page for the replacement.
+- 08a1b01: A bot's `widget.css` can no longer reach the host page when the chat is inside a page. A stray `}` used to close the `@scope` block early, so a typo like `a { color: red } } body { display: none }` applied `body { display: none }` to the whole page. Stray closing braces are now dropped, and unclosed blocks or strings are closed, so every rule stays scoped to the chat.
+- 0c0ccda: Server logs no longer risk carrying what a visitor wrote. When OpenAI rejects a request with a message that quotes the value it refused, or any other failure reaches the default error log (no `onError` set), quoted values longer than 32 characters are replaced, API keys are cut to their prefix and the message is capped at 300 characters. Status, error code, request ID and stack frames stay, so the logs remain useful for debugging.
+- a190bcd: Streamed answers stay smooth however long they get: `Markdown` now re-lexes and re-renders only the last blocks of a message on each delta, instead of the whole answer. Sanitizing is unchanged.
+
 ## 0.4.0
 
 ### Minor Changes
