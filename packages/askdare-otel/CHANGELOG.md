@@ -1,5 +1,18 @@
 # @boldare/askdare-otel
 
+## 0.1.3
+
+### Patch Changes
+
+- Updated dependencies [8744972]
+- Updated dependencies [b5f3c44]
+- Updated dependencies [6aacbb8]
+- Updated dependencies [08a1b01]
+- Updated dependencies [0c0ccda]
+- Updated dependencies [1b94b92]
+- Updated dependencies [a190bcd]
+  - @boldare/askdare@0.5.0
+
 ## 0.1.2
 
 ### Patch Changes
