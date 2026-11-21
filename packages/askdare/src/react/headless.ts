@@ -35,6 +35,8 @@ export {
 } from './composer';
 export type { Chat, ChatBot, Frame } from './context';
 export { useChat, useChatState, useFrame, useMessage } from './context';
+export type { DisclosureProps } from './disclosure';
+export { Disclosure } from './disclosure';
 export type { FeedbackButtonProps } from './feedback';
 export { FeedbackButton } from './feedback';
 export type { MarkdownProps } from './markdown';

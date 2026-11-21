@@ -20,6 +20,8 @@ export interface DoctorReport {
     readonly checks: readonly DoctorCheck[];
     /** How long one of the bot's answers may take, to compare with the route's maxDuration. */
     readonly turnTimeoutMs?: number | undefined;
+    /** False when the bot hides the AI notice (`widget.disclosure: false`); absent from older apps. */
+    readonly disclosure?: boolean | undefined;
     /** For a bot with `embedPath`: what its page must allow, for the CLI to check (ADR-0018). */
     readonly embed?: BotEmbed | undefined;
   }[];
@@ -48,6 +50,7 @@ export const doctorReportSchema: z.ZodType<DoctorReport> = z.object({
         id: z.string().max(48),
         checks: z.array(check).max(20),
         turnTimeoutMs: z.number().int().positive().optional(),
+        disclosure: z.boolean().optional(),
         embed: z
           .object({
             path: z.string().refine(isEmbedPath),

@@ -43,6 +43,10 @@ test('chats in the page with the default look, and keeps the conversation', asyn
   await expect(panel).toHaveCSS('font-family', /Plus Jakarta Sans/);
   expect((await page.locator('.inline-chat').boundingBox())?.height).toBeCloseTo(640, 0);
   expect((await panel.boundingBox())?.height).toBeGreaterThan(630);
+  // The AI notice (EU AI Act, art. 50), from the Disclosure primitive in the default look.
+  await expect(chat.locator('[data-ask-part="disclosure"]')).toHaveText(
+    'You’re chatting with an AI assistant. It can make mistakes.',
+  );
 
   const reply = await send(chat, 'Hello **there**');
   await expect(reply).toContainText('You said: Hello there');
@@ -150,6 +154,8 @@ test('works with markup written by the page', async ({ page }) => {
   await page.goto(`${APP}/inline/headless`);
   const chat = page.locator('.plain-chat');
   await expect(chat.getByText('Ask in your own markup')).toBeVisible();
+  // The page's markup places the AI notice with the Disclosure primitive.
+  await expect(chat.locator('[data-ask-part="disclosure"]')).toContainText('AI assistant');
   // No default look: its stylesheet is not even requested.
   expect(await page.locator('link[href*="/assets/skin."]').count()).toBe(0);
   const reply = await send(chat, 'Hello from my markup');

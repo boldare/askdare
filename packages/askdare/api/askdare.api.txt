@@ -1167,6 +1167,13 @@ export declare function useChat(): Chat;
 export declare function useChatState<T>(select: (state: ChatState) => T): T;
 /** The message being rendered, inside `MessageList`. */
 export declare function useMessage(): ChatMessage;
+type DisclosureProps = ComponentProps<"p">;
+/**
+ * The AI notice (EU AI Act, art. 50): `disclosure.text`, with a link to the bot's
+ * `widget.disclosure.privacyUrl` when it has one. Children replace the text with your own notice.
+ * Renders nothing when the bot sets `disclosure: false`.
+ */
+export declare function Disclosure({ children, ...props }: DisclosureProps): ReactElement | null;
 interface FeedbackButtonProps extends ComponentProps<"button"> {
   /** What a click rates the answer: 👍 `up` or 👎 `down`. A second click takes the rating back. */
   readonly rating: Rating;
@@ -1282,7 +1289,7 @@ interface RootProps {
  * take what `askdare('identify')` and `askdare('configure')` take, checked the same way.
  */
 export declare function Root({ config, identity, context, greeting, starters, onEvent, toolRenderers, children }: RootProps): ReactElement;
-export { type AttachButtonProps, type Chat, type ChatActions, type ChatAttachments, type ChatBot, type ChatConfig, type ChatEvent, type ChatEventListener, type ChatEventType, type ChatMessage, type ChatPhase, type ChatState, type ChatStyles, type ChatWidget, type Citation, type CitationsProps, type ComposerProps, type DefaultChatComponents, type DefaultChatProps, type DictateButtonProps, type Dictation, type ErrorMessageProps, type FeedbackButtonProps, type FilesProps, type Frame, type InputProps, Link, type LinkProps, type MarkdownProps, type MessageFilesProps, type MessageListProps, type MessageProps, type MessageTextProps, type MessagesProps, type PanelProps, type PendingFile, type QuickRepliesProps, type Rating, type RecorderProps, type RootProps, type SendProps, type SentFile, type StatusProps, type ThemeProps, type ToolRendererProps, type ToolRenderers, ToolResults, type ToolResultsProps, type ToolUi, type Translate };
+export { type AttachButtonProps, type Chat, type ChatActions, type ChatAttachments, type ChatBot, type ChatConfig, type ChatEvent, type ChatEventListener, type ChatEventType, type ChatMessage, type ChatPhase, type ChatState, type ChatStyles, type ChatWidget, type Citation, type CitationsProps, type ComposerProps, type DefaultChatComponents, type DefaultChatProps, type DictateButtonProps, type Dictation, type DisclosureProps, type ErrorMessageProps, type FeedbackButtonProps, type FilesProps, type Frame, type InputProps, Link, type LinkProps, type MarkdownProps, type MessageFilesProps, type MessageListProps, type MessageProps, type MessageTextProps, type MessagesProps, type PanelProps, type PendingFile, type QuickRepliesProps, type Rating, type RecorderProps, type RootProps, type SendProps, type SentFile, type StatusProps, type ThemeProps, type ToolRendererProps, type ToolRenderers, ToolResults, type ToolResultsProps, type ToolUi, type Translate };
 
 // ==== tool-results.d.ts ====
 

@@ -158,6 +158,7 @@ export function PlainChat({ config }: { config: Chat.ChatConfig }) {
           <Chat.Recorder />
           <Chat.Send>Send</Chat.Send>
         </Chat.Composer>
+        <Chat.Disclosure />
       </Chat.Panel>
     </Chat.Root>
   );
@@ -165,6 +166,8 @@ export function PlainChat({ config }: { config: Chat.ChatConfig }) {
 ```
 
 Without `Theme` and `DefaultChat`, no stylesheet of the chat loads: the look is all yours.
+
+**Keep the AI notice.** Visitors must be told they are talking to an AI (EU AI Act, art. 50; see [Compliance](compliance.md#1-telling-visitors-they-talk-to-an-ai)). `DefaultChat` shows it under the message field. In your own markup, place `Disclosure`. In development, `Root` notes once in the console when the chat rendered without one. Set `widget.disclosure: false` in `defineBot` when your page already tells visitors; that hides `Disclosure` and silences the note.
 
 | Primitive | Element | What it does |
 | --- | --- | --- |
@@ -190,6 +193,7 @@ Without `Theme` and `DefaultChat`, no stylesheet of the chat loads: the look is 
 | `Recorder` | `div` | The running dictation, with cancel and done. Renders nothing otherwise. |
 | `Status` | `p` | What the assistant is doing before it writes, or that a conversation is loading. |
 | `ErrorMessage` | `p` | The latest problem, in the visitor's language. |
+| `Disclosure` | `p` | The AI notice (`disclosure.text`), with a link to `widget.disclosure.privacyUrl` when the bot has one. Children replace the text with your own wording. Renders nothing with `disclosure: false`. |
 
 Primitives that have nothing to show render nothing, so you can place them without conditions.
 
