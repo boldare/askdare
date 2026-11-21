@@ -1,4 +1,9 @@
 import { formatText, pluralText } from './format';
+import { CS } from './locales/cs';
+import { DE } from './locales/de';
+import { ES } from './locales/es';
+import { FR } from './locales/fr';
+import { IT } from './locales/it';
 
 export { formatText, pluralText };
 
@@ -100,7 +105,12 @@ export type TextKey =
   | `${(typeof PLURAL_BASES)[number]}.${(typeof PLURAL_FORMS)[number]}`;
 export type Texts = Readonly<Record<TextKey, string>>;
 
-const PL: Partial<Record<TextKey | `${string}.${'few' | 'many'}`, string>> = {
+/** A built-in translation: every key of the English dictionary, plus the plural forms it needs. */
+export type Dictionary = Readonly<
+  Record<keyof typeof EN, string> & Partial<Record<TextKey, string>>
+>;
+
+const PL: Dictionary = {
   'header.title': 'Asystent',
   'header.newConversation': 'Zacznij nową rozmowę',
   'header.close': 'Zamknij czat',
@@ -192,11 +202,16 @@ const PL: Partial<Record<TextKey | `${string}.${'few' | 'many'}`, string>> = {
 export { canonicalLocale } from './locale';
 
 /** Languages with a built-in dictionary; any other locale shows English texts. */
-export const TEXT_LOCALES = ['en', 'pl'] as const;
+export const TEXT_LOCALES = ['en', 'cs', 'de', 'es', 'fr', 'it', 'pl'] as const;
 export type TextLocale = (typeof TEXT_LOCALES)[number];
 
 const DICTIONARIES: Readonly<Record<TextLocale, Readonly<Record<string, string>>>> = {
   en: EN,
+  cs: { ...EN, ...CS },
+  de: { ...EN, ...DE },
+  es: { ...EN, ...ES },
+  fr: { ...EN, ...FR },
+  it: { ...EN, ...IT },
   pl: { ...EN, ...PL },
 };
 
@@ -216,7 +231,7 @@ export const TEXT_KEYS: readonly TextKey[] = [
 
 /**
  * The full dictionary for a locale with overrides applied. Plural forms beyond `one`/`other`
- * (Polish `few`, `many`) are kept too, so the widget can pick them.
+ * (Polish and Czech `few`, `many`) are kept too, so the widget can pick them.
  */
 export function textsFor(
   locale: string,

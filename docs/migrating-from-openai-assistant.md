@@ -19,7 +19,7 @@ Most deployments take an afternoon. The assistant's instructions, its tools and 
 | `tts-1` text to speech | Not available. OpenAI is retiring its text-to-speech models. |
 | Annotations resolved with a file lookup per citation | Citations with a title and a link to your page, set by `kb sync`. |
 | The `ai-embedded` iframe and its `postMessage` | One `<script>` tag. The chat runs in an iframe that only the sites in `allowedOrigins` may embed. See [Embedding](embedding.md). |
-| Angular widget configured at build time | Widget settings in `defineBot({ widget })`: four themes, English and Polish texts, your own CSS. See [Styling](styling.md) and [Themes](themes.md). |
+| Angular widget configured at build time | Widget settings in `defineBot({ widget })`: four themes, texts in seven languages, your own CSS. See [Styling](styling.md) and [Themes](themes.md). |
 | No sign-in, CORS open to every origin | Short-lived session tokens, rate limits, daily token budgets and an origin allowlist by default. See [Going public](going-public.md). |
 
 ## Steps
