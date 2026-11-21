@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFixtureStore } from '../chat/fixture-store';
 import { echo, fakeServer, testConfig } from '../chat/testing/fake-server';
 import { textsFor } from '../i18n/texts';
+import type { ProtocolEvent } from '../protocol/events';
 import { ChatProvider } from './context';
 import {
   Citations,
@@ -23,6 +24,9 @@ import {
   useMessage,
 } from './headless';
 import { DefaultPanel } from './skin';
+
+/** The answer's bubble, not its copy in the screen-reader announcement. */
+const ANSWER = { ignore: 'script, style, [data-ask-part="announcement"]' };
 
 beforeEach(() => {
   localStorage.clear();
@@ -52,7 +56,7 @@ describe('Root and the default look', () => {
       expect(screen.getByRole('button', { name: 'Send' }).hasAttribute('disabled')).toBe(false),
     );
     fireEvent.keyDown(field, { key: 'Enter' });
-    await screen.findByText('You said: Hello');
+    await screen.findByText('You said: Hello', ANSWER);
     expect(document.querySelectorAll('[data-ask-part="message"]')).toHaveLength(2);
   });
 
@@ -127,7 +131,7 @@ describe('Root and the default look', () => {
       expect(screen.getByRole('button', { name: 'Send' }).hasAttribute('disabled')).toBe(false),
     );
     fireEvent.keyDown(field, { key: 'Enter' });
-    await screen.findByText('You said: Hello');
+    await screen.findByText('You said: Hello', ANSWER);
     await waitFor(() =>
       expect(second).toHaveBeenCalledWith(expect.objectContaining({ type: 'message.received' })),
     );
@@ -157,7 +161,7 @@ describe('Root and the default look', () => {
       expect(screen.getByRole('button', { name: 'Send' }).hasAttribute('disabled')).toBe(false),
     );
     fireEvent.keyDown(field, { key: 'Enter' });
-    await screen.findByText('You said: Hello');
+    await screen.findByText('You said: Hello', ANSWER);
     view.unmount();
     expect(onEvent).toHaveBeenLastCalledWith(
       expect.objectContaining({ type: 'message.received', outcome: 'stopped' }),
@@ -194,7 +198,7 @@ describe('Root and the default look', () => {
       expect(screen.getByRole('button', { name: 'Send' }).hasAttribute('disabled')).toBe(false),
     );
     fireEvent.keyDown(field, { key: 'Enter' });
-    await screen.findByText('You said: Hello');
+    await screen.findByText('You said: Hello', ANSWER);
     const requests = server.requests.length;
 
     const english = testConfig();
@@ -216,7 +220,7 @@ describe('Root and the default look', () => {
     expect(await screen.findByRole('button', { name: 'Wyślij' })).toBeTruthy();
     expect(screen.getByRole('textbox').getAttribute('placeholder')).toBe('Napisz wiadomość…');
     // The same chat: the conversation stays, and the config came with the props.
-    expect(screen.getByText('You said: Hello')).toBeTruthy();
+    expect(screen.getByText('You said: Hello', ANSWER)).toBeTruthy();
     expect(server.requests.length).toBe(requests);
   });
 
@@ -355,7 +359,7 @@ describe('Root and the default look', () => {
     // The visitor moves on to the page's own form while the answer streams.
     const newsletter = screen.getByRole('textbox', { name: 'Newsletter' });
     newsletter.focus();
-    await screen.findByText('You said: Hello');
+    await screen.findByText('You said: Hello', ANSWER);
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Send' }).hasAttribute('disabled')).toBe(true),
     );
@@ -367,7 +371,7 @@ describe('Root and the default look', () => {
     await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
     button.focus();
     fireEvent.click(button);
-    await screen.findByText('You said: Again');
+    await screen.findByText('You said: Again', ANSWER);
     await waitFor(() => expect(document.activeElement).toBe(field));
   });
 
@@ -420,6 +424,81 @@ function Draft() {
     </button>
   );
 }
+
+describe('the announcement of a finished answer', () => {
+  const markdown = (text: string) =>
+    echo(text).map((event) =>
+      event.type === 'text.delta' ? { ...event, delta: `**${text}** is the answer.` } : event,
+    );
+  const announcement = () =>
+    document.querySelector('[data-ask-part="announcement"]') as HTMLElement;
+
+  async function ask(answer: (text: string) => readonly ProtocolEvent[]) {
+    const server = fakeServer({ holdAnswer: true, answer });
+    vi.stubGlobal('fetch', server.fetch);
+    render(
+      <Root config={testConfig()}>
+        <DefaultPanel />
+      </Root>,
+    );
+    const field = screen.getByRole('textbox');
+    fireEvent.change(field, { target: { value: 'Hello' } });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Send' }).hasAttribute('disabled')).toBe(false),
+    );
+    fireEvent.keyDown(field, { key: 'Enter' });
+    await screen.findByText('is the answer.', { exact: false, ...ANSWER });
+  }
+
+  it('is a status region outside the log, which itself is not a live region', () => {
+    render(
+      <Root config={testConfig()}>
+        <DefaultPanel />
+      </Root>,
+    );
+    expect(announcement().getAttribute('role')).toBe('status');
+    expect(announcement().closest('[role="log"]')).toBeNull();
+    expect(screen.getByRole('log').getAttribute('aria-live')).toBe('off');
+  });
+
+  it('says nothing while an answer streams', async () => {
+    await ask((text) => markdown(text).slice(0, 3));
+    expect(announcement().textContent).toBe('');
+  });
+
+  it('reads a finished answer once, as rendered text', async () => {
+    await ask(markdown);
+    await waitFor(() => expect(announcement().textContent).toBe('Hello is the answer.'));
+    expect(document.querySelectorAll('[data-ask-part="announcement"]')).toHaveLength(1);
+  });
+
+  it('does not read out a restored conversation', () => {
+    render(
+      <ChatProvider
+        store={createFixtureStore(testConfig(), {
+          messages: [
+            {
+              id: 'a1',
+              role: 'assistant',
+              text: 'An earlier answer.',
+              citations: [],
+              attachments: 0,
+              status: 'done',
+            },
+          ],
+        })}
+      >
+        <Messages>
+          <MessageList>
+            <MessageText />
+          </MessageList>
+        </Messages>
+      </ChatProvider>,
+    );
+    expect(screen.getByText('An earlier answer.')).toBeTruthy();
+    expect(announcement().textContent).toBe('');
+  });
+});
 
 describe('primitives', () => {
   const store = () =>
@@ -667,7 +746,7 @@ describe('primitives', () => {
     expect(reply.closest('[data-role="assistant"]')).toBeTruthy();
 
     fireEvent.click(reply);
-    await screen.findByText('You said: Show prices');
+    await screen.findByText('You said: Show prices', ANSWER);
     expect(screen.queryByRole('group', { name: 'Suggested replies' })).toBeNull();
     expect(screen.getByText('Show prices').closest('[data-role="user"]')).toBeTruthy();
     const sent = server.requests.filter((request) => request.path === '/messages');

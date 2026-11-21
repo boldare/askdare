@@ -173,7 +173,7 @@ Without `Theme` and `DefaultChat`, no stylesheet of the chat loads: the look is 
 | --- | --- | --- |
 | `Theme` | `div` | Sets the bot's tokens (`--ask-*`) and theme variants for everything inside, and loads the theme and its fonts. Takes `colorScheme`. |
 | `Panel` | `section` | The chat's frame, a region named after the bot. Files dropped on it are attached. |
-| `Messages` | `div` | The conversation, as a live region that follows the latest message. |
+| `Messages` | `div` | The conversation, a `log` that follows the latest message. Next to it, a visually hidden `status` (`data-ask-part="announcement"`) announces each finished answer once to screen readers. |
 | `MessageList` | none | Renders its children once per message. |
 | `Message` | `div` | One message, with `data-role` and `data-status`. |
 | `MessageText` | `div` | The text: the visitor's as typed, an answer as Markdown, typing dots before the first word. |

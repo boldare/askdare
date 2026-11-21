@@ -18,6 +18,9 @@ import {
 import { DefaultPanel } from './skin';
 import { ToolRenderersProvider } from './tool-results';
 
+/** The answer's bubble, not its copy in the screen-reader announcement. */
+const ANSWER = { ignore: 'script, style, [data-ask-part="announcement"]' };
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -240,7 +243,7 @@ describe('toolRenderers on Root', () => {
     const slot = await screen.findByRole('button', { name: '9:00' });
     expect(slot.closest('[data-role="assistant"]')).toBeTruthy();
     fireEvent.click(slot);
-    await screen.findByText('You said: Book 9:00');
+    await screen.findByText('You said: Book 9:00', ANSWER);
     const sent = server.requests.filter((request) => request.path === '/messages');
     expect(sent.at(-1)?.body['text']).toBe('Book 9:00');
   });

@@ -1196,8 +1196,10 @@ interface MarkdownProps {
 export declare const Markdown: NamedExoticComponent<MarkdownProps>;
 type MessagesProps = ComponentProps<"div">;
 /**
- * The conversation: a live region that follows the latest message as it streams. Holds the
- * welcome, the `MessageList` and the `Status`.
+ * The conversation, following the latest message as it streams. Holds the welcome, the
+ * `MessageList` and the `Status`. It is a log but not a live region: text growing inside a node is
+ * read in fragments or not at all, so a finished answer is announced once, through a status region
+ * next to it.
  */
 export declare function Messages({ ref, ...props }: MessagesProps): ReactElement;
 interface MessageListProps {
