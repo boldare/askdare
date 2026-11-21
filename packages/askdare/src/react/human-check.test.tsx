@@ -63,7 +63,12 @@ describe('HumanCheck in the default look', () => {
     const region = await screen.findByRole('group', { name: 'Checking that you’re human' });
     await waitFor(() => expect(widgets).toHaveLength(1));
     expect(widgets[0]?.element).toBe(region);
-    expect(widgets[0]?.options).toMatchObject({ sitekey: SITE_KEY, language: 'en' });
+    expect(widgets[0]?.options).toMatchObject({
+      sitekey: SITE_KEY,
+      language: 'en',
+      action: 'support',
+    });
+    expect(widgets[0]?.options).not.toHaveProperty('retry');
     expect(server.requests.some((request) => request.path === '/session')).toBe(false);
 
     act(() => callback(widgets[0], 'callback')('token-1'));
@@ -85,7 +90,16 @@ describe('HumanCheck in the default look', () => {
     );
     await send('Hello');
     await waitFor(() => expect(widgets).toHaveLength(1));
-    act(() => callback(widgets[0], 'error-callback')());
+    // Turnstile retries transient errors itself; only the third error fails the check.
+    const onError = widgets[0]?.options['error-callback'] as () => boolean;
+    act(() => {
+      expect(onError()).toBe(false);
+      expect(onError()).toBe(false);
+    });
+    expect(screen.getByRole('group', { name: 'Checking that you’re human' })).toBeTruthy();
+    act(() => {
+      expect(onError()).toBe(true);
+    });
     await screen.findByText('We couldn’t confirm you’re human. Please try again.');
     expect(server.requests.some((request) => request.path === '/session')).toBe(false);
 

@@ -153,7 +153,7 @@ To check that a site may embed the chat, run `npx @boldare/askdare doctor --orig
 
 #### Human check
 
-`security.humanVerifier` asks visitors to pass a human check before a new chat session starts ([ADR-0019](adr/0019-compliance-and-guardrails.md)). It is off when absent, and a bot without it works as before. askdare ships one verifier, for [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/):
+`security.humanVerifier` asks visitors to pass a human check before a new chat session starts ([ADR-0019](adr/0019-compliance-and-guardrails.md), [ADR-0023](adr/0023-human-check-and-react-budget.md)). It is off when absent, and a bot without it works as before. askdare ships one verifier, for [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/):
 
 ```ts
 import { defineBot, turnstile } from '@boldare/askdare';
@@ -172,15 +172,19 @@ defineBot({
 | --- | --- | --- | --- |
 | `siteKey` | `string` | required | The widget's site key from the Cloudflare dashboard. Browsers receive it. |
 | `secretKey` | `string` | `process.env.TURNSTILE_SECRET_KEY` | The widget's secret key, read at the first check, so `next build` doesn't need it. Never commit it. |
+| `hostnames` | `string[]` | not checked | Host names the challenge may have been solved on, compared with siteverify's `hostname`: your chat route's app, such as `['www.example.com']`. Off by default: the widget's hostname list in the Cloudflare dashboard already limits where it runs, and a proxy that serves the app under another name would be refused. |
 
 How it works:
 
-- When the chat needs a new session (the first message, a stored conversation to load, an upload), it shows the Turnstile widget in the chat (`HumanCheck`, part `human-check`) and waits for its token. In Turnstile's managed mode most visitors only see it for a moment.
+- When the chat needs a new session (the first message, a stored conversation to load, an upload), it shows the Turnstile widget in the chat (`HumanCheck`, part `human-check`) and waits for its token. In Turnstile's managed mode most visitors only see it for a moment. A page that calls `askdare('identify')` with a token (or `Root` with `identity`) opens the session at once, to find that user's conversation, so signed-in visitors see the check as the chat loads; anonymous visitors see it at their first action.
+- Turnstile retries a failed challenge or a network error by itself, every 8 seconds; the chat gives up at the third error and shows `error.humanCheck`.
 - `POST /session` sends the token to Cloudflare's siteverify endpoint, after the session rate limit. A token that fails, has expired or was already used answers `unauthorized`, with the text `error.humanCheck`; the next message shows a new challenge.
-- Renewing a live session (an access token at most an hour past its expiry) needs no new check. A visitor who comes back later with a stored conversation passes the check again.
+- The chat renders the widget with the bot's id as Turnstile's `action` (cut to 32 characters), and the server refuses a token whose `action` differs, such as one solved for another bot or another widget on the same site key. Cloudflare's test secret keys return no `action` and the hostname `example.com`, so with them neither the action nor `hostnames` is checked.
+- Renewing a live session (an access token at most an hour past its expiry) needs no new check, for **24 hours** after the check was passed. Then, and for sessions that never passed one (such as sessions from before the bot turned the check on), the visitor passes it again and keeps their session. A visitor who comes back later with a stored conversation passes the check again.
 - If Cloudflare can't be reached, or rejects the secret key, the session is refused (`upstream_error` or `bot_unavailable`) and `onError` receives it: the check fails closed.
 - The iframe's Content Security Policy adds `https://challenges.cloudflare.com` to `script-src` and `frame-src`, for this bot only ([Embedding](embedding.md#what-your-app-sends-back)). The loader on the host page doesn't change.
 - A chat inside your page (`Root`, `DefaultChat`) or your own page in the iframe (`embedPath`) runs under your page's policy: allow the same origin there. A headless chat must render `HumanCheck`, or it can't connect; the console says so.
+- **Cloudflare's script runs with your app's access.** `api.js` is loaded from `challenges.cloudflare.com` into the chat's document: the iframe, on your app's origin, or your own page for a chat inside it. There it can do what your own scripts can, such as read the conversation on screen and the resume token in storage. Cloudflare changes the script without notice, so it can't carry Subresource Integrity, and askdare loads it without. Turning the check on means trusting Cloudflare with that.
 
 Test it with Cloudflare's [test keys](https://developers.cloudflare.com/turnstile/troubleshooting/testing/), such as the site key `1x00000000000000000000AA` with the secret key `1x0000000000000000000000000000000AA`, which always pass.
 

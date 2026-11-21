@@ -573,10 +573,46 @@ describe('ChatClient with a human check', () => {
     await chat.send({ text: 'Again' }, (event) => events.push(event));
     expect(events.filter((event) => event.type === 'error')).toEqual([]);
     expect(asked).toBe(2);
+    // The check goes with the refused token, so the server can keep the visitor.
     expect(sessions.slice(1)).toEqual([
       { botId: 'support', accessToken: 'token-1' },
+      { botId: 'support', accessToken: 'token-1', humanToken: 'human' },
+    ]);
+  });
+
+  it('drops a refused renewal at once, so a failed check costs no second request later', async () => {
+    const { fetch, sessions, live } = guardedFetch();
+    let pass = true;
+    const chat = guardedClient(fetch, async () => {
+      if (pass) return 'human';
+      throw new Error('failed');
+    });
+    await chat.send({ text: 'Hi' }, () => {});
+    live.clear();
+    pass = false;
+    await chat.send({ text: 'Again' }, () => {});
+    pass = true;
+    await chat.send({ text: 'Once more' }, () => {});
+    expect(sessions.slice(1)).toEqual([
+      // Refused as a renewal; the check then fails before any request.
+      { botId: 'support', accessToken: 'token-1' },
+      // The next attempt goes straight to a new check, without the stale token.
       { botId: 'support', humanToken: 'human' },
     ]);
+  });
+
+  it('signs out without opening a session, so the check waits for the first action', async () => {
+    const { fetch, sessions } = guardedFetch();
+    let asked = 0;
+    const chat = guardedClient(fetch, async () => {
+      asked += 1;
+      return 'human';
+    });
+    await expect(chat.identify(null)).resolves.toBe(false);
+    expect(sessions).toHaveLength(0);
+    expect(asked).toBe(0);
+    await chat.send({ text: 'Hi' }, () => {});
+    expect(sessions[0]).toEqual({ botId: 'support', identityToken: null, humanToken: 'human' });
   });
 
   it('shows a localized error when the visitor fails the check, and sends nothing', async () => {

@@ -186,6 +186,18 @@ export class ChatClient {
     // Single-page apps may repeat it on every route change: only a change costs a request.
     if (token === this.#identity) return false;
     this.#identity = token;
+    // Signing out with no session: nothing to replace, and a bot with a human check shouldn't
+    // challenge before the visitor does anything. The next session carries the sign-out.
+    if (
+      token === null &&
+      this.#options.humanToken &&
+      !this.#session &&
+      !this.#opening &&
+      !this.#renewal &&
+      !this.#identityKey
+    ) {
+      return false;
+    }
     this.#identityChanged = true;
     await this.#opening?.catch(() => undefined);
     const before = this.#resumeKey();
@@ -477,14 +489,14 @@ export class ChatClient {
   }
 
   /** Not tied to one caller's signal, because other callers may be waiting for the same session. */
-  async #openSession(fresh = false): Promise<Session> {
+  async #openSession(stale?: string): Promise<Session> {
     const resumeToken = this.#options.storage.get(this.#resumeKey());
     // The previous access token keeps the same visitor, so files uploaded before a renewal stay theirs.
-    const accessToken = fresh ? undefined : (this.#session?.accessToken ?? this.#renewal);
+    const accessToken = stale ?? this.#session?.accessToken ?? this.#renewal;
     const identityToken = this.#identity;
     const sentFrom = this.#resumeKey();
-    // A renewal needs no human check; a new session does (ADR-0019).
-    const humanToken = accessToken ? undefined : await this.#humanToken();
+    // A renewal needs no human check; a new session, or one the server won't renew, does (ADR-0023).
+    const humanToken = accessToken && !stale ? undefined : await this.#humanToken();
     const response = await this.#fetch(`${this.#options.basePath}/session`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -496,9 +508,13 @@ export class ChatClient {
         ...(humanToken ? { humanToken } : {}),
       }),
     });
-    if (response.status === 401 && accessToken && this.#options.humanToken) {
-      // The session was too old to renew, so the server wants a new human check: start afresh.
-      return this.#openSession(true);
+    if (response.status === 401 && accessToken && !stale && this.#options.humanToken) {
+      // The server won't renew this session without a new human check (too old, or the check
+      // too long ago). Drop the token now, so no later attempt sends it again, and check once,
+      // still with it, so the server can keep the visitor.
+      this.#session = undefined;
+      this.#renewal = undefined;
+      return this.#openSession(accessToken);
     }
     // A refused session says nothing about the stored conversation: keep it.
     if (!response.ok) throw new SessionRefused(await this.#errorFromResponse(response, false));

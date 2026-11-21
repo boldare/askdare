@@ -1,5 +1,5 @@
 import { type ComponentProps, type ReactElement, useEffect, useRef } from 'react';
-import { TURNSTILE_SCRIPT } from '../security/human-verifier';
+import { TURNSTILE_SCRIPT, turnstileAction } from '../security/human-verifier';
 import { useChat, useChatConfig, useStore } from './context';
 
 export type HumanCheckProps = Omit<ComponentProps<'div'>, 'children'>;
@@ -12,6 +12,9 @@ interface TurnstileApi {
 
 let loading: Promise<TurnstileApi> | undefined;
 
+/** Errors (each followed by Turnstile's own retry) before the check counts as failed. */
+const MAX_ERRORS = 3;
+
 /** Turnstile's API, its script loaded once, when the first check is needed. */
 const turnstile = (): Promise<TurnstileApi> => {
   const ready = (): TurnstileApi | undefined => (window as { turnstile?: TurnstileApi }).turnstile;
@@ -20,16 +23,17 @@ const turnstile = (): Promise<TurnstileApi> => {
     if (api) return resolve(api);
     const script = document.createElement('script');
     script.src = TURNSTILE_SCRIPT;
-    script.onload = () => {
-      const loaded = ready();
-      if (loaded) resolve(loaded);
-      else reject();
-    };
-    script.onerror = () => {
+    const fail = (): void => {
       loading = undefined; // a later check tries again
       script.remove();
       reject();
     };
+    script.onload = () => {
+      const loaded = ready();
+      if (loaded) resolve(loaded);
+      else fail();
+    };
+    script.onerror = fail;
     document.head.append(script);
   });
   return loading;
@@ -43,7 +47,7 @@ const turnstile = (): Promise<TurnstileApi> => {
 export function HumanCheck(props: HumanCheckProps): ReactElement | null {
   const store = useStore();
   const { state, t } = useChat();
-  const { humanCheck: challenge, widget } = useChatConfig();
+  const { humanCheck: challenge, widget, botId } = useChatConfig();
   const container = useRef<HTMLDivElement>(null);
   const active = state.humanCheck && challenge !== undefined;
 
@@ -53,6 +57,7 @@ export function HumanCheck(props: HumanCheckProps): ReactElement | null {
     const element = container.current;
     if (!active || !challenge || !element) return;
     let live = true;
+    let errors = 0;
     let remove = (): void => {};
     turnstile().then(
       (api) => {
@@ -60,8 +65,15 @@ export function HumanCheck(props: HumanCheckProps): ReactElement | null {
         // A token is used once, right away; the next session renders a new widget.
         const id = api.render(element, {
           sitekey: challenge.siteKey,
+          action: turnstileAction(botId),
           callback: (token: string) => store.answerHumanCheck(token),
-          'error-callback': () => store.answerHumanCheck(null),
+          // Turnstile retries on its own (retry: auto, every 8 s); only a third error fails the
+          // check. Returning false lets it log and retry; true marks the error handled.
+          'error-callback': () => {
+            if (++errors < MAX_ERRORS) return false;
+            store.answerHumanCheck(null);
+            return true;
+          },
           size: 'flexible',
           language: widget.locale,
         });
@@ -73,7 +85,7 @@ export function HumanCheck(props: HumanCheckProps): ReactElement | null {
       live = false;
       remove();
     };
-  }, [active, challenge, widget.locale, store]);
+  }, [active, challenge, widget.locale, botId, store]);
 
   if (!active) return null;
   return (

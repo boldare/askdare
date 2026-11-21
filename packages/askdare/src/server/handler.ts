@@ -92,6 +92,11 @@ const TRANSCRIPTION_TIMEOUT_MS = 60_000;
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 /** Bounds a human check with its provider, such as Cloudflare's siteverify. */
 const HUMAN_CHECK_TIMEOUT_MS = 10_000;
+/**
+ * How long one passed human check lets a visitor renew sessions (ADR-0023). After it, or for a
+ * session that never passed one, the bot asks again.
+ */
+const HUMAN_CHECK_MAX_AGE_SECONDS = 24 * 60 * 60;
 
 const sessionBody = z.object({
   botId: z.string().max(64),
@@ -599,12 +604,12 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       }
     }
     let identity: VerifiedIdentity | undefined;
-    /** A live (or just expired) session of this bot: no new human check. */
-    let renewing = false;
+    /** When the session being renewed passed the human check, for a bot with one. */
+    let humanCheckedAt: number | undefined;
     if (body.accessToken) {
       try {
         const renewal = await tokens.verifyRenewal(body.accessToken, bot.id);
-        renewing = true;
+        humanCheckedAt = renewal.humanCheckedAt;
         returningVisitorId ??= renewal.visitorId;
         if (renewal.visitorId === returningVisitorId) identity = renewal.identity;
       } catch {
@@ -633,12 +638,24 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       clientIp: config.clientIp(request),
       returningVisitorId,
     });
-    // After the limits, so a flood of sessions doesn't become a flood of checks upstream.
-    if (bot.security.humanVerifier && !renewing) {
-      await checkHuman(bot, body.humanToken, request.signal);
+    // After the limits, so a flood of sessions doesn't become a flood of checks upstream. A renewal
+    // skips it only while the check it carries is recent; a token without one (issued before the
+    // bot turned the check on) counts as unchecked.
+    if (bot.security.humanVerifier) {
+      const now = Math.floor(Date.now() / 1000);
+      const recent =
+        humanCheckedAt !== undefined &&
+        humanCheckedAt <= now + 60 &&
+        now - humanCheckedAt <= HUMAN_CHECK_MAX_AGE_SECONDS;
+      if (!recent) {
+        await checkHuman(bot, body.humanToken, request.signal);
+        humanCheckedAt = now;
+      }
+    } else {
+      humanCheckedAt = undefined; // bots without a check issue the same tokens as before
     }
     const visitorId = returningVisitorId ?? newVisitorId();
-    const access = await tokens.issueAccess(bot.id, visitorId, identity);
+    const access = await tokens.issueAccess(bot.id, visitorId, identity, humanCheckedAt);
     // Signing in during an anonymous conversation adopts it: from now on only this user may resume
     // it, so it doesn't stay readable on the browser after sign-out.
     const adopted =

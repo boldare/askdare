@@ -42,6 +42,12 @@ export const TURNSTILE_SCRIPT: string = `${TURNSTILE_ORIGIN}/turnstile/v0/api.js
 /** Longest token Turnstile issues. */
 export const HUMAN_TOKEN_MAX_LENGTH = 2048;
 
+/**
+ * The Turnstile `action` the chat renders for a bot and the server expects back: the bot id, cut
+ * to Turnstile's 32 characters (bot ids use only characters it accepts).
+ */
+export const turnstileAction = (botId: string): string => botId.slice(0, 32);
+
 /** The origins a challenge's script and frame come from, for the iframe's CSP. */
 export const CHALLENGE_ORIGINS: Readonly<Record<HumanChallenge['provider'], string>> = {
   turnstile: TURNSTILE_ORIGIN,

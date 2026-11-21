@@ -12,6 +12,7 @@ export type {
   ChatEvent,
   ChatEventListener,
   ChatEventType,
+  ChatHumanCheck,
   ChatMessage,
   ChatPhase,
   ChatState,

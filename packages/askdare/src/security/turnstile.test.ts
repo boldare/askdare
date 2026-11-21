@@ -70,6 +70,46 @@ describe('turnstile()', () => {
     });
   });
 
+  it("with a real secret, passes only the bot's own action", async () => {
+    const verifier = turnstile({ siteKey: SITE_KEY, secretKey: 'live-secret' });
+    answer({ success: true, hostname: 'app.example.com', action: 'support' });
+    await expect(verifier.verify(DUMMY_TOKEN, context())).resolves.toBe(true);
+    answer({ success: true, hostname: 'app.example.com', action: 'sales' });
+    await expect(verifier.verify(DUMMY_TOKEN, context())).resolves.toBe(false);
+    answer({ success: true, hostname: 'app.example.com' });
+    await expect(verifier.verify(DUMMY_TOKEN, context())).resolves.toBe(false);
+    // Bot ids longer than Turnstile's 32 characters are cut, as the chat renders them.
+    const long = 'a'.repeat(40);
+    answer({ success: true, action: 'a'.repeat(32) });
+    await expect(
+      verifier.verify(DUMMY_TOKEN, { botId: long, signal: new AbortController().signal }),
+    ).resolves.toBe(true);
+  });
+
+  it('checks the hostname only when hostnames are given, ignoring case', async () => {
+    const verifier = turnstile({
+      siteKey: SITE_KEY,
+      secretKey: 'live-secret',
+      hostnames: ['App.Example.com'],
+    });
+    answer({ success: true, hostname: 'app.example.com', action: 'support' });
+    await expect(verifier.verify(DUMMY_TOKEN, context())).resolves.toBe(true);
+    answer({ success: true, hostname: 'evil.example', action: 'support' });
+    await expect(verifier.verify(DUMMY_TOKEN, context())).resolves.toBe(false);
+    answer({ success: true, action: 'support' });
+    await expect(verifier.verify(DUMMY_TOKEN, context())).resolves.toBe(false);
+  });
+
+  it("skips action and hostname with Cloudflare's test secret, which never returns them", async () => {
+    const verifier = turnstile({
+      siteKey: SITE_KEY,
+      secretKey: PASSING_SECRET,
+      hostnames: ['app.example.com'],
+    });
+    answer({ success: true, hostname: 'example.com' });
+    await expect(verifier.verify(DUMMY_TOKEN, context())).resolves.toBe(true);
+  });
+
   it('reads TURNSTILE_SECRET_KEY at the first check, not when the bot is defined', async () => {
     const verifier = turnstile({ siteKey: SITE_KEY });
     vi.stubEnv('TURNSTILE_SECRET_KEY', PASSING_SECRET);

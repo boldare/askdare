@@ -1,6 +1,6 @@
 // ==== embed.d.ts ====
 
-import { d as EmbedChatConfig, i as ToolRenderers } from "./tool-results.js";
+import { f as EmbedChatConfig, i as ToolRenderers } from "./tool-results.js";
 import { ReactElement, ReactNode } from "react";
 interface EmbedRootProps {
   /** From `getEmbedConfig()` in the page's Server Component. */
@@ -527,6 +527,13 @@ interface TurnstileOptions {
    * so building the app never needs it.
    */
   readonly secretKey?: string;
+  /**
+   * Host names the challenge may have been solved on, compared with siteverify's `hostname`, such
+   * as `['www.example.com']`: the host of your chat route's app. Off by default, because the
+   * dashboard's hostname list already limits where the widget runs, and a proxy that serves the
+   * app under another name would be refused. Skipped with Cloudflare's test secret keys.
+   */
+  readonly hostnames?: readonly string[];
 }
 /**
  * A `HumanVerifier` backed by Cloudflare Turnstile: the chat shows the Turnstile widget before a
@@ -852,11 +859,11 @@ export declare function embedPageHeaders(options: {
   readonly bots: readonly BotHandle[];
   readonly bot: string;
 }): EmbedPageHeader[];
-export type { ChatAttachments, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlers, ChatStyles, ChatTokenUsage, ChatToolCallReport, ChatUsageReport, ChatWidget, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, RouteHandler, TrustProxy };
+export type { ChatAttachments, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlers, ChatHumanCheck, ChatStyles, ChatTokenUsage, ChatToolCallReport, ChatUsageReport, ChatWidget, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, RouteHandler, TrustProxy };
 
 // ==== react.d.ts ====
 
-import { a as ToolResults, c as ChatConfig, f as PresetName, i as ToolRenderers, l as ChatStyles, n as LinkProps, o as ToolResultsProps, p as ThemeVariants, r as ToolRendererProps, s as ChatAttachments, t as Link, u as ChatWidget } from "./tool-results.js";
+import { a as ToolResults, c as ChatConfig, d as ChatWidget, i as ToolRenderers, l as ChatHumanCheck, m as ThemeVariants, n as LinkProps, o as ToolResultsProps, p as PresetName, r as ToolRendererProps, s as ChatAttachments, t as Link, u as ChatStyles } from "./tool-results.js";
 import { ComponentProps, ComponentType, NamedExoticComponent, ReactElement, ReactNode, Ref } from "react";
 /** One tool call's payload, as the `tool.ui` event and the history carry it. */
 interface ToolUi {
@@ -1368,7 +1375,7 @@ interface RootProps {
  * take what `askdare('identify')` and `askdare('configure')` take, checked the same way.
  */
 export declare function Root({ config, identity, context, greeting, starters, onEvent, toolRenderers, children }: RootProps): ReactElement;
-export { type AttachButtonProps, type Chat, type ChatActions, type ChatAttachments, type ChatBot, type ChatConfig, type ChatEvent, type ChatEventListener, type ChatEventType, type ChatMessage, type ChatPhase, type ChatState, type ChatStyles, type ChatWidget, type Citation, type CitationsProps, type ComposerProps, type DefaultChatComponents, type DefaultChatProps, type DictateButtonProps, type Dictation, type ErrorMessageProps, type FeedbackButtonProps, type FilesProps, type Frame, type HumanCheckProps, type InputProps, Link, type LinkProps, type MarkdownProps, type MessageFilesProps, type MessageListProps, type MessageProps, type MessageTextProps, type MessagesProps, type PanelProps, type PendingFile, type QuickRepliesProps, type Rating, type RecorderProps, type RootProps, type SendProps, type SentFile, type StatusProps, type ThemeProps, type ToolRendererProps, type ToolRenderers, ToolResults, type ToolResultsProps, type ToolUi, type Translate };
+export { type AttachButtonProps, type Chat, type ChatActions, type ChatAttachments, type ChatBot, type ChatConfig, type ChatEvent, type ChatEventListener, type ChatEventType, type ChatHumanCheck, type ChatMessage, type ChatPhase, type ChatState, type ChatStyles, type ChatWidget, type Citation, type CitationsProps, type ComposerProps, type DefaultChatComponents, type DefaultChatProps, type DictateButtonProps, type Dictation, type ErrorMessageProps, type FeedbackButtonProps, type FilesProps, type Frame, type HumanCheckProps, type InputProps, Link, type LinkProps, type MarkdownProps, type MessageFilesProps, type MessageListProps, type MessageProps, type MessageTextProps, type MessagesProps, type PanelProps, type PendingFile, type QuickRepliesProps, type Rating, type RecorderProps, type RootProps, type SendProps, type SentFile, type StatusProps, type ThemeProps, type ToolRendererProps, type ToolRenderers, ToolResults, type ToolResultsProps, type ToolUi, type Translate };
 
 // ==== tool-results.d.ts ====
 
@@ -1510,4 +1517,4 @@ type LinkProps = Omit<ComponentProps<"a">, "href" | "target" | "rel"> & {
  * the text alone.
  */
 declare function Link({ href, children, ...props }: LinkProps): ReactElement;
-export { ToolResults as a, ChatConfig as c, EmbedChatConfig as d, PresetName as f, ToolRenderers as i, ChatStyles as l, LinkProps as n, ToolResultsProps as o, ThemeVariants as p, ToolRendererProps as r, ChatAttachments as s, Link as t, ChatWidget as u };
+export { ToolResults as a, ChatConfig as c, ChatWidget as d, EmbedChatConfig as f, ToolRenderers as i, ChatHumanCheck as l, ThemeVariants as m, LinkProps as n, ToolResultsProps as o, PresetName as p, ToolRendererProps as r, ChatAttachments as s, Link as t, ChatStyles as u };

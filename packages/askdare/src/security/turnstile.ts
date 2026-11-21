@@ -5,6 +5,7 @@ import {
   type HumanCheckContext,
   type HumanVerifier,
   TURNSTILE_ORIGIN,
+  turnstileAction,
 } from './human-verifier';
 
 export interface TurnstileOptions {
@@ -15,6 +16,13 @@ export interface TurnstileOptions {
    * so building the app never needs it.
    */
   readonly secretKey?: string;
+  /**
+   * Host names the challenge may have been solved on, compared with siteverify's `hostname`, such
+   * as `['www.example.com']`: the host of your chat route's app. Off by default, because the
+   * dashboard's hostname list already limits where the widget runs, and a proxy that serves the
+   * app under another name would be refused. Skipped with Cloudflare's test secret keys.
+   */
+  readonly hostnames?: readonly string[];
 }
 
 const SITEVERIFY = `${TURNSTILE_ORIGIN}/turnstile/v0/siteverify`;
@@ -25,7 +33,19 @@ const SITE_KEY = /^[A-Za-z0-9_-]{1,100}$/;
 const siteverifyResponse = z.object({
   success: z.boolean(),
   'error-codes': z.array(z.string()).optional(),
+  hostname: z.string().optional(),
+  action: z.string().optional(),
 });
+
+/**
+ * Cloudflare's published test secret keys: they answer for a dummy token, always with the
+ * hostname example.com and without an action, so those two checks can't apply.
+ */
+const TEST_SECRETS = new Set([
+  '1x0000000000000000000000000000000AA',
+  '2x0000000000000000000000000000000AA',
+  '3x0000000000000000000000000000000AA',
+]);
 
 /** Codes that mean the operator's setup is wrong, not the visitor's token. */
 const SETUP_ERRORS = new Set(['missing-input-secret', 'invalid-input-secret']);
@@ -49,6 +69,7 @@ export function turnstile(options: TurnstileOptions): HumanVerifier {
       '[askdare] turnstile() needs the siteKey of a Turnstile widget (letters, digits, - and _).',
     );
   }
+  const hostnames = options.hostnames?.map((host) => host.trim().toLowerCase());
   return Object.freeze({
     challenge: Object.freeze({ provider: 'turnstile' as const, siteKey }),
     verify: async (token: string, context: HumanCheckContext): Promise<boolean> => {
@@ -86,7 +107,13 @@ export function turnstile(options: TurnstileOptions): HumanVerifier {
           cause: `Cloudflare Turnstile siteverify answered ${response.status} without a result.`,
         });
       }
-      if (parsed.data.success) return true;
+      if (parsed.data.success) {
+        if (TEST_SECRETS.has(secret)) return true;
+        // A token from another widget on the same key, or another bot's chat, doesn't count.
+        if (parsed.data.action !== turnstileAction(context.botId)) return false;
+        const hostname = parsed.data.hostname?.toLowerCase();
+        return hostnames === undefined || (hostname !== undefined && hostnames.includes(hostname));
+      }
       const codes = parsed.data['error-codes'] ?? [];
       if (codes.some((code) => SETUP_ERRORS.has(code))) {
         throw new AskdareError('bot_unavailable', {

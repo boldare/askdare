@@ -115,6 +115,18 @@ describe('a bot without a human check (as in 0.4)', () => {
     );
   });
 
+  it('renews any session as before, with or without a check time, however old', async () => {
+    const visitorId = `v_${'f6'.repeat(16)}`;
+    const old = Math.floor(Date.now() / 1000) - 30 * 24 * 3600;
+    for (const checkedAt of [undefined, old]) {
+      const previous = (await tokens.issueAccess('plain', visitorId, undefined, checkedAt)).token;
+      const renewed = await handler(post({ botId: 'plain', accessToken: previous }));
+      expect(renewed.status).toBe(200);
+      const next = ((await renewed.json()) as { accessToken: string }).accessToken;
+      await expect(tokens.verifyAccess(next, 'plain')).resolves.toEqual({ visitorId });
+    }
+  });
+
   it('sends browsers no human check', () => {
     expect(publicConfig(plain, '/api/chat')).not.toHaveProperty('humanCheck');
   });
@@ -148,13 +160,20 @@ describe('a bot with a human check', () => {
 
   it('renews a live session without a new check, but not on a stored conversation alone', async () => {
     const visitorId = `v_${'d4'.repeat(16)}`;
-    const previous = (await tokens.issueAccess('guarded', visitorId)).token;
+    const checkedAt = Math.floor(Date.now() / 1000) - 60;
+    const previous = (await tokens.issueAccess('guarded', visitorId, undefined, checkedAt)).token;
     const renewed = await handler(post({ botId: 'guarded', accessToken: previous }));
     expect(renewed.status).toBe(200);
     expect(checks).toHaveLength(0);
+    // The renewed session keeps the time of the original check, so the cap can't be reset.
+    const next = ((await renewed.json()) as { accessToken: string }).accessToken;
+    await expect(tokens.verifyRenewal(next, 'guarded')).resolves.toMatchObject({
+      visitorId,
+      humanCheckedAt: checkedAt,
+    });
 
     // Another bot's session isn't a renewal of this one.
-    const foreign = (await tokens.issueAccess('plain', visitorId)).token;
+    const foreign = (await tokens.issueAccess('plain', visitorId, undefined, checkedAt)).token;
     expect((await handler(post({ botId: 'guarded', accessToken: foreign }))).status).toBe(401);
 
     const resume = await tokens.issueResume('guarded', { visitorId, conversationId: 'conv_1' });
@@ -164,6 +183,40 @@ describe('a bot with a human check', () => {
     );
     expect(resumed.status).toBe(200);
     expect(((await resumed.json()) as { resumable: boolean }).resumable).toBe(true);
+  });
+
+  it('asks again after 24 hours, and for sessions that never passed a check', async () => {
+    const visitorId = `v_${'e5'.repeat(16)}`;
+    const now = Math.floor(Date.now() / 1000);
+    const stale = (await tokens.issueAccess('guarded', visitorId, undefined, now - 25 * 3600))
+      .token;
+    // Issued before the bot turned the check on: no claim, so no free renewal.
+    const unchecked = (await tokens.issueAccess('guarded', visitorId)).token;
+    const future = (await tokens.issueAccess('guarded', visitorId, undefined, now + 3600)).token;
+    for (const accessToken of [stale, unchecked, future]) {
+      expect((await handler(post({ botId: 'guarded', accessToken }))).status).toBe(401);
+    }
+    expect(checks).toHaveLength(0);
+    // With a new check the visitor is kept, and the clock starts again.
+    const renewed = await handler(
+      post({ botId: 'guarded', accessToken: stale, humanToken: 'human' }),
+    );
+    expect(renewed.status).toBe(200);
+    const next = ((await renewed.json()) as { accessToken: string }).accessToken;
+    const grant = await tokens.verifyRenewal(next, 'guarded');
+    expect(grant.visitorId).toBe(visitorId);
+    expect(grant.humanCheckedAt).toBeGreaterThanOrEqual(now);
+  });
+
+  it('issues a check time only for bots with a check', async () => {
+    const fresh = await handler(post({ botId: 'guarded', humanToken: 'human' }));
+    const guardedToken = ((await fresh.json()) as { accessToken: string }).accessToken;
+    expect((await tokens.verifyRenewal(guardedToken, 'guarded')).humanCheckedAt).toBeTypeOf(
+      'number',
+    );
+    const plainSession = await handler(post({ botId: 'plain' }));
+    const plainToken = ((await plainSession.json()) as { accessToken: string }).accessToken;
+    expect(await tokens.verifyRenewal(plainToken, 'plain')).not.toHaveProperty('humanCheckedAt');
   });
 
   it('applies the session limit before the check, so floods never reach the provider', async () => {
