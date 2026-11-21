@@ -19,4 +19,5 @@ allowBuilds:
   # tools/recording: the binary ships executable; its script only runs chmod.
   "@ffmpeg-installer/darwin-arm64": false
   "@ffmpeg-installer/darwin-x64": false
+  "@ffmpeg-installer/linux-arm64": false
   "@ffmpeg-installer/linux-x64": false

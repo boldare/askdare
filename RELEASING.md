@@ -8,8 +8,9 @@ For maintainers: everything to check before and after a release, in order. Copy 
 - [ ] Every change to a published package has a changeset (`.changeset/*.md`), with the right bump (ADR-0006: minor for features and anything breaking before 1.0, patch for fixes only) and a summary written for users.
 - [ ] A changed public API is on purpose: the snapshot (`packages/askdare/api/askdare.api.txt`) is updated, and ADR-0006 lists every new export.
 - [ ] Security-relevant work had `/security-review` and `/code-review`, and their findings are fixed or written down.
-- [ ] Locally, on the commit that will be released: `pnpm check`, `pnpm e2e`, `pnpm e2e:browsers`, `pnpm test:visual` and `pnpm verify:packs`.
-- [ ] CI is green on that commit: both Node versions, end-to-end in three browsers, published types on every TypeScript version, CodeQL and the secret scan.
+- [ ] CI is green on that commit: `pnpm check` on Node 22, 24 and 26 (it type-checks the starter too), end-to-end in three browsers, the visual baselines on Linux, the starter's build, published types on every TypeScript version, CodeQL and the secret scan.
+- [ ] The last nightly canary (`.github/workflows/canary.yml`) is green: tomorrow's Next.js and today's OpenAI SDK in three browsers, and `pnpm verify:packs` (the packed packages in a fresh `create-next-app`, `init`, `doctor`, both bundlers and a chat against the mock). Red, or older than the release commit? Run it from the Actions tab (Run workflow).
+- [ ] Locally, only what CI can't see: `pnpm test:visual` on macOS (CI compares the `-linux` baselines; after a change to the look, refresh both with `pnpm test:visual:update` and `scripts/visual-linux.sh`).
 - [ ] The dry run gives the versions you expect: in a throwaway worktree, `pnpm changeset version`, then read the `version` of each `packages/*/package.json`.
 
 ## 2. By hand
