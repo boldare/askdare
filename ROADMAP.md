@@ -6,49 +6,90 @@ Where askdare is going, release by release. This file holds the direction only:
 
 A change to what a release contains comes as a pull request to this file.
 
-## 0.2.0: the chat inside your page
+## Direction
 
-0.2.0 brought:
-- the headless React API and the inline chat ([ADR-0011](docs/adr/0011-react-api-and-inline-chat.md));
-- `add ui`;
-- answer ratings, `onUsage` and the OpenTelemetry add-on ([ADR-0012](docs/adr/0012-server-hooks-and-telemetry.md));
-- browser events ([ADR-0013](docs/adr/0013-browser-events.md)).
+askdare is the website chatbot a team owns in code: self-hosted in their Next.js app, safe for anonymous visitors, compliant with AI transparency and accessibility rules out of the box, with the features buyers expect from hosted support bots (handoff, leads, analytics) and no fee per resolved conversation.
 
-## 0.3.0: talk in more ways
+- **What we don't compete on:** chat UI primitives. AI SDK, AI Elements and assistant-ui own that space; askdare interoperates with them instead (0.9).
+- **How releases are cut:** each minor tells one story. Breaking changes stay allowed in 0.x ([ADR-0006](docs/adr/0006-support-matrix-and-versioning.md)), and 1.0 comes after real production use, not on a date.
+- **How decisions change:** an accepted ADR is never rewritten. A new ADR supersedes or extends it and says why.
 
-0.3.0 is on npm as `latest`. What it brought:
-- one-click deploy buttons for Vercel and Heroku, with the `/deploy` page on the website;
-- reply options, suggested by the model or defined by a tool, the first slice of `toolRenderers` ([ADR-0015](docs/adr/0015-reply-options.md));
-- runtime language, step 1: the page switches the chat's language and the iframe reloads, keeping the conversation ([ADR-0014](docs/adr/0014-runtime-language.md)).
+## Released
 
-Compaction left 0.3 after spike S5b; see Later.
+- **0.2.0, the chat inside your page:** the headless React API and inline chat (ADR-0011), `add ui`, answer ratings, `onUsage` and the OpenTelemetry add-on (ADR-0012), browser events (ADR-0013).
+- **0.3.0, talk in more ways:** one-click deploy for Vercel, reply options (ADR-0015), runtime language step 1 (ADR-0014).
+- **0.4.0, settle in:** texts per language and switching language in place (ADR-0014), tool cards with `toolRenderers` (ADR-0017), your own page in the widget's iframe with `embedPath` and `EmbedRoot` (ADR-0018).
 
-## 0.4.0: settle in
+## 0.4.x: hygiene
 
-0.4.0 is ready for release. What it brings:
-- runtime language, step 2: texts per language in `defineBot`, `GET <basePath>/config/<bot>?lang=`, and the chat switching its language in place, keeping the conversation and an answer under way ([ADR-0014](docs/adr/0014-runtime-language.md));
-- tool cards: a tool picks what the visitor may see of its result with `defineTool({ ui })`, and React components draw it with `toolRenderers` ([ADR-0017](docs/adr/0017-tool-renderers.md));
-- your own page in the widget's iframe: `embedPath`, `EmbedRoot` from `@boldare/askdare/embed`, `getEmbedConfig` and `embedPageHeaders`, so the script-tag widget uses your components and draws your tool cards ([ADR-0018](docs/adr/0018-embed-path.md)).
+Patches only, so no public API changes. They pay down what a fresh audit found (November 2026):
+- error logs that can carry upstream response bodies;
+- Markdown parsing that grows quadratically while an answer streams;
+- unit tests for the modules that lack them (OpenAI error mapping, citations, the handler factory, the CLI);
+- CI that builds the starter, runs `verify-packs` nightly, runs visual tests on Linux, adds Node 26 and widens the canary;
+- `doctor` warning when a configured model has a shutdown date.
 
-Admin left 0.4 to keep it small; see Later.
+## 0.5: compliance-ready
+
+The first release that meets the AI Act's transparency duty and WCAG 2.2 AA out of the box.
+- **AI disclosure everywhere** (AI Act art. 50, in force since 2026-08-02). The widget already shows it. This release adds it to the headless and inline paths, and `doctor` flags `disclosure: false`.
+- **Accessibility:** a WCAG 2.2 AA audit, a streamed answer and its end announced to screen readers, mobile-viewport browser tests, and a published conformance statement.
+- **Moderation and guardrails:** input and output moderation, `onInput` and `onOutput` hooks to block or redact, and tool results marked as untrusted for the model (proposed in ADR-0019).
+- **Bot protection:** the Turnstile `HumanVerifier` deferred in ADR-0004, and in-memory rate limits refusing to run in production (fail-closed) instead of only warning.
+- **Languages:** German, French, Spanish, Italian and Czech.
+- **A compliance guide:** retention, the DPA, data residency, the resume-token trade-off in inline mode, and hosts other than Vercel (Docker, `next start`, OpenNext).
+- **Public API clean-up before it hardens** (proposed in ADR-0020): resolved `Bot` shapes go internal, error codes become importable values, `PROTOCOL_VERSION` is listed, and `zod` becomes optional for script-tag-only sites.
+- **OpenAI upkeep:** replace the deprecated `truncation: 'auto'`.
+
+## 0.6: own your data
+
+The foundation that admin, handoff, data residency and other providers all need: conversations stored outside OpenAI.
+- A `ConversationStore` port with OpenAI Conversations as the default and a Postgres add-on (`@boldare/askdare-postgres`), plus an `onTranscript` hook. This opens zero-data-retention and EU-resident setups.
+- A retrieval port: OpenAI vector stores by default, pgvector as an option.
+- Both are split out of the existing `ModelGateway` (`src/gateway.ts`), so a second provider would only have to run turns.
+- Stream resume after a dropped connection, and history beyond the latest 100 items.
+- Compaction, decided again in a new ADR now that we can own the stored history (spikes S5 and S5b ruled out OpenAI's server-side compaction as a default).
+
+Spike S6 runs before this release is planned. Its questions about storage and retrieval feed the 0.6 ADRs.
+
+## 0.7: support-grade
+
+The features buyers compare against Intercom Fin and Chatbase.
+- **Handoff to a human:** a `handoff` tool, a "connecting you" state in the chat, and an `onHandoff` hook. Email and webhook first.
+- **Forms in the chat:** leads into `onLead`, with validated fields, built on reply options and tool cards.
+- **Admin** (ADR-0016): stage 1, the console with no database, then stage 2, `@boldare/askdare-admin` on the 0.6 store, with transcripts, ratings, unanswered questions, cost per conversation and resolution rate.
+- **Proactive greeting and an unread badge.** The loader is at 5,016 of its 5,120 bytes (gzipped), so this starts by making it smaller or moving logic into the iframe.
+
+## 0.8: quality and reach
+
+- **`askdare eval`:** regression tests for answers and citations, run in CI. 👎 conversations from admin become test cases. OpenAI's own Evals go read-only on 2026-11-30.
+- **Prompt versions and A/B tests** in `defineBot`.
+- **More tools:** remote MCP tools, an `httpTool` preset, `web_search` as a fallback when `file_search` finds nothing, and approving a tool call in the chat.
+- **Model settings:** reasoning effort and verbosity, passed through and checked per model, with no model IDs in the library.
+
+## 0.9: open
+
+- **A second provider path:** an Open Responses adapter behind the gateway, decided in an ADR after a spike against two or three endpoints. Full multi-provider support (native Anthropic, Google or Mistral adapters) stays an option for when a client needs it.
+- **Interop:** expose the chat stream to AI SDK UI messages or AG-UI, so those ecosystems can use askdare's backend.
+- **Handoff adapters:** Slack, HubSpot and Zendesk.
+
+## 1.0: stable
+
+API freeze, a support policy and a migration guide from 0.x. We cut 1.0 once two or three teams have run 0.7 or later in production and two minors have shipped without breaking the API.
 
 ## Later
 
-The order of these is decided when a release is planned:
-- **Admin, stage 1.** A dev console with no database: bot configuration, `doctor`, a playground, test questions (ADR-0016).
-- **Admin, stage 2.** The `@boldare/askdare-admin` add-on: a store port with Postgres and Upstash adapters, dashboards of costs and ratings, and review of 👎 conversations (ADR-0016).
-- **Handoff to a human.** A `handoff` tool and an `onHandoff` hook (email, Slack, webhook).
-- **Forms in the chat.** Collecting leads into `onLead`, with validated fields.
-- **Remote MCP tools and an `httpTool` preset.** Connect existing systems without code.
-- **Compaction, opt-in.** Spike S5b showed that a 50k threshold never shrinks the input: OpenAI keeps the latest ~60k tokens word for word, so compaction runs on every turn, loses prompt caching (12–24× the cost) and drops `file_search` citations. It needs a threshold of 100k or more, output headroom in the budgets and working citations first ([ADR-0003](docs/adr/0003-conversation-state.md)).
-- **`askdare eval`.** Regression tests for answers, run in CI.
-- **Smaller additions:** a proactive greeting, an unread badge, business hours, copying and exporting a conversation, prompt variants with A/B tests. The greeting and the badge live in the loader, which is at 4,963 of its 5,120 bytes (gzipped) after 0.3. Neither fits until the loader gets smaller or more of it moves into the iframe.
-- **Languages:** more built-in languages, and right-to-left layouts.
-- **Deferred in ADRs:** Turnstile ([ADR-0004](docs/adr/0004-threat-model.md)), and a `CustomEvent` for GTM ([ADR-0013](docs/adr/0013-browser-events.md)).
+Ordered when a release is planned:
+- other channels (Slack, Teams, WhatsApp) through a chat SDK;
+- voice conversations;
+- native adapters for other model providers;
+- right-to-left layouts;
+- business hours, copying and exporting a conversation;
+- a `CustomEvent` for GTM ([ADR-0013](docs/adr/0013-browser-events.md)).
 
 ## How we track work
 
-- **Tasks live in the repository,** in [`tasks/`](tasks/README.md): one file per task, with its status, lane and dependencies. Only the next release gets task files; anything further out is a line under Later.
+- **Tasks live in the repository,** in [`tasks/`](tasks/README.md): one file per task, with its status, lane and dependencies. Only the next release gets task files; anything further out is a section or a line above.
 - **The task file is the whole brief** for whoever picks it up, person or agent: the goal, the ADRs to read, the files it may touch and those it must not, the Definition of Done and the tasks it depends on.
 - **The pull request that finishes a task deletes its file,** so `tasks/` lists only open work.
 - **GitHub issues are for users:** bug reports and feature requests. Roadmap work doesn't go there.
@@ -67,9 +108,11 @@ Work runs in parallel lanes. Tasks that touch the **hot files** run one at a tim
 | Lane | What runs in it | Hot files |
 |---|---|---|
 | Organization | The roadmap and `tasks/` | No |
-| Deploy | What is left of the deploy buttons: the starter template repo for the Heroku button | No |
-| Decisions | ADRs and design notes, in parallel with everything. The 0.4 design notes are done (ADR-0017, ADR-0018) | No |
-| Spikes | Experiments in `spikes/`. For 0.4: S6, a `ModelGateway` for Claude | No |
-| Core | Nothing open until the next release is planned | **Yes**, one task at a time |
+| Hygiene | 0.4.x patches: logs, Markdown, tests, `doctor` | No |
+| CI | Workflows, visual baselines, the starter check | No |
+| Decisions | ADRs: 0019 and 0020 for 0.5 | No |
+| Docs | The compliance guide, the accessibility statement | No |
+| Spikes | S6, a second model provider (Claude and Open Responses) | No |
+| Core | 0.5 work that touches hot files, one task at a time | **Yes** |
 
-Core work for 0.4 lands on `main` with `--no-ff`, or on an integration branch `release/0.4` if a task must not reach `main` before the release ([RELEASING.md](RELEASING.md)). `embedPath` was such a case: its server side (3b) waited on `release/0.4` for `EmbedRoot` (3c), and both reached `main` together.
+Patches for 0.4.x land on `main` with `--no-ff` and ship as they are ready. Breaking 0.5 work goes to an integration branch `release/0.5` until the release ([RELEASING.md](RELEASING.md)).
