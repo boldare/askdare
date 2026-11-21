@@ -22,8 +22,8 @@ Short records of decisions that are expensive to reverse. One decision per file,
 | [0016](0016-admin.md) | Admin: a console first, then an add-on with storage | Accepted |
 | [0017](0017-tool-renderers.md) | Tool results as React components (`toolRenderers`) | Accepted |
 | [0018](0018-embed-path.md) | Your own page inside the widget's iframe (`embedPath`) | Accepted |
-| [0019](0019-compliance-and-guardrails.md) | Compliance by default, guardrails and bot protection | Proposed |
-| [0020](0020-public-api-cleanup-0-5.md) | Public API clean-up for 0.5 | Proposed |
+| [0019](0019-compliance-and-guardrails.md) | Compliance by default, guardrails and bot protection | Accepted |
+| [0020](0020-public-api-cleanup-0-5.md) | Public API clean-up for 0.5 | Accepted |
 
 ## Template
 

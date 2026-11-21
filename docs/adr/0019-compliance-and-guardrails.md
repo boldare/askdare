@@ -1,6 +1,6 @@
 # ADR-0019: Compliance by default, guardrails and bot protection
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-11-21)
 - **Date:** 2026-11-21
 - **Extends:** [ADR-0004](0004-threat-model.md) (threat model). ADR-0004 stays as written; this ADR adds controls to it and takes up the `HumanVerifier` it deferred.
 
