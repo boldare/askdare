@@ -1,0 +1,22 @@
+{
+  "name": "askdare-spike-s8-retrieval",
+  "private": true,
+  "type": "module",
+  "description": "Spike S8: retrieval outside OpenAI vector stores (pgvector prototype vs file_search).",
+  "scripts": {
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down -v",
+    "typecheck": "../../node_modules/.bin/tsc -p tsconfig.json",
+    "sync": "node --env-file-if-exists=.env sync.ts",
+    "eval": "node --env-file-if-exists=.env eval.ts",
+    "cleanup": "node --env-file-if-exists=.env cleanup.ts"
+  },
+  "dependencies": {
+    "openai": "7.62.0",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/pg": "8.23.1"
+  }
+}
