@@ -255,6 +255,77 @@ interface Tool<Name extends string = string, Ui = unknown> {
  * before `execute` runs; failures are reported to the model, never to the visitor.
  */
 declare function defineTool<Input extends z.ZodObject, Output = unknown, Ui = never, const Name extends string = string>(definition: ToolDefinition<Input, Output, Ui, Name>): Tool<Name, Ui>;
+/**
+ * OpenAI moderation for a bot's messages (ADR-0019). Each checked message costs one call to the
+ * moderation endpoint before the turn goes on (docs/costs.md).
+ */
+interface ModerationConfig {
+  /**
+   * OpenAI moderation model, for example `omni-moderation-latest`. Required: the library never
+   * assumes a model.
+   */
+  readonly model: string;
+  /**
+   * What is checked: the visitor's message before it reaches the model, the finished answer
+   * before the visitor sees it, or both. Checking output holds each answer back until it is
+   * complete (docs/guardrails.md). Default `input`.
+   */
+  readonly check?: "input" | "output" | "both";
+  /**
+   * Moderation categories that block, such as `harassment` or `self-harm/intent`. Default: any
+   * category the model flags.
+   */
+  readonly categories?: readonly string[];
+  /** What the visitor sees when moderation blocks a message. Default: the `error.content_blocked` text. */
+  readonly message?: string;
+}
+/** Who and what a guardrail hook is checking, besides the text itself. */
+interface GuardContext {
+  /** The bot's `id`. */
+  readonly bot: string;
+  /** Validated BCP 47 tag chosen by the widget. */
+  readonly locale: string;
+  /** The signed-in user, verified with IDENTITY_SECRET (ADR-0009); undefined when anonymous. */
+  readonly identity?: VisitorIdentity | undefined;
+}
+/**
+ * What an `onInput` or `onOutput` hook decides: let the text through, block the turn (with an
+ * optional text for the visitor, at most 300 characters), or replace the text. Returning
+ * `undefined` lets it through.
+ */
+type GuardVerdict = {
+  readonly action: "allow";
+} | {
+  readonly action: "block";
+  readonly message?: string;
+} | {
+  readonly action: "redact";
+  readonly text: string;
+};
+/** An `onInput` or `onOutput` hook. Runs on the server; whatever it throws lets the text through. */
+type GuardHook = (text: string, context: GuardContext) => GuardVerdict | undefined | Promise<GuardVerdict | undefined>;
+/** The guardrail options of `defineBot` (ADR-0019). Every one is off when absent. */
+interface GuardrailOptions {
+  /** OpenAI moderation on input, output or both. Off when absent. */
+  readonly moderation?: ModerationConfig | undefined;
+  /**
+   * Your own rule for each visitor message, before it reaches the model (and before moderation):
+   * allow it, block the turn, or replace the text the model gets. Files and the page's
+   * description are not passed to it.
+   */
+  readonly onInput?: GuardHook | undefined;
+  /**
+   * Your own rule for each finished answer, before the visitor sees it (and before moderation).
+   * Setting it holds every answer back until it is complete (docs/guardrails.md).
+   */
+  readonly onOutput?: GuardHook | undefined;
+  /**
+   * `untrusted` hands your tools' results to the model wrapped as third-party data that it must
+   * not follow as instructions (prompt-injection hardening, ADR-0004). Recommended for tools that
+   * return text from outside your control. Default `trusted`: results go to the model as they are.
+   */
+  readonly toolResults?: "trusted" | "untrusted" | undefined;
+}
 /** Per-request context available when building instructions. */
 interface BotContext {
   /** Validated BCP 47 tag chosen by the widget. */
@@ -392,7 +463,8 @@ interface WidgetConfig {
   /** Default `auto`: follows the visitor's system setting. */
   readonly colorScheme?: ColorScheme;
 }
-interface BotDefinition {
+/** A bot's settings; the guardrail options (`moderation`, `onInput`, …) are in `GuardrailOptions`. */
+interface BotDefinition extends GuardrailOptions {
   /** URL-safe identifier used in the script tag (`widget.js?bot=<id>`) and routes. */
   readonly id: string;
   /** OpenAI model ID. Required on purpose: the library never assumes a model (ADR-0002). */
@@ -470,19 +542,19 @@ declare const ERROR_CODES: readonly ["invalid_input", "unauthorized", "session_e
 type ErrorCode = (typeof ERROR_CODES)[number];
 declare const MESSAGE_END_REASONS: readonly ["completed", "max_steps", "max_output_tokens", "timeout", "content_filter", "aborted"];
 type MessageEndReason = (typeof MESSAGE_END_REASONS)[number];
-export { PresetName as C, VisitorIdentity as E, defineTheme as S, ThemeVariants as T, ToolContext as _, RateLimitStore as a, ColorScheme as b, BotDefinition as c, BotSecurity as d, KnowledgeConfig as f, Tool as g, defineBot as h, CounterHit as i, BotHandle as l, WidgetConfig as m, ErrorCode as n, AttachmentConfig as o, VoiceConfig as p, MessageEndReason as r, BotContext as s, ERROR_CODES as t, BotLimits as u, ToolDefinition as v, ThemeTokens as w, ThemeDefinition as x, defineTool as y };
+export { ThemeVariants as A, ToolDefinition as C, defineTheme as D, ThemeDefinition as E, PresetName as O, ToolContext as S, ColorScheme as T, GuardHook as _, RateLimitStore as a, ModerationConfig as b, BotDefinition as c, BotSecurity as d, KnowledgeConfig as f, GuardContext as g, defineBot as h, CounterHit as i, VisitorIdentity as j, ThemeTokens as k, BotHandle as l, WidgetConfig as m, ErrorCode as n, AttachmentConfig as o, VoiceConfig as p, MessageEndReason as r, BotContext as s, ERROR_CODES as t, BotLimits as u, GuardVerdict as v, defineTool as w, Tool as x, GuardrailOptions as y };
 
 // ==== index.d.ts ====
-import { C as PresetName, E as VisitorIdentity, S as defineTheme, T as ThemeVariants, _ as ToolContext, a as RateLimitStore, b as ColorScheme, c as BotDefinition, d as BotSecurity, f as KnowledgeConfig, g as Tool, h as defineBot, i as CounterHit, l as BotHandle, m as WidgetConfig, n as ErrorCode, o as AttachmentConfig, p as VoiceConfig, s as BotContext, t as ERROR_CODES, u as BotLimits, v as ToolDefinition, w as ThemeTokens, x as ThemeDefinition, y as defineTool } from "./events.js";
+import { A as ThemeVariants, C as ToolDefinition, D as defineTheme, E as ThemeDefinition, O as PresetName, S as ToolContext, T as ColorScheme, _ as GuardHook, a as RateLimitStore, b as ModerationConfig, c as BotDefinition, d as BotSecurity, f as KnowledgeConfig, g as GuardContext, h as defineBot, i as CounterHit, j as VisitorIdentity, k as ThemeTokens, l as BotHandle, m as WidgetConfig, n as ErrorCode, o as AttachmentConfig, p as VoiceConfig, s as BotContext, t as ERROR_CODES, u as BotLimits, v as GuardVerdict, w as defineTool, x as Tool, y as GuardrailOptions } from "./events.js";
 /**
  * Version of the SSE wire protocol between the askdare server and its clients.
  * Bumped on any breaking change to event names or payloads (ADR-0006).
  */
 export declare const PROTOCOL_VERSION: 1;
-export { type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type CounterHit, ERROR_CODES, type ErrorCode, type KnowledgeConfig, type PresetName, type RateLimitStore, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
+export { type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type CounterHit, ERROR_CODES, type ErrorCode, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type KnowledgeConfig, type ModerationConfig, type PresetName, type RateLimitStore, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
 
 // ==== next.d.ts ====
-import { C as PresetName, E as VisitorIdentity, T as ThemeVariants, a as RateLimitStore, l as BotHandle, n as ErrorCode, r as MessageEndReason } from "./events.js";
+import { A as ThemeVariants, O as PresetName, a as RateLimitStore, j as VisitorIdentity, l as BotHandle, n as ErrorCode, r as MessageEndReason } from "./events.js";
 /** What a visitor may attach, as the bot allows it. */
 interface ChatAttachments {
   readonly images: boolean;

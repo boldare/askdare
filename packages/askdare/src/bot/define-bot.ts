@@ -13,6 +13,12 @@ import {
 } from '../theme/theme';
 import type { Tool } from '../tools/define-tool';
 import { SUGGEST_REPLIES } from '../tools/suggest-replies';
+import {
+  type GuardrailOptions,
+  type Guardrails,
+  guardrailShape,
+  resolveGuardrails,
+} from './guardrails';
 
 /** Per-request context available when building instructions. */
 export interface BotContext {
@@ -185,7 +191,8 @@ export interface BotWidget {
   readonly theme: ResolvedTheme;
 }
 
-export interface BotDefinition {
+/** A bot's settings; the guardrail options (`moderation`, `onInput`, …) are in `GuardrailOptions`. */
+export interface BotDefinition extends GuardrailOptions {
   /** URL-safe identifier used in the script tag (`widget.js?bot=<id>`) and routes. */
   readonly id: string;
   /** OpenAI model ID. Required on purpose: the library never assumes a model (ADR-0002). */
@@ -250,6 +257,7 @@ export interface Bot extends BotHandle {
   readonly voice: Required<VoiceConfig> | undefined;
   readonly security: { readonly allowedOrigins: readonly string[] };
   readonly widget: BotWidget;
+  readonly guardrails: Guardrails;
 }
 
 const DEFAULT_LIMITS: Required<BotLimits> = {
@@ -471,6 +479,7 @@ const definitionSchema = z.object({
       colorScheme: z.enum(['auto', 'light', 'dark']).optional(),
     })
     .optional(),
+  ...guardrailShape,
 });
 
 /**
@@ -595,5 +604,6 @@ export function createBot(definition: BotDefinition): Bot {
       css: widget.css ?? '',
       theme,
     }),
+    guardrails: resolveGuardrails(definition),
   });
 }

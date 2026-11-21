@@ -6,6 +6,7 @@ import type { ToolUi } from '../protocol/tool-ui';
 import { SUGGEST_REPLIES, suggestedReplies } from '../tools/suggest-replies';
 import { addUsage, ZERO_USAGE } from '../usage';
 import { fromOpenAIError } from './errors';
+import { guardedInstructions } from './guardrails';
 import { pageContextPart } from './page-context';
 import {
   CitationRegistry,
@@ -92,7 +93,7 @@ async function runStep(
   const stream = await client.responses.create(
     {
       model: bot.model,
-      instructions: bot.instructions(request.context),
+      instructions: guardedInstructions(bot, bot.instructions(request.context)),
       input,
       conversation: request.conversationId,
       // store:false would silently drop the turn from the conversation (spike S1, E10).

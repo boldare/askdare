@@ -10,6 +10,13 @@ export type {
   WidgetConfig,
 } from './bot/define-bot';
 export { defineBot } from './bot/define-bot';
+export type {
+  GuardContext,
+  GuardHook,
+  GuardrailOptions,
+  GuardVerdict,
+  ModerationConfig,
+} from './bot/guardrails';
 export type { CounterHit, RateLimitStore } from './limits/store';
 export type { ErrorCode } from './protocol/events';
 export { ERROR_CODES } from './protocol/events';

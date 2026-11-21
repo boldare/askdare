@@ -5,6 +5,7 @@ import type { HistoryCitation, HistoryMessage } from '../protocol/history';
 import { normalizeReplies } from '../protocol/replies';
 import { isToolUiList, MAX_TOOL_UI, type ToolUi } from '../protocol/tool-ui';
 import { addSources, citationSource, type KnowledgeSources } from './citations';
+import { readWithheldNote, unwrapToolOutput } from './guardrails';
 import { PAGE_CONTEXT_MARKER } from './page-context';
 import { isFailedOutput } from './tools';
 
@@ -72,6 +73,8 @@ interface Turn {
   readonly calls: StoredCall[];
   /** Index in the messages, oldest first. */
   answer: number | undefined;
+  /** Indices of the turn's visible answers, for a note that withholds them. */
+  readonly answers: number[];
 }
 
 /**
@@ -86,7 +89,9 @@ function readTurns(
   const messages: HistoryMessage[] = [];
   const turns: Turn[] = [];
   const outputs = new Map<string, string>();
-  let turn: Turn = { calls: [], answer: undefined };
+  let turn: Turn = { calls: [], answer: undefined, answers: [] };
+  // Answers a guardrail withheld (ADR-0019), dropped once every turn is read.
+  const hidden = new Set<number>();
   const pending: { name: string; arguments: string; callId: string }[] = [];
   const close = (): void => {
     for (const call of pending) turn.calls.push({ ...call, output: outputs.get(call.callId) });
@@ -96,20 +101,49 @@ function readTurns(
   for (const item of oldestFirst) {
     if (item.type === 'message' && item.role === 'user') {
       close();
-      turn = { calls: [], answer: undefined };
+      turn = { calls: [], answer: undefined, answers: [] };
+    }
+    const note = readWithheldNote(item);
+    if (note) {
+      // The visitor saw the replacement in place of the turn's last answer, or nothing.
+      const shown = note.replacement ? turn.answer : undefined;
+      for (const index of turn.answers) if (index !== shown) hidden.add(index);
+      const message = shown === undefined ? undefined : messages[shown];
+      if (shown !== undefined && message && note.replacement) {
+        messages[shown] = { ...message, text: note.replacement };
+      } else {
+        turn.answer = undefined;
+      }
+      continue;
     }
     if (item.type === 'function_call_output' && item.call_id && typeof item.output === 'string') {
-      if (!isFailedOutput(item.output)) outputs.set(item.call_id, item.output);
+      const output = unwrapToolOutput(item.output);
+      if (!isFailedOutput(output)) outputs.set(item.call_id, output);
     } else if (item.type === 'function_call') {
       pending.push({ name: item.name, arguments: item.arguments, callId: item.call_id });
     }
     const message = toHistoryMessage(item, sources);
     if (!message) continue;
     messages.push(message);
-    if (message.role === 'assistant') turn.answer = messages.length - 1;
+    if (message.role === 'assistant') {
+      turn.answer = messages.length - 1;
+      turn.answers.push(turn.answer);
+    }
   }
   close();
-  return { messages, turns };
+  if (hidden.size === 0) return { messages, turns };
+  // Indices shift once withheld answers go.
+  const kept: HistoryMessage[] = [];
+  const moved = new Map<number, number>();
+  for (const [index, message] of messages.entries()) {
+    if (hidden.has(index)) continue;
+    moved.set(index, kept.length);
+    kept.push(message);
+  }
+  for (const each of turns) {
+    each.answer = each.answer === undefined ? undefined : moved.get(each.answer);
+  }
+  return { messages: kept, turns };
 }
 
 /** The payloads a turn's calls define, within the limits; none when the reader fails. */

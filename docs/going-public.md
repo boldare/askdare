@@ -32,6 +32,7 @@ openssl rand -base64 32   # use the output as CHAT_SECRET
 - **`security.allowedOrigins`:** the exact sites allowed to embed the widget, such as `https://www.example.com`. No paths and no wildcards. The app's own origin is always allowed.
 - **`limits`:** start with the defaults and tune `dailyTokens` (per bot) and `dailyTokensPerIp` to your budget. Add `limits: { globalDailyTokens }` to `createChatHandler` to cap all bots together. These budgets are the main cost control; the OpenAI hard limit is the backstop.
 - **Instructions:** they must contain **no secrets**. Assume visitors can make the model reveal them.
+- **Guardrails:** decide whether the bot needs OpenAI moderation (`moderation`), your own rules for messages and answers (`onInput`, `onOutput`), or untrusted tool results (`toolResults: 'untrusted'`) for tools that return third-party text. All are off by default. See [Guardrails](guardrails.md).
 
 ## 4. Rate limits across instances
 
@@ -77,6 +78,7 @@ export const { GET, POST, DELETE } = createChatHandler({
 - [ ] `allowedOrigins` lists only your sites.
 - [ ] Shared store configured if you run more than one instance.
 - [ ] Instructions contain no secrets.
+- [ ] Guardrails decided: moderation, `onInput`/`onOutput` and `toolResults` ([Guardrails](guardrails.md)).
 - [ ] Privacy notice, retention decision and AI disclosure are in place, checked against [Compliance](compliance.md).
 - [ ] If visitors rate answers, your notice covers their comments, and `onFeedback` keeps them no longer than you need.
 - [ ] You know how to flip `ASKDARE_DISABLED=true` and redeploy or restart, and how long that takes on your host.

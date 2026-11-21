@@ -12,6 +12,7 @@ Prices change often, so this page counts tokens, seconds and files. To turn them
 | Knowledge base | Retrieved chunks as input tokens, a fee per file search call, and vector store storage per GB per day above a free allowance | Only the tokens are in the budgets |
 | Attachments | Images and PDF pages as input tokens, when they are sent | The token budgets, plus upload limits |
 | Voice input | Transcription, per minute of audio (some models bill by tokens instead) | Daily speech budgets in seconds |
+| Moderation | Nothing extra today: OpenAI's moderation endpoint is free. Each checked message adds one call and its latency | Only bots with `moderation` make the call |
 | `askdare doctor` | A 16-token response, plus one second of transcription for bots with voice, per bot and run | 3 runs a minute for the whole app |
 
 ## The worst case under the default limits
@@ -188,6 +189,12 @@ The extra call counts against `maxSteps` and the budgets like a tool round: askd
 - askdare reserves about 1,500 tokens per image and 2,000 per PDF page before the message. A 50-page PDF reserves 100,000 tokens, half of the default `dailyTokensPerIp`.
 - Every model call reads the files again. A bot with tools reserves the files once per call it actually makes, so a large PDF can mean the model answers without calling tools when the visitor's budget can't hold another call.
 - Keep attachments off for bots that don't need them, and lower `maxPdfPages` if long PDFs aren't expected. See [Attachments](attachments.md).
+
+## Moderation
+
+- A bot with `moderation` makes one call to OpenAI's moderation endpoint per checked message: one before the turn for `check: 'input'`, one after the answer for `'output'`, two for `'both'`. Bots without it make none.
+- The endpoint is free to use at the time of writing ([OpenAI's moderation guide](https://developers.openai.com/api/docs/guides/moderation)), so it adds latency, not tokens, and isn't in askdare's budgets. Check the pricing page again if that changes.
+- Checking output holds each answer back until it is complete, so visitors wait longer before they see anything. A blocked answer has still spent its tokens, and they count against the budgets. See [Guardrails](guardrails.md).
 
 ## Voice input
 

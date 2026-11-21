@@ -22,6 +22,7 @@ import {
   SUGGEST_REPLIES_OUTPUT,
   SUGGEST_REPLIES_PARAMETERS,
 } from '../tools/suggest-replies';
+import { wrapToolOutput } from './guardrails';
 import type { FunctionCall } from './stream-mapper';
 
 /** Larger tool results are replaced by an error so one call can't flood the context. */
@@ -248,7 +249,12 @@ export async function executeCalls(
           output,
         };
       }
-      return { type: 'function_call_output', call_id: call.callId, output } as const;
+      return {
+        type: 'function_call_output',
+        call_id: call.callId,
+        // Failures are askdare's own text; only what the tool returned can be untrusted.
+        output: outcome === 'ok' ? wrapToolOutput(request.bot, output) : output,
+      } as const;
     }),
   );
   const stored = succeeded.filter((call) => call !== undefined);

@@ -37,7 +37,8 @@ Hosted competitors (Intercom Fin, Chatbase) and toolkits (AI SDK, assistant-ui) 
    - `moderation` in `defineBot` runs OpenAI moderation on input, output or both. It is off by default. Which categories block, and what the visitor sees, are options.
    - `onInput` and `onOutput` hooks, when set, return allow, block (with a text for the visitor) or a redacted message. With no hook, every message passes as today.
    - A blocked turn ends with `content_blocked`. Nothing blocked or redacted is logged as content.
-   - For output, the hook sees the finished answer. Whether the stream holds answers back while output checks are on, or retracts a blocked one, is settled in the task with a recorded-stream test, and documented. It only applies to bots that turn output checks on.
+   - For output, the hook sees the finished answer. While output checks are on, the server holds the answer's text, citations and cards back until the turn is complete and checked; progress still streams. A blocked answer never reaches the browser, so nothing is retracted (settled in task 0.5-3 with a recorded-stream test; [Guardrails](../guardrails.md#streaming-while-answers-are-checked)). It only applies to bots that turn output checks on.
+   - Moderation uses OpenAI's moderation endpoint, not the `moderation` parameter of `responses.create`: input must be checked before the model sees it and the conversation stores it, and output across every step of a turn. A failed check, like a failing hook, lets the message through.
 3. **Marking tool results as untrusted is an option,** `toolResults: 'untrusted'` in `defineBot`, off by default.
    - When on, results reach the model inside a wrapper the instructions refer to, so text inside a tool result isn't followed as instructions.
    - The docs recommend it for tools that return third-party text.

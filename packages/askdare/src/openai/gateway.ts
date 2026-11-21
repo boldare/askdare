@@ -3,6 +3,7 @@ import type { ModelGateway } from '../gateway';
 import { attachedFileIds, deleteFiles, FILE_TTL_SECONDS } from './attachments';
 import { diagnoseBot } from './diagnose';
 import { fromOpenAIError } from './errors';
+import { moderate, withholdAnswer } from './guardrails';
 import { listHistory } from './history';
 import { runTurn } from './turn';
 
@@ -117,5 +118,21 @@ export function createOpenAIGateway(options: OpenAIGatewayOptions): ModelGateway
     runTurn: (request) => runTurn(client, request),
 
     diagnose: (request) => diagnoseBot(client, request),
+
+    async moderate(request) {
+      try {
+        return await moderate(client, request);
+      } catch (error) {
+        throw fromOpenAIError(error, false);
+      }
+    },
+
+    async withholdAnswer(conversationId, replacement, signal) {
+      try {
+        await withholdAnswer(client, conversationId, replacement, signal);
+      } catch (error) {
+        throw fromOpenAIError(error, false);
+      }
+    },
   };
 }

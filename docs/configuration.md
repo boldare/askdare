@@ -85,6 +85,10 @@ export const { GET, POST, DELETE } = createChatHandler({
 | `knowledge` | `KnowledgeConfig` | off | Documents the model searches and cites. See [Knowledge](#knowledge). |
 | `attachments` | `AttachmentConfig` | off | Images and PDFs from visitors. See [Attachments](#attachments). |
 | `voice` | `VoiceConfig` | off | Dictation. See [Voice](#voice). |
+| `moderation` | `ModerationConfig` | off | OpenAI moderation of messages, answers or both. See [Guardrails](guardrails.md#moderation). |
+| `onInput` | `(text, context) => GuardVerdict \| undefined` | off | Your rule for each visitor message: allow, block or redact. See [Guardrails](guardrails.md#your-own-rules-oninput-and-onoutput). |
+| `onOutput` | `(text, context) => GuardVerdict \| undefined` | off | Your rule for each finished answer. Answers are then held back until checked. See [Guardrails](guardrails.md#streaming-while-answers-are-checked). |
+| `toolResults` | `'trusted' \| 'untrusted'` | `'trusted'` | `'untrusted'` marks tool results as third-party data for the model. See [Guardrails](guardrails.md#untrusted-tool-results). |
 | `security` | `BotSecurity` | own origin only | Sites that may embed the chat. See [Security](#security). |
 | `embedPath` | `string` | off: askdare's own page | A page of this app to show in the widget's iframe instead of askdare's, such as `/askdare/support`. A path of the app, outside the chat route, without a query, a fragment or `.`/`..` segments. See [Your own page in the iframe](#your-own-page-in-the-iframe). |
 | `limits` | `BotLimits` | see [Limits](#limits) | Rates and budgets. |

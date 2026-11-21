@@ -1,4 +1,5 @@
 import type { Bot, BotContext } from '../bot/define-bot';
+import { checksInput, checksOutput } from '../bot/guardrails';
 import { AskdareError, forLog, TurnAbortedError, toAskdareError } from '../errors';
 import type { ModelGateway, TokenUsage, ToolCallRecord, TurnAttachment } from '../gateway';
 import type {
@@ -12,6 +13,7 @@ import { encodeComment, encodeEvent } from '../protocol/sse';
 import { MAX_TOOL_UI } from '../protocol/tool-ui';
 import { PROTOCOL_HEADER, PROTOCOL_VERSION } from '../protocol/version';
 import { addUsage, ZERO_USAGE } from '../usage';
+import { blockedError, type GuardOptions, guardInput, guardOutput } from './guardrails';
 import type { ChatUsageReport } from './usage-report';
 
 export interface StreamTurnOptions {
@@ -73,6 +75,9 @@ function logError(error: AskdareError): void {
   console.error(`[askdare] turn failed: ${error.code}`, forLog(error.cause));
 }
 
+/** Events that carry the answer's content, held back while output checks run (docs/guardrails.md). */
+const HELD: ReadonlySet<ProtocolEvent['type']> = new Set(['text.delta', 'citation', 'tool.ui']);
+
 /** What a failing hook is logged as: its error's name, never its message, which may hold data. */
 export function hookError(error: unknown): string {
   return error instanceof Error ? error.name : typeof error;
@@ -86,6 +91,10 @@ export function hookError(error: unknown): string {
  * A visitor who disconnects stops the stream, not the model: once the model call has started, it
  * runs to completion, so the turn is charged its real usage (an aborted response is gone, usage
  * included) and the answer is waiting in the conversation when they return.
+ *
+ * With output checks on (`onOutput`, or moderation of output), the answer's text, citations and
+ * cards are held back until the turn is complete and checked; progress (reasoning, tool status)
+ * still streams. A blocked answer never reaches the client (ADR-0019).
  */
 export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Array> {
   const { bot, gateway } = options;
@@ -105,6 +114,8 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         }
       };
       const emit = (event: ProtocolEvent): void => write(encodeEvent(event));
+      const holding = checksOutput(bot.guardrails);
+      const held: ProtocolEvent[] = [];
       // At most four UI payloads per answer, each call once, whatever the gateway sends (ADR-0017).
       const cards = new Set<string>();
       const dropped = new Set<string>();
@@ -122,7 +133,8 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           }
           cards.add(event.callId);
         }
-        emit(event);
+        if (holding && HELD.has(event.type)) held.push(event);
+        else emit(event);
       };
       const finish = (): void => {
         clearInterval(heartbeat);
@@ -155,8 +167,20 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
       let outcome: ChatUsageReport['outcome'] = 'completed';
       let errorCode: ErrorCode | undefined;
 
+      const guard: GuardOptions = {
+        bot,
+        gateway,
+        context: options.context,
+        signal: deadline,
+      };
+
       const run = async (): Promise<void> => {
         // Nothing has been spent upstream yet.
+        if (visitorLeft()) return;
+        // Before a conversation exists: a blocked first message leaves nothing behind.
+        const text = checksInput(bot.guardrails)
+          ? await guardInput(options.text, options.pageContext, guard)
+          : options.text;
         if (visitorLeft()) return;
         if (conversationId === undefined) {
           conversationId = await gateway.createConversation(
@@ -180,7 +204,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         const result = await gateway.runTurn({
           bot,
           conversationId,
-          text: options.text,
+          text,
           attachments: options.attachments ?? [],
           pageContext: options.pageContext,
           context: options.context,
@@ -199,6 +223,8 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         });
         finishReason = result.reason;
         options.settle?.(result.usage, conversationId);
+        const replies = result.replies && normalizeReplies(result.replies);
+        if (holding) await releaseAnswer(conversationId, replies ?? []);
         // A resumed conversation gets a fresh handle: its 30 days count from the last message.
         // Best effort: the old handle stays valid until it expires.
         const resumeToken = options.conversationId
@@ -211,7 +237,6 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
                 .issueFeedback(conversationId, result.answerItemId)
                 .catch(() => undefined)
             : undefined;
-        const replies = result.replies && normalizeReplies(result.replies);
         if (replies) emit({ type: 'replies', messageId, items: replies });
         emit({
           type: 'message.end',
@@ -220,6 +245,36 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           ...(resumeToken ? { resumeToken } : {}),
           ...(feedback ? { feedback } : {}),
         });
+      };
+
+      /**
+       * Checks the held answer, then sends it, sends its replacement in place of its text, or
+       * blocks the turn. A withheld or replaced answer is noted in the conversation, so a reload
+       * shows what the visitor saw (best effort: if that fails, a reload shows the original).
+       */
+      const releaseAnswer = async (id: string, replies: readonly string[]): Promise<void> => {
+        const answer = held.flatMap((event) => (event.type === 'text.delta' ? [event.delta] : []));
+        const outcome = await guardOutput(answer.join(''), replies, guard);
+        if (outcome.action !== 'allow') {
+          await gateway
+            .withholdAnswer?.(id, outcome.action === 'redact' ? outcome.text : undefined, deadline)
+            .catch((error: unknown) => {
+              console.error(
+                `[askdare] could not note the withheld answer in the conversation: ${hookError(error)}`,
+              );
+            });
+        }
+        if (outcome.action === 'block') throw blockedError(outcome, 'output');
+        let replaced = false;
+        for (const event of held) {
+          if (outcome.action === 'redact' && event.type === 'text.delta') {
+            if (!replaced) emit({ ...event, delta: outcome.text });
+            replaced = true;
+          } else {
+            emit(event);
+          }
+        }
+        held.length = 0;
       };
 
       /** Hands the report to the hook once the stream is closed, so it never delays the answer. */

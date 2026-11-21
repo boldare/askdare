@@ -133,6 +133,20 @@ export type RepliesReader = (calls: readonly StoredCall[]) => readonly string[] 
  */
 export type UiReader = (calls: readonly StoredCall[]) => readonly ToolUi[];
 
+/** Texts to classify with the provider's moderation model (ADR-0019). */
+export interface ModerationRequest {
+  readonly model: string;
+  readonly input: readonly string[];
+  readonly signal?: AbortSignal;
+}
+
+export interface ModerationResult {
+  /** Whether the model flagged any of the texts in any category. */
+  readonly flagged: boolean;
+  /** The categories flagged for any of the texts. */
+  readonly categories: readonly string[];
+}
+
 /** What `askdare doctor` checks for one bot: the features it uses, with the server's key. */
 export interface DiagnoseRequest {
   readonly model: string;
@@ -167,6 +181,17 @@ export interface ModelGateway {
     ui?: UiReader,
   ): Promise<readonly HistoryMessage[]>;
   runTurn(request: TurnRequest): Promise<TurnResult>;
+  /** Classifies texts for `moderation` (ADR-0019). Absent: moderation is unavailable and skipped. */
+  moderate?(request: ModerationRequest): Promise<ModerationResult>;
+  /**
+   * Records in the conversation that the latest answer was withheld from the visitor, or replaced
+   * by `replacement`, so the history shows what the visitor saw and the model doesn't repeat it.
+   */
+  withholdAnswer?(
+    conversationId: string,
+    replacement: string | undefined,
+    signal?: AbortSignal,
+  ): Promise<void>;
   /** Small live requests that show whether the key, model and stores work (`askdare doctor`). */
   diagnose(request: DiagnoseRequest): Promise<readonly DoctorCheck[]>;
 }
