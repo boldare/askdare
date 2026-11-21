@@ -2,6 +2,7 @@ import {
   AttachButton,
   Composer,
   DictateButton,
+  Disclosure,
   Files,
   Input,
   QuickReplies,
@@ -45,20 +46,7 @@ export function DefaultFooter(): ReactElement {
           )}
         </div>
       </Composer>
-      {bot.disclosure !== false && (
-        // The AI notice (EU AI Act, art. 50).
-        <p data-ask-part="disclosure">
-          {t('disclosure.text')}
-          {bot.disclosure.privacyUrl && (
-            <>
-              {' '}
-              <a href={bot.disclosure.privacyUrl} target="_blank" rel="noopener noreferrer">
-                {t('disclosure.privacy')}
-              </a>
-            </>
-          )}
-        </p>
-      )}
+      <Disclosure />
     </>
   );
 }

@@ -967,6 +967,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
           id: bot.id,
           checks,
           turnTimeoutMs: bot.limits.turnTimeoutMs,
+          disclosure: bot.widget.disclosure !== false,
           ...(bot.embedPath === undefined
             ? {}
             : {

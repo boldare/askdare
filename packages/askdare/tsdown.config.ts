@@ -28,6 +28,9 @@ export default defineConfig([
     sourcemap: false,
     // Next.js needs the directive at the top of the file that server components import.
     banner: { js: "'use client';" },
+    // Left for the app's bundler, which drops the development-only notes from production builds.
+    // Rolldown would otherwise set it for the browser platform here, at library build time.
+    define: { 'process.env.NODE_ENV': 'process.env.NODE_ENV' },
     // The skin imports the public entry, as an ejected copy does; inside the package that is here.
     alias: {
       '@boldare/askdare/react': fileURLToPath(new URL('./src/react/headless.ts', import.meta.url)),
