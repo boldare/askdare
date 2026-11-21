@@ -8,7 +8,7 @@ A public chat can be pushed to say things you don't want on your site, and tool 
 | [`onInput` and `onOutput`](#your-own-rules-oninput-and-onoutput) | Your own rules: allow, block or redact a message or an answer | off |
 | [`toolResults: 'untrusted'`](#untrusted-tool-results) | Tool results go to the model marked as third-party data | off |
 
-A bot that sets none of them behaves exactly as before 0.5: no extra calls, and answers stream as they are written ([ADR-0019](adr/0019-compliance-and-guardrails.md)). OpenAI's own safety systems apply either way.
+A bot that sets none of them behaves exactly as before 0.5: no extra calls, and answers stream as they are written ([ADR-0019](adr/0019-compliance-and-guardrails.md), [ADR-0022](adr/0022-guardrails-implementation.md)). OpenAI's own safety systems apply either way.
 
 ## Moderation
 
