@@ -13,15 +13,7 @@ For maintainers: everything to check before and after a release, in order. Copy 
 - [ ] Locally, only what CI can't see: `pnpm test:visual` on macOS (CI compares the `-linux` baselines; after a change to the look, refresh both with `pnpm test:visual:update` and `scripts/visual-linux.sh`).
 - [ ] The dry run gives the versions you expect: in a throwaway worktree, `pnpm changeset version`, then read the `version` of each `packages/*/package.json`.
 
-## 2. By hand
-
-From [Support](docs/support.md): what the tests can't cover.
-
-- [ ] The [15-minute test](docs/getting-started.md): a fresh `create-next-app`, `npm install @boldare/askdare@<version> zod`, `npx @boldare/askdare init`, a first answer.
-- [ ] The demo at `http://localhost:3000`: the widget (`/`), the chat inside a page (`/inline`), your own markup (`/inline/headless`), both Tailwind resets, ratings with a comment, attachments and dictation.
-- [ ] The look, reviewed by a designer when it changed.
-
-## 3. Documentation
+## 2. Documentation
 
 - [ ] `README.md`: the install command fits the release (`@rc` during release candidates, plain once it is `latest`), and the features, documentation list and packages table cover what is new.
 - [ ] Each package's `README.md` (`packages/askdare`, `packages/askdare-upstash`, `packages/askdare-otel`).
@@ -31,14 +23,14 @@ From [Support](docs/support.md): what the tests can't cover.
 - [ ] `docs/adr/README.md` lists every ADR with its current status; `THREAT_MODEL.md` covers new threats.
 - [ ] `examples/starter` is still exactly what `init` writes.
 
-## 4. Website
+## 3. Website
 
 - [ ] The home page (`site/app/page.tsx`) shows what is new, and the docs navigation (`site/app/docs/_lib/content.ts`) lists every new guide.
 - [ ] Locally, every page renders without console errors, including `/docs` and its search.
 - [ ] After the merge into `main`, the deployment (`.github/workflows/deploy-site.yml`) succeeds, and the chat answers on https://askdare.vercel.app.
 - [ ] Vercel's environment has what new features need (keep only `OPENAI_API_KEY` and `CHAT_SECRET` as Secret).
 
-## 5. GitHub
+## 4. GitHub
 
 - [ ] The repository's description, website and topics still fit.
 - [ ] The `main` ruleset requires the checks CI runs now: a renamed or new job must be added there, or merging blocks.
@@ -47,20 +39,20 @@ From [Support](docs/support.md): what the tests can't cover.
 - [ ] Security: Dependabot alerts and private vulnerability reporting stay on. Secret scanning and push protection are worth turning on (Settings → Code security).
 - [ ] The release pull request's description is current, and the issues it resolves are linked.
 
-## 6. npm
+## 5. npm
 
 - [ ] A package's first release: it doesn't exist on npm yet, so trusted publishing can't create it. Publish its first version by hand with 2FA, then add the trusted publisher (repository `boldare/askdare`, workflow `release.yml`, environment `npm`) with "Allow npm publish".
 - [ ] Each existing package's trusted publisher allows `npm publish` when `NPM_RELEASE_MODE=publish`.
 - [ ] After "Version packages" merges: each version is on npm with provenance, under the right dist-tag (`rc` for a release candidate, `latest` for a release), and its README shows on the package page.
 - [ ] `npm install @boldare/askdare@<version>` works in a fresh app.
 
-## 7. Versions
+## 6. Versions
 
 - [ ] **A release (such as 0.1.0):** a pull request with only `pnpm changeset pre exit`, then the "Version packages" pull request. In the same release, `README.md` drops `@rc` from the install command and the npm badge.
 - [ ] **The next release candidates (such as 0.2.0-rc.0):** only after the release before them is out. Merge the integration branch into `main`, then run `pnpm changeset pre enter rc` in a pull request of its own. Without it, Changesets numbers the work as another release candidate of the previous version.
 - [ ] `@boldare/openai-assistant` stays deprecated on npm with its pointer to the migration guide (`npm view @boldare/openai-assistant deprecated`).
 
-## 8. After the release
+## 7. After the release
 
 - [ ] The GitHub release exists, with the changelog.
 - [ ] The website shows the new version's documentation.
