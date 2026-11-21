@@ -44,6 +44,7 @@ export const NAV: readonly { readonly title: string; readonly pages: readonly st
       'events',
       'feedback',
       'privacy',
+      'compliance',
       'custom-store',
       'support',
     ],

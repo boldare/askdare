@@ -68,6 +68,7 @@ export const { GET, POST, DELETE } = createChatHandler({
 - **Disclosures:**
   - Publish a privacy notice that names OpenAI (and Upstash, if used) as processors.
   - Tell visitors they are talking to an AI. The chat says so under the message field by default; add `widget.disclosure.privacyUrl` to link your privacy notice ([Styling](styling.md#1-configuration)).
+- **Compliance:** [Compliance](compliance.md) goes through the AI Act's disclosure duty, the GDPR (the DPA with OpenAI, retention and deletion), data residency, the resume token in a chat inside your page, accessibility and hosts other than Vercel and Heroku.
 
 ## 7. Final check
 
@@ -76,7 +77,7 @@ export const { GET, POST, DELETE } = createChatHandler({
 - [ ] `allowedOrigins` lists only your sites.
 - [ ] Shared store configured if you run more than one instance.
 - [ ] Instructions contain no secrets.
-- [ ] Privacy notice, retention decision and AI disclosure are in place.
+- [ ] Privacy notice, retention decision and AI disclosure are in place, checked against [Compliance](compliance.md).
 - [ ] If visitors rate answers, your notice covers their comments, and `onFeedback` keeps them no longer than you need.
 - [ ] You know how to flip `ASKDARE_DISABLED=true` and redeploy or restart, and how long that takes on your host.
 - [ ] `npx @boldare/askdare doctor --url <your app> --env-file <production env>` reports no problems ([Deployment](deployment.md)).

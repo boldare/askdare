@@ -28,6 +28,7 @@ Set it up with `npx @boldare/askdare init` and verify it with `npx @boldare/askd
 - [Chat events](docs/events.md): what the chat reports to the page, for analytics
 - [Answer ratings](docs/feedback.md): 👍/👎 with an optional comment, `onFeedback`, what the report holds
 - [Privacy](docs/privacy.md): what is stored where, for your privacy policy
+- [Compliance](docs/compliance.md): AI Act disclosure, GDPR (DPA, retention, deletion), data residency, the resume token in inline mode, hosts other than Vercel and Heroku, no Edge runtime
 - [Support](docs/support.md): Node.js, Next.js, React, zod and TypeScript versions, browsers, sizes
 - [Migrating from @boldare/openai-assistant](docs/migrating-from-openai-assistant.md): what maps to what
 
