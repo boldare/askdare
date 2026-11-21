@@ -429,3 +429,22 @@ describe('client IP', () => {
     expect(normalizeIp(input)).toBe(expected);
   });
 });
+
+describe('lockConversation', () => {
+  it('lets one turn hold a conversation at a time, until it releases it or the hold expires', async () => {
+    const { limits, advance } = setup();
+    const release = await limits.lockConversation(bot, 'conv_1');
+    await expect(limits.lockConversation(bot, 'conv_1')).rejects.toMatchObject({
+      code: 'rate_limited',
+      key: 'error.rate_limited',
+    });
+    // Other conversations are free.
+    await (await limits.lockConversation(bot, 'conv_2'))();
+    await release();
+    const again = await limits.lockConversation(bot, 'conv_1');
+    // A process that died mid-turn never releases: the hold ends after the deadline.
+    advance(bot.limits.turnTimeoutMs + 60_001);
+    await expect(limits.lockConversation(bot, 'conv_1')).resolves.toBeTypeOf('function');
+    await again();
+  });
+});

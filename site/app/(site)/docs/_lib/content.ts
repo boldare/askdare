@@ -39,6 +39,7 @@ export const NAV: readonly { readonly title: string; readonly pages: readonly st
     pages: [
       'deployment',
       'going-public',
+      'guardrails',
       'costs',
       'observability',
       'events',

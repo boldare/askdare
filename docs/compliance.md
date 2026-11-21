@@ -13,7 +13,7 @@ Legal texts and OpenAI's terms were checked on 2026-11-21 against the sources at
 | [Data residency](#3-data-residency) | Uses OpenAI's global endpoints | Whether OpenAI's regional options are enough, or you wait for own storage (0.6) |
 | [The conversation handle in the browser](#4-the-conversation-handle-in-the-browser) | Keeps it in the widget's iframe | Whether to show the chat inside your own pages |
 | [Accessibility](#5-accessibility) (European Accessibility Act) | Targets WCAG 2.2 AA | Your site's own conformance |
-| [Moderation and guardrails](#6-moderation-and-guardrails) | Coming in 0.5 | |
+| [Moderation and guardrails](#6-moderation-and-guardrails) | Opt-in OpenAI moderation, hooks to block or redact messages and answers, untrusted tool results | Which of them your bot needs, and what blocked visitors see |
 | [Bot protection](#7-bot-protection) | Rate limits and daily budgets by default; an optional human check with Cloudflare Turnstile | Whether your chat needs the human check, and naming Cloudflare in your privacy notice if it does |
 | [Hosting](#8-hosting-outside-vercel-and-heroku) | Supports the Node.js runtime only | Where it runs, and that host's logs |
 
@@ -117,7 +117,12 @@ askdare's widget and default skin target WCAG 2.2 AA, and every change runs axe 
 
 ## 6. Moderation and guardrails
 
-Coming in 0.5, all opt-in: moderation of visitors' messages and of answers, hooks to block or redact them, and tool results passed to the model as untrusted data ([ADR-0019](adr/0019-compliance-and-guardrails.md)). Until then, OpenAI's own safety systems apply, and refused answers end with the `content_blocked` error.
+OpenAI's own safety systems apply to every bot. On top of them, askdare offers three server-side controls, all off by default ([ADR-0019](adr/0019-compliance-and-guardrails.md)):
+- **`moderation`:** OpenAI moderation of visitors' messages, of answers, or both, with the categories that block and the text visitors see as options.
+- **`onInput` and `onOutput`:** your own rules, which allow, block or redact a message before the model sees it, or an answer before the visitor does. While answers are checked, they are held back until complete, so a blocked one never reaches the browser.
+- **`toolResults: 'untrusted'`:** tool results reach the model marked as third-party data, which hardens tools that return text from outside your control against prompt injection.
+
+A blocked turn ends with the `content_blocked` error, and nothing blocked or redacted is logged as content. Which controls a bot needs, and how strict they are, is your decision: see [Guardrails](guardrails.md).
 
 ## 7. Bot protection
 

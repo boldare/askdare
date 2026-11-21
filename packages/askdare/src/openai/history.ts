@@ -5,6 +5,7 @@ import type { HistoryCitation, HistoryMessage } from '../protocol/history';
 import { normalizeReplies } from '../protocol/replies';
 import { isToolUiList, MAX_TOOL_UI, type ToolUi } from '../protocol/tool-ui';
 import { addSources, citationSource, type KnowledgeSources } from './citations';
+import { readGuardNote, unwrapToolOutput } from './guardrails';
 import { PAGE_CONTEXT_MARKER } from './page-context';
 import { isFailedOutput } from './tools';
 
@@ -72,21 +73,38 @@ interface Turn {
   readonly calls: StoredCall[];
   /** Index in the messages, oldest first. */
   answer: number | undefined;
+  /** False once a guardrail replaced or withheld its answer: it then offers no cards or options. */
+  plain: boolean;
 }
 
 /**
  * Splits the items, oldest first, into turns at each visitor message, and maps the visible ones
  * to messages. A call that failed while running has no output, as in the live turn, where only
  * successful calls define options and payloads. The oldest turn may start before the page does.
+ *
+ * Guardrail notes (ADR-0022) settle the answers before them in their turn: `allowed` shows them,
+ * `withheld` hides them, `replaced` hides them and shows the assistant message after the note.
+ * With `checked` (bots with output checks), answers no note settled stay hidden: an answer
+ * still being checked, or one whose check never finished, never shows.
  */
 function readTurns(
   oldestFirst: readonly ConversationItem[],
   sources: KnowledgeSources,
+  checked: boolean,
 ): { messages: HistoryMessage[]; turns: Turn[] } {
   const messages: HistoryMessage[] = [];
   const turns: Turn[] = [];
   const outputs = new Map<string, string>();
-  let turn: Turn = { calls: [], answer: undefined };
+  const newTurn = (): Turn => ({ calls: [], answer: undefined, plain: true });
+  let turn = newTurn();
+  const hidden = new Set<number>();
+  // The turn's answers since its last note, and whether the next answer is a replacement.
+  let unsettled: number[] = [];
+  let replacing = false;
+  const settle = (show: boolean): void => {
+    if (!show) for (const index of unsettled) hidden.add(index);
+    unsettled = [];
+  };
   const pending: { name: string; arguments: string; callId: string }[] = [];
   // Text marked as commentary that no later answer replaced: then it was the answer, written
   // before the reply options (stored items have lost their phase so far, but may keep it).
@@ -99,15 +117,27 @@ function readTurns(
     unanswered = undefined;
     for (const call of pending) turn.calls.push({ ...call, output: outputs.get(call.callId) });
     pending.length = 0;
+    settle(!checked);
+    replacing = false;
     turns.push(turn);
   };
   for (const item of oldestFirst) {
     if (item.type === 'message' && item.role === 'user') {
       close();
-      turn = { calls: [], answer: undefined };
+      turn = newTurn();
+    }
+    const note = readGuardNote(item);
+    if (note) {
+      settle(note === 'allowed');
+      if (note !== 'allowed') {
+        turn.plain = false;
+        replacing = note === 'replaced';
+      }
+      continue;
     }
     if (item.type === 'function_call_output' && item.call_id && typeof item.output === 'string') {
-      if (!isFailedOutput(item.output)) outputs.set(item.call_id, item.output);
+      const output = unwrapToolOutput(item.output);
+      if (!isFailedOutput(output)) outputs.set(item.call_id, output);
     } else if (item.type === 'function_call') {
       pending.push({ name: item.name, arguments: item.arguments, callId: item.call_id });
     }
@@ -119,10 +149,27 @@ function readTurns(
     if (!message) continue;
     if (message.role === 'assistant') unanswered = undefined;
     messages.push(message);
-    if (message.role === 'assistant') turn.answer = messages.length - 1;
+    if (message.role === 'assistant') {
+      turn.answer = messages.length - 1;
+      // The replacement is settled by the note before it.
+      if (replacing) replacing = false;
+      else unsettled.push(turn.answer);
+    }
   }
   close();
-  return { messages, turns };
+  if (hidden.size === 0) return { messages, turns };
+  // Indices shift once hidden answers go; a turn whose answer went has none.
+  const kept: HistoryMessage[] = [];
+  const moved = new Map<number, number>();
+  for (const [index, message] of messages.entries()) {
+    if (hidden.has(index)) continue;
+    moved.set(index, kept.length);
+    kept.push(message);
+  }
+  for (const each of turns) {
+    each.answer = each.answer === undefined ? undefined : moved.get(each.answer);
+  }
+  return { messages: kept, turns };
 }
 
 /** The payloads a turn's calls define, within the limits; none when the reader fails. */
@@ -147,6 +194,7 @@ export async function listHistory(
   signal?: AbortSignal,
   replies?: RepliesReader,
   ui?: UiReader,
+  checked = false,
 ): Promise<HistoryMessage[]> {
   const page = await client.conversations.items.list(
     conversationId,
@@ -160,11 +208,12 @@ export async function listHistory(
   for (const item of oldestFirst) {
     if (item.type === 'file_search_call') addSources(item, sources);
   }
-  const { messages, turns } = readTurns(oldestFirst, sources);
+  const { messages, turns } = readTurns(oldestFirst, sources, checked);
   // Every answer shows its turn's cards (ADR-0017).
   if (ui) {
-    for (const { answer, calls } of turns) {
-      const message = answer === undefined ? undefined : messages[answer];
+    for (const { answer, calls, plain } of turns) {
+      // A replaced answer shows no cards: they came from the turn the checks rejected.
+      const message = answer === undefined || !plain ? undefined : messages[answer];
       const payloads = message && turnUi(ui, calls);
       if (answer !== undefined && message && payloads)
         messages[answer] = { ...message, ui: payloads };
@@ -173,7 +222,7 @@ export async function listHistory(
   // Only the latest answer offers options, and only while the visitor hasn't replied yet.
   const latest = messages.at(-1);
   const last = turns.at(-1);
-  if (replies && latest?.role === 'assistant' && last) {
+  if (replies && latest?.role === 'assistant' && last?.plain) {
     let items: readonly string[] | undefined;
     try {
       items = replies(last.calls);

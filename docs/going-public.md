@@ -33,6 +33,7 @@ openssl rand -base64 32   # use the output as CHAT_SECRET
 - **`security.allowedOrigins`:** the exact sites allowed to embed the widget, such as `https://www.example.com`. No paths and no wildcards. The app's own origin is always allowed.
 - **`limits`:** start with the defaults and tune `dailyTokens` (per bot) and `dailyTokensPerIp` to your budget. Add `limits: { globalDailyTokens }` to `createChatHandler` to cap all bots together. These budgets are the main cost control; the OpenAI hard limit is the backstop.
 - **Instructions:** they must contain **no secrets**. Assume visitors can make the model reveal them.
+- **Guardrails:** decide whether the bot needs OpenAI moderation (`moderation`), your own rules for messages and answers (`onInput`, `onOutput`), or untrusted tool results (`toolResults: 'untrusted'`) for tools that return third-party text. All are off by default. See [Guardrails](guardrails.md).
 - **Human check (optional):** limits bound what one address can spend, not what many addresses can. For a public chat that attracts scripted abuse, add `security.humanVerifier: turnstile({ siteKey })` and set `TURNSTILE_SECRET_KEY`. Visitors then pass Cloudflare Turnstile when a session starts ([Configuration](configuration.md#human-check)). Create the widget in the Cloudflare dashboard with your app's host name, not the sites that embed the chat: the challenge runs in the chat's iframe, on your app's origin. Name Cloudflare in your privacy notice.
 
 ## 4. Rate limits across instances
@@ -86,6 +87,7 @@ limits: { store: upstashStore(), requireSharedStore: process.env.NODE_ENV === 'p
 - [ ] Shared store configured if you run more than one instance, and `requireSharedStore` on if that must never be forgotten.
 - [ ] If the chat is public and anonymous, you decided whether it needs a human check, and tested it with Cloudflare's test keys.
 - [ ] Instructions contain no secrets.
+- [ ] Guardrails decided: moderation, `onInput`/`onOutput` and `toolResults` ([Guardrails](guardrails.md)).
 - [ ] Privacy notice, retention decision and AI disclosure are in place, checked against [Compliance](compliance.md).
 - [ ] If visitors rate answers, your notice covers their comments, and `onFeedback` keeps them no longer than you need.
 - [ ] You know how to flip `ASKDARE_DISABLED=true` and redeploy or restart, and how long that takes on your host.

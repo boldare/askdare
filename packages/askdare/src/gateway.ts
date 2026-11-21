@@ -133,6 +133,26 @@ export type RepliesReader = (calls: readonly StoredCall[]) => readonly string[] 
  */
 export type UiReader = (calls: readonly StoredCall[]) => readonly ToolUi[];
 
+/** Texts to classify with the provider's moderation model (ADR-0019). */
+export interface ModerationRequest {
+  readonly model: string;
+  readonly input: readonly string[];
+  readonly signal?: AbortSignal;
+}
+
+export interface ModerationResult {
+  /** Whether the model flagged any of the texts in any category. */
+  readonly flagged: boolean;
+  /** The categories flagged for any of the texts. */
+  readonly categories: readonly string[];
+}
+
+/** What output checks decided about an answer, as stored in its conversation. */
+export type AnswerVerdict =
+  | { readonly action: 'allowed' }
+  | { readonly action: 'withheld' }
+  | { readonly action: 'replaced'; readonly text: string };
+
 /** What `askdare doctor` checks for one bot: the features it uses, with the server's key. */
 export interface DiagnoseRequest {
   readonly model: string;
@@ -165,8 +185,21 @@ export interface ModelGateway {
     signal?: AbortSignal,
     replies?: RepliesReader,
     ui?: UiReader,
+    /** For bots with output checks: show only answers a note settled (ADR-0022). */
+    checked?: boolean,
   ): Promise<readonly HistoryMessage[]>;
   runTurn(request: TurnRequest): Promise<TurnResult>;
+  /** Classifies texts for `moderation` (ADR-0019). Absent: moderation is unavailable and skipped. */
+  moderate?(request: ModerationRequest): Promise<ModerationResult>;
+  /**
+   * Records what output checks decided about the latest answer, so the history shows only answers
+   * that passed, or their replacement, and the model doesn't repeat a withheld one (ADR-0022).
+   */
+  settleAnswer?(
+    conversationId: string,
+    verdict: AnswerVerdict,
+    signal?: AbortSignal,
+  ): Promise<void>;
   /** Small live requests that show whether the key, model and stores work (`askdare doctor`). */
   diagnose(request: DiagnoseRequest): Promise<readonly DoctorCheck[]>;
 }

@@ -3,6 +3,7 @@ import type { ModelGateway } from '../gateway';
 import { attachedFileIds, deleteFiles, FILE_TTL_SECONDS } from './attachments';
 import { diagnoseBot } from './diagnose';
 import { fromOpenAIError } from './errors';
+import { moderate, settleAnswer } from './guardrails';
 import { listHistory } from './history';
 import { runTurn } from './turn';
 
@@ -78,9 +79,9 @@ export function createOpenAIGateway(options: OpenAIGatewayOptions): ModelGateway
       }
     },
 
-    async listMessages(conversationId, signal, replies, ui) {
+    async listMessages(conversationId, signal, replies, ui, checked) {
       try {
-        return await listHistory(client, conversationId, signal, replies, ui);
+        return await listHistory(client, conversationId, signal, replies, ui, checked);
       } catch (error) {
         throw fromOpenAIError(error, false);
       }
@@ -117,5 +118,21 @@ export function createOpenAIGateway(options: OpenAIGatewayOptions): ModelGateway
     runTurn: (request) => runTurn(client, request),
 
     diagnose: (request) => diagnoseBot(client, request),
+
+    async moderate(request) {
+      try {
+        return await moderate(client, request);
+      } catch (error) {
+        throw fromOpenAIError(error, false);
+      }
+    },
+
+    async settleAnswer(conversationId, verdict, signal) {
+      try {
+        await settleAnswer(client, conversationId, verdict, signal);
+      } catch (error) {
+        throw fromOpenAIError(error, false);
+      }
+    },
   };
 }
