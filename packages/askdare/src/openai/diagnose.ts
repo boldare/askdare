@@ -78,9 +78,32 @@ function silentWav(): Uint8Array {
   return new Uint8Array(view.buffer);
 }
 
+const DEPRECATIONS = 'https://developers.openai.com/api/docs/deprecations';
+
+/**
+ * A model OpenAI has announced a shutdown for still works today, so this is a warning. The date
+ * comes from the API, never from a list here; only its `YYYY-MM-DD` part reaches the report.
+ */
+function shutdownWarning(model: string, use: string, shutdownDate: unknown): DoctorCheck {
+  const date =
+    typeof shutdownDate === 'string' ? /^\d{4}-\d{2}-\d{2}/.exec(shutdownDate)?.[0] : undefined;
+  return {
+    status: 'warn',
+    title:
+      date === undefined
+        ? `Model ${model} has an announced shutdown date.`
+        : `Model ${model} is scheduled to shut down on ${date}.`,
+    fix: `Change ${use} in defineBot to the replacement OpenAI recommends: ${DEPRECATIONS}`,
+  };
+}
+
 async function checkModel(client: OpenAI, model: string, use: string): Promise<DoctorCheck> {
   try {
-    await client.models.retrieve(model, OPTIONS);
+    const found = await client.models.retrieve(model, OPTIONS);
+    // Optional and often absent: OpenAI sets it once a shutdown is announced.
+    if (found.shutdown_date) {
+      return shutdownWarning(model, use, found.shutdown_date);
+    }
     return { status: 'ok', title: `Model ${model} is available.` };
   } catch (error) {
     const failure = failureOf(error);
