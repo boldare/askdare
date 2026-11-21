@@ -52,6 +52,9 @@ export const DE: Dictionary = {
   'launcher.open': 'Chat öffnen',
   'launcher.close': 'Chat schließen',
   'launcher.unavailable': 'Der Chat konnte nicht geladen werden. Bitte versuche es später erneut.',
+  'humanCheck.label': 'Wir prüfen, ob du ein Mensch bist',
+  'error.humanCheck':
+    'Wir konnten nicht bestätigen, dass du ein Mensch bist. Bitte versuche es erneut.',
   'error.connection': 'Verbindungsproblem. Bitte versuche es erneut.',
   'error.history': 'Das vorherige Gespräch konnte nicht geladen werden.',
   'error.updated': 'Der Assistent wurde aktualisiert. Bitte lade die Seite neu.',

@@ -57,6 +57,8 @@ export const CS: Dictionary = {
   'launcher.open': 'Otevřít chat',
   'launcher.close': 'Zavřít chat',
   'launcher.unavailable': 'Chat se nepodařilo načíst. Zkuste to prosím později.',
+  'humanCheck.label': 'Ověřujeme, že jste člověk',
+  'error.humanCheck': 'Nepodařilo se ověřit, že jste člověk. Zkuste to prosím znovu.',
   'error.connection': 'Problém s připojením. Zkuste to znovu.',
   'error.history': 'Předchozí konverzaci se nepodařilo načíst.',
   'error.updated': 'Asistent byl aktualizován. Načtěte stránku znovu.',

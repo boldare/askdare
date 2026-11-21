@@ -117,6 +117,8 @@ The chat page, `/api/chat/embed/<bot>`, answers with these headers:
 | `X-Content-Type-Options` | `nosniff` |
 | `Cache-Control` | `no-store` |
 
+A bot with a human check (`security.humanVerifier`) also allows Cloudflare Turnstile in its own policy, and nothing else: `script-src 'self' https://challenges.cloudflare.com` and `frame-src https://challenges.cloudflare.com` ([Configuration](configuration.md#human-check)).
+
 `frame-ancestors` decides who may embed the chat: `'self'`, which is your app, plus the bot's `security.allowedOrigins`. With `allowedOrigins: ['https://www.example.com']`, the header ends in `frame-ancestors 'self' https://www.example.com`. Browsers enforce it, so the list holds even if someone copies the snippet.
 
 `widget.js` is served with `Cache-Control: public, max-age=300, stale-while-revalidate=86400`, or `no-cache` under `next dev`. A new button look can take a few minutes to show on other sites.

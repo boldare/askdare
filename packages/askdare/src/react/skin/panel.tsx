@@ -1,5 +1,6 @@
 import {
   ErrorMessage,
+  HumanCheck,
   MessageList,
   Messages,
   Panel,
@@ -127,6 +128,7 @@ export function DefaultPanel({
           <MessageList>{message}</MessageList>
           <Status />
         </Messages>
+        <HumanCheck />
         <ErrorMessage />
         <Footer />
       </Panel>

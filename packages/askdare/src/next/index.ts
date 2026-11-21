@@ -1,6 +1,7 @@
 export type {
   ChatAttachments,
   ChatConfig,
+  ChatHumanCheck,
   ChatStyles,
   ChatWidget,
   EmbedChatConfig,

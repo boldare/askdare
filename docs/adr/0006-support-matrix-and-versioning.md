@@ -1,6 +1,6 @@
 # ADR-0006: Support matrix and versioning policy
 
-- **Status:** Accepted
+- **Status:** Accepted. The size budget of `@boldare/askdare/react` is superseded by [ADR-0023](0023-human-check-and-react-budget.md).
 - **Date:** 2026-10-29
 
 ## Context

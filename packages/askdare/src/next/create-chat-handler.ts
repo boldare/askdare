@@ -94,6 +94,12 @@ export interface ChatHandlerLimitsOptions {
   readonly trustProxy?: TrustProxy;
   /** Input plus output tokens per UTC day across all bots. Unlimited by default. */
   readonly globalDailyTokens?: number;
+  /**
+   * Refuse to start without a shared `store`, instead of warning in production that limits are
+   * per instance (ADR-0019). For example `process.env.NODE_ENV === 'production'`, so development
+   * keeps the in-memory store. Default `false`.
+   */
+  readonly requireSharedStore?: boolean;
 }
 
 export type RouteHandler = (request: Request) => Promise<Response>;
@@ -162,6 +168,11 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
   let identity: IdentityVerifier | null | undefined;
   let tokens: Promise<TokenService> | undefined;
   const store = options.limits?.store ?? memoryStore();
+  if (!store.shared && options.limits?.requireSharedStore === true) {
+    throw new TypeError(
+      '[askdare] limits.requireSharedStore is on, but limits.store is not shared across instances. Pass a shared store such as @boldare/askdare-upstash.',
+    );
+  }
   if (!store.shared && process.env['NODE_ENV'] === 'production') {
     console.warn(
       '[askdare] Rate limits are kept in memory, per instance. With more than one instance, use a shared store such as @boldare/askdare-upstash.',

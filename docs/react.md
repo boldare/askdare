@@ -193,6 +193,7 @@ Without `Theme` and `DefaultChat`, no stylesheet of the chat loads: the look is 
 | `Recorder` | `div` | The running dictation, with cancel and done. Renders nothing otherwise. |
 | `Status` | `p` | What the assistant is doing before it writes, or that a conversation is loading. |
 | `ErrorMessage` | `p` | The latest problem, in the visitor's language. |
+| `HumanCheck` | `div` | The Cloudflare Turnstile challenge, while a new session waits for it. Renders nothing for a bot without `security.humanVerifier`; a chat whose bot has one must render it ([Configuration](configuration.md#human-check)). |
 | `Disclosure` | `p` | The AI notice (`disclosure.text`), with a link to `widget.disclosure.privacyUrl` when the bot has one. Children replace the text with your own wording. Renders nothing with `disclosure: false`. |
 
 Primitives that have nothing to show render nothing, so you can place them without conditions.
@@ -312,6 +313,7 @@ The widget brings its own policy inside the iframe. A chat inside your page live
 | `font-src 'self'` | The built-in themes' fonts. |
 | `img-src 'self' blob: data:` | Previews of files the visitor attaches, and a `data:` avatar. |
 | `Permissions-Policy: microphone=(self)` | Dictation, if the bot has voice input. |
+| `script-src https://challenges.cloudflare.com`, `frame-src https://challenges.cloudflare.com` | The human check, if the bot has `security.humanVerifier`. `DefaultChat` shows it; a headless chat renders `HumanCheck`. |
 
 ## Eject the default look
 

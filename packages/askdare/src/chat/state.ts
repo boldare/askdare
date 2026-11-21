@@ -81,6 +81,8 @@ export interface ChatState {
   readonly ratings: Readonly<Record<string, Rating>>;
   /** The id of the answer just rated 👎, while the chat asks what went wrong. */
   readonly commenting: string | undefined;
+  /** The chat waits for the visitor to pass the bot's human check before it connects. */
+  readonly humanCheck: boolean;
 }
 
 /** Whether the draft, or the files ready to go, can be sent now. */
