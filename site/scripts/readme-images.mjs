@@ -541,7 +541,7 @@ const features = () => `
         <p>Your own greeting and texts in every language the chat speaks.</p>${textsCode}</div>
     </div>
     <div class="strip"><strong>No database.</strong><ul class="tags">
-      <li>Conversations live in OpenAI</li><li>Vercel or Heroku</li><li>Next.js 16</li><li>TypeScript</li><li>English and Polish</li>
+      <li>Conversations live in OpenAI</li><li>Vercel or Heroku</li><li>Next.js 16</li><li>TypeScript</li><li>Seven languages</li>
     </ul></div>
   </div>`;
 

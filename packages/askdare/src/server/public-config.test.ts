@@ -119,7 +119,7 @@ describe('getChatConfig', () => {
     expect(polish.widget.greeting).toBe('Dzień dobry');
     expect(polish.widget.texts['welcome.greeting']).toBe('Dzień dobry');
     expect(polish.widget.texts['composer.send']).toBe('Wyślij');
-    expect(publicConfig(multi, '/api/chat', { locale: 'fr' }).widget.greeting).toBe('Hello');
+    expect(publicConfig(multi, '/api/chat', { locale: 'sv' }).widget.greeting).toBe('Hello');
     expect(publicConfig(multi, '/api/chat').widget.greeting).toBe('Hello');
     expect(JSON.stringify(polish)).not.toContain('textsByLocale');
     expect(JSON.stringify(polish)).not.toContain('Hello');

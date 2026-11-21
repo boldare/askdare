@@ -62,21 +62,21 @@ describe('loaderWithLook (real built loader)', () => {
       instructions: 'x',
       widget: {
         locale: 'auto',
-        texts: { 'de-AT': { 'launcher.label': 'Fragen?' }, 'pl-PL': { 'launcher.label': 'Hej' } },
+        texts: { 'nl-BE': { 'launcher.label': 'Vragen?' }, 'pl-PL': { 'launcher.label': 'Hej' } },
       },
     });
     const looks = launcherLook(regional).texts;
-    expect(Object.keys(looks)).toEqual(['en', 'pl', 'de']);
-    expect(looks['de']?.label).toBe('Fragen?');
-    expect(looks['de']?.open).toBe('Open chat');
+    expect(Object.keys(looks)).toEqual(['en', 'cs', 'de', 'es', 'fr', 'it', 'pl', 'nl']);
+    expect(looks['nl']?.label).toBe('Vragen?');
+    expect(looks['nl']?.open).toBe('Open chat');
     expect(looks['pl']?.label).toBe('Hej');
     // A fixed locale without a dictionary shows its own set in the English entry it uses.
-    const german = defineBot({
-      id: 'de',
+    const dutch = defineBot({
+      id: 'nl',
       model: 'm',
       instructions: 'x',
-      widget: { locale: 'de', texts: { de: { 'launcher.label': 'Fragen?' } } },
+      widget: { locale: 'nl', texts: { nl: { 'launcher.label': 'Vragen?' } } },
     });
-    expect(launcherLook(german).texts['en']?.label).toBe('Fragen?');
+    expect(launcherLook(dutch).texts['en']?.label).toBe('Vragen?');
   });
 });
