@@ -80,6 +80,32 @@ test('the open chat on a host page has no axe violations and announces the answe
   expect(await violations(page, '[data-askdare]')).toEqual([]);
 });
 
+// WCAG 2.4.11 on the page: a full-screen chat (a phone, or a page zoomed to 400%) covers it, so
+// focus must not land behind the chat until it is closed.
+test('focus stays in a full-screen chat until it closes', async ({ page, browserName }) => {
+  // As in embed.spec.ts: Playwright's WebKit reports the page as inactive once the cross-origin
+  // iframe had focus, though the element is the page's active element.
+  test.fixme(browserName === 'webkit', 'focus after a cross-origin iframe, in WebKit');
+  await page.setViewportSize({ width: 400, height: 700 });
+  await page.goto('http://127.0.0.1:4100/');
+  await page.evaluate(() => {
+    const button = document.createElement('button');
+    button.id = 'behind';
+    button.textContent = 'On the page';
+    document.body.prepend(button);
+  });
+  await page.locator('[part="launcher"]').click();
+  const chat = page.frameLocator('iframe[title="Chat"]');
+  await expect(chat.getByRole('textbox')).toBeVisible();
+  await page.locator('#behind').focus();
+  await expect(page.locator('[data-askdare]')).toBeFocused();
+
+  await chat.getByRole('textbox').press('Escape');
+  await expect(page.locator('[part="launcher"]')).toBeFocused();
+  await page.locator('#behind').focus();
+  await expect(page.locator('#behind')).toBeFocused();
+});
+
 test('the chat inside a page has no axe violations', async ({ page }) => {
   await page.goto('http://localhost:3100/inline');
   await expect(page.locator('.inline-chat').getByRole('textbox')).toBeEnabled();
