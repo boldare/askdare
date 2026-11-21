@@ -79,15 +79,22 @@ function topLevelRules(css: string): string[] {
       index = end === -1 ? css.length : end + 1;
     } else if (char === '{') {
       depth += 1;
+    } else if (char === '}' && depth === 0) {
+      // A stray closing brace would close the `@scope` block around these rules: drop it.
+      rules.push(css.slice(start, index).trim());
+      start = index + 1;
     } else if (char === '}' || (char === ';' && depth === 0)) {
-      if (char === '}') depth = Math.max(0, depth - 1);
+      if (char === '}') depth -= 1;
       if (depth === 0) {
         rules.push(css.slice(start, index + 1).trim());
         start = index + 1;
       }
     }
   }
-  const rest = css.slice(start).trim();
+  // Close what the input left open, so nothing after these rules ends up inside them.
+  let rest = css.slice(start).trim();
+  if (rest && quote) rest += quote;
+  if (rest && depth > 0) rest += '}'.repeat(depth);
   if (rest) rules.push(rest);
   return rules.filter(Boolean);
 }

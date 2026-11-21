@@ -52,6 +52,22 @@ describe('inlineThemeStylesheet', () => {
 });
 
 describe('inlineCustomCss', () => {
+  it('keeps every rule inside the scope when the CSS has unbalanced braces or quotes', () => {
+    // A stray `}` used to close @scope early, so `body` reached the host page.
+    expect(inlineCustomCss('a { color: red } } body { display: none }', 'support')).toBe(
+      `@scope (${ROOT}){a { color: red }\nbody { display: none }}`,
+    );
+    expect(inlineCustomCss('} body { display: none }', 'support')).toBe(
+      `@scope (${ROOT}){body { display: none }}`,
+    );
+    expect(inlineCustomCss('a { b { color: red }', 'support')).toBe(
+      `@scope (${ROOT}){a { b { color: red }}}`,
+    );
+    expect(inlineCustomCss('a { content: "x }', 'support')).toBe(
+      `@scope (${ROOT}){a { content: "x }"}}`,
+    );
+  });
+
   it("wraps the bot's rules in @scope of its theme root, :root meaning that root", () => {
     expect(inlineCustomCss(':root { --ask-radius: 0 } body { margin: 0 }', 'support')).toBe(
       `@scope (${ROOT}){:scope { --ask-radius: 0 }\nbody { margin: 0 }}`,
