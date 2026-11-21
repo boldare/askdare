@@ -113,6 +113,18 @@ describe('fromOpenAIError', () => {
     expect(cause.message).toContain("'input'");
   });
 
+  it('asks for a new conversation when the context window overflows', () => {
+    const overflow = apiError(400, {
+      code: 'context_length_exceeded',
+      message: 'Your input exceeds the context window of this model.',
+    });
+    const mapped = asAskdare(fromOpenAIError(overflow, false));
+    expect(mapped.code).toBe('invalid_input');
+    expect(mapped.key).toBe('error.conversationTooLong');
+    const other = asAskdare(fromOpenAIError(apiError(400, { code: 'invalid_value' }), false));
+    expect(other.code).toBe('upstream_error');
+  });
+
   it('turns anything else into an internal error', () => {
     expect(asAskdare(fromOpenAIError(new Error('boom'), false)).code).toBe('internal_error');
     expect(asAskdare(fromOpenAIError('boom', false)).code).toBe('internal_error');

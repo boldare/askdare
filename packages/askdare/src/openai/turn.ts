@@ -101,7 +101,9 @@ async function runStep(
       max_output_tokens: bot.limits.maxOutputTokens,
       // Deprecated in favour of server-side compaction (`context_management`), which spikes S5
       // and S5b kept out for now: below ~100k tokens it never shrinks the input (ADR-0003).
-      // Still accepted.
+      // Kept while OpenAI announces no shutdown date: without it a long conversation fails with
+      // 400 instead of dropping its oldest items. If it ever fails, `fromOpenAIError` maps the
+      // overflow to `error.conversationTooLong`.
       truncation: 'auto',
       safety_identifier: request.safetyIdentifier,
       prompt_cache_key: `askdare:${bot.id}`,
