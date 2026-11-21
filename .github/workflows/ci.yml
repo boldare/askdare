@@ -97,6 +97,8 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+      # The container runs as root on a checkout the runner user owns; git refuses it otherwise.
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:visual
       - if: failure()
