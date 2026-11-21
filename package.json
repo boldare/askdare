@@ -15,7 +15,7 @@
     "test:watch": "vitest",
     "smoke": "vitest run --config vitest.smoke.config.ts",
     "e2e": "pnpm build && pnpm --filter askdare-site run build && playwright test --project chromium --project mobile",
-    "e2e:browsers": "pnpm build && pnpm --filter askdare-site run build && playwright test --project firefox --project webkit",
+    "e2e:browsers": "pnpm build && pnpm --filter askdare-site run build && playwright test --project firefox --project webkit --project iphone",
     "verify:packs": "node scripts/verify-packs.mjs",
     "check:packages": "pnpm --filter \"./packages/*\" run check:package",
     "check": "pnpm lint && pnpm build && pnpm typecheck && pnpm test && pnpm check:packages",

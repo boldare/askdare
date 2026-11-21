@@ -26,7 +26,7 @@ The current and previous major versions of Chrome, Edge, Firefox and Safari, on 
 
 Older browsers may show the chat with a plainer look or not at all. Dictation also needs a microphone and `MediaRecorder`, which all of these have.
 
-Every release is tested in Chromium, Firefox and WebKit, and in Chromium on a phone viewport: embedding, the page API and accessibility (axe with the WCAG 2.2 AA rules; see [Accessibility](accessibility.md)). Safari on iOS, dictation in Safari and screen readers (VoiceOver, NVDA) are checked by hand before each release candidate.
+Every release is tested automatically in Chromium, Firefox and WebKit, and on two phones: Chromium on an Android viewport and WebKit on an iPhone viewport (the engine of Safari on iOS). The tests cover embedding, the page API and accessibility (axe with the WCAG 2.2 AA rules; see [Accessibility](accessibility.md)). Releases don't wait on manual checks: real iOS devices, dictation in Safari and screen readers aren't tested by hand.
 
 ## What a visitor downloads
 
