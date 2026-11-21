@@ -100,5 +100,7 @@ describe('Markdown while streaming', () => {
     const tenth = Math.floor(deltas.length / 10);
     const mostReads = (part: typeof deltas) => Math.max(...part.map(({ reads }) => reads));
     expect(mostReads(deltas.slice(-tenth))).toBeLessThanOrEqual(mostReads(deltas.slice(0, tenth)));
-  });
+    // It counts work rather than timing it; 1,000 React renders take ~3 s alone and more under a
+    // full parallel run, so it gets more than the default 5 s.
+  }, 30_000);
 });
