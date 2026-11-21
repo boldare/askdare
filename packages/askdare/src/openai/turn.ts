@@ -181,15 +181,20 @@ export async function runTurn(client: OpenAI, request: TurnRequest): Promise<Tur
       const latest = suggestions.at(-1);
       if (latest) replies = suggestedReplies(latest.arguments) ?? [];
       const answered = answerSuggestions(suggestions);
-      // Options after a visible answer end the turn: their call is answered without the model.
-      // A call before the answer, or text the model marked as commentary, takes one more step.
-      if (calls.length === 0 && (answered.length === 0 || outcome.answerItemId)) {
+      // Options after the answer end the turn: their call is answered without the model. Models
+      // mark text written before any call as commentary, options included, so text followed only
+      // by options is the answer; taking another step made the model write it a second time.
+      // A call before any text takes one more step.
+      const answerItemId =
+        outcome.answerItemId ??
+        (calls.length === 0 && answered.length > 0 ? outcome.textItemId : undefined);
+      if (calls.length === 0 && (answered.length === 0 || answerItemId)) {
         if (answered.length > 0) await storeOutputs(client, request, answered);
         const offered = toolReplies ?? replies;
         return {
           reason: endReason(outcome),
           usage,
-          ...(outcome.answerItemId ? { answerItemId: outcome.answerItemId } : {}),
+          ...(answerItemId ? { answerItemId } : {}),
           // A tool's own options win over the model's suggestion (ADR-0015).
           ...(offered ? { replies: offered } : {}),
         };

@@ -274,17 +274,30 @@ describe('suggest_replies', () => {
     });
   });
 
-  it('takes one more step when the answer was commentary, so it ends with a visible answer', async () => {
+  it('ends the turn when the answer, marked as commentary, is followed only by options', async () => {
+    // Models mark text written before a call as commentary. Another step made them repeat the
+    // whole answer, so visitors saw it twice.
     const served = serve([
-      commentaryStep('No, but ', functionCall('c1', SUGGEST_REPLIES, OPTIONS)),
-      textTurnEvents(['there is a trial.']),
+      commentaryStep('No, but there is a trial.', functionCall('c1', SUGGEST_REPLIES, OPTIONS)),
+      textTurnEvents(['No, but there is a trial.']),
     ]);
     const { result } = await run(suggesting());
-    expect(served.bodies).toHaveLength(2);
+    expect(served.bodies).toHaveLength(1);
     expect(result).toMatchObject({
-      answerItemId: 'msg_out',
+      reason: 'completed',
+      answerItemId: 'msg_pre',
       replies: ['Show prices', 'Talk to a person'],
     });
+  });
+
+  it('takes one more step when commentary comes before a tool call', async () => {
+    const served = serve([
+      commentaryStep('Let me check. ', functionCall('c1', 'echo', '{"word":"hi"}')),
+      textTurnEvents(['Done.']),
+    ]);
+    const { result } = await run(suggesting({ tools: [echo] }));
+    expect(served.bodies).toHaveLength(2);
+    expect(result).toMatchObject({ answerItemId: 'msg_out' });
   });
 
   it("answers the options and the bot's tools in one round, keeping the bot's tools", async () => {

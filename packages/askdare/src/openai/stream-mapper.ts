@@ -18,6 +18,8 @@ export interface StepOutcome {
   readonly model: string | undefined;
   /** The provider's ID of the step's last visible answer message, the one visitors rate. */
   readonly answerItemId: string | undefined;
+  /** The provider's ID of the step's last message of any phase, commentary included. */
+  readonly textItemId: string | undefined;
   readonly usage: TokenUsage;
   readonly functionCalls: readonly FunctionCall[];
 }
@@ -49,6 +51,7 @@ export class ResponseStreamMapper {
   readonly #citations: CitationRegistry;
   readonly #functionCalls: FunctionCall[] = [];
   #answerItemId: string | undefined;
+  #textItemId: string | undefined;
   #outcome: StepOutcome | undefined;
 
   constructor(
@@ -85,8 +88,9 @@ export class ResponseStreamMapper {
       case 'response.output_item.added':
         if (event.item.type === 'reasoning') {
           this.#emit({ type: 'reasoning', messageId: this.#messageId, state: 'started' });
-        } else if (event.item.type === 'message' && event.item.phase !== 'commentary') {
-          this.#answerItemId = event.item.id;
+        } else if (event.item.type === 'message') {
+          this.#textItemId = event.item.id;
+          if (event.item.phase !== 'commentary') this.#answerItemId = event.item.id;
         }
         return;
       case 'response.output_item.done':
@@ -109,6 +113,7 @@ export class ResponseStreamMapper {
           incompleteReason: event.response.incomplete_details?.reason,
           model: event.response.model || undefined,
           answerItemId: this.#answerItemId,
+          textItemId: this.#textItemId,
           usage: event.response.usage
             ? {
                 inputTokens: event.response.usage.input_tokens,
