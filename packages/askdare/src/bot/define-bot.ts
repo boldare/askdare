@@ -223,8 +223,23 @@ export interface BotDefinition {
   readonly embedPath?: string | undefined;
 }
 
-export interface Bot {
+/** Marks a resolved bot; `Symbol.for`, so a second copy of this module recognises it too. */
+const BOT: unique symbol = Symbol.for('askdare.bot');
+
+/**
+ * What `defineBot` returns. Pass it to `createChatHandler`, `getChatConfig` and `getEmbedConfig`;
+ * the settings it resolved are internal (ADR-0020).
+ */
+export interface BotHandle {
+  /** The bot's `id` from its definition. */
   readonly id: string;
+  /** The bot's `embedPath` from its definition, for matching its page in `proxy.ts` (ADR-0018). */
+  readonly embedPath: string | undefined;
+}
+
+/** A bot with its definition validated and its defaults filled in. Internal. */
+export interface Bot extends BotHandle {
+  readonly [BOT]: true;
   readonly model: string;
   readonly instructions: (context: BotContext) => string;
   readonly limits: Required<BotLimits>;
@@ -235,7 +250,6 @@ export interface Bot {
   readonly voice: Required<VoiceConfig> | undefined;
   readonly security: { readonly allowedOrigins: readonly string[] };
   readonly widget: BotWidget;
-  readonly embedPath: string | undefined;
 }
 
 const DEFAULT_LIMITS: Required<BotLimits> = {
@@ -463,7 +477,24 @@ const definitionSchema = z.object({
  * Declares a chatbot. Validates eagerly so misconfiguration fails at startup, not on the first
  * visitor's message.
  */
-export function defineBot(definition: BotDefinition): Bot {
+export function defineBot(definition: BotDefinition): BotHandle {
+  return createBot(definition);
+}
+
+/** The resolved bot behind a handle, or a TypeError when it didn't come from `defineBot`. */
+export function botOf(handle: BotHandle): Bot {
+  if (!isBot(handle)) {
+    throw new TypeError(`[askdare] Bot "${handle.id}" was not made by defineBot().`);
+  }
+  return handle;
+}
+
+function isBot(handle: BotHandle): handle is Bot {
+  return BOT in handle;
+}
+
+/** `defineBot` for code inside the library, typed with the resolved settings. */
+export function createBot(definition: BotDefinition): Bot {
   const parsed = definitionSchema.safeParse(definition);
   if (!parsed.success) {
     const issues = parsed.error.issues
@@ -512,6 +543,7 @@ export function defineBot(definition: BotDefinition): Bot {
     }
   }
   return Object.freeze({
+    [BOT]: true as const,
     id: definition.id,
     model: definition.model.trim(),
     instructions: typeof instructions === 'string' ? () => instructions : instructions,

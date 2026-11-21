@@ -2,7 +2,7 @@ import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { z } from 'zod';
-import { type Bot, defineBot } from '../bot/define-bot';
+import { type Bot, createBot } from '../bot/define-bot';
 import type { ModelGateway, StepRecord, ToolCallRecord, TurnRequest } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
 import { defineTool, type Tool } from '../tools/define-tool';
@@ -72,7 +72,7 @@ function steps(...responses: (FixtureEvent[] | (() => Response))[]): Record<stri
 }
 
 function makeBot(tools: Tool[], maxSteps = 5): Bot {
-  return defineBot({
+  return createBot({
     id: 'support',
     model: 'm',
     instructions: 'Use tools.',
@@ -165,7 +165,7 @@ describe('defineTool', () => {
 describe('tool loop', () => {
   it('sends no tools for bots without tools', async () => {
     const bodies = steps(textTurnEvents(['Hi!']));
-    await run(defineBot({ id: 'plain', model: 'm', instructions: 'x' }));
+    await run(createBot({ id: 'plain', model: 'm', instructions: 'x' }));
     expect(bodies[0]).not.toHaveProperty('tools');
     expect(bodies[0]).not.toHaveProperty('tool_choice');
   });

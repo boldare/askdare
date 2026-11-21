@@ -1,8 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { PROTOCOL_VERSION } from './index';
+import { defineBot, ERROR_CODES, PROTOCOL_VERSION } from './index';
 
 describe('package entry', () => {
   it('exposes the protocol version', () => {
     expect(PROTOCOL_VERSION).toBe(1);
+  });
+
+  it('exposes the error codes as values', () => {
+    expect(ERROR_CODES).toContain('rate_limited');
+  });
+
+  it('returns a bot handle with its id and embed path', () => {
+    const bot = defineBot({ id: 'support', model: 'm', instructions: 'x', embedPath: '/chat' });
+    expect(bot.id).toBe('support');
+    expect(bot.embedPath).toBe('/chat');
   });
 });

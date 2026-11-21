@@ -1,6 +1,6 @@
 # ADR-0020: Public API clean-up for 0.5
 
-- **Status:** Accepted (2026-11-21)
+- **Status:** Accepted (2026-11-21). Point 4 is superseded by [ADR-0021](0021-zod-stays-a-required-peer.md).
 - **Date:** 2026-11-21
 - **Supersedes in part:** [ADR-0006](0006-support-matrix-and-versioning.md). This replaces the "Zod" and "Node.js" rows of its support matrix, and adds to and removes from its list of public exports as below. The rest of ADR-0006 stands.
 

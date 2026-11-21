@@ -1,17 +1,17 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineBot } from '../bot/define-bot';
+import { createBot } from '../bot/define-bot';
 import { LOADER_JS } from '../generated/assets';
 import { loaderWithLook } from '../server/launcher';
 
 const APP = 'https://app.test';
-const auto = defineBot({
+const auto = createBot({
   id: 'support',
   model: 'm',
   instructions: 'x',
   widget: { locale: 'auto' },
 });
-const fixed = defineBot({ id: 'support', model: 'm', instructions: 'x', widget: { locale: 'en' } });
+const fixed = createBot({ id: 'support', model: 'm', instructions: 'x', widget: { locale: 'en' } });
 
 type Api = (command: string, ...args: unknown[]) => unknown;
 

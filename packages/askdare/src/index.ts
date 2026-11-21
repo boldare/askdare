@@ -1,8 +1,8 @@
 export type {
   AttachmentConfig,
-  Bot,
   BotContext,
   BotDefinition,
+  BotHandle,
   BotLimits,
   BotSecurity,
   KnowledgeConfig,
@@ -11,6 +11,8 @@ export type {
 } from './bot/define-bot';
 export { defineBot } from './bot/define-bot';
 export type { CounterHit, RateLimitStore } from './limits/store';
+export type { ErrorCode } from './protocol/events';
+export { ERROR_CODES } from './protocol/events';
 export { PROTOCOL_VERSION } from './protocol/version';
 export type { VisitorIdentity } from './security/identity';
 export type { PresetName, ThemeTokens, ThemeVariants } from './theme/presets';

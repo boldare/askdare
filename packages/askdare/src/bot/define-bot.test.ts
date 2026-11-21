@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { defineBot, widgetTexts } from './define-bot';
+import { createBot, widgetTexts } from './define-bot';
 
-describe('defineBot', () => {
+describe('createBot', () => {
   it('applies default limits and normalizes instructions to a function', () => {
-    const bot = defineBot({ id: 'support', model: 'test-model', instructions: 'Be helpful.' });
+    const bot = createBot({ id: 'support', model: 'test-model', instructions: 'Be helpful.' });
     expect(bot.limits).toEqual({
       maxOutputTokens: 1024,
       maxInputChars: 4000,
@@ -29,15 +29,15 @@ describe('defineBot', () => {
   });
 
   it('requires a transcription model for voice input and defaults to 60 seconds', () => {
-    const bot = defineBot({ id: 'a', model: 'm', instructions: 'x', voice: { model: ' t ' } });
+    const bot = createBot({ id: 'a', model: 'm', instructions: 'x', voice: { model: ' t ' } });
     expect(bot.voice).toEqual({ model: 't', maxSeconds: 60 });
     expect(() =>
-      defineBot({ id: 'a', model: 'm', instructions: 'x', voice: { model: '' } }),
+      createBot({ id: 'a', model: 'm', instructions: 'x', voice: { model: '' } }),
     ).toThrow(/voice\.model is required/);
   });
 
   it('defaults attachments to images and PDFs up to 4 MB, 3 per message', () => {
-    const bot = defineBot({ id: 'a', model: 'm', instructions: 'x', attachments: { pdf: false } });
+    const bot = createBot({ id: 'a', model: 'm', instructions: 'x', attachments: { pdf: false } });
     expect(bot.attachments).toEqual({
       images: true,
       pdf: false,
@@ -46,7 +46,7 @@ describe('defineBot', () => {
       maxPdfPages: 50,
     });
     expect(() =>
-      defineBot({
+      createBot({
         id: 'a',
         model: 'm',
         instructions: 'x',
@@ -56,7 +56,7 @@ describe('defineBot', () => {
   });
 
   it('keeps instruction functions and overrides selected limits', () => {
-    const bot = defineBot({
+    const bot = createBot({
       id: 'sales-pl',
       model: 'test-model',
       instructions: ({ locale }) => `Answer in ${locale}.`,
@@ -69,8 +69,8 @@ describe('defineBot', () => {
 
   it('takes a page of the app as embedPath, and nothing that could leave it (ADR-0018)', () => {
     const base = { id: 'a', model: 'm', instructions: 'x' };
-    expect(defineBot(base).embedPath).toBeUndefined();
-    expect(defineBot({ ...base, embedPath: '/askdare/support' }).embedPath).toBe(
+    expect(createBot(base).embedPath).toBeUndefined();
+    expect(createBot({ ...base, embedPath: '/askdare/support' }).embedPath).toBe(
       '/askdare/support',
     );
     for (const embedPath of [
@@ -80,14 +80,14 @@ describe('defineBot', () => {
       'askdare',
       '/a?b=1',
     ]) {
-      expect(() => defineBot({ ...base, embedPath })).toThrow(
+      expect(() => createBot({ ...base, embedPath })).toThrow(
         /embedPath must be a path of this app/,
       );
     }
   });
 
   it('defaults the widget config and keeps allowed origins unique', () => {
-    const bot = defineBot({
+    const bot = createBot({
       id: 'a',
       model: 'm',
       instructions: 'x',
@@ -103,7 +103,7 @@ describe('defineBot', () => {
   });
 
   it('defaults knowledge search to 5 results and allows no knowledge base', () => {
-    const bot = defineBot({
+    const bot = createBot({
       id: 'a',
       model: 'm',
       instructions: 'x',
@@ -111,12 +111,12 @@ describe('defineBot', () => {
     });
     expect(bot.knowledge).toEqual({ vectorStoreId: 'vs_1', maxResults: 5 });
     expect(
-      defineBot({ id: 'a', model: 'm', instructions: 'x', knowledge: undefined }).knowledge,
+      createBot({ id: 'a', model: 'm', instructions: 'x', knowledge: undefined }).knowledge,
     ).toBeUndefined();
   });
 
   it('is frozen', () => {
-    const bot = defineBot({ id: 'a', model: 'm', instructions: 'x' });
+    const bot = createBot({ id: 'a', model: 'm', instructions: 'x' });
     expect(Object.isFrozen(bot)).toBe(true);
     expect(Object.isFrozen(bot.limits)).toBe(true);
   });
@@ -168,12 +168,12 @@ describe('defineBot', () => {
       /https origin/,
     ],
   ])('rejects invalid definitions (%#)', (definition, message) => {
-    expect(() => defineBot(definition)).toThrow(message);
+    expect(() => createBot(definition)).toThrow(message);
   });
 
   describe('widget.texts per language', () => {
-    const define = (widget: NonNullable<Parameters<typeof defineBot>[0]['widget']>) =>
-      defineBot({ id: 'a', model: 'm', instructions: 'x', widget });
+    const define = (widget: NonNullable<Parameters<typeof createBot>[0]['widget']>) =>
+      createBot({ id: 'a', model: 'm', instructions: 'x', widget });
 
     it('keeps the flat form for every language, with the shortcuts winning', () => {
       const bot = define({

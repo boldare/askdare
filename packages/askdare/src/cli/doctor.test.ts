@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { defineBot } from '../bot/define-bot';
+import { createBot } from '../bot/define-bot';
 import type { ModelGateway } from '../gateway';
 import { createLimits } from '../limits/limits';
 import { memoryStore } from '../limits/store';
@@ -35,7 +35,7 @@ const gateway = {
 function app(overrides: Partial<HandlerConfig> = {}) {
   return createRequestHandler({
     bots: [
-      defineBot({
+      createBot({
         id: 'support',
         model: 'gpt-test',
         instructions: 'x',
@@ -117,14 +117,14 @@ describe('askdare doctor', () => {
         {
           status: 'warn',
           title: `Model ${model} is scheduled to shut down on 2099-12-11.`,
-          fix: 'Change model in defineBot to the replacement OpenAI recommends: https://developers.openai.com/api/docs/deprecations',
+          fix: 'Change model in createBot to the replacement OpenAI recommends: https://developers.openai.com/api/docs/deprecations',
         },
       ],
     } as Pick<ModelGateway, 'diagnose'> as ModelGateway;
     const { failures, text } = await run(app({ development: true, gateway: () => retiring }));
     expect(failures).toBe(0);
     expect(text).toContain('! Model gpt-test is scheduled to shut down on 2099-12-11.');
-    expect(text).toContain('→ Change model in defineBot to the replacement OpenAI recommends');
+    expect(text).toContain('→ Change model in createBot to the replacement OpenAI recommends');
     expect(text).toContain('0 problems, 1 warning.');
   });
 
@@ -163,7 +163,7 @@ describe('askdare doctor', () => {
 
   describe("a bot's own page in the iframe (ADR-0018)", () => {
     const bots = [
-      defineBot({
+      createBot({
         id: 'support',
         model: 'gpt-test',
         instructions: 'x',
@@ -321,7 +321,7 @@ describe('askdare doctor', () => {
 
     it('accepts any microphone rule that keeps the app for a bot with voice, and warns without one', async () => {
       const voiceBots = [
-        defineBot({
+        createBot({
           id: 'support',
           model: 'gpt-test',
           instructions: 'x',
