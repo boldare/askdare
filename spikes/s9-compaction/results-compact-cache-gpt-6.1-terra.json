@@ -1,0 +1,86 @@
+{
+  "model": "gpt-6.1-terra",
+  "historyFile": "history-terra-50.json",
+  "date": "2026-11-23",
+  "warmTurn": [
+    {
+      "input": 80694,
+      "cached": 0,
+      "output": 27
+    },
+    {
+      "input": 82494,
+      "cached": 80691,
+      "output": 33
+    }
+  ],
+  "compact": [
+    {
+      "label": "after-turn",
+      "ms": 13847,
+      "input": 82445,
+      "cached": 0,
+      "cacheWrite": 0,
+      "output": 698,
+      "reasoning": 0,
+      "usd": 0.08593,
+      "items": 52
+    },
+    {
+      "label": "repeat",
+      "ms": 14425,
+      "input": 82445,
+      "cached": 82389,
+      "cacheWrite": 0,
+      "output": 712,
+      "reasoning": 0,
+      "usd": 0.00774,
+      "items": 52
+    }
+  ],
+  "toolsField": "accepted",
+  "afterCompaction": [
+    {
+      "steps": [
+        {
+          "input": 3299,
+          "cached": 1778,
+          "output": 56,
+          "ttftMs": null
+        },
+        {
+          "input": 5140,
+          "cached": 3296,
+          "output": 120,
+          "ttftMs": 2798
+        }
+      ],
+      "searched": 1,
+      "answer": "I can’t confirm whether you can drop off your old sofa for recycling in Krakow. The help centre says the Poznan showroom can handle recycling requests in person, but it doesn’t confirm sofa drop-offs."
+    },
+    {
+      "steps": [
+        {
+          "input": 5279,
+          "cached": 5137,
+          "output": 68,
+          "ttftMs": 1354
+        }
+      ],
+      "searched": 0,
+      "answer": "The charge is **39 PLN per floor above the third floor**, so carrying your sofa to the fifth floor would cost 78 PLN. [k6c956ba7c7c5]"
+    }
+  ],
+  "spend": {
+    "usd": 0.2072,
+    "byModel": {
+      "gpt-6.1-terra": {
+        "input": 341796,
+        "cached": 173291,
+        "cacheWrite": 85989,
+        "output": 1714,
+        "usd": 0.2072
+      }
+    }
+  }
+}
