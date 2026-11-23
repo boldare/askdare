@@ -94,7 +94,10 @@ export type StoredItem =
 
 /** A stored item with its position in the conversation. */
 export type PositionedItem = StoredItem & {
-  /** 1 for the first item; increases by one per item. */
+  /**
+   * The item's position: 1 for the first item of the conversation, one more per item. A provider
+   * store that can't number its items (OpenAI) counts within the page only.
+   */
   readonly seq: number;
   /** Epoch milliseconds of the append that wrote it; 0 when the store doesn't know. */
   readonly at: number;
