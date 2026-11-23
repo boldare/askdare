@@ -1,0 +1,42 @@
+[
+ {
+  "variant": "none",
+  "status": "completed",
+  "incomplete": null,
+  "output": [],
+  "outputTokens": 1,
+  "cost": 0.0001408
+ },
+ {
+  "variant": "none-no-tools-note",
+  "status": "completed",
+  "incomplete": null,
+  "output": [
+   {
+    "type": "reasoning"
+   },
+   {
+    "type": "message",
+    "text": "I can't check the current time right now, so I don't want to guess. You can see the time in Warsaw on your device's clock or by searching \"time in Warsaw\" in a search engine."
+   }
+  ],
+  "outputTokens": 158,
+  "cost": 0.0002213
+ },
+ {
+  "variant": "auto-no-tools",
+  "status": "completed",
+  "incomplete": null,
+  "output": [
+   {
+    "type": "reasoning"
+   },
+   {
+    "type": "message",
+    "text": "I'm sorry, I can't check the current time from here. For the time in Warsaw, please use a world clock or your device's clock settings."
+   }
+  ],
+  "outputTokens": 207,
+  "cost": 0.0001287
+ }
+]
