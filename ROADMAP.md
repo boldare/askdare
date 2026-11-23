@@ -29,7 +29,7 @@ The foundation that admin, handoff, data residency and other providers all need:
 - **Both are split out of `ModelGateway`** (ADR-0026), so a second provider (0.9) only has to run turns. No new provider in 0.6.
 - **History beyond the latest 100 items,** paged by turn.
 - **Resuming an answer after a dropped connection** (ADR-0027): a separate `TurnEventLog` port, in memory by default and on Upstash for sites with several instances.
-- **Compaction:** spike S9 tests it on a store we own, where S5 and S5b's blockers may not apply. It ships in 0.6 only if S9 shows a gain; otherwise it waits.
+- **Compaction for conversations in your own store** ([ADR-0029](docs/adr/0029-compaction-for-item-stores.md), Proposed): opt-in `limits.compactAt`. Once a turn gets that large, askdare compacts the conversation in the background, so the following turns replay a few thousand tokens. Spike S9 measured 27–56 % lower cost over a 50-turn conversation, with facts and citations kept. The OpenAI Conversations default gets no compaction.
 
 ## 0.7: support-grade
 
@@ -98,23 +98,22 @@ Two shared files don't make a task hot in 0.6:
 | Organization | The roadmap and `tasks/` | No |
 | Hygiene | 0.5.x patches; 0.6-h1 | No |
 | CI | Workflows, visual baselines, the starter check; 0.6-c1 | No |
-| Decisions | ADRs 0024 to 0027, accepted or amended by the tasks that build them; 0.6-z1 | No |
+| Decisions | ADRs 0024 to 0027 and 0029, accepted or amended by the tasks that build them; 0.6-z1 | No |
 | Docs | Guides for new features; 0.6-d1 | No |
-| Spikes | S9 (compaction on a store we own), in its own `spikes/` folder | No |
 | Ports | New modules inside `packages/askdare` that no hot file reaches yet: 0.6-k1, 0.6-k3, 0.6-r1 | No |
 | Add-ons | `packages/askdare-postgres` (0.6-a1, a2, a3) and `packages/askdare-upstash` (0.6-r2); one folder per task inside a package | No |
-| Core | 0.6-1, 2, k2, t1, 3a, 3b, r3a, r3b: work on hot files, in the order below | **Yes** |
+| Core | 0.6-1, 2, k2, t1, 3a, 4, 3b, r3a, r3b: work on hot files, in the order below | **Yes** |
 
 **The 0.6 order.** A task starts when everything before its arrow is merged; tasks on one line run side by side.
 
 ```text
-Ready now:  1 · k1 · r1 · a1 · h1 · c1 · s9
+Ready now:  1 · k1 · r1 · a1 · h1 · c1
 1 ─────────────→ 2 · a2 (a2 also needs a1)
 k1 ────────────→ a3 (needs a1) · k3
 r1 ────────────→ r2
 2 + k1 + h1 ───→ k2 · t1 (t1 needs only 2)
-k2 + t1 ───────→ 3a
-3a ────────────→ 3b · r3a (r3a also needs r1)
+k2 + t1 ───────→ 3a · 4
+3a ────────────→ 3b · r3a (r3a also needs r1 and 4)
 3b + r3a ──────→ r3b
 a2 + a3 + k2 + k3 → d1
 everything ────→ z1
