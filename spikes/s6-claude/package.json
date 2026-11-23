@@ -1,0 +1,17 @@
+{
+  "name": "askdare-spike-s6a-claude",
+  "private": true,
+  "type": "module",
+  "description": "Spike S6a: askdare turns on Claude (Messages API) behind ModelGateway: stream, tool loop, caching, usage, errors.",
+  "scripts": {
+    "typecheck": "../../node_modules/.bin/tsc -p tsconfig.json",
+    "start": "node --env-file-if-exists=.env s6a.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.11.0",
+    "zod": "4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5"
+  }
+}
