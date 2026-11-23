@@ -1,0 +1,19 @@
+# Postgres 17 with pgvector for this package's tests, as in CI. Host port 54329, so it never clashes
+# with a local 5432 or with the spikes' containers (54327, 54328).
+#   docker compose -f packages/askdare-postgres/docker-compose.yml up -d --wait
+#   ASKDARE_POSTGRES_TEST_URL=postgres://askdare@127.0.0.1:54329/askdare pnpm test
+name: askdare-postgres
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: askdare
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_DB: askdare
+    ports:
+      - "127.0.0.1:54329:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U askdare"]
+      interval: 1s
+      timeout: 3s
+      retries: 30

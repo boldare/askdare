@@ -14,7 +14,12 @@ import { join } from 'node:path';
 const repo = join(import.meta.dirname, '..');
 const dryRun = process.argv.includes('--dry-run');
 const mode = process.env['NPM_RELEASE_MODE'] === 'publish' ? 'publish' : 'stage';
-const PACKAGES = ['packages/askdare', 'packages/askdare-upstash', 'packages/askdare-otel'];
+const PACKAGES = [
+  'packages/askdare',
+  'packages/askdare-upstash',
+  'packages/askdare-otel',
+  'packages/askdare-postgres',
+];
 
 const run = (command, args, cwd) =>
   execFileSync(command, args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
