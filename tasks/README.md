@@ -21,7 +21,7 @@ Open roadmap work, one file per task. [ROADMAP.md](../ROADMAP.md) says what each
 
 - **Status:** ready | blocked | in progress (`<branch>`)
 - **Release:** 0.x
-- **Lane:** Core | Hygiene | CI | Decisions | Docs | Spikes
+- **Lane:** Core | Ports | Add-ons | Hygiene | CI | Decisions | Docs | Spikes
 - **Touches hot files:** No | Yes (which)
 - **Changes the public API or the protocol:** No | Yes: API snapshot, ADR-0006 and a minor changeset | Yes: protocol, additive within v1
 - **Depends on:** none | <ids>
