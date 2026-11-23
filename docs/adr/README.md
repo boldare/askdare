@@ -26,7 +26,8 @@ Short records of decisions that are expensive to reverse. One decision per file,
 | [0020](0020-public-api-cleanup-0-5.md) | Public API clean-up for 0.5 | Accepted (point 4 superseded by ADR-0021) |
 | [0021](0021-zod-stays-a-required-peer.md) | Zod stays a required peer | Accepted |
 | [0022](0022-guardrails-implementation.md) | How guardrails check messages and stream answers | Accepted |
-| [0023](0023-human-check-and-react-budget.md) | The human check as built, and a 33 KB budget for the React entry | Accepted |
+| [0023](0023-human-check-and-react-budget.md) | The human check as built, and a 33 KB budget for the React entry | Accepted (budget superseded by ADR-0028) |
+| [0028](0028-react-budget-34-kb.md) | A 34 KB budget for the React entry, for Markdown fixes | Accepted |
 
 ## Template
 
