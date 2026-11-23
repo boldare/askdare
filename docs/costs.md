@@ -21,8 +21,8 @@ These defaults bound spending. All of them can be changed in `limits` ([Configur
 
 | Limit | Default | Counted per |
 | --- | --- | --- |
-| `dailyTokens` | 2,000,000 input plus output tokens | bot, per UTC day |
-| `dailyTokensPerIp` | 200,000 input plus output tokens | client IP and bot, per UTC day |
+| `dailyTokens` | 2,000,000 input plus output tokens (cached input counts as a tenth) | bot, per UTC day |
+| `dailyTokensPerIp` | 200,000 input plus output tokens (cached input counts as a tenth) | client IP and bot, per UTC day |
 | `globalDailyTokens` (in `createChatHandler`) | none | all bots, per UTC day |
 | `maxOutputTokens` | 1,024 | model call |
 | `maxSteps` | 5 model calls | message |
@@ -46,15 +46,18 @@ one bot, 30 days      30 × 2,000,000 = 60,000,000 tokens
 three bots, one day    3 × 2,000,000 =  6,000,000 tokens  (unless you set globalDailyTokens)
 ```
 
-The budget counts input, cached input and output tokens alike, but OpenAI prices them differently. For a ceiling in money, use the highest per-token price of your model:
+The budget counts input read from the prompt cache as a tenth of a token, and input, cache writes and output as whole tokens. OpenAI prices cached input at a tenth of input on most models, so one budget token never costs more than the most expensive of them. For a ceiling in money, use the highest per-token price of your model:
 
 ```text
-ceiling per bot per day    = 2,000,000 / 1,000,000 × highest price per 1M tokens
-                           = 2 × highest price per 1M tokens
+highest price per 1M tokens = the highest of: input, cache writes, output, 10 × cached input
+ceiling per bot per day     = 2,000,000 / 1,000,000 × highest price per 1M tokens
+                            = 2 × highest price per 1M tokens
 ceiling per bot per 30 days = 60 × highest price per 1M tokens
 ```
 
-Real spending is lower whenever some of the tokens are cheaper input or cached input. The ceiling is what an attacker with ten or more IP addresses can make you pay every day.
+On current models the highest is usually output, and 10 × cached input equals input. Real spending is lower whenever some of the tokens are cheaper input or cached input. The ceiling is what an attacker with ten or more IP addresses can make you pay every day.
+
+Long conversations are mostly cached input: every model call reads the whole conversation again, and the cache serves all of it but the newest part. We measured a 50-turn support conversation with knowledge searches at 97.9 % cached input. It used 3.8M input tokens, cost 0.31 USD, and counts as about 460,000 tokens against the budgets. One visitor can hold a conversation of about 25 turns like it on the default `dailyTokensPerIp`.
 
 ### Speech
 
