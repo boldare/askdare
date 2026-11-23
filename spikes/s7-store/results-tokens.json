@@ -1,0 +1,42 @@
+{
+  "model": "gpt-6.1-terra",
+  "conversationItems": [
+    "message:user",
+    "reasoning",
+    "message:assistant",
+    "message:user",
+    "reasoning",
+    "message:assistant",
+    "message:user",
+    "function_call",
+    "function_call_output",
+    "message:assistant"
+  ],
+  "statelessItems": [
+    "message:user",
+    "native",
+    "message:assistant/final_answer",
+    "message:user",
+    "native",
+    "message:assistant/final_answer",
+    "message:user",
+    "call",
+    "call_output",
+    "message:assistant/final_answer"
+  ],
+  "variants": {
+    "statelessFull": 2070,
+    "statelessNoReasoning": 1986,
+    "statelessNoImage": 2068,
+    "statelessNoPhase": 2070,
+    "conversationItemsReplayed": 1985,
+    "conversation": 2114
+  },
+  "cleanup": {
+    "conversation": "deleted",
+    "file": "deleted",
+    "pg": [
+      "file-KqABYrTP124riZE2k4qpc9"
+    ]
+  }
+}

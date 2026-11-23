@@ -1,0 +1,24 @@
+{
+  "model": "gpt-6.1-terra",
+  "p1": {
+    "dangling": {
+      "ok": false,
+      "status": 400,
+      "message": "400 No tool output found for function call call_s7_dangling."
+    },
+    "repaired": {
+      "ok": true,
+      "outputTypes": [
+        "reasoning",
+        "function_call"
+      ]
+    }
+  },
+  "cleanup": {},
+  "usage": {
+    "input": 1794,
+    "cached": 0,
+    "output": 39,
+    "usdApprox": 0.002
+  }
+}

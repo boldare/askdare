@@ -3,7 +3,7 @@
  * `src/limits/store-contract.ts` for RateLimitStore. Written for node:test here; vitest in the library.
  */
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { after, describe, it } from 'node:test';
 import { type ConversationStore, type StoredItem, VersionConflict } from './port.ts';
 
 export interface ContractOptions {
@@ -12,6 +12,8 @@ export interface ContractOptions {
   /** Items for the paging test; small for stores with network costs. */
   readonly pagingItems?: number;
   readonly pageSize?: number;
+  /** Real file IDs for stores that check them (OpenAI refuses unknown IDs on append). */
+  readonly files?: () => Promise<readonly [string, string]>;
 }
 
 let counter = 0;
@@ -39,7 +41,24 @@ const comparable = (item: StoredItem) => {
   return plain;
 };
 
-export function conversationStoreContract(name: string, create: () => ConversationStore, options: ContractOptions): void {
+export function conversationStoreContract(name: string, createStore: () => ConversationStore, options: ContractOptions): void {
+  // Every conversation a test creates is deleted afterwards, also when the test fails: a provider
+  // store can't list conversations, so a leaked one could never be found again.
+  const created: { store: ConversationStore; id: string }[] = [];
+  const create = (): ConversationStore => {
+    const store = createStore();
+    return {
+      ...store,
+      create: async (owner, signal) => {
+        const id = await store.create(owner, signal);
+        created.push({ store, id });
+        return id;
+      },
+    };
+  };
+  after(async () => {
+    for (const { store, id } of created) await store.delete(id).catch(() => undefined);
+  });
   const owner = { botId: 'contract-bot', owner: 'visitor:contract' };
   const items = options.kind === 'items';
 
@@ -103,9 +122,10 @@ export function conversationStoreContract(name: string, create: () => Conversati
     it('deletes a conversation and returns the files its visitor attached', async () => {
       const store = create();
       const conversation = await store.create(owner);
-      await store.append(conversation, [user('look', 'file-contract-1'), assistant('seen'), user('again', 'file-contract-2')]);
+      const [one, two] = options.files ? await options.files() : (['file-contract-1', 'file-contract-2'] as const);
+      await store.append(conversation, [user('look', one), assistant('seen'), user('again', two)]);
       const { fileIds } = await store.delete(conversation);
-      assert.deepEqual([...fileIds].sort(), ['file-contract-1', 'file-contract-2']);
+      assert.deepEqual([...fileIds].sort(), [one, two].sort());
       assert.equal(await store.info(conversation), undefined);
       // Deleting twice is not an error: "start a new conversation" may race a retention sweep.
       assert.deepEqual((await store.delete(conversation)).fileIds, []);
