@@ -1,0 +1,12 @@
+Automations
+
+Automations run an action when something happens in a project: for example, assign a task to its reviewer when it moves to "In review", or post a comment when a due date passes.
+
+Each run of an automation counts towards a monthly allowance per workspace:
+- Free: automations are not available.
+- Team: 250 runs per month.
+- Business: 5,000 runs per month.
+
+The allowance resets on the first day of each calendar month. Unused runs do not carry over. When a workspace reaches its allowance, automations pause until the next month and owners receive an email.
+
+Automations are created per project in Project → Automations. A project can have at most 50 automations.
