@@ -27,16 +27,27 @@ function frontMatter(text: string): { meta: Meta; body: string } {
 
 /** Good enough for the fixture; a real version would use a parser (see FINDINGS.md). */
 function htmlToMarkdownish(html: string): string {
-  return html
-    .replace(/<(script|style|head)[\s\S]*?<\/\1>/gi, '')
+  // Repeat until stable, so removing one tag can't leave another one behind (CodeQL).
+  const until = (text: string, step: (s: string) => string): string => {
+    let previous: string;
+    let current = text;
+    do {
+      previous = current;
+      current = step(previous);
+    } while (current !== previous);
+    return current;
+  };
+  const structured = until(html, (s) => s.replace(/<(script|style|head)[\s\S]*?<\/\1\s*>/gi, ''))
     .replace(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi, (_, level: string, inner: string) => `\n${'#'.repeat(Number(level))} ${inner}\n`)
     .replace(/<li[^>]*>/gi, '\n- ')
-    .replace(/<\/(p|div|ul|ol|li|table|tr)>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&')
+    .replace(/<\/(p|div|ul|ol|li|table|tr)>/gi, '\n');
+  // Text for embeddings only, never rendered. `&amp;` is decoded last, so it is never decoded twice.
+  return until(structured, (s) => s.replace(/<[^>]*>/g, ''))
+    .replace(/[<>]/g, '')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
