@@ -98,6 +98,8 @@ const TRANSCRIPTION_TIMEOUT_MS = 60_000;
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 /** Bounds a human check with its provider, such as Cloudflare's siteverify. */
 const HUMAN_CHECK_TIMEOUT_MS = 10_000;
+/** Bounds deleting a conversation, which outlives the request that asked for it. */
+const DELETE_TIMEOUT_MS = 60_000;
 /** Bounds the conversation store's own checks in `askdare doctor`. */
 const DOCTOR_STORE_TIMEOUT_MS = 10_000;
 /**
@@ -1014,9 +1016,11 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
   const deleteConversation = async (request: Request): Promise<Response> => {
     const { bot, conversationId, grant } = await ownedConversation(request);
     const { conversations } = config;
+    // Not the request's signal: a visitor who leaves right after asking still gets it deleted.
+    const signal = AbortSignal.timeout(DELETE_TIMEOUT_MS);
     // Someone else's conversation is answered like one already deleted, and left alone.
-    if (ownsConversation(await conversations.info(conversationId, request.signal), bot.id, grant)) {
-      const { fileIds } = await conversations.delete(conversationId, request.signal);
+    if (ownsConversation(await conversations.info(conversationId, signal), bot.id, grant)) {
+      const { fileIds } = await conversations.delete(conversationId, signal);
       if (fileIds.length > 0) await config.gateway().deleteFiles(fileIds);
     }
     return new Response(null, { status: 204, headers: NO_STORE });
