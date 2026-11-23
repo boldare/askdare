@@ -41,13 +41,13 @@ function htmlToMarkdownish(html: string): string {
     .replace(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi, (_, level: string, inner: string) => `\n${'#'.repeat(Number(level))} ${inner}\n`)
     .replace(/<li[^>]*>/gi, '\n- ')
     .replace(/<\/(p|div|ul|ol|li|table|tr)>/gi, '\n');
-  // Text for embeddings only, never rendered. `&amp;` is decoded last, so it is never decoded twice.
+  // Text for embeddings only, never rendered. Escaped angle brackets become spaces and every
+  // remaining `<` or `>` is dropped, so no markup can survive; `&amp;` is decoded last, once.
   return until(structured, (s) => s.replace(/<[^>]*>/g, ''))
-    .replace(/[<>]/g, '')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
+    .replace(/&(lt|gt);/g, ' ')
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
+    .replace(/[<>]/g, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
