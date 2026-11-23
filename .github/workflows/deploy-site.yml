@@ -57,8 +57,12 @@ jobs:
       - run: npx -y "$VERCEL" build --prod --token="$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      # One archive instead of every file: Vercel's free plan refuses more than 5,000 uploaded
+      # files a day. The assignment fails the step when the deploy fails; inside `echo` it didn't.
       - id: deploy
-        run: echo "url=$(npx -y "$VERCEL" deploy --prebuilt --prod --token="$VERCEL_TOKEN")" >> "$GITHUB_OUTPUT"
+        run: |
+          url=$(npx -y "$VERCEL" deploy --prebuilt --prod --archive=tgz --token="$VERCEL_TOKEN")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       # The docs chat's store follows docs/, its citations linking to the pages just deployed.

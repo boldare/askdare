@@ -1,0 +1,567 @@
+[
+ [
+  {
+   "type": "message_start",
+   "message": {
+    "model": "claude-opus-5-5",
+    "id": "msg_011ChKhv9gf26JTKDNz8ww4R",
+    "type": "message",
+    "role": "assistant",
+    "content": [
+     {
+      "type": "tool_use",
+      "id": "toolu_018uvcxh2TUGTqPGjiDWaEbu",
+      "name": "get_current_time",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "timeZone": "Europe/Warsaw"
+      }
+     },
+     {
+      "type": "tool_use",
+      "id": "toolu_01WnZjCmqxJjFn1H52KNyexM",
+      "name": "get_current_time",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "timeZone": "Asia/Tokyo"
+      }
+     },
+     {
+      "type": "tool_use",
+      "id": "toolu_0116vbB9bun9Mv4r2pkMgNJK",
+      "name": "get_exchange_rate",
+      "caller": {
+       "type": "direct"
+      },
+      "input": {
+       "from": "EUR",
+       "to": "PLN"
+      }
+     }
+    ],
+    "container": null,
+    "stop_reason": "tool_use",
+    "stop_sequence": null,
+    "stop_details": null,
+    "usage": {
+     "input_tokens": 4,
+     "cache_creation_input_tokens": 1190,
+     "cache_read_input_tokens": 0,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 1190,
+      "ephemeral_1h_input_tokens": 0
+     },
+     "output_tokens": 191,
+     "service_tier": "standard",
+     "inference_geo": "global",
+     "speed": "standard",
+     "output_tokens_details": {
+      "thinking_tokens": 0
+     }
+    },
+    "diagnostics": null
+   }
+  },
+  {
+   "type": "content_block_start",
+   "index": 0,
+   "content_block": {
+    "type": "tool_use",
+    "id": "toolu_018uvcxh2TUGTqPGjiDWaEbu",
+    "name": "get_current_time",
+    "input": {},
+    "caller": {
+     "type": "direct"
+    }
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 0,
+   "delta": {
+    "type": "input_json_delta",
+    "partial_json": ""
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 0,
+   "delta": {
+    "type": "input_json_delta",
+    "partial_json": "{\"timeZ"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 0,
+   "delta": {
+    "type": "input_json_delta",
+    "partial_json": "one\": \""
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 0,
+   "delta": {
+    "type": "input_json_delta",
+    "partial_json": "Europe/"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 0,
+   "delta": {
+    "type": "input_json_delta",
+    "partial_json": "Warsaw\"}"
+   }
+  },
+  {
+   "type": "content_block_stop",
+   "index": 0
+  },
+  {
+   "type": "content_block_start",
+   "index": 1,
+   "content_block": {
+    "type": "tool_use",
+    "id": "toolu_01WnZjCmqxJjFn1H52KNyexM",
+    "name": "get_current_time",
+    "input": {},
+    "caller": {
+     "type": "direct"
+    }
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "input_json_delta",
+    "partial_json": ""
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "input_json_delta",
+    "partial_json": "{\"timeZ"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "input_json_delta",
+    "partial_json": "one\": \""
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "input_json_delta",
+    "partial_json": "Asia/To"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "input_json_delta",
+    "partial_json": "kyo\"}"
+   }
+  },
+  {
+   "type": "content_block_stop",
+   "index": 1
+  },
+  {
+   "type": "content_block_start",
+   "index": 2,
+   "content_block": {
+    "type": "tool_use",
+    "id": "toolu_0116vbB9bun9Mv4r2pkMgNJK",
+    "name": "get_exchange_rate",
+    "input": {},
+    "caller": {
+     "type": "direct"
+    }
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 2,
+   "delta": {
+    "type": "input_json_delta",
+    "partial_json": ""
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 2,
+   "delta": {
+    "type": "input_json_delta",
+    "partial_json": "{\"from\""
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 2,
+   "delta": {
+    "type": "input_json_delta",
+    "partial_json": ": \"EUR\""
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 2,
+   "delta": {
+    "type": "input_json_delta",
+    "partial_json": ", \"to\":"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 2,
+   "delta": {
+    "type": "input_json_delta",
+    "partial_json": " \"PLN\"}"
+   }
+  },
+  {
+   "type": "content_block_stop",
+   "index": 2
+  },
+  {
+   "type": "message_delta",
+   "delta": {
+    "stop_reason": "tool_use",
+    "stop_sequence": null,
+    "stop_details": null,
+    "container": null
+   },
+   "usage": {
+    "input_tokens": 4,
+    "cache_creation_input_tokens": 1190,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 191,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    }
+   }
+  },
+  {
+   "type": "message_stop"
+  }
+ ],
+ [
+  {
+   "type": "message_start",
+   "message": {
+    "model": "claude-opus-5-5",
+    "id": "msg_011ChKhvN1523vR7TjHDWeq8",
+    "type": "message",
+    "role": "assistant",
+    "content": [
+     {
+      "type": "thinking",
+      "thinking": "",
+      "signature": "<redacted>"
+     },
+     {
+      "type": "text",
+      "text": "Here are the current times:\n\n- **Warsaw:** 15:05 (CET), Saturday, 21 November 2026\n- **Tokyo:** 23:05 (GMT+9), Saturday, 21 November 2026\n\nI couldn't convert 100 EUR to PLN because the exchange rate tool isn't working right now. I won't guess the rate. You can ask me again in a moment, or check the ECB reference rates directly."
+     }
+    ],
+    "container": null,
+    "stop_reason": "end_turn",
+    "stop_sequence": null,
+    "stop_details": null,
+    "usage": {
+     "input_tokens": 2,
+     "cache_creation_input_tokens": 416,
+     "cache_read_input_tokens": 1190,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 416,
+      "ephemeral_1h_input_tokens": 0
+     },
+     "output_tokens": 173,
+     "service_tier": "standard",
+     "inference_geo": "global",
+     "speed": "standard",
+     "output_tokens_details": {
+      "thinking_tokens": 32
+     }
+    },
+    "diagnostics": null
+   }
+  },
+  {
+   "type": "content_block_start",
+   "index": 0,
+   "content_block": {
+    "type": "thinking",
+    "thinking": "",
+    "signature": "<redacted>"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 0,
+   "delta": {
+    "type": "thinking_delta",
+    "thinking": ""
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 0,
+   "delta": {
+    "type": "signature_delta",
+    "signature": "<redacted>"
+   }
+  },
+  {
+   "type": "content_block_stop",
+   "index": 0
+  },
+  {
+   "type": "content_block_start",
+   "index": 1,
+   "content_block": {
+    "type": "text",
+    "text": ""
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": "Here are the current times:"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": "\n\n- **Warsaw"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": ":** "
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": "15:05 "
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": "(CET),"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": " Saturday,"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": " 21 November 2026"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": "\n- **Tokyo:"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": "** 23:05 (G"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": "MT+9), Satur"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": "day, 21 November 2"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": "026\n\nI couldn't conv"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": "ert 100 EUR to"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": " PLN because"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": " the exchange rate tool"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": " is"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": "n't working right now. I won"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": "'t guess the"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": " rate. You can "
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": "ask me again"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": " in a mo"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": "ment, or check the ECB"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": " reference rates"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": " direct"
+   }
+  },
+  {
+   "type": "content_block_delta",
+   "index": 1,
+   "delta": {
+    "type": "text_delta",
+    "text": "ly."
+   }
+  },
+  {
+   "type": "content_block_stop",
+   "index": 1
+  },
+  {
+   "type": "message_delta",
+   "delta": {
+    "stop_reason": "end_turn",
+    "stop_sequence": null,
+    "stop_details": null,
+    "container": null
+   },
+   "usage": {
+    "input_tokens": 2,
+    "cache_creation_input_tokens": 416,
+    "cache_read_input_tokens": 1190,
+    "output_tokens": 173,
+    "output_tokens_details": {
+     "thinking_tokens": 32
+    }
+   }
+  },
+  {
+   "type": "message_stop"
+  }
+ ]
+]

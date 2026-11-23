@@ -1,0 +1,1994 @@
+{
+  "errors": {
+    "unknownModel": {
+      "class": "NotFoundError",
+      "status": 404,
+      "type": "not_found_error",
+      "message": "model: claude-does-not-exist-1"
+    },
+    "badKey": {
+      "class": "AuthenticationError",
+      "status": 401,
+      "type": "authentication_error",
+      "message": "invalid x-api-key"
+    },
+    "modelsRetrieve": {
+      "ok": true,
+      "result": {
+        "id": "claude-opus-5-5",
+        "max_input_tokens": 1000000
+      }
+    },
+    "metadataUserId": {
+      "ok": true,
+      "result": {
+        "stop": "end_turn"
+      }
+    },
+    "fallbacksDefault": {
+      "ok": true,
+      "result": {
+        "stop": "end_turn",
+        "model": "claude-opus-5-5",
+        "iterations": [
+          {
+            "input_tokens": 13,
+            "output_tokens": 5,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "type": "message",
+            "model": null
+          }
+        ]
+      }
+    },
+    "danglingToolUse": {
+      "class": "BadRequestError",
+      "status": 400,
+      "type": "invalid_request_error",
+      "message": "messages.2: `tool_use` ids were found without `tool_result` blocks immediately after: toolu_01Dangling. Each `tool_use` block must have a corresponding `tool_result` block in the next message."
+    },
+    "systemMessageFirst": {
+      "class": "BadRequestError",
+      "status": 400,
+      "type": "invalid_request_error",
+      "message": "messages.0: use the top-level 'system' parameter for the initial system prompt; the directive-only form (content: [] with output_config) is accepted at any position"
+    }
+  },
+  "strict": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "description": "Base currency, for example EUR",
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 3
+        },
+        "to": {
+          "description": "Quote currency, for example PLN",
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 3
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "additionalProperties": false
+    },
+    "withLengths": {
+      "accepted": true,
+      "calls": [
+        {
+          "name": "get_exchange_rate",
+          "input": {
+            "from": "EUR",
+            "to": "PLN"
+          }
+        }
+      ]
+    },
+    "withoutLengths": {
+      "accepted": true,
+      "calls": [
+        {
+          "name": "get_exchange_rate",
+          "input": {
+            "from": "EUR",
+            "to": "PLN"
+          }
+        }
+      ]
+    }
+  },
+  "_runs": [
+    {
+      "at": "2026-11-23T10:31:07.796Z",
+      "experiments": [
+        "errors",
+        "strict"
+      ],
+      "usage": {
+        "inputTokens": 1946,
+        "cachedInputTokens": 0,
+        "cacheWriteTokens": 0,
+        "outputTokens": 164,
+        "reasoningTokens": 0
+      },
+      "usd": 0.0111
+    },
+    {
+      "at": "2026-11-23T10:33:48.757Z",
+      "experiments": [
+        "ttft",
+        "tools",
+        "finalStep",
+        "knowledge"
+      ],
+      "usage": {
+        "inputTokens": 53062,
+        "cachedInputTokens": 36385,
+        "cacheWriteTokens": 15352,
+        "outputTokens": 17932,
+        "reasoningTokens": 117
+      },
+      "usd": 0.448
+    },
+    {
+      "at": "2026-11-23T10:35:04.561Z",
+      "experiments": [
+        "replies",
+        "finalStep2"
+      ],
+      "usage": {
+        "inputTokens": 0,
+        "cachedInputTokens": 0,
+        "cacheWriteTokens": 0,
+        "outputTokens": 0,
+        "reasoningTokens": 0
+      },
+      "usd": 0
+    },
+    {
+      "at": "2026-11-23T10:37:06.625Z",
+      "experiments": [
+        "replies",
+        "finalStep2"
+      ],
+      "usage": {
+        "inputTokens": 75109,
+        "cachedInputTokens": 48277,
+        "cacheWriteTokens": 26724,
+        "outputTokens": 6360,
+        "reasoningTokens": 1128
+      },
+      "usd": 0.2709
+    },
+    {
+      "at": "2026-11-23T10:39:23.667Z",
+      "experiments": [
+        "conversation"
+      ],
+      "usage": {
+        "inputTokens": 373880,
+        "cachedInputTokens": 358967,
+        "cacheWriteTokens": 14819,
+        "outputTokens": 5313,
+        "reasoningTokens": 544
+      },
+      "usd": 0.2525
+    },
+    {
+      "at": "2026-11-23T10:40:30.281Z",
+      "experiments": [
+        "threads",
+        "files"
+      ],
+      "usage": {
+        "inputTokens": 744045,
+        "cachedInputTokens": 680069,
+        "cacheWriteTokens": 62289,
+        "outputTokens": 630,
+        "reasoningTokens": 301
+      },
+      "usd": 0.4668
+    },
+    {
+      "at": "2026-11-23T10:41:13.095Z",
+      "experiments": [
+        "repliesTiming"
+      ],
+      "usage": {
+        "inputTokens": 26370,
+        "cachedInputTokens": 21851,
+        "cacheWriteTokens": 4487,
+        "outputTokens": 1205,
+        "reasoningTokens": 6
+      },
+      "usd": 0.051
+    }
+  ],
+  "ttft": {
+    "minimal": {
+      "medianFirstTextMs": 929,
+      "runs": [
+        {
+          "firstEventMs": 1053,
+          "firstTextMs": 1053,
+          "totalMs": 1662,
+          "stop": "end_turn",
+          "blocks": [
+            "text"
+          ],
+          "usage": {
+            "inputTokens": 251,
+            "cachedInputTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 17,
+            "reasoningTokens": 0
+          },
+          "events": [
+            {
+              "type": "text.delta",
+              "delta": "Hello, and welcome to Brightloop!"
+            }
+          ]
+        },
+        {
+          "firstEventMs": 824,
+          "firstTextMs": 824,
+          "totalMs": 1485,
+          "stop": "end_turn",
+          "blocks": [
+            "text"
+          ],
+          "usage": {
+            "inputTokens": 251,
+            "cachedInputTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 16,
+            "reasoningTokens": 0
+          }
+        },
+        {
+          "firstEventMs": 911,
+          "firstTextMs": 911,
+          "totalMs": 1501,
+          "stop": "end_turn",
+          "blocks": [
+            "text"
+          ],
+          "usage": {
+            "inputTokens": 251,
+            "cachedInputTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 17,
+            "reasoningTokens": 0
+          }
+        },
+        {
+          "firstEventMs": 1007,
+          "firstTextMs": 1007,
+          "totalMs": 1624,
+          "stop": "end_turn",
+          "blocks": [
+            "text"
+          ],
+          "usage": {
+            "inputTokens": 251,
+            "cachedInputTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 17,
+            "reasoningTokens": 0
+          }
+        },
+        {
+          "firstEventMs": 929,
+          "firstTextMs": 929,
+          "totalMs": 1531,
+          "stop": "end_turn",
+          "blocks": [
+            "text"
+          ],
+          "usage": {
+            "inputTokens": 251,
+            "cachedInputTokens": 0,
+            "cacheWriteTokens": 0,
+            "outputTokens": 17,
+            "reasoningTokens": 0
+          }
+        }
+      ]
+    },
+    "full-bot-low": {
+      "medianFirstTextMs": 811,
+      "runs": [
+        {
+          "firstEventMs": 4205,
+          "firstTextMs": 4205,
+          "totalMs": 4622,
+          "stop": "end_turn",
+          "blocks": [
+            "text"
+          ],
+          "usage": {
+            "inputTokens": 1294,
+            "cachedInputTokens": 0,
+            "cacheWriteTokens": 1290,
+            "outputTokens": 47,
+            "reasoningTokens": 0
+          },
+          "events": [
+            {
+              "type": "text.delta",
+              "delta": "I'm Brightloop's website assistant, and I can answer your questions about the Brightloop project management app, including its plans, prices, support and security."
+            }
+          ]
+        },
+        {
+          "firstEventMs": 811,
+          "firstTextMs": 811,
+          "totalMs": 1237,
+          "stop": "end_turn",
+          "blocks": [
+            "text"
+          ],
+          "usage": {
+            "inputTokens": 1294,
+            "cachedInputTokens": 1290,
+            "cacheWriteTokens": 0,
+            "outputTokens": 51,
+            "reasoningTokens": 0
+          }
+        },
+        {
+          "firstEventMs": 780,
+          "firstTextMs": 780,
+          "totalMs": 1216,
+          "stop": "end_turn",
+          "blocks": [
+            "text"
+          ],
+          "usage": {
+            "inputTokens": 1294,
+            "cachedInputTokens": 1290,
+            "cacheWriteTokens": 0,
+            "outputTokens": 47,
+            "reasoningTokens": 0
+          }
+        },
+        {
+          "firstEventMs": 816,
+          "firstTextMs": 816,
+          "totalMs": 1209,
+          "stop": "end_turn",
+          "blocks": [
+            "text"
+          ],
+          "usage": {
+            "inputTokens": 1294,
+            "cachedInputTokens": 1290,
+            "cacheWriteTokens": 0,
+            "outputTokens": 41,
+            "reasoningTokens": 0
+          }
+        },
+        {
+          "firstEventMs": 782,
+          "firstTextMs": 782,
+          "totalMs": 1174,
+          "stop": "end_turn",
+          "blocks": [
+            "text"
+          ],
+          "usage": {
+            "inputTokens": 1294,
+            "cachedInputTokens": 1290,
+            "cacheWriteTokens": 0,
+            "outputTokens": 41,
+            "reasoningTokens": 0
+          }
+        }
+      ]
+    },
+    "full-bot-medium": {
+      "medianFirstTextMs": 727,
+      "runs": [
+        {
+          "firstEventMs": 773,
+          "firstTextMs": 773,
+          "totalMs": 1272,
+          "stop": "end_turn",
+          "blocks": [
+            "text"
+          ],
+          "usage": {
+            "inputTokens": 1294,
+            "cachedInputTokens": 1290,
+            "cacheWriteTokens": 0,
+            "outputTokens": 40,
+            "reasoningTokens": 0
+          },
+          "events": [
+            {
+              "type": "text.delta",
+              "delta": "I'm Brightloop's website assistant, and I can help with questions about our project management app, like plans, prices, support and security."
+            }
+          ]
+        },
+        {
+          "firstEventMs": 726,
+          "firstTextMs": 726,
+          "totalMs": 1120,
+          "stop": "end_turn",
+          "blocks": [
+            "text"
+          ],
+          "usage": {
+            "inputTokens": 1294,
+            "cachedInputTokens": 1290,
+            "cacheWriteTokens": 0,
+            "outputTokens": 41,
+            "reasoningTokens": 0
+          }
+        },
+        {
+          "firstEventMs": 727,
+          "firstTextMs": 727,
+          "totalMs": 1119,
+          "stop": "end_turn",
+          "blocks": [
+            "text"
+          ],
+          "usage": {
+            "inputTokens": 1294,
+            "cachedInputTokens": 1290,
+            "cacheWriteTokens": 0,
+            "outputTokens": 41,
+            "reasoningTokens": 0
+          }
+        }
+      ]
+    }
+  },
+  "tools": {
+    "reason": "completed",
+    "steps": [
+      {
+        "stop": "tool_use",
+        "blocks": [
+          "tool_use:get_current_time",
+          "tool_use:get_current_time",
+          "tool_use:get_exchange_rate"
+        ],
+        "usage": {
+          "inputTokens": 1194,
+          "cachedInputTokens": 0,
+          "cacheWriteTokens": 1190,
+          "outputTokens": 191,
+          "reasoningTokens": 0
+        }
+      },
+      {
+        "stop": "end_turn",
+        "blocks": [
+          "thinking",
+          "text"
+        ],
+        "usage": {
+          "inputTokens": 1608,
+          "cachedInputTokens": 1190,
+          "cacheWriteTokens": 416,
+          "outputTokens": 173,
+          "reasoningTokens": 32
+        },
+        "firstTextMs": 2756
+      }
+    ],
+    "historyShape": [
+      "user",
+      "assistant[tool_use,tool_use,tool_use]",
+      "user[tool_result,tool_result,tool_result(error)]",
+      "assistant[thinking,text]"
+    ],
+    "text": "Here are the current times:\n\n- **Warsaw:** 15:05 (CET), Saturday, 21 November 2026\n- **Tokyo:** 23:05 (GMT+9), Saturday, 21 November 2026\n\nI couldn't convert 100 EUR to PLN because the exchange rate tool isn't working right now. I won't guess the rate. You can ask me again in a moment, or check the ECB reference rates directly.",
+    "protocol": [
+      {
+        "type": "tool.status",
+        "callId": "toolu_018uvcxh2TUGTqPGjiDWaEbu",
+        "name": "get_current_time",
+        "state": "running"
+      },
+      {
+        "type": "tool.status",
+        "callId": "toolu_01WnZjCmqxJjFn1H52KNyexM",
+        "name": "get_current_time",
+        "state": "running"
+      },
+      {
+        "type": "tool.status",
+        "callId": "toolu_0116vbB9bun9Mv4r2pkMgNJK",
+        "name": "get_exchange_rate",
+        "state": "running"
+      },
+      {
+        "type": "tool.status",
+        "callId": "toolu_0116vbB9bun9Mv4r2pkMgNJK",
+        "name": "get_exchange_rate",
+        "state": "error"
+      },
+      {
+        "type": "tool.status",
+        "callId": "toolu_018uvcxh2TUGTqPGjiDWaEbu",
+        "name": "get_current_time",
+        "state": "done"
+      },
+      {
+        "type": "tool.status",
+        "callId": "toolu_01WnZjCmqxJjFn1H52KNyexM",
+        "name": "get_current_time",
+        "state": "done"
+      },
+      {
+        "type": "reasoning",
+        "state": "started"
+      },
+      {
+        "type": "reasoning",
+        "state": "done"
+      },
+      {
+        "type": "text.delta",
+        "delta": "Here are the current times:\n\n- **Warsaw:** 15:05 (CET), Saturday, 21 November 2026\n- **Tokyo:** 23:05 (GMT+9), Saturday, 21 November 2026\n\nI couldn't convert 100 EUR to PLN because the exchange rate tool isn't working right now. I won't guess the rate. You can ask me again in a moment, or check the ECB reference rates directly."
+      }
+    ]
+  },
+  "finalStep": {
+    "none": {
+      "reason": "max_output_tokens",
+      "steps": [
+        {
+          "stop": "max_tokens",
+          "blocks": [
+            "text"
+          ]
+        }
+      ],
+      "text": "<invoke name=\"get_current_time\">\n<parameter name=\"timeZone\">Europe/Warsaw</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"suggest_replies\">\n<parameter name=\"items\">[\"What is Brightloop?\", \"How much does Brightloop cost?\"]</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CHF</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">GBP</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">CHF</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">GBP</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">CHF</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CHF</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">GBP</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">CHF</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CHF</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">CHF</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CHF</parameter>\n<parameter name=\"to\">GBP</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">JPY</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">JPY</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">JPY</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">CZK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">SEK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">NOK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">DKK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">HUF</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">RON</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">CAD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">AUD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">CNY</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">INR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">BRL</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">MXN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">ZAR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">TRY</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">KRW</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">SGD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">HKD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">NZD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">ILS</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">THB</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">IDR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">MYR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">PHP</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">ISK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">EUR</parameter>\n<parameter name=\"to\">BGN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">CAD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">AUD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">CNY</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">INR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">MXN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">BRL</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">KRW</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">SGD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">HKD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">ZAR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">TRY</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">SEK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">NOK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">DKK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">CZK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">HUF</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">RON</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">ILS</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">NZD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">THB</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">IDR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">MYR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">PHP</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">ISK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">USD</parameter>\n<parameter name=\"to\">BGN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">JPY</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CHF</parameter>\n<parameter name=\"to\">JPY</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">JPY</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">JPY</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">JPY</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CZK</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">SEK</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">NOK</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">DKK</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">HUF</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">RON</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CAD</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">AUD</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CNY</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">INR</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">BRL</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">MXN</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">ZAR</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">TRY</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">KRW</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">SGD</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">HKD</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">NZD</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">ILS</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">THB</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">IDR</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">MYR</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PHP</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">ISK</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">BGN</parameter>\n<parameter name=\"to\">PLN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">CZK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">SEK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">NOK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">DKK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">HUF</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">RON</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">CAD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">AUD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">CNY</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">INR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">BRL</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">MXN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">ZAR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">TRY</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">KRW</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">SGD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">HKD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">NZD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">ILS</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">THB</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">IDR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">MYR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">PHP</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">ISK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PLN</parameter>\n<parameter name=\"to\">BGN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">CAD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">AUD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">INR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">CNY</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">SEK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">NOK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">CZK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">HUF</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">DKK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CHF</parameter>\n<parameter name=\"to\">CAD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CHF</parameter>\n<parameter name=\"to\">SEK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CHF</parameter>\n<parameter name=\"to\">CZK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CHF</parameter>\n<parameter name=\"to\">HUF</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CHF</parameter>\n<parameter name=\"to\">NOK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CHF</parameter>\n<parameter name=\"to\">DKK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">JPY</parameter>\n<parameter name=\"to\">GBP</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">JPY</parameter>\n<parameter name=\"to\">CHF</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CAD</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CAD</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">AUD</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">AUD</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CNY</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CNY</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">INR</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">INR</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CZK</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">SEK</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">NOK</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">DKK</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">HUF</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">RON</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">BGN</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">ISK</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">TRY</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">BRL</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">MXN</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">ZAR</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">KRW</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">SGD</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">HKD</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">NZD</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">ILS</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">THB</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">IDR</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">MYR</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PHP</parameter>\n<parameter name=\"to\">EUR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">ISK</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CZK</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">SEK</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">NOK</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">DKK</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">HUF</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">RON</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">BGN</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">TRY</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">BRL</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">MXN</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">ZAR</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">KRW</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">SGD</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">HKD</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">NZD</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">ILS</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">THB</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">IDR</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">MYR</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">PHP</parameter>\n<parameter name=\"to\">USD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">RON</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">BGN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">ISK</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">TRY</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">BRL</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">MXN</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">ZAR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">KRW</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">SGD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">HKD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">NZD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">ILS</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">THB</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">IDR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">MYR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">GBP</parameter>\n<parameter name=\"to\">PHP</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CHF</parameter>\n<parameter name=\"to\">AUD</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CHF</parameter>\n<parameter name=\"to\">CNY</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CHF</parameter>\n<parameter name=\"to\">INR</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CHF</parameter>\n<parameter name=\"to\">RON</parameter>\n</invoke>\n<invoke name=\"get_exchange_rate\">\n<parameter name=\"from\">CHF</par"
+    },
+    "any": {
+      "class": "BadRequestError",
+      "status": 400,
+      "type": "invalid_request_error",
+      "message": "tool_choice: type \"tool\" and \"any\" are not supported for this model."
+    },
+    "tool": {
+      "class": "BadRequestError",
+      "status": 400,
+      "type": "invalid_request_error",
+      "message": "tool_choice: type \"tool\" and \"any\" are not supported for this model."
+    },
+    "cacheAcrossToolChoice": [
+      {
+        "toolChoice": "auto",
+        "cachedInputTokens": 0,
+        "cacheWriteTokens": 5049,
+        "inputTokens": 5053
+      },
+      {
+        "toolChoice": "auto",
+        "cachedInputTokens": 5049,
+        "cacheWriteTokens": 0,
+        "inputTokens": 5053
+      },
+      {
+        "toolChoice": "none",
+        "cachedInputTokens": 5049,
+        "cacheWriteTokens": 0,
+        "inputTokens": 5053
+      }
+    ]
+  },
+  "knowledge": [
+    {
+      "reason": "completed",
+      "steps": [
+        {
+          "stop": "tool_use",
+          "blocks": [
+            "tool_use:search_knowledge",
+            "tool_use:search_knowledge"
+          ],
+          "usage": {
+            "inputTokens": 1296,
+            "cachedInputTokens": 0,
+            "cacheWriteTokens": 1292,
+            "outputTokens": 103,
+            "reasoningTokens": 0
+          }
+        },
+        {
+          "stop": "tool_use",
+          "blocks": [
+            "thinking",
+            "thinking",
+            "tool_use:suggest_replies"
+          ],
+          "usage": {
+            "inputTokens": 3462,
+            "cachedInputTokens": 0,
+            "cacheWriteTokens": 3460,
+            "outputTokens": 460,
+            "reasoningTokens": 24
+          }
+        },
+        {
+          "stop": "end_turn",
+          "blocks": [],
+          "usage": {
+            "inputTokens": 3961,
+            "cachedInputTokens": 3460,
+            "cacheWriteTokens": 499,
+            "outputTokens": 2,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "rawCitations": [],
+      "replies": [
+        "How much is Business if I pay yearly?",
+        "How do I get the non-profit discount?",
+        "What's in the Team plan?",
+        "Is support open right now?"
+      ],
+      "protocol": [
+        {
+          "type": "tool.status",
+          "callId": "toolu_01DBsUcSGZcGLvSstLrCv2GH",
+          "name": "file_search",
+          "state": "done"
+        },
+        {
+          "type": "tool.status",
+          "callId": "toolu_01DuUeXdybBatsA3pVDgVkX7",
+          "name": "file_search",
+          "state": "done"
+        },
+        {
+          "type": "reasoning",
+          "state": "started"
+        },
+        {
+          "type": "reasoning",
+          "state": "done"
+        },
+        {
+          "type": "reasoning",
+          "state": "started"
+        },
+        {
+          "type": "reasoning",
+          "state": "done"
+        }
+      ]
+    },
+    {
+      "reason": "completed",
+      "steps": [
+        {
+          "stop": "tool_use",
+          "blocks": [
+            "tool_use:search_knowledge"
+          ],
+          "usage": {
+            "inputTokens": 3973,
+            "cachedInputTokens": 3959,
+            "cacheWriteTokens": 10,
+            "outputTokens": 57,
+            "reasoningTokens": 0
+          }
+        },
+        {
+          "stop": "tool_use",
+          "blocks": [
+            "thinking",
+            "tool_use:suggest_replies"
+          ],
+          "usage": {
+            "inputTokens": 4681,
+            "cachedInputTokens": 3969,
+            "cacheWriteTokens": 710,
+            "outputTokens": 229,
+            "reasoningTokens": 0
+          }
+        },
+        {
+          "stop": "end_turn",
+          "blocks": [
+            "thinking",
+            "text",
+            "text",
+            "text",
+            "text",
+            "text",
+            "text"
+          ],
+          "usage": {
+            "inputTokens": 4949,
+            "cachedInputTokens": 4679,
+            "cacheWriteTokens": 268,
+            "outputTokens": 269,
+            "reasoningTokens": 61
+          }
+        }
+      ],
+      "rawCitations": [
+        {
+          "type": "search_result_location",
+          "cited_text": "All customer data is stored in the European Union, in data c…",
+          "source": "https://brightloop.example/docs/security",
+          "title": "Security and privacy: Where data is stored",
+          "search_result_index": 7,
+          "start_block_index": 0,
+          "end_block_index": 1
+        },
+        {
+          "type": "search_result_location",
+          "cited_text": "All customer data is stored in the European Union, in data c…",
+          "source": "https://brightloop.example/docs/security",
+          "title": "Security and privacy: Where data is stored",
+          "search_result_index": 7,
+          "start_block_index": 0,
+          "end_block_index": 1
+        },
+        {
+          "type": "search_result_location",
+          "cited_text": "Databases are backed up every day and kept for 35 days. Back…",
+          "source": "https://brightloop.example/docs/security",
+          "title": "Security and privacy: Backups",
+          "search_result_index": 8,
+          "start_block_index": 0,
+          "end_block_index": 1
+        }
+      ],
+      "replies": [
+        "How does SSO work on Business?",
+        "What does the audit log track?",
+        "Can we choose a different data region?"
+      ],
+      "protocol": [
+        {
+          "type": "tool.status",
+          "callId": "toolu_01MTbh8SiJzMq9iCuxKthRk7",
+          "name": "file_search",
+          "state": "done"
+        },
+        {
+          "type": "reasoning",
+          "state": "started"
+        },
+        {
+          "type": "reasoning",
+          "state": "done"
+        },
+        {
+          "type": "reasoning",
+          "state": "started"
+        },
+        {
+          "type": "reasoning",
+          "state": "done"
+        },
+        {
+          "type": "text.delta",
+          "delta": "Brightloop stores all customer data in the European Union and encrypts it.\n\n- **Where:** "
+        },
+        {
+          "type": "citation",
+          "index": 1,
+          "title": "Security and privacy: Where data is stored",
+          "url": "https://brightloop.example/docs/security"
+        },
+        {
+          "type": "text.delta",
+          "delta": "All customer data is stored in the European Union, in data centres in Frankfurt (primary) and Amsterdam (backup).\n- **Encryption:** Data is encrypted in transit (TLS 1.3) and at rest (AES-256).\n- **Backups:** Databases are backed up every day and kept for 35 days. Backups are tested by a monthly restore drill."
+        }
+      ]
+    }
+  ],
+  "replies": {
+    "after": [
+      {
+        "q": "What does the Business plan cost and include?",
+        "reason": "completed",
+        "steps": [
+          {
+            "stop": "tool_use",
+            "blocks": [
+              "tool_use:search_knowledge"
+            ],
+            "outputTokens": 56
+          },
+          {
+            "stop": "tool_use",
+            "blocks": [
+              "thinking(0 chars)",
+              "thinking(0 chars)",
+              "tool_use:suggest_replies"
+            ],
+            "outputTokens": 354
+          },
+          {
+            "stop": "end_turn",
+            "blocks": [],
+            "outputTokens": 2
+          }
+        ],
+        "visibleTextChars": 0,
+        "replies": [
+          "How does Business compare to Team?",
+          "How do I start the free trial?",
+          "What does priority support include?"
+        ],
+        "citations": 0,
+        "updates": [],
+        "usd": 0.03088
+      },
+      {
+        "q": "Can I get a discount?",
+        "reason": "completed",
+        "steps": [
+          {
+            "stop": "tool_use",
+            "blocks": [
+              "tool_use:search_knowledge"
+            ],
+            "outputTokens": 51
+          },
+          {
+            "stop": "tool_use",
+            "blocks": [
+              "thinking(0 chars)",
+              "thinking(0 chars)",
+              "tool_use:suggest_replies"
+            ],
+            "outputTokens": 198
+          },
+          {
+            "stop": "end_turn",
+            "blocks": [],
+            "outputTokens": 2
+          }
+        ],
+        "visibleTextChars": 0,
+        "replies": [
+          "How do I contact the support team?",
+          "What does the Business plan include?",
+          "How much is the Business plan?"
+        ],
+        "citations": 0,
+        "updates": [],
+        "usd": 0.02413
+      },
+      {
+        "q": "How do I contact support?",
+        "reason": "completed",
+        "steps": [
+          {
+            "stop": "tool_use",
+            "blocks": [
+              "tool_use:search_knowledge"
+            ],
+            "outputTokens": 52
+          },
+          {
+            "stop": "tool_use",
+            "blocks": [
+              "thinking(0 chars)",
+              "tool_use:suggest_replies"
+            ],
+            "outputTokens": 239
+          },
+          {
+            "stop": "end_turn",
+            "blocks": [
+              "thinking(0 chars)"
+            ],
+            "outputTokens": 34
+          }
+        ],
+        "visibleTextChars": 0,
+        "replies": [
+          "What does priority support include?",
+          "Is the service down right now?",
+          "How do I apply for the non-profit discount?"
+        ],
+        "citations": 0,
+        "updates": [],
+        "usd": 0.02829
+      }
+    ],
+    "afterUpdates": [
+      {
+        "q": "What does the Business plan cost and include?",
+        "reason": "completed",
+        "steps": [
+          {
+            "stop": "tool_use",
+            "blocks": [
+              "tool_use:search_knowledge"
+            ],
+            "outputTokens": 56
+          },
+          {
+            "stop": "tool_use",
+            "blocks": [
+              "thinking(0 chars)",
+              "thinking(239 chars)",
+              "tool_use:suggest_replies"
+            ],
+            "outputTokens": 390
+          },
+          {
+            "stop": "end_turn",
+            "blocks": [],
+            "outputTokens": 2
+          }
+        ],
+        "visibleTextChars": 0,
+        "replies": [
+          "How does Business compare to Team?",
+          "What's the yearly price?",
+          "How do I start the free trial?",
+          "How does SSO work?"
+        ],
+        "citations": 0,
+        "updates": [
+          "The Business plan is €15 per user per month with unlimited users, SSO, audit log, 1 TB and priority support, and Paying yearly saves 20% on Team and Business, with 50% off for non-profits and schools "
+        ],
+        "usd": 0.01249
+      },
+      {
+        "q": "Can I get a discount?",
+        "reason": "completed",
+        "steps": [
+          {
+            "stop": "tool_use",
+            "blocks": [
+              "tool_use:search_knowledge"
+            ],
+            "outputTokens": 51
+          },
+          {
+            "stop": "tool_use",
+            "blocks": [
+              "thinking(0 chars)",
+              "thinking(194 chars)",
+              "tool_use:suggest_replies"
+            ],
+            "outputTokens": 192
+          },
+          {
+            "stop": "end_turn",
+            "blocks": [],
+            "outputTokens": 2
+          }
+        ],
+        "visibleTextChars": 0,
+        "replies": [
+          "How do I contact the support team?",
+          "What does the Business plan include?",
+          "How much is the Business plan?"
+        ],
+        "citations": 0,
+        "updates": [
+          "Non-profits and schools qualify for 50% off the Business plan if they apply through support with proof of status. That is the only discount in our documentation, so I can't confirm any others.\n\n"
+        ],
+        "usd": 0.00723
+      },
+      {
+        "q": "How do I contact support?",
+        "reason": "completed",
+        "steps": [
+          {
+            "stop": "tool_use",
+            "blocks": [
+              "tool_use:search_knowledge"
+            ],
+            "outputTokens": 52
+          },
+          {
+            "stop": "tool_use",
+            "blocks": [
+              "thinking(187 chars)",
+              "tool_use:suggest_replies"
+            ],
+            "outputTokens": 216
+          },
+          {
+            "stop": "end_turn",
+            "blocks": [
+              "thinking(0 chars)",
+              "text"
+            ],
+            "outputTokens": 116,
+            "firstTextMs": 2500
+          }
+        ],
+        "visibleTextChars": 113,
+        "replies": [
+          "What are the support hours?",
+          "What's included in the Business plan?",
+          "Is there a non-profit discount?"
+        ],
+        "citations": 0,
+        "updates": [
+          "You can reach Brightloop support in the app under Help → Contact support, by email at support@example.com, or via the service status page; Business plan users also get priority support.\n\n"
+        ],
+        "usd": 0.01032
+      }
+    ],
+    "first": [
+      {
+        "q": "What does the Business plan cost and include?",
+        "reason": "completed",
+        "steps": [
+          {
+            "stop": "tool_use",
+            "blocks": [
+              "tool_use:search_knowledge"
+            ],
+            "outputTokens": 56
+          },
+          {
+            "stop": "tool_use",
+            "blocks": [
+              "tool_use:suggest_replies"
+            ],
+            "outputTokens": 91
+          },
+          {
+            "stop": "end_turn",
+            "blocks": [
+              "thinking(0 chars)",
+              "text",
+              "text",
+              "text",
+              "text",
+              "text",
+              "text",
+              "text",
+              "text",
+              "text",
+              "text",
+              "text",
+              "text",
+              "text",
+              "text"
+            ],
+            "outputTokens": 359,
+            "firstTextMs": 3380
+          }
+        ],
+        "visibleTextChars": 545,
+        "replies": [
+          "How much is Business billed yearly?",
+          "How does the free trial work?",
+          "What's the difference from Team?",
+          "Convert the price to USD"
+        ],
+        "citations": 1,
+        "updates": [],
+        "usd": 0.03151
+      },
+      {
+        "q": "Can I get a discount?",
+        "reason": "completed",
+        "steps": [
+          {
+            "stop": "tool_use",
+            "blocks": [
+              "tool_use:search_knowledge"
+            ],
+            "outputTokens": 51
+          },
+          {
+            "stop": "tool_use",
+            "blocks": [
+              "tool_use:suggest_replies"
+            ],
+            "outputTokens": 78
+          },
+          {
+            "stop": "end_turn",
+            "blocks": [
+              "thinking(0 chars)",
+              "text",
+              "text",
+              "text"
+            ],
+            "outputTokens": 116,
+            "firstTextMs": 1905
+          }
+        ],
+        "visibleTextChars": 245,
+        "replies": [
+          "What does the Business plan include?",
+          "How do I contact support?",
+          "Are there other discounts?"
+        ],
+        "citations": 1,
+        "updates": [],
+        "usd": 0.02347
+      },
+      {
+        "q": "How do I contact support?",
+        "reason": "completed",
+        "steps": [
+          {
+            "stop": "tool_use",
+            "blocks": [
+              "tool_use:search_knowledge"
+            ],
+            "outputTokens": 52
+          },
+          {
+            "stop": "tool_use",
+            "blocks": [
+              "tool_use:suggest_replies"
+            ],
+            "outputTokens": 86
+          },
+          {
+            "stop": "end_turn",
+            "blocks": [
+              "text",
+              "text",
+              "text",
+              "text",
+              "text"
+            ],
+            "outputTokens": 127,
+            "firstTextMs": 2477
+          }
+        ],
+        "visibleTextChars": 282,
+        "replies": [
+          "Which plan includes priority support?",
+          "How do I get a non-profit discount?",
+          "Where can I check service status?"
+        ],
+        "citations": 2,
+        "updates": [],
+        "usd": 0.02638
+      }
+    ]
+  },
+  "finalStep2": {
+    "afterToolResults": [
+      {
+        "reason": "completed",
+        "steps": [
+          {
+            "stop": "tool_use",
+            "blocks": [
+              "tool_use:get_current_time",
+              "tool_use:get_exchange_rate"
+            ],
+            "out": 134,
+            "cached": 0
+          },
+          {
+            "stop": "end_turn",
+            "blocks": [
+              "thinking",
+              "text"
+            ],
+            "out": 172,
+            "cached": 1183
+          }
+        ],
+        "leakedMarkup": false,
+        "text": "It's **15:05 (CET) on Saturday, 21 November 2026** in Warsaw.\n\nI couldn't get the EUR to PLN exchange rate because the exchange rate service failed, so I can't tell you what 100 EUR is in PLN right now. Please try again in a moment."
+      },
+      {
+        "reason": "max_output_tokens",
+        "steps": [
+          {
+            "stop": "tool_use",
+            "blocks": [
+              "tool_use:get_current_time",
+              "tool_use:get_exchange_rate"
+            ],
+            "out": 134,
+            "cached": 1183
+          },
+          {
+            "stop": "max_tokens",
+            "blocks": [
+              "thinking",
+              "thinking"
+            ],
+            "out": 1200,
+            "cached": 1453
+          }
+        ],
+        "leakedMarkup": false,
+        "text": ""
+      }
+    ],
+    "forcedNoNote": [
+      {
+        "reason": "content_filter",
+        "steps": [
+          {
+            "stop": "refusal",
+            "blocks": [
+              "thinking"
+            ],
+            "out": 9,
+            "cached": 1183
+          }
+        ],
+        "leakedMarkup": false,
+        "text": ""
+      },
+      {
+        "reason": "content_filter",
+        "steps": [
+          {
+            "stop": "refusal",
+            "blocks": [
+              "text",
+              "thinking"
+            ],
+            "out": 721,
+            "cached": 1183
+          }
+        ],
+        "leakedMarkup": false,
+        "text": "Let me check both for you."
+      }
+    ],
+    "forcedWithNote": [
+      {
+        "reason": "completed",
+        "steps": [
+          {
+            "stop": "end_turn",
+            "blocks": [
+              "thinking",
+              "text"
+            ],
+            "out": 190,
+            "cached": 1183
+          }
+        ],
+        "leakedMarkup": false,
+        "text": "I can't check either of those right now because my time and exchange rate tools aren't available, and I don't want to guess.\n\n- **Current time in Warsaw:** Warsaw uses Central European Time (UTC+1), or UTC+2 in summer. Your device's world clock will show the exact time.\n- **100 EUR in PLN:** You can"
+      },
+      {
+        "reason": "completed",
+        "steps": [
+          {
+            "stop": "end_turn",
+            "blocks": [
+              "thinking",
+              "text"
+            ],
+            "out": 217,
+            "cached": 1227
+          }
+        ],
+        "leakedMarkup": false,
+        "text": "Sorry, I can't check either of those right now. My time and exchange-rate tools aren't available for this answer, and I'd rather not guess.\n\n- **Time in Warsaw:** Warsaw uses Central European Time (UTC+1), or UTC+2 during summer time. I can't tell you the exact time right now.\n- **100 EUR in PLN:** "
+      }
+    ],
+    "afterToolResultsWithNote": [
+      {
+        "reason": "completed",
+        "steps": [
+          {
+            "stop": "tool_use",
+            "blocks": [
+              "tool_use:get_current_time",
+              "tool_use:get_exchange_rate"
+            ],
+            "out": 134,
+            "cached": 1183
+          },
+          {
+            "stop": "end_turn",
+            "blocks": [
+              "thinking",
+              "text"
+            ],
+            "out": 122,
+            "cached": 1453
+          }
+        ],
+        "leakedMarkup": false,
+        "text": "In Warsaw it's **15:05 (CET) on Saturday, 21 November 2026**.\n\nI couldn't convert 100 EUR to PLN because the exchange rate service didn't respond, and I don't want to guess a rate. You can find the current rate on the European Central Bank's website, or ask me again in a moment."
+      },
+      {
+        "reason": "completed",
+        "steps": [
+          {
+            "stop": "tool_use",
+            "blocks": [
+              "tool_use:get_current_time",
+              "tool_use:get_exchange_rate"
+            ],
+            "out": 134,
+            "cached": 1183
+          },
+          {
+            "stop": "end_turn",
+            "blocks": [
+              "thinking",
+              "text"
+            ],
+            "out": 112,
+            "cached": 1496
+          }
+        ],
+        "leakedMarkup": false,
+        "text": "In Warsaw it's **15:05 (CET) on Saturday, 21 November 2026**.\n\nI can't tell you how much 100 EUR is in PLN right now because the exchange rate service didn't respond. Please try again in a moment, or check the European Central Bank's reference rates directly."
+      }
+    ]
+  },
+  "finalStepRefusalProbe": {
+    "note": "probe-refusal.ts, 3 runs, forced last step at step 1 with tool_choice none and no note",
+    "out": [
+      {
+        "stop": "max_tokens",
+        "out": 1200
+      },
+      {
+        "stop": "max_tokens",
+        "out": 1200
+      },
+      {
+        "stop": "end_turn",
+        "out": 147
+      }
+    ],
+    "stop_details": "null in all three",
+    "usd": 0.0517
+  },
+  "conversation": {
+    "turns": [
+      {
+        "turn": 1,
+        "steps": 1,
+        "tools": [],
+        "firstTextMs": 1445,
+        "usage": {
+          "inputTokens": 1316,
+          "cachedInputTokens": 0,
+          "cacheWriteTokens": 1314,
+          "outputTokens": 45,
+          "reasoningTokens": 0
+        },
+        "cacheHitRatio": 0,
+        "historyMessages": 3,
+        "historyBytes": 341,
+        "usd": 0.00748
+      },
+      {
+        "turn": 2,
+        "steps": 3,
+        "tools": [
+          "search_knowledge",
+          "suggest_replies"
+        ],
+        "firstTextMs": 2907,
+        "usage": {
+          "inputTokens": 7350,
+          "cachedInputTokens": 4192,
+          "cacheWriteTokens": 3152,
+          "outputTokens": 446,
+          "reasoningTokens": 0
+        },
+        "cacheHitRatio": 0.57,
+        "historyMessages": 10,
+        "historyBytes": 6249,
+        "usd": 0.02554
+      },
+      {
+        "turn": 3,
+        "steps": 2,
+        "tools": [
+          "suggest_replies"
+        ],
+        "firstTextMs": 1683,
+        "usage": {
+          "inputTokens": 6908,
+          "cachedInputTokens": 6420,
+          "cacheWriteTokens": 484,
+          "outputTokens": 219,
+          "reasoningTokens": 21
+        },
+        "cacheHitRatio": 0.929,
+        "historyMessages": 15,
+        "historyBytes": 9803,
+        "usd": 0.0081
+      },
+      {
+        "turn": 4,
+        "steps": 3,
+        "tools": [
+          "get_exchange_rate",
+          "suggest_replies"
+        ],
+        "firstTextMs": 2106,
+        "usage": {
+          "inputTokens": 11385,
+          "cachedInputTokens": 10985,
+          "cacheWriteTokens": 394,
+          "outputTokens": 301,
+          "reasoningTokens": 12
+        },
+        "cacheHitRatio": 0.965,
+        "historyMessages": 22,
+        "historyBytes": 12412,
+        "usd": 0.01021
+      },
+      {
+        "turn": 5,
+        "steps": 2,
+        "tools": [
+          "get_current_time"
+        ],
+        "firstTextMs": 1353,
+        "usage": {
+          "inputTokens": 8306,
+          "cachedInputTokens": 8006,
+          "cacheWriteTokens": 296,
+          "outputTokens": 114,
+          "reasoningTokens": 18
+        },
+        "cacheHitRatio": 0.964,
+        "historyMessages": 27,
+        "historyBytes": 14365,
+        "usd": 0.00538
+      },
+      {
+        "turn": 6,
+        "steps": 3,
+        "tools": [
+          "search_knowledge",
+          "suggest_replies"
+        ],
+        "firstTextMs": 1519,
+        "usage": {
+          "inputTokens": 14422,
+          "cachedInputTokens": 13498,
+          "cacheWriteTokens": 918,
+          "outputTokens": 277,
+          "reasoningTokens": 30
+        },
+        "cacheHitRatio": 0.936,
+        "historyMessages": 34,
+        "historyBytes": 18692,
+        "usd": 0.01285
+      },
+      {
+        "turn": 7,
+        "steps": 3,
+        "tools": [
+          "search_knowledge",
+          "suggest_replies"
+        ],
+        "firstTextMs": 2301,
+        "usage": {
+          "inputTokens": 17492,
+          "cachedInputTokens": 16455,
+          "cacheWriteTokens": 1031,
+          "outputTokens": 353,
+          "reasoningTokens": 42
+        },
+        "cacheHitRatio": 0.941,
+        "historyMessages": 41,
+        "historyBytes": 24515,
+        "usd": 0.01553
+      },
+      {
+        "turn": 8,
+        "steps": 3,
+        "tools": [
+          "search_knowledge",
+          "suggest_replies"
+        ],
+        "firstTextMs": 2389,
+        "usage": {
+          "inputTokens": 20796,
+          "cachedInputTokens": 19702,
+          "cacheWriteTokens": 1088,
+          "outputTokens": 362,
+          "reasoningTokens": 23
+        },
+        "cacheHitRatio": 0.947,
+        "historyMessages": 48,
+        "historyBytes": 29990,
+        "usd": 0.01664
+      },
+      {
+        "turn": 9,
+        "steps": 3,
+        "tools": [
+          "search_knowledge",
+          "suggest_replies"
+        ],
+        "firstTextMs": 2799,
+        "usage": {
+          "inputTokens": 23862,
+          "cachedInputTokens": 22862,
+          "cacheWriteTokens": 994,
+          "outputTokens": 424,
+          "reasoningTokens": 45
+        },
+        "cacheHitRatio": 0.958,
+        "historyMessages": 55,
+        "historyBytes": 36620,
+        "usd": 0.01805
+      },
+      {
+        "turn": 10,
+        "steps": 2,
+        "tools": [
+          "suggest_replies"
+        ],
+        "firstTextMs": 1939,
+        "usage": {
+          "inputTokens": 17240,
+          "cachedInputTokens": 16783,
+          "cacheWriteTokens": 453,
+          "outputTokens": 248,
+          "reasoningTokens": 36
+        },
+        "cacheHitRatio": 0.973,
+        "historyMessages": 60,
+        "historyBytes": 40346,
+        "usd": 0.0106
+      },
+      {
+        "turn": 11,
+        "steps": 2,
+        "tools": [
+          "suggest_replies"
+        ],
+        "firstTextMs": 1936,
+        "usage": {
+          "inputTokens": 17875,
+          "cachedInputTokens": 17564,
+          "cacheWriteTokens": 307,
+          "outputTokens": 184,
+          "reasoningTokens": 33
+        },
+        "cacheHitRatio": 0.983,
+        "historyMessages": 65,
+        "historyBytes": 44576,
+        "usd": 0.00874
+      },
+      {
+        "turn": 12,
+        "steps": 2,
+        "tools": [
+          "suggest_replies"
+        ],
+        "firstTextMs": 1357,
+        "usage": {
+          "inputTokens": 18389,
+          "cachedInputTokens": 18134,
+          "cacheWriteTokens": 251,
+          "outputTokens": 182,
+          "reasoningTokens": 30
+        },
+        "cacheHitRatio": 0.986,
+        "historyMessages": 70,
+        "historyBytes": 47231,
+        "usd": 0.00854
+      },
+      {
+        "turn": 13,
+        "steps": 3,
+        "tools": [
+          "search_knowledge",
+          "suggest_replies"
+        ],
+        "firstTextMs": 2528,
+        "usage": {
+          "inputTokens": 29972,
+          "cachedInputTokens": 28874,
+          "cacheWriteTokens": 1092,
+          "outputTokens": 344,
+          "reasoningTokens": 36
+        },
+        "cacheHitRatio": 0.963,
+        "historyMessages": 77,
+        "historyBytes": 55629,
+        "usd": 0.01814
+      },
+      {
+        "turn": 14,
+        "steps": 3,
+        "tools": [
+          "search_knowledge",
+          "suggest_replies"
+        ],
+        "firstTextMs": 2068,
+        "usage": {
+          "inputTokens": 31955,
+          "cachedInputTokens": 31545,
+          "cacheWriteTokens": 404,
+          "outputTokens": 270,
+          "reasoningTokens": 29
+        },
+        "cacheHitRatio": 0.987,
+        "historyMessages": 84,
+        "historyBytes": 58268,
+        "usd": 0.01375
+      },
+      {
+        "turn": 15,
+        "steps": 3,
+        "tools": [
+          "search_knowledge",
+          "suggest_replies"
+        ],
+        "firstTextMs": 2592,
+        "usage": {
+          "inputTokens": 34141,
+          "cachedInputTokens": 33221,
+          "cacheWriteTokens": 914,
+          "outputTokens": 334,
+          "reasoningTokens": 20
+        },
+        "cacheHitRatio": 0.973,
+        "historyMessages": 91,
+        "historyBytes": 62607,
+        "usd": 0.01792
+      },
+      {
+        "turn": 16,
+        "steps": 2,
+        "tools": [
+          "suggest_replies"
+        ],
+        "firstTextMs": 1246,
+        "usage": {
+          "inputTokens": 23919,
+          "cachedInputTokens": 23561,
+          "cacheWriteTokens": 354,
+          "outputTokens": 138,
+          "reasoningTokens": 0
+        },
+        "cacheHitRatio": 0.985,
+        "historyMessages": 96,
+        "historyBytes": 63851,
+        "usd": 0.00926
+      },
+      {
+        "turn": 17,
+        "steps": 2,
+        "tools": [
+          "suggest_replies"
+        ],
+        "firstTextMs": 2154,
+        "usage": {
+          "inputTokens": 24358,
+          "cachedInputTokens": 24133,
+          "cacheWriteTokens": 221,
+          "outputTokens": 262,
+          "reasoningTokens": 21
+        },
+        "cacheHitRatio": 0.991,
+        "historyMessages": 101,
+        "historyBytes": 67255,
+        "usd": 0.01119
+      },
+      {
+        "turn": 18,
+        "steps": 2,
+        "tools": [
+          "suggest_replies"
+        ],
+        "firstTextMs": 1690,
+        "usage": {
+          "inputTokens": 25047,
+          "cachedInputTokens": 24700,
+          "cacheWriteTokens": 343,
+          "outputTokens": 204,
+          "reasoningTokens": 13
+        },
+        "cacheHitRatio": 0.986,
+        "historyMessages": 106,
+        "historyBytes": 69887,
+        "usd": 0.01075
+      },
+      {
+        "turn": 19,
+        "steps": 2,
+        "tools": [
+          "suggest_replies"
+        ],
+        "firstTextMs": 4178,
+        "usage": {
+          "inputTokens": 25753,
+          "cachedInputTokens": 25338,
+          "cacheWriteTokens": 411,
+          "outputTokens": 560,
+          "reasoningTokens": 135
+        },
+        "cacheHitRatio": 0.984,
+        "historyMessages": 111,
+        "historyBytes": 78385,
+        "usd": 0.01834
+      },
+      {
+        "turn": 20,
+        "steps": 1,
+        "tools": [],
+        "firstTextMs": 3873,
+        "usage": {
+          "inputTokens": 13394,
+          "cachedInputTokens": 12994,
+          "cacheWriteTokens": 398,
+          "outputTokens": 46,
+          "reasoningTokens": 0
+        },
+        "cacheHitRatio": 0.97,
+        "historyMessages": 114,
+        "historyBytes": 78717,
+        "usd": 0.00552
+      }
+    ],
+    "total": {
+      "inputTokens": 373880,
+      "cachedInputTokens": 358967,
+      "cacheWriteTokens": 14819,
+      "outputTokens": 5313,
+      "reasoningTokens": 544
+    },
+    "usd": 0.2525,
+    "sameTokensAtGpt61TerraPrices": 0.0631,
+    "cacheHitRatio": 0.96
+  },
+  "threads": {
+    "historyTokens": 61750,
+    "stateless": [
+      {
+        "firstTextMs": 2791,
+        "total": 3032,
+        "usage": {
+          "inputTokens": 61763,
+          "cachedInputTokens": 61746,
+          "cacheWriteTokens": 13,
+          "outputTokens": 45,
+          "reasoningTokens": 19
+        },
+        "requestBytes": 176695
+      },
+      {
+        "firstTextMs": 2153,
+        "total": 2155,
+        "usage": {
+          "inputTokens": 61817,
+          "cachedInputTokens": 61759,
+          "cacheWriteTokens": 54,
+          "outputTokens": 4,
+          "reasoningTokens": 0
+        },
+        "requestBytes": 176792
+      },
+      {
+        "firstTextMs": 4773,
+        "total": 5721,
+        "usage": {
+          "inputTokens": 61831,
+          "cachedInputTokens": 61813,
+          "cacheWriteTokens": 14,
+          "outputTokens": 173,
+          "reasoningTokens": 97
+        },
+        "requestBytes": 178569
+      },
+      {
+        "firstTextMs": 2245,
+        "total": 2247,
+        "usage": {
+          "inputTokens": 62014,
+          "cachedInputTokens": 61827,
+          "cacheWriteTokens": 183,
+          "outputTokens": 4,
+          "reasoningTokens": 0
+        },
+        "requestBytes": 178672
+      },
+      {
+        "firstTextMs": 2125,
+        "total": 2318,
+        "usage": {
+          "inputTokens": 62027,
+          "cachedInputTokens": 62010,
+          "cacheWriteTokens": 13,
+          "outputTokens": 25,
+          "reasoningTokens": 0
+        },
+        "requestBytes": 178838
+      }
+    ],
+    "threaded": [
+      {
+        "firstTextMs": 2243,
+        "total": 2483,
+        "usage": {
+          "inputTokens": 61763,
+          "cachedInputTokens": 61759,
+          "cacheWriteTokens": 0,
+          "outputTokens": 44,
+          "reasoningTokens": 19
+        }
+      },
+      {
+        "firstTextMs": 2093,
+        "total": 2118,
+        "usage": {
+          "inputTokens": 61816,
+          "cachedInputTokens": 61759,
+          "cacheWriteTokens": 53,
+          "outputTokens": 4,
+          "reasoningTokens": 0
+        }
+      },
+      {
+        "firstTextMs": 5996,
+        "total": 6761,
+        "usage": {
+          "inputTokens": 61830,
+          "cachedInputTokens": 61812,
+          "cacheWriteTokens": 14,
+          "outputTokens": 176,
+          "reasoningTokens": 84
+        }
+      },
+      {
+        "firstTextMs": 6964,
+        "total": 6971,
+        "usage": {
+          "inputTokens": 62016,
+          "cachedInputTokens": 61826,
+          "cacheWriteTokens": 186,
+          "outputTokens": 4,
+          "reasoningTokens": 0
+        }
+      },
+      {
+        "firstTextMs": 2931,
+        "total": 2940,
+        "usage": {
+          "inputTokens": 62029,
+          "cachedInputTokens": 62012,
+          "cacheWriteTokens": 13,
+          "outputTokens": 76,
+          "reasoningTokens": 51
+        }
+      }
+    ],
+    "medianStatelessFirstTextMs": 2245,
+    "medianThreadedFirstTextMs": 2931,
+    "toolChoiceChange": {
+      "class": "ThreadFingerprintMismatchError",
+      "status": 400,
+      "type": "invalid_request_error",
+      "message": "thread: the request does not match the stored Thread for the requested `previous_message_id`; differing field(s): tool_choice. These fields must stay the same across a Thread's turns; to change them, start a new Thread with `thread: {\"type\": \"create\"}` and replay the conversation.",
+      "details": {
+        "error_code": "thread_fingerprint_mismatch"
+      }
+    }
+  },
+  "files": {
+    "uploaded": [
+      {
+        "mime": "image/png",
+        "size": 178,
+        "expires_at": "2026-12-23T10:40:24.943458Z"
+      },
+      {
+        "mime": "application/pdf",
+        "size": 611,
+        "expires_at": "2026-12-23T10:40:25.341188Z"
+      }
+    ],
+    "answer": "The image is a solid red square.\n\nThe invoice total is 199 EUR (Brightloop invoice 42).",
+    "usage": {
+      "inputTokens": 1639,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 67,
+      "reasoningTokens": 31
+    },
+    "turnAfterDelete": {
+      "class": "NotFoundError",
+      "status": 404,
+      "type": "not_found_error",
+      "message": "File `file_01Gk9c6q9ugDBLn2Pnb5FNrw` not found."
+    }
+  },
+  "repliesTiming": {
+    "medianTurnFirstTextMs": 6042.5,
+    "runs": [
+      {
+        "q": "What does the Business plan cost and include?",
+        "turnFirstTextMs": 6359,
+        "stepTotalsMs": [
+          1975,
+          1578,
+          2803
+        ],
+        "steps": [
+          "tool_use:search_knowledge",
+          "tool_use:suggest_replies",
+          "text+text+text+text+text+text+text+text+text+text+text+text+text+text"
+        ],
+        "textChars": 481,
+        "replies": 4
+      },
+      {
+        "q": "Can I get a discount?",
+        "turnFirstTextMs": 5326,
+        "stepTotalsMs": [
+          1773,
+          1930,
+          1626
+        ],
+        "steps": [
+          "tool_use:search_knowledge",
+          "tool_use:suggest_replies",
+          "thinking+text+text+text"
+        ],
+        "textChars": 221,
+        "replies": 3
+      },
+      {
+        "q": "How do I contact support?",
+        "turnFirstTextMs": 5726,
+        "stepTotalsMs": [
+          1757,
+          2105,
+          1864
+        ],
+        "steps": [
+          "tool_use:search_knowledge",
+          "tool_use:suggest_replies",
+          "text+text"
+        ],
+        "textChars": 282,
+        "replies": 3
+      },
+      {
+        "q": "Where is our data stored?",
+        "turnFirstTextMs": 8314,
+        "stepTotalsMs": [
+          1857,
+          1468,
+          4991
+        ],
+        "steps": [
+          "tool_use:search_knowledge",
+          "tool_use:suggest_replies",
+          "text+text+text+text"
+        ],
+        "textChars": 342,
+        "replies": 3
+      }
+    ]
+  }
+}

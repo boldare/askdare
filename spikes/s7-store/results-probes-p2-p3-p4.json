@@ -1,0 +1,125 @@
+{
+  "model": "gpt-6.1-terra",
+  "p2": {
+    "crash": "simulated crash before the append",
+    "storedAfterCrash": [
+      "message:user"
+    ],
+    "nextTurn": {
+      "steps": 2,
+      "outputTypes": [
+        [
+          "reasoning",
+          "function_call"
+        ],
+        [
+          "message"
+        ]
+      ],
+      "answer": "Sorry for the wait! Order 48213 has shipped with DHL and is estimated to arrive on December 6, 2026."
+    },
+    "storedAfterNext": [
+      "message:user",
+      "message:user",
+      "native",
+      "call",
+      "call_output",
+      "message:assistant"
+    ]
+  },
+  "p3": {
+    "effort": "low",
+    "turn1": [
+      {
+        "outputTypes": [
+          "function_call"
+        ],
+        "reasoning": 0,
+        "transformations": [],
+        "context": "all_turns"
+      },
+      {
+        "outputTypes": [
+          "reasoning",
+          "message"
+        ],
+        "reasoning": 21,
+        "transformations": [],
+        "context": "all_turns"
+      }
+    ],
+    "nativeStored": [
+      {
+        "type": "reasoning",
+        "hasEncrypted": true,
+        "encryptedChars": 1956,
+        "hasId": true
+      }
+    ],
+    "replayWithIds": {
+      "input": 1915,
+      "cached": 0,
+      "transformations": [],
+      "context": "all_turns"
+    },
+    "replayWithoutReasoningIds": {
+      "input": 1915,
+      "cached": 1912,
+      "transformations": [],
+      "context": "all_turns"
+    },
+    "otherEndUser": {
+      "input": 1915,
+      "cached": 1912,
+      "transformations": [],
+      "context": "all_turns"
+    },
+    "reasoningDropped": {
+      "input": 1892,
+      "cached": 1704,
+      "transformations": [],
+      "context": "all_turns"
+    },
+    "allTurns": {
+      "input": 1915,
+      "cached": 1912,
+      "transformations": [],
+      "context": "all_turns"
+    }
+  },
+  "p4": {
+    "items": 140,
+    "openaiCreateMs": 3661,
+    "openaiPages": [
+      {
+        "count": 100,
+        "ms": 675,
+        "hasMore": true
+      },
+      {
+        "count": 40,
+        "ms": 310,
+        "hasMore": false
+      }
+    ],
+    "pgPages": [
+      {
+        "count": 100,
+        "ms": 2.4
+      },
+      {
+        "count": 40,
+        "ms": 0.8
+      }
+    ]
+  },
+  "cleanup": {
+    "conv_6b0415a7e98c8190838cde7ea6aa3bc90e713bf8a571b43b": "deleted"
+  },
+  "usage": {
+    "input": 9552,
+    "cached": 7440,
+    "output": 146,
+    "usdApprox": 0.0032
+  }
+}

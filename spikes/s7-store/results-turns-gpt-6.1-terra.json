@@ -1,0 +1,1377 @@
+{
+  "model": "gpt-6.1-terra",
+  "effort": "default",
+  "startedAt": "2026-11-23T10:29:34.228Z",
+  "recall": {
+    "conversation": "Your name is Ola, and you mentioned the scratched table in connection with order 48213, although its details don’t list a table.",
+    "stateless": "Your name is Ola, and you mentioned the scratched table in connection with order 48213, though that order doesn’t list a table."
+  },
+  "storedByType": [
+    {
+      "type": "call",
+      "native": null,
+      "count": 7,
+      "bytesOnDisk": 1086,
+      "jsonChars": 1058
+    },
+    {
+      "type": "call_output",
+      "native": null,
+      "count": 7,
+      "bytesOnDisk": 2276,
+      "jsonChars": 2486
+    },
+    {
+      "type": "message",
+      "native": null,
+      "count": 40,
+      "bytesOnDisk": 9797,
+      "jsonChars": 8912
+    },
+    {
+      "type": "native",
+      "native": "reasoning",
+      "count": 8,
+      "bytesOnDisk": 21516,
+      "jsonChars": 21364
+    }
+  ],
+  "storedBytes": 34675,
+  "openaiItemsListMs": 567,
+  "openaiItems": {
+    "message:user": 20,
+    "reasoning": 7,
+    "message:assistant": 20,
+    "function_call": 6,
+    "function_call_output": 6
+  },
+  "pgPageMs": 16,
+  "pgItems": 62,
+  "deleteReturnedFiles": {
+    "postgres": [
+      "file-RQwWXg1UbccoHxEzSHBQQM"
+    ],
+    "openai": [
+      "file-RQwWXg1UbccoHxEzSHBQQM"
+    ]
+  },
+  "summary": {
+    "conversation": {
+      "turns": 20,
+      "steps": 25,
+      "firstTextMsMedian": 2725,
+      "firstTextMsP90": 7392,
+      "firstStepTtftMedian": 2567,
+      "totalMsMedian": 4778,
+      "storeMsMedian": 0,
+      "input": 68808,
+      "cached": 65048,
+      "cacheWrite": 3685,
+      "output": 1182,
+      "reasoning": 328,
+      "transformations": [],
+      "reasoningContexts": [
+        "all_turns"
+      ],
+      "maxInputBytes": 669,
+      "usd": 0.0138
+    },
+    "stateless": {
+      "turns": 20,
+      "steps": 26,
+      "firstTextMsMedian": 2968,
+      "firstTextMsP90": 6150,
+      "firstStepTtftMedian": 2621,
+      "totalMsMedian": 3557,
+      "storeMsMedian": 39,
+      "input": 75738,
+      "cached": 73416,
+      "cacheWrite": 2244,
+      "output": 1387,
+      "reasoning": 461,
+      "transformations": [],
+      "reasoningContexts": [
+        "all_turns"
+      ],
+      "maxInputBytes": 32159,
+      "usd": 0.0135
+    }
+  },
+  "turns": [
+    {
+      "turn": 1,
+      "conversation": {
+        "mode": "conversation",
+        "steps": [
+          {
+            "ttftMs": 2566.756125,
+            "durationMs": 4845.191,
+            "input": 1789,
+            "cached": 0,
+            "cacheWrite": 1786,
+            "output": 64,
+            "reasoning": 27,
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 166
+          }
+        ],
+        "totalMs": 4846.791959,
+        "contextMs": 0.04912500000000364,
+        "appendMs": 0,
+        "replayedItems": 0,
+        "answer": "Hi Ola! I don’t have the usual delivery timeframe, but you can find details on our delivery times help page or contact support@northwind.example.",
+        "answerItemId": "msg_0eaf8183a0adbfe2006b041591c4d48197b725c4f9126beee7"
+      },
+      "stateless": {
+        "mode": "stateless",
+        "steps": [
+          {
+            "ttftMs": 1848.0278329999992,
+            "durationMs": 2353.5029999999997,
+            "input": 1789,
+            "cached": 1786,
+            "cacheWrite": 0,
+            "output": 69,
+            "reasoning": 31,
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 166
+          }
+        ],
+        "totalMs": 2393.174333000001,
+        "contextMs": 12.147875000000568,
+        "appendMs": 26.53520800000115,
+        "replayedItems": 1,
+        "answer": "Hi Ola! I don’t have the usual delivery timeframe, but you can find details on our help page for delivery times or contact support@northwind.example.",
+        "answerItemId": "itm_L5GiOoGDsHjy"
+      }
+    },
+    {
+      "turn": 2,
+      "conversation": {
+        "mode": "conversation",
+        "steps": [
+          {
+            "durationMs": 4091.095958,
+            "input": 1875,
+            "cached": 1786,
+            "cacheWrite": 86,
+            "output": 20,
+            "reasoning": 0,
+            "outputTypes": [
+              "function_call"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 136
+          },
+          {
+            "ttftMs": 3460.395124999999,
+            "durationMs": 5961.586041999999,
+            "input": 1975,
+            "cached": 1872,
+            "cacheWrite": 100,
+            "output": 90,
+            "reasoning": 31,
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 335
+          }
+        ],
+        "totalMs": 10053.431375,
+        "contextMs": 0.025834000000031665,
+        "appendMs": 0,
+        "replayedItems": 0,
+        "answer": "Order 48213 has shipped with DHL and is estimated to arrive on December 6, 2026. It lists three linen sofas and a set of chair pads, rather than a table; please",
+        "answerItemId": "msg_0eaf8183a0adbfe2006b0415a2692881979600b0df5dcfe1cf"
+      },
+      "stateless": {
+        "mode": "stateless",
+        "steps": [
+          {
+            "durationMs": 1463.101917,
+            "input": 1880,
+            "cached": 1786,
+            "cacheWrite": 91,
+            "output": 20,
+            "reasoning": 0,
+            "outputTypes": [
+              "function_call"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 2785
+          },
+          {
+            "ttftMs": 2166.4359590000004,
+            "durationMs": 2936.5964170000007,
+            "input": 1980,
+            "cached": 1877,
+            "cacheWrite": 100,
+            "output": 118,
+            "reasoning": 49,
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 3263
+          }
+        ],
+        "totalMs": 4443.389042000001,
+        "contextMs": 3.629000000000815,
+        "appendMs": 38.15504200000214,
+        "replayedItems": 4,
+        "answer": "Order 48213 has shipped with DHL and is estimated to arrive on December 6, 2026. It lists three linen sofas and one set of chair pads, but no table; please cont",
+        "answerItemId": "itm_eF-l5nBhuJZN"
+      }
+    },
+    {
+      "turn": 3,
+      "conversation": {
+        "mode": "conversation",
+        "steps": [
+          {
+            "ttftMs": 3484.0703329999997,
+            "durationMs": 6033.759124999997,
+            "input": 2091,
+            "cached": 1972,
+            "cacheWrite": 116,
+            "output": 115,
+            "reasoning": 63,
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 232
+          }
+        ],
+        "totalMs": 6034.4386250000025,
+        "contextMs": 0.014542000000801636,
+        "appendMs": 0,
+        "replayedItems": 0,
+        "answer": "I can’t determine whether the scratch is covered without the warranty terms and an assessment of the damage. Please see our warranty help page or send the photo",
+        "answerItemId": "msg_0eaf8183a0adbfe2006b0415a86d3c8197b86644e17b31332e"
+      },
+      "stateless": {
+        "mode": "stateless",
+        "steps": [
+          {
+            "ttftMs": 5760.057417000004,
+            "durationMs": 6585.942374999999,
+            "input": 2124,
+            "cached": 1977,
+            "cacheWrite": 144,
+            "output": 234,
+            "reasoning": 171,
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 6285
+          }
+        ],
+        "totalMs": 6637.498916999997,
+        "contextMs": 25.238707999997132,
+        "appendMs": 25.590291000004072,
+        "replayedItems": 9,
+        "answer": "I can’t determine whether the scratch is covered because I don’t have the warranty terms. Please see our warranty and damaged-items help pages or contact suppor",
+        "answerItemId": "itm_CDuS0QC8iAzs"
+      }
+    },
+    {
+      "turn": 4,
+      "conversation": {
+        "mode": "conversation",
+        "steps": [
+          {
+            "ttftMs": 2216.124208000001,
+            "durationMs": 4088.4630000000034,
+            "input": 2219,
+            "cached": 2088,
+            "cacheWrite": 128,
+            "output": 30,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 113
+          }
+        ],
+        "totalMs": 4088.765459000002,
+        "contextMs": 0.01845799999864539,
+        "appendMs": 0,
+        "replayedItems": 0,
+        "answer": "I don’t have the list of accepted payment methods. Please check our payment methods help page or contact support@northwind.example.",
+        "answerItemId": "msg_0eaf8183a0adbfe2006b0415b745008197bba8a52124f282cd"
+      },
+      "stateless": {
+        "mode": "stateless",
+        "steps": [
+          {
+            "ttftMs": 2968.0920839999962,
+            "durationMs": 3413.6069999999963,
+            "input": 2371,
+            "cached": 2121,
+            "cacheWrite": 247,
+            "output": 31,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 10900
+          }
+        ],
+        "totalMs": 3441.331250000003,
+        "contextMs": 4.280999999995402,
+        "appendMs": 22.69854199999827,
+        "replayedItems": 12,
+        "answer": "I don’t have the list of accepted payment methods. Please see our help page for payment methods or contact support@northwind.example.",
+        "answerItemId": "itm_Hur3rYmQP8U6"
+      }
+    },
+    {
+      "turn": 5,
+      "conversation": {
+        "mode": "conversation",
+        "steps": [
+          {
+            "ttftMs": 1978.879915999998,
+            "durationMs": 4013.310458,
+            "input": 2268,
+            "cached": 2216,
+            "cacheWrite": 49,
+            "output": 41,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 134
+          }
+        ],
+        "totalMs": 4013.5590420000008,
+        "contextMs": 0.006124999999883585,
+        "appendMs": 0,
+        "replayedItems": 0,
+        "answer": "I’m not sure whether a gift card and credit card can be combined for one purchase. Please check our payment methods and gift cards help pages, or contact suppor",
+        "answerItemId": "msg_0eaf8183a0adbfe2006b0415bb1f888197996f9a3ea206de76"
+      },
+      "stateless": {
+        "mode": "stateless",
+        "steps": [
+          {
+            "ttftMs": 3234.634624999999,
+            "durationMs": 3776.084790999994,
+            "input": 2421,
+            "cached": 2368,
+            "cacheWrite": 50,
+            "output": 39,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 11310
+          }
+        ],
+        "totalMs": 3891.8428330000024,
+        "contextMs": 10.298875000000407,
+        "appendMs": 104.53154200000426,
+        "replayedItems": 14,
+        "answer": "I don’t know whether a gift card and credit card can be combined. Please check our help pages for gift cards and payment methods, or contact support@northwind.e",
+        "answerItemId": "itm_X7ZxQmdDXp4b"
+      }
+    },
+    {
+      "turn": 6,
+      "conversation": {
+        "mode": "conversation",
+        "steps": [
+          {
+            "durationMs": 4311.229500000001,
+            "input": 2328,
+            "cached": 2265,
+            "cacheWrite": 60,
+            "output": 20,
+            "reasoning": 0,
+            "outputTypes": [
+              "function_call"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 124
+          },
+          {
+            "ttftMs": 1968.6862920000058,
+            "durationMs": 4196.054375000007,
+            "input": 2428,
+            "cached": 2325,
+            "cacheWrite": 100,
+            "output": 28,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 335
+          }
+        ],
+        "totalMs": 8507.597999999998,
+        "contextMs": 0.012915999999677297,
+        "appendMs": 0,
+        "replayedItems": 0,
+        "answer": "Yes, order 51877 has shipped with DHL and is estimated to arrive on December 15, 2026.",
+        "answerItemId": "msg_0eaf8183a0adbfe2006b0415cca8a88197a339a5db97f1dd42"
+      },
+      "stateless": {
+        "mode": "stateless",
+        "steps": [
+          {
+            "durationMs": 2334.563583000003,
+            "input": 2479,
+            "cached": 2418,
+            "cacheWrite": 58,
+            "output": 20,
+            "reasoning": 0,
+            "outputTypes": [
+              "function_call"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 11744
+          },
+          {
+            "ttftMs": 2311.940499999997,
+            "durationMs": 2936.5525419999976,
+            "input": 2579,
+            "cached": 2476,
+            "cacheWrite": 100,
+            "output": 41,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 12206
+          }
+        ],
+        "totalMs": 5330.255291000001,
+        "contextMs": 11.132917000002635,
+        "appendMs": 47.20012400000269,
+        "replayedItems": 16,
+        "answer": "Yes, order 51877 has shipped with DHL and is estimated to arrive on December 15, 2026. You can find more information on our help page for delivery times.",
+        "answerItemId": "itm_bmVzearpgVjO"
+      }
+    },
+    {
+      "turn": 7,
+      "conversation": {
+        "mode": "conversation",
+        "steps": [
+          {
+            "ttftMs": 3811.362417000011,
+            "durationMs": 5805.599834000008,
+            "input": 2470,
+            "cached": 2425,
+            "cacheWrite": 42,
+            "output": 139,
+            "reasoning": 93,
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 113
+          }
+        ],
+        "totalMs": 5805.891791000002,
+        "contextMs": 0.009833000003709458,
+        "appendMs": 0,
+        "replayedItems": 0,
+        "answer": "I don’t know whether assembly is available for the sofa. Please check our assembly service help page or contact support@northwind.example; if you mean a specifi",
+        "answerItemId": "msg_0eaf8183a0adbfe2006b0415d2b01881979405335182fd6361"
+      },
+      "stateless": {
+        "mode": "stateless",
+        "steps": [
+          {
+            "ttftMs": 2584.0219579999975,
+            "durationMs": 3464.699624999994,
+            "input": 2634,
+            "cached": 2576,
+            "cacheWrite": 55,
+            "output": 71,
+            "reasoning": 35,
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 12615
+          }
+        ],
+        "totalMs": 3654.3799169999984,
+        "contextMs": 118.7989579999994,
+        "appendMs": 70.07866699999431,
+        "replayedItems": 20,
+        "answer": "I don’t know whether assembly is available for the sofa. Please see our help page for assembly service or contact support@northwind.example for details.",
+        "answerItemId": "itm_frwNKYpqYCjA"
+      }
+    },
+    {
+      "turn": 8,
+      "conversation": {
+        "mode": "conversation",
+        "steps": [
+          {
+            "ttftMs": 3193.5526669999963,
+            "durationMs": 4926.403999999995,
+            "input": 2625,
+            "cached": 2467,
+            "cacheWrite": 155,
+            "output": 29,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 118
+          }
+        ],
+        "totalMs": 4926.508791,
+        "contextMs": 0.006083000000216998,
+        "appendMs": 0,
+        "replayedItems": 0,
+        "answer": "I don’t have the return instructions or eligibility details. Please check our returns help page or contact support@northwind.example.",
+        "answerItemId": "msg_0eaf8183a0adbfe2006b0415de442c819782d5eafafdd6917b"
+      },
+      "stateless": {
+        "mode": "stateless",
+        "steps": [
+          {
+            "ttftMs": 2126.211832999994,
+            "durationMs": 2686.905083000005,
+            "input": 2721,
+            "cached": 2631,
+            "cacheWrite": 87,
+            "output": 31,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 15307
+          }
+        ],
+        "totalMs": 2733.3703330000135,
+        "contextMs": 8.88795800000662,
+        "appendMs": 37.09504199998628,
+        "replayedItems": 23,
+        "answer": "I don’t have the return instructions, but you can find details on our help page for returns or contact support@northwind.example.",
+        "answerItemId": "itm_7q1d4W-zutdm"
+      }
+    },
+    {
+      "turn": 9,
+      "conversation": {
+        "mode": "conversation",
+        "steps": [
+          {
+            "ttftMs": 2310.176416999995,
+            "durationMs": 4256.937374999994,
+            "input": 2671,
+            "cached": 2622,
+            "cacheWrite": 46,
+            "output": 27,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 124
+          }
+        ],
+        "totalMs": 4257.162666000004,
+        "contextMs": 0.013624999992316589,
+        "appendMs": 0,
+        "replayedItems": 0,
+        "answer": "I don’t have the refund timeframe. Please check our refund timing help page or contact support@northwind.example.",
+        "answerItemId": "msg_0eaf8183a0adbfe2006b0415e24a7081979955493a51bdf5e8"
+      },
+      "stateless": {
+        "mode": "stateless",
+        "steps": [
+          {
+            "ttftMs": 2051.6887080000015,
+            "durationMs": 2440.6970830000064,
+            "input": 2769,
+            "cached": 2718,
+            "cacheWrite": 48,
+            "output": 28,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 15703
+          }
+        ],
+        "totalMs": 2464.3753330000036,
+        "contextMs": 8.208875000011176,
+        "appendMs": 15.071000000010827,
+        "replayedItems": 25,
+        "answer": "I don’t know the refund timeframe. Please see our help page for refund timing or contact support@northwind.example.",
+        "answerItemId": "itm_ivjpdgqWALLf"
+      }
+    },
+    {
+      "turn": 10,
+      "conversation": {
+        "mode": "conversation",
+        "steps": [
+          {
+            "durationMs": 4306.877041999993,
+            "input": 2713,
+            "cached": 2668,
+            "cacheWrite": 42,
+            "output": 20,
+            "reasoning": 0,
+            "outputTypes": [
+              "function_call"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 111
+          },
+          {
+            "ttftMs": 3085.2225000000035,
+            "durationMs": 5023.663583000001,
+            "input": 2813,
+            "cached": 2710,
+            "cacheWrite": 100,
+            "output": 36,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 335
+          }
+        ],
+        "totalMs": 9331.046042000002,
+        "contextMs": 0.004958000004990026,
+        "appendMs": 0,
+        "replayedItems": 0,
+        "answer": "Order 60042 is marked as delivered. It contains one wool rug and one set of chair pads; I don’t have any refund information for the order.",
+        "answerItemId": "msg_0eaf8183a0adbfe2006b0415f3ecd08197896fb44c9949c71e"
+      },
+      "stateless": {
+        "mode": "stateless",
+        "steps": [
+          {
+            "durationMs": 2555.5384579999954,
+            "input": 2812,
+            "cached": 2766,
+            "cacheWrite": 43,
+            "output": 20,
+            "reasoning": 0,
+            "outputTypes": [
+              "function_call"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 16072
+          },
+          {
+            "ttftMs": 2666.321750000003,
+            "durationMs": 3205.897708999997,
+            "input": 2912,
+            "cached": 2809,
+            "cacheWrite": 100,
+            "output": 65,
+            "reasoning": 26,
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 16534
+          }
+        ],
+        "totalMs": 5798.281208,
+        "contextMs": 4.569957999992766,
+        "appendMs": 31.088331999999355,
+        "replayedItems": 27,
+        "answer": "Order 60042 is marked as delivered. I can’t see its refund status; please contact support@northwind.example or visit our help page for refund timing.",
+        "answerItemId": "itm_YD1rAmejwUnX"
+      }
+    },
+    {
+      "turn": 11,
+      "conversation": {
+        "mode": "conversation",
+        "steps": [
+          {
+            "ttftMs": 1977.7618329999968,
+            "durationMs": 3688.671875,
+            "input": 2861,
+            "cached": 2810,
+            "cacheWrite": 48,
+            "output": 30,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 106
+          }
+        ],
+        "totalMs": 3688.975915999996,
+        "contextMs": 0.02041599999938626,
+        "appendMs": 0,
+        "replayedItems": 0,
+        "answer": "I don’t know whether we offer a student discount. Please check our student discount help page or contact support@northwind.example.",
+        "answerItemId": "msg_0eaf8183a0adbfe2006b0415f7d1048197807006f55594f888"
+      },
+      "stateless": {
+        "mode": "stateless",
+        "steps": [
+          {
+            "ttftMs": 2338.436249999999,
+            "durationMs": 2825.6860829999932,
+            "input": 2989,
+            "cached": 2909,
+            "cacheWrite": 77,
+            "output": 31,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 19123
+          }
+        ],
+        "totalMs": 2876.68862500001,
+        "contextMs": 29.47645800000464,
+        "appendMs": 20.60154100001091,
+        "replayedItems": 32,
+        "answer": "I don’t know whether we offer a student discount. Please check our help page for student discounts or contact support@northwind.example.",
+        "answerItemId": "itm_qduSWAMOSoV0"
+      }
+    },
+    {
+      "turn": 12,
+      "conversation": {
+        "mode": "conversation",
+        "steps": [
+          {
+            "durationMs": 3721.0149999999994,
+            "input": 2909,
+            "cached": 2858,
+            "cacheWrite": 48,
+            "output": 20,
+            "reasoning": 0,
+            "outputTypes": [
+              "function_call"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 128
+          },
+          {
+            "ttftMs": 1940.3929169999901,
+            "durationMs": 4242.219083999997,
+            "input": 3009,
+            "cached": 2906,
+            "cacheWrite": 100,
+            "output": 45,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 335
+          }
+        ],
+        "totalMs": 7963.729583000008,
+        "contextMs": 0.010167000000365078,
+        "appendMs": 0,
+        "replayedItems": 0,
+        "answer": "Order 48213 has already shipped with DHL, and I can’t confirm whether its delivery address can still be changed. Please check our order changes help page or con",
+        "answerItemId": "msg_0eaf8183a0adbfe2006b04160957a88197bc4f8fe68b06def3"
+      },
+      "stateless": {
+        "mode": "stateless",
+        "steps": [
+          {
+            "durationMs": 4219.763124999998,
+            "input": 3038,
+            "cached": 2986,
+            "cacheWrite": 49,
+            "output": 20,
+            "reasoning": 0,
+            "outputTypes": [
+              "function_call"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 19530
+          },
+          {
+            "ttftMs": 2406.600833000004,
+            "durationMs": 2995.7108750000043,
+            "input": 3138,
+            "cached": 3035,
+            "cacheWrite": 100,
+            "output": 43,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 19992
+          }
+        ],
+        "totalMs": 7253.463457999998,
+        "contextMs": 10.311457999996492,
+        "appendMs": 26.2024170000077,
+        "replayedItems": 34,
+        "answer": "Order 48213 has shipped with DHL, but I don’t know whether its delivery address can still be changed. Please check our help page for order changes or contact su",
+        "answerItemId": "itm_-7PoHNelp0PM"
+      }
+    },
+    {
+      "turn": 13,
+      "conversation": {
+        "mode": "conversation",
+        "steps": [
+          {
+            "ttftMs": 2724.5493750000023,
+            "durationMs": 4535.943165999997,
+            "input": 3070,
+            "cached": 3006,
+            "cacheWrite": 61,
+            "output": 34,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 134
+          }
+        ],
+        "totalMs": 4536.514958999993,
+        "contextMs": 0.36108299999614246,
+        "appendMs": 0,
+        "replayedItems": 0,
+        "answer": "I don’t know whether we collect old furniture for recycling during delivery. Please check our recycling old furniture help page or contact support@northwind.exa",
+        "answerItemId": "msg_0eaf8183a0adbfe2006b04160e5be0819783264bb16c583e9d"
+      },
+      "stateless": {
+        "mode": "stateless",
+        "steps": [
+          {
+            "ttftMs": 2661.030832999997,
+            "durationMs": 3452.222417000012,
+            "input": 3197,
+            "cached": 3135,
+            "cacheWrite": 59,
+            "output": 33,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 20453
+          }
+        ],
+        "totalMs": 3497.08383399999,
+        "contextMs": 21.143708000003244,
+        "appendMs": 22.83849999999802,
+        "replayedItems": 38,
+        "answer": "I don’t know whether we collect old furniture during delivery. Please see our help page for recycling old furniture or contact support@northwind.example.",
+        "answerItemId": "itm_7QkfOfWNrRn0"
+      }
+    },
+    {
+      "turn": 14,
+      "conversation": {
+        "mode": "conversation",
+        "steps": [
+          {
+            "ttftMs": 1750.3967499999853,
+            "durationMs": 3470.652417000005,
+            "input": 3118,
+            "cached": 3067,
+            "cacheWrite": 48,
+            "output": 28,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 115
+          }
+        ],
+        "totalMs": 3471.0343749999884,
+        "contextMs": 0.026833000010810792,
+        "appendMs": 0,
+        "replayedItems": 0,
+        "answer": "I don’t have our Sunday store hours. Please check our store hours help page or contact support@northwind.example.",
+        "answerItemId": "msg_0eaf8183a0adbfe2006b0416189bc481979aaa2e17a48c95d4"
+      },
+      "stateless": {
+        "mode": "stateless",
+        "steps": [
+          {
+            "ttftMs": 2748.281083000009,
+            "durationMs": 3158.2861250000133,
+            "input": 3244,
+            "cached": 3194,
+            "cacheWrite": 47,
+            "output": 29,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 20864
+          }
+        ],
+        "totalMs": 3188.6229579999927,
+        "contextMs": 6.359457999991719,
+        "appendMs": 22.837957999989158,
+        "replayedItems": 40,
+        "answer": "I don’t know the Sunday store hours. Please check our help page for store hours or contact support@northwind.example.",
+        "answerItemId": "itm_UeJ3LXncZJnw"
+      }
+    },
+    {
+      "turn": 15,
+      "conversation": {
+        "mode": "conversation",
+        "steps": [
+          {
+            "ttftMs": 2290.538041999971,
+            "durationMs": 4080.6937919999764,
+            "input": 3161,
+            "cached": 3115,
+            "cacheWrite": 43,
+            "output": 30,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 114
+          }
+        ],
+        "totalMs": 4080.956542,
+        "contextMs": 0.017916000011609867,
+        "appendMs": 0,
+        "replayedItems": 0,
+        "answer": "I don’t know whether we can issue a company invoice. Please check our invoices help page or contact support@northwind.example.",
+        "answerItemId": "msg_0eaf8183a0adbfe2006b04161c98148197958b927a7e2ae849"
+      },
+      "stateless": {
+        "mode": "stateless",
+        "steps": [
+          {
+            "ttftMs": 2620.885957999999,
+            "durationMs": 3092.4186250000203,
+            "input": 3288,
+            "cached": 3241,
+            "cacheWrite": 44,
+            "output": 31,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 21238
+          }
+        ],
+        "totalMs": 3117.4957920000015,
+        "contextMs": 7.9120830000028946,
+        "appendMs": 16.450207999994745,
+        "replayedItems": 42,
+        "answer": "I don’t know whether we can issue a company invoice. Please see our help page for invoices or contact support@northwind.example.",
+        "answerItemId": "itm_Z2qAYuGtYZqV"
+      }
+    },
+    {
+      "turn": 16,
+      "conversation": {
+        "mode": "conversation",
+        "steps": [
+          {
+            "ttftMs": 2860.671416999976,
+            "durationMs": 4777.924666999985,
+            "input": 3203,
+            "cached": 3158,
+            "cacheWrite": 42,
+            "output": 29,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 103
+          }
+        ],
+        "totalMs": 4778.285709000018,
+        "contextMs": 0.013624999992316589,
+        "appendMs": 0,
+        "replayedItems": 0,
+        "answer": "I don’t know whether we deliver to Norway. Please check our international shipping help page or contact support@northwind.example.",
+        "answerItemId": "msg_0eaf8183a0adbfe2006b041627bc0881979fdb660e666ee525"
+      },
+      "stateless": {
+        "mode": "stateless",
+        "steps": [
+          {
+            "ttftMs": 2880.758292000013,
+            "durationMs": 3314.4573329999985,
+            "input": 3331,
+            "cached": 3285,
+            "cacheWrite": 43,
+            "output": 30,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 21612
+          }
+        ],
+        "totalMs": 3335.3690420000057,
+        "contextMs": 3.5152499999967404,
+        "appendMs": 16.817290999984834,
+        "replayedItems": 44,
+        "answer": "I don’t know whether we deliver to Norway. Please check our help page for international shipping or contact support@northwind.example.",
+        "answerItemId": "itm_q1CDws23yZv3"
+      }
+    },
+    {
+      "turn": 17,
+      "conversation": {
+        "mode": "conversation",
+        "steps": [
+          {
+            "ttftMs": 2131.4207500000193,
+            "durationMs": 4074.9769590000215,
+            "input": 3247,
+            "cached": 3200,
+            "cacheWrite": 44,
+            "output": 48,
+            "reasoning": 15,
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 113
+          }
+        ],
+        "totalMs": 4075.1036670000176,
+        "contextMs": 0.015249999996740371,
+        "appendMs": 0,
+        "replayedItems": 0,
+        "answer": "I don’t have the care instructions for our linen sofas. Please check our product care help page or contact support@northwind.example.",
+        "answerItemId": "msg_0eaf8183a0adbfe2006b04162bc5988197842a604ee6e339e8"
+      },
+      "stateless": {
+        "mode": "stateless",
+        "steps": [
+          {
+            "ttftMs": 3171.0034159999923,
+            "durationMs": 3545.2144160000025,
+            "input": 3376,
+            "cached": 3328,
+            "cacheWrite": 45,
+            "output": 83,
+            "reasoning": 44,
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 22002
+          }
+        ],
+        "totalMs": 3557.486208999995,
+        "contextMs": 2.8481660000106785,
+        "appendMs": 9.073248999979114,
+        "replayedItems": 46,
+        "answer": "I don’t have the care instructions for your linen sofa. Please check its care label, our help page for product care, or contact support@northwind.example.",
+        "answerItemId": "itm_bwr-ClVtxQwv"
+      }
+    },
+    {
+      "turn": 18,
+      "conversation": {
+        "mode": "conversation",
+        "steps": [
+          {
+            "ttftMs": 2574.2048339999747,
+            "durationMs": 4423.090416999999,
+            "input": 3315,
+            "cached": 3244,
+            "cacheWrite": 68,
+            "output": 39,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 135
+          }
+        ],
+        "totalMs": 4423.325165999995,
+        "contextMs": 0.010125000000698492,
+        "appendMs": 0,
+        "replayedItems": 0,
+        "answer": "I don’t know what happens if an item goes out of stock after you order it. Please check our out-of-stock items help page or contact support@northwind.example.",
+        "answerItemId": "msg_0eaf8183a0adbfe2006b041637120881979eaf6e815be4b94c"
+      },
+      "stateless": {
+        "mode": "stateless",
+        "steps": [
+          {
+            "ttftMs": 2604.0182090000017,
+            "durationMs": 3218.8377919999766,
+            "input": 3479,
+            "cached": 3373,
+            "cacheWrite": 103,
+            "output": 40,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 24861
+          }
+        ],
+        "totalMs": 3233.557124999992,
+        "contextMs": 2.0929999999934807,
+        "appendMs": 11.849875999992946,
+        "replayedItems": 49,
+        "answer": "I don’t know what happens if an item goes out of stock after you order it. Please see our help page for out-of-stock items or contact support@northwind.example.",
+        "answerItemId": "itm__p6SCyLbKg74"
+      }
+    },
+    {
+      "turn": 19,
+      "conversation": {
+        "mode": "conversation",
+        "steps": [
+          {
+            "durationMs": 3957.3003749999916,
+            "input": 3376,
+            "cached": 3312,
+            "cacheWrite": 61,
+            "output": 52,
+            "reasoning": 0,
+            "outputTypes": [
+              "function_call",
+              "function_call"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 137
+          },
+          {
+            "ttftMs": 3016.678249999997,
+            "durationMs": 5128.294999999984,
+            "input": 3586,
+            "cached": 3373,
+            "cacheWrite": 210,
+            "output": 76,
+            "reasoning": 41,
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 669
+          }
+        ],
+        "totalMs": 9086.825666999997,
+        "contextMs": 0.009166000003460795,
+        "appendMs": 0,
+        "replayedItems": 0,
+        "answer": "Order 60042 has already been delivered. Order 51877 has shipped and is estimated to arrive on December 15, 2026.",
+        "answerItemId": "msg_0eaf8183a0adbfe2006b04163fea2881979d178c3d6e6277fe"
+      },
+      "stateless": {
+        "mode": "stateless",
+        "steps": [
+          {
+            "durationMs": 3303.473208999989,
+            "input": 3541,
+            "cached": 3476,
+            "cacheWrite": 62,
+            "output": 52,
+            "reasoning": 0,
+            "outputTypes": [
+              "function_call",
+              "function_call"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 25301
+          },
+          {
+            "ttftMs": 2846.708249999996,
+            "durationMs": 3510.105083000002,
+            "input": 3751,
+            "cached": 3538,
+            "cacheWrite": 210,
+            "output": 85,
+            "reasoning": 36,
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 26225
+          }
+        ],
+        "totalMs": 6886.282332999981,
+        "contextMs": 46.558665999997174,
+        "appendMs": 24.76995800001896,
+        "replayedItems": 51,
+        "answer": "Order 60042 has already been delivered, while order 51877 has shipped and is estimated to arrive on December 15, 2026. You can find more information on our help",
+        "answerItemId": "itm_YjvbJeT3ZVcS"
+      }
+    },
+    {
+      "turn": 20,
+      "conversation": {
+        "mode": "conversation",
+        "steps": [
+          {
+            "ttftMs": 2500.2135830000043,
+            "durationMs": 4453.346749999997,
+            "input": 3688,
+            "cached": 3583,
+            "cacheWrite": 102,
+            "output": 92,
+            "reasoning": 58,
+            "outputTypes": [
+              "reasoning",
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 162
+          }
+        ],
+        "totalMs": 4453.535499999998,
+        "contextMs": 0.004583000001730397,
+        "appendMs": 0,
+        "replayedItems": 0,
+        "answer": "Your name is Ola, and you mentioned the scratched table in connection with order 48213, although its details don’t list a table.",
+        "answerItemId": "msg_0eaf8183a0adbfe2006b041651e1948197aaaa5ccd50e0938f"
+      },
+      "stateless": {
+        "mode": "stateless",
+        "steps": [
+          {
+            "durationMs": 3418.7928749999846,
+            "input": 3862,
+            "cached": 3748,
+            "cacheWrite": 111,
+            "output": 91,
+            "reasoning": 69,
+            "outputTypes": [
+              "reasoning",
+              "function_call"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 29014
+          },
+          {
+            "ttftMs": 2561.8772499999905,
+            "durationMs": 3024.701457999996,
+            "input": 4033,
+            "cached": 3859,
+            "cacheWrite": 171,
+            "output": 32,
+            "reasoning": 0,
+            "outputTypes": [
+              "message"
+            ],
+            "transformations": [],
+            "reasoningContext": "all_turns",
+            "inputBytes": 32159
+          }
+        ],
+        "totalMs": 6469.7710419999785,
+        "contextMs": 2.400167000014335,
+        "appendMs": 22.58375000001979,
+        "replayedItems": 58,
+        "answer": "Your name is Ola, and you mentioned the scratched table in connection with order 48213, though that order doesn’t list a table.",
+        "answerItemId": "itm_aDCvTa_0r8b3"
+      }
+    }
+  ],
+  "cleanup": {
+    "conv_6b04158e75a881978bd0a5badb2ef7880eaf8183a0adbfe2": "already gone",
+    "file-RQwWXg1UbccoHxEzSHBQQM": "deleted"
+  }
+}

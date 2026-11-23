@@ -30,7 +30,7 @@ The foundation that admin, handoff, data residency and other providers all need:
 - Stream resume after a dropped connection, and history beyond the latest 100 items.
 - Compaction, decided again in a new ADR now that we can own the stored history (spikes S5 and S5b ruled out OpenAI's server-side compaction as a default).
 
-Spike S6 runs before this release is planned. Its questions about storage and retrieval feed the 0.6 ADRs.
+Four spikes run in parallel before this release is planned: S6a (Claude behind the gateway), S6b (Open Responses endpoints), S7 (conversations stored outside OpenAI) and S8 (retrieval outside OpenAI vector stores). Task P1 then writes the ADRs and the 0.6 task files from their findings.
 
 ## 0.7: support-grade
 
@@ -92,7 +92,7 @@ Work runs in parallel lanes. Tasks that touch the **hot files** run one at a tim
 | CI | Workflows, visual baselines, the starter check | No |
 | Decisions | ADRs, as decisions come up (0019 to 0023 accepted for 0.5) | No |
 | Docs | Guides for new features, the compliance guide, the accessibility statement | No |
-| Spikes | S6, a second model provider (Claude and Open Responses) | No |
+| Spikes | S6a, S6b, S7 and S8, side by side; each writes only its own `spikes/` folder | No |
 | Core | 0.6 work that touches hot files, one task at a time | **Yes** |
 
 Patches for 0.5.x land on `main` with `--no-ff` and ship as they are ready. Breaking 0.6 work goes to an integration branch `release/0.6` until the release ([RELEASING.md](RELEASING.md)).
