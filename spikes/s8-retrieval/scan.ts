@@ -27,27 +27,42 @@ function frontMatter(text: string): { meta: Meta; body: string } {
 
 /** Good enough for the fixture; a real version would use a parser (see FINDINGS.md). */
 function htmlToMarkdownish(html: string): string {
-  // Repeat until stable, so removing one tag can't leave another one behind (CodeQL).
-  const until = (text: string, step: (s: string) => string): string => {
-    let previous: string;
-    let current = text;
-    do {
-      previous = current;
-      current = step(previous);
-    } while (current !== previous);
-    return current;
-  };
-  const structured = until(html, (s) => s.replace(/<(script|style|head)[\s\S]*?<\/\1\s*>/gi, ''))
-    .replace(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi, (_, level: string, inner: string) => `\n${'#'.repeat(Number(level))} ${inner}\n`)
-    .replace(/<li[^>]*>/gi, '\n- ')
-    .replace(/<\/(p|div|ul|ol|li|table|tr)>/gi, '\n');
-  // Text for embeddings only, never rendered. Escaped angle brackets become spaces and every
-  // remaining `<` or `>` is dropped, so no markup can survive; `&amp;` is decoded last, once.
-  return until(structured, (s) => s.replace(/<[^>]*>/g, ''))
+  // Text for embeddings only, never rendered. One pass over the characters: everything between
+  // `<` and `>` is a tag and never reaches the output, so no markup can survive (no regex
+  // stripping, which CodeQL flags as incomplete). The contents of script, style and head are skipped.
+  const SKIPPED = new Set(['script', 'style', 'head']);
+  const BLOCK_END = new Set(['p', 'div', 'ul', 'ol', 'li', 'table', 'tr']);
+  let out = '';
+  let skipping: string | undefined;
+  let i = 0;
+  while (i < html.length) {
+    const open = html.indexOf('<', i);
+    const textEnd = open === -1 ? html.length : open;
+    if (!skipping) out += html.slice(i, textEnd);
+    if (open === -1) break;
+    const close = html.indexOf('>', open + 1);
+    if (close === -1) break; // An unclosed tag: drop the rest.
+    const tag = html.slice(open + 1, close).trim().toLowerCase();
+    const closing = tag.startsWith('/');
+    const name = /^\/?([a-z0-9]+)/.exec(tag)?.[1] ?? '';
+    if (skipping) {
+      if (closing && name === skipping) skipping = undefined;
+    } else if (SKIPPED.has(name) && !closing) {
+      skipping = name;
+    } else if (/^h[1-6]$/.test(name)) {
+      out += closing ? '\n' : `\n${'#'.repeat(Number(name[1]))} `;
+    } else if (name === 'li' && !closing) {
+      out += '\n- ';
+    } else if (closing && BLOCK_END.has(name)) {
+      out += '\n';
+    }
+    i = close + 1;
+  }
+  // Escaped angle brackets become spaces; `&amp;` is decoded last, once.
+  return out
     .replace(/&(lt|gt);/g, ' ')
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
-    .replace(/[<>]/g, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
