@@ -1,0 +1,118 @@
+{
+  "first sync": {
+    "added": [
+      "accessibility.html",
+      "api.md",
+      "automations.txt",
+      "community-faq.md",
+      "integrations.md",
+      "mobile.md",
+      "pricing.md",
+      "release-notes.md",
+      "roles-and-permissions.md",
+      "security.md",
+      "support.md"
+    ],
+    "changed": [],
+    "removed": [],
+    "unchanged": 0,
+    "embeddedChunks": 43,
+    "reusedChunks": 0,
+    "embeddingTokens": 2372,
+    "ms": 913,
+    "usd": 0.00004744
+  },
+  "no-op re-sync": {
+    "added": [],
+    "changed": [],
+    "removed": [],
+    "unchanged": 11,
+    "embeddedChunks": 0,
+    "reusedChunks": 0,
+    "embeddingTokens": 0,
+    "ms": 3,
+    "usd": 0
+  },
+  "edit one paragraph": {
+    "added": [],
+    "changed": [
+      "pricing.md"
+    ],
+    "removed": [],
+    "unchanged": 10,
+    "embeddedChunks": 1,
+    "reusedChunks": 3,
+    "embeddingTokens": 80,
+    "ms": 179,
+    "usd": 0.0000016000000000000001
+  },
+  "append a section": {
+    "added": [],
+    "changed": [
+      "api.md"
+    ],
+    "removed": [],
+    "unchanged": 10,
+    "embeddedChunks": 1,
+    "reusedChunks": 5,
+    "embeddingTokens": 20,
+    "ms": 202,
+    "usd": 4.0000000000000003e-7
+  },
+  "rename a file": {
+    "added": [
+      "mobile-apps.md"
+    ],
+    "changed": [],
+    "removed": [
+      "mobile.md"
+    ],
+    "unchanged": 10,
+    "embeddedChunks": 0,
+    "reusedChunks": 4,
+    "embeddingTokens": 0,
+    "ms": 23,
+    "usd": 0
+  },
+  "delete a file": {
+    "added": [],
+    "changed": [],
+    "removed": [
+      "community-faq.md"
+    ],
+    "unchanged": 10,
+    "embeddedChunks": 0,
+    "reusedChunks": 0,
+    "embeddingTokens": 0,
+    "ms": 6,
+    "usd": 0
+  },
+  "eval index": {
+    "added": [
+      "accessibility.html",
+      "api.md",
+      "automations.txt",
+      "community-faq.md",
+      "integrations.md",
+      "mobile.md",
+      "pricing.md",
+      "release-notes.md",
+      "roles-and-permissions.md",
+      "security.md",
+      "support.md"
+    ],
+    "changed": [],
+    "removed": [],
+    "unchanged": 0,
+    "embeddedChunks": 43,
+    "reusedChunks": 0,
+    "embeddingTokens": 2372,
+    "ms": 524,
+    "usd": 0.00004744
+  },
+  "eval chunks": {
+    "n": "43",
+    "avg": 204,
+    "max": 679
+  }
+}

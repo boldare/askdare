@@ -21,6 +21,8 @@ export interface PgIndexOptions {
   readonly embedder: Embedder;
   /** 'vector' only, 'text' only, or both fused (default). For the spike's comparison. */
   readonly mode?: 'hybrid' | 'vector' | 'text';
+  /** Weight of the full-text ranking in the fusion (vector is 1), like file_search's `text_weight`. */
+  readonly textWeight?: number;
 }
 
 const RRF_K = 60;
@@ -73,12 +75,14 @@ export class PgKnowledgeIndex implements KnowledgeIndex {
   readonly #indexId: string;
   readonly #embedder: Embedder;
   readonly #mode: 'hybrid' | 'vector' | 'text';
+  readonly #textWeight: number;
 
   constructor(options: PgIndexOptions) {
     this.#pool = options.pool;
     this.#indexId = options.indexId;
     this.#embedder = options.embedder;
     this.#mode = options.mode ?? 'hybrid';
+    this.#textWeight = options.textWeight ?? 0.3;
   }
 
   async sync(documents: readonly KnowledgeDocument[]): Promise<SyncReport> {
@@ -212,18 +216,18 @@ export class PgKnowledgeIndex implements KnowledgeIndex {
     }>(
       `with
        vec as (
-         select path, ordinal, row_number() over (order by embedding <=> $2::vector) as r
+         select path, ordinal, 1.0::float8 as w, row_number() over (order by embedding <=> $2::vector) as r
          from kb_chunks where index_id = $1 and $2::vector is not null
          order by embedding <=> $2::vector limit ${CANDIDATES}
        ),
        fts as (
-         select path, ordinal,
+         select path, ordinal, $5::float8 as w,
                 row_number() over (order by ts_rank_cd(tsv, to_tsquery('simple', $3)) desc) as r
          from kb_chunks where index_id = $1 and $3 <> '' and tsv @@ to_tsquery('simple', $3)
          order by ts_rank_cd(tsv, to_tsquery('simple', $3)) desc limit ${CANDIDATES}
        ),
        fused as (
-         select path, ordinal, sum(1.0 / (${RRF_K} + r))::float8 as score
+         select path, ordinal, sum(w / (${RRF_K} + r))::float8 as score
          from (select * from vec union all select * from fts) ranked
          group by path, ordinal
        )
@@ -232,7 +236,7 @@ export class PgKnowledgeIndex implements KnowledgeIndex {
        join kb_chunks c on c.index_id = $1 and c.path = f.path and c.ordinal = f.ordinal
        join kb_documents d on d.index_id = $1 and d.path = c.path
        order by f.score desc limit $4`,
-      [this.#indexId, vector ?? null, text, options.maxResults],
+      [this.#indexId, vector ?? null, text, options.maxResults, this.#textWeight],
     );
     return result.rows.map((row) => ({
       path: row.path,

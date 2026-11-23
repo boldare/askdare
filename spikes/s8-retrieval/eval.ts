@@ -62,6 +62,7 @@ const pool = new pg.Pool({ connectionString: 'postgres://s8:s8@127.0.0.1:54328/s
 const embedder = openAIEmbedder(openai);
 const indexes = {
   hybrid: new PgKnowledgeIndex({ pool, indexId: 's8-eval', embedder, mode: 'hybrid' }),
+  'hybrid w=1': new PgKnowledgeIndex({ pool, indexId: 's8-eval', embedder, mode: 'hybrid', textWeight: 1 }),
   vector: new PgKnowledgeIndex({ pool, indexId: 's8-eval', embedder, mode: 'vector' }),
   text: new PgKnowledgeIndex({ pool, indexId: 's8-eval', embedder, mode: 'text' }),
 };
