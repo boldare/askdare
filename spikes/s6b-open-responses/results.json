@@ -1,0 +1,3781 @@
+{
+ "or-haiku": {
+  "stream": {
+   "medianFirstTextMs": 719,
+   "runs": [
+    {
+     "reason": "completed",
+     "steps": 1,
+     "firstTextMs": 719,
+     "totalMs": 916,
+     "protocol": [
+      {
+       "type": "text.delta",
+       "delta": "I'm the website assistant for Brightloop, a project management app, here to answer your questions about it using its documentation."
+      }
+     ]
+    },
+    {
+     "reason": "completed",
+     "steps": 1,
+     "firstTextMs": 526,
+     "totalMs": 958,
+     "replies": [
+      "What does Brightloop cost?",
+      "How is my data secured?",
+      "How do I get support?"
+     ]
+    },
+    {
+     "reason": "completed",
+     "steps": 1,
+     "firstTextMs": 891,
+     "totalMs": 1082
+    }
+   ],
+   "conformance": {
+    "eventTypes": [
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.output_text.delta",
+      "response.output_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.completed"
+     ],
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.output_text.delta",
+      "response.output_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.output_item.added",
+      "response.function_call_arguments.delta",
+      "response.function_call_arguments.done",
+      "response.output_item.done",
+      "response.completed"
+     ],
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.output_item.done",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.output_text.delta",
+      "response.output_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.completed"
+     ]
+    ],
+    "outsideSpec": [],
+    "issues": [],
+    "messagePhases": [
+     "(absent)"
+    ],
+    "itemTypes": [
+     "message",
+     "function_call",
+     "reasoning"
+    ],
+    "models": [
+     "anthropic/claude-haiku-5.5",
+     "anthropic/claude-haiku-5.5",
+     "anthropic/claude-haiku-5.5"
+    ],
+    "usage": [
+     {
+      "inputTokens": 1406,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 37,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.0001591
+     },
+     {
+      "inputTokens": 1406,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 115,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.0001981
+     },
+     {
+      "inputTokens": 1406,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 89,
+      "reasoningTokens": 57,
+      "reportedCostUsd": 0.0001851
+     }
+    ]
+   }
+  },
+  "errors": {
+   "unknownModel": {
+    "accepted": false,
+    "error": {
+     "class": "BadRequestError",
+     "status": 400,
+     "code": 400,
+     "message": "400 askdare-spike/no-such-model is not a valid model ID",
+     "bodyKeys": [
+      "message",
+      "code"
+     ],
+     "mapped": {
+      "code": "upstream_error"
+     }
+    }
+   },
+   "badKey": {
+    "accepted": false,
+    "error": {
+     "class": "AuthenticationError",
+     "status": 401,
+     "code": 401,
+     "message": "401 Missing Authentication header",
+     "bodyKeys": [
+      "message",
+      "code"
+     ],
+     "mapped": {
+      "code": "bot_unavailable"
+     }
+    }
+   },
+   "badRequest": {
+    "accepted": true,
+    "status": "completed",
+    "error": null,
+    "model": "anthropic/claude-haiku-5.5",
+    "output": [
+     "message"
+    ]
+   },
+   "storeTrue": {
+    "accepted": false,
+    "error": {
+     "class": "BadRequestError",
+     "status": 400,
+     "code": "invalid_prompt",
+     "message": "400 store: true is not supported on this proxy. Each response request is independent.",
+     "bodyKeys": [
+      "code",
+      "message"
+     ],
+     "mapped": {
+      "code": "upstream_error"
+     }
+    }
+   },
+   "previousResponseId": {
+    "accepted": false,
+    "error": {
+     "class": "BadRequestError",
+     "status": 400,
+     "code": "invalid_prompt",
+     "message": "400 previous_response_id is not supported on this proxy. Each response request is independent.",
+     "bodyKeys": [
+      "code",
+      "message"
+     ],
+     "mapped": {
+      "code": "upstream_error"
+     }
+    }
+   },
+   "conversation": {
+    "accepted": true,
+    "status": "completed",
+    "error": null,
+    "model": "anthropic/claude-haiku-5.5",
+    "output": [
+     "message"
+    ]
+   },
+   "streamUnknownModel": {
+    "accepted": false,
+    "error": {
+     "class": "BadRequestError",
+     "status": 400,
+     "code": 400,
+     "message": "400 askdare-spike/no-such-model is not a valid model ID",
+     "bodyKeys": [
+      "message",
+      "code"
+     ],
+     "mapped": {
+      "code": "upstream_error"
+     }
+    }
+   }
+  },
+  "tools": {
+   "reason": "completed",
+   "steps": [
+    {
+     "choice": "auto",
+     "calls": [
+      {
+       "name": "get_current_time",
+       "validArgs": true,
+       "args": "{\"timeZone\": \"Europe/Warsaw\"}"
+      },
+      {
+       "name": "get_current_time",
+       "validArgs": true,
+       "args": "{\"timeZone\": \"Asia/Tokyo\"}"
+      },
+      {
+       "name": "get_exchange_rate",
+       "validArgs": true,
+       "args": "{\"from\": \"EUR\", \"to\": \"PLN\"}"
+      }
+     ],
+     "output": [
+      "function_call",
+      "function_call",
+      "function_call"
+     ],
+     "status": "completed"
+    },
+    {
+     "choice": "auto",
+     "calls": [],
+     "output": [
+      "reasoning",
+      "message"
+     ],
+     "status": "completed"
+    }
+   ],
+   "parallelInOneStep": true,
+   "text": "It is currently **15:05 in Warsaw** (CET) and **23:05 in Tokyo** (JST), both on Saturday, 21 November 2026.\n\nI couldn't get the EUR to PLN exchange rate just now, so I can't convert 100 EUR. Please try again in a little while.",
+   "protocol": [
+    {
+     "type": "reasoning",
+     "state": "started"
+    },
+    {
+     "type": "reasoning",
+     "state": "done"
+    },
+    {
+     "type": "text.delta",
+     "delta": "It is currently **15:05 in Warsaw** (CET) and **23:05 in Tokyo** (JST), both on Saturday, 21 November 2026.\n\nI couldn't get the EUR to PLN exchange rate just now, so I can't convert 100 EUR. Please try again in a little while."
+    }
+   ],
+   "conformance": {
+    "eventTypes": [
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.function_call_arguments.delta",
+      "response.function_call_arguments.done",
+      "response.output_item.done",
+      "response.output_item.added",
+      "response.function_call_arguments.delta",
+      "response.function_call_arguments.done",
+      "response.output_item.done",
+      "response.output_item.added",
+      "response.function_call_arguments.delta",
+      "response.function_call_arguments.done",
+      "response.output_item.done",
+      "response.completed"
+     ],
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.output_item.done",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.output_text.delta",
+      "response.output_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.completed"
+     ]
+    ],
+    "outsideSpec": [],
+    "issues": [],
+    "messagePhases": [
+     "(absent)"
+    ],
+    "itemTypes": [
+     "function_call",
+     "reasoning",
+     "message"
+    ],
+    "models": [
+     "anthropic/claude-haiku-5.5",
+     "anthropic/claude-haiku-5.5"
+    ],
+    "usage": [
+     {
+      "inputTokens": 1425,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 191,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.000238
+     },
+     {
+      "inputTokens": 1855,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 186,
+      "reasoningTokens": 87,
+      "reportedCostUsd": 0.0002785
+     }
+    ]
+   }
+  },
+  "finalStep": {
+   "none": {
+    "reason": "completed",
+    "choice": "none",
+    "calls": [],
+    "output": [],
+    "text": ""
+   },
+   "allowedTools1": {
+    "calls": [
+     "search_knowledge"
+    ],
+    "suggestRepliesCalledAnyway": false
+   },
+   "allowedTools2": {
+    "calls": [
+     "search_knowledge"
+    ],
+    "suggestRepliesCalledAnyway": false
+   }
+  },
+  "strict": {
+   "looseSchemaStrict": {
+    "accepted": true,
+    "status": "completed",
+    "error": null,
+    "output": [
+     "function_call {\"city\": \"Paris\"}"
+    ]
+   },
+   "requiredChoice": {
+    "accepted": true,
+    "status": "completed",
+    "error": null,
+    "output": [
+     "function_call {\"city\": \"Paris\"}"
+    ]
+   }
+  },
+  "conversation": {
+   "turnsOk": 20,
+   "errors": [],
+   "turns": [
+    {
+     "turn": 1,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [
+      "suggest_replies"
+     ],
+     "firstTextMs": 639,
+     "usage": {
+      "inputTokens": 1423,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 132,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.0002083
+     },
+     "perStepCached": [
+      "0/1423"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 3,
+     "historyItems": 4,
+     "usd": 0.00021,
+     "listUsd": 0.00021,
+     "answer": "Hi Alex, welcome to Brightloop! How can I help you today? I can answer questions about our pricing, security, and support, or help with anything else about the "
+    },
+    {
+     "turn": 2,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge",
+      "suggest_replies"
+     ],
+     "firstTextMs": 555,
+     "usage": {
+      "inputTokens": 3858,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 438,
+      "reasoningTokens": 20,
+      "reportedCostUsd": 0.0006048
+     },
+     "perStepCached": [
+      "0/1605",
+      "0/2253"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 3,
+     "historyItems": 11,
+     "usd": 0.0006,
+     "listUsd": 0.0006,
+     "answer": "Brightloop has three plans. All prices are in euros and exclude VAT:\n\n| Plan | Price | Users | Highlights |\n|---|---|---|---|\n| **Free** | €0 | up to 3 | Unlimi"
+    },
+    {
+     "turn": 3,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [
+      "suggest_replies"
+     ],
+     "firstTextMs": 1466,
+     "usage": {
+      "inputTokens": 2665,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 365,
+      "reasoningTokens": 158,
+      "reportedCostUsd": 0.000449
+     },
+     "perStepCached": [
+      "0/2665"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 3,
+     "historyItems": 16,
+     "usd": 0.00045,
+     "listUsd": 0.00045,
+     "answer": "The Business plan costs **€15 per user per month**, excluding VAT. Yearly billing saves 20%, so it works out to less per user per month if you pay for the year "
+    },
+    {
+     "turn": 4,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "get_exchange_rate",
+      "suggest_replies"
+     ],
+     "firstTextMs": 803,
+     "usage": {
+      "inputTokens": 6276,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 286,
+      "reasoningTokens": 45,
+      "reportedCostUsd": 0.0007706
+     },
+     "perStepCached": [
+      "0/3083",
+      "0/3193"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 3,
+     "historyItems": 23,
+     "usd": 0.00077,
+     "listUsd": 0.00077,
+     "answer": "I'm sorry, I can't get the current EUR to PLN exchange rate right now, so I can't give you a converted price. The Business plan is €15 per user per month, exclu"
+    },
+    {
+     "turn": 5,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "get_current_time",
+      "suggest_replies"
+     ],
+     "firstTextMs": 637,
+     "usage": {
+      "inputTokens": 7040,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 181,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.0007945
+     },
+     "perStepCached": [
+      "0/3458",
+      "0/3582"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 3,
+     "historyItems": 29,
+     "usd": 0.00079,
+     "listUsd": 0.00079,
+     "answer": "It's currently 3:05 PM on Saturday, 21 November 2026 in Warsaw (CET)."
+    },
+    {
+     "turn": 6,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge",
+      "suggest_replies"
+     ],
+     "firstTextMs": 994,
+     "usage": {
+      "inputTokens": 8049,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 435,
+      "reasoningTokens": 104,
+      "reportedCostUsd": 0.0010224000000000001
+     },
+     "perStepCached": [
+      "0/3752",
+      "0/4297"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 3,
+     "historyItems": 37,
+     "usd": 0.00102,
+     "listUsd": 0.00102,
+     "answer": "No, support is closed right now. It's Saturday afternoon in Warsaw, and the support team works Monday to Friday, 9:00–17:00 Central European Time, except Polish"
+    },
+    {
+     "turn": 7,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [
+      "suggest_replies"
+     ],
+     "firstTextMs": 779,
+     "usage": {
+      "inputTokens": 4696,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 296,
+      "reasoningTokens": 46,
+      "reportedCostUsd": 0.0006176
+     },
+     "perStepCached": [
+      "0/4696"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 3,
+     "historyItems": 42,
+     "usd": 0.00062,
+     "listUsd": 0.00062,
+     "answer": "You can reach Brightloop support in three ways:\n\n- **In the app:** go to Help → Contact support. This is the fastest option, and it includes your workspace deta"
+    },
+    {
+     "turn": 8,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge",
+      "suggest_replies"
+     ],
+     "firstTextMs": 590,
+     "usage": {
+      "inputTokens": 10664,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 305,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.0012189
+     },
+     "perStepCached": [
+      "0/5043",
+      "0/5621"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 3,
+     "historyItems": 48,
+     "usd": 0.00122,
+     "listUsd": 0.00122,
+     "answer": "Your data is stored in the European Union, in data centres in Frankfurt (primary) and Amsterdam (backup). Data is encrypted in transit (TLS 1.3) and at rest (AE"
+    },
+    {
+     "turn": 9,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [
+      "suggest_replies"
+     ],
+     "firstTextMs": 862,
+     "usage": {
+      "inputTokens": 5925,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 292,
+      "reasoningTokens": 65,
+      "reportedCostUsd": 0.0007385
+     },
+     "perStepCached": [
+      "0/5925"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 3,
+     "historyItems": 53,
+     "usd": 0.00074,
+     "listUsd": 0.00074,
+     "answer": "Brightloop offers the documentation you'd expect for GDPR. It signs a GDPR data processing agreement (DPA) with every paying customer on request. Brightloop als"
+    },
+    {
+     "turn": 10,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [
+      "suggest_replies"
+     ],
+     "firstTextMs": 616,
+     "usage": {
+      "inputTokens": 6269,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 155,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.0007044
+     },
+     "perStepCached": [
+      "0/6269"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 3,
+     "historyItems": 57,
+     "usd": 0.0007,
+     "listUsd": 0.0007,
+     "answer": "Yes, SSO is available, but only on the Business plan, which includes SSO (SAML). The Team and Free plans don't include it.\n\nSource: [Pricing and plans](https://"
+    },
+    {
+     "turn": 11,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [
+      "suggest_replies"
+     ],
+     "firstTextMs": 1242,
+     "usage": {
+      "inputTokens": 6476,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 145,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.0007201
+     },
+     "perStepCached": [
+      "0/6476"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 3,
+     "historyItems": 61,
+     "usd": 0.00072,
+     "listUsd": 0.00072,
+     "answer": "The Business plan has SSO (SAML). It costs €15 per user per month, excluding VAT.\n\nSource: [Pricing and plans](https://brightloop.example/docs/pricing)"
+    },
+    {
+     "turn": 12,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [
+      "suggest_replies"
+     ],
+     "firstTextMs": 696,
+     "usage": {
+      "inputTokens": 6672,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 224,
+      "reasoningTokens": 38,
+      "reportedCostUsd": 0.0007792
+     },
+     "perStepCached": [
+      "0/6672"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 3,
+     "historyItems": 66,
+     "usd": 0.00078,
+     "listUsd": 0.00078,
+     "answer": "Yes. Every paid plan (Team and Business) starts with a 14-day free trial, and you don't need a card to start it. If you'd rather not try a paid plan, the Free p"
+    },
+    {
+     "turn": 13,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [
+      "suggest_replies"
+     ],
+     "firstTextMs": 896,
+     "usage": {
+      "inputTokens": 6951,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 262,
+      "reasoningTokens": 52,
+      "reportedCostUsd": 0.0008261
+     },
+     "perStepCached": [
+      "0/6951"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 3,
+     "historyItems": 71,
+     "usd": 0.00083,
+     "listUsd": 0.00083,
+     "answer": "Brightloop doesn't have a plan called Starter. The three plans are:\n\n- **Free:** up to 3 users, €0\n- **Team:** up to 50 users, €8 per user per month\n- **Busines"
+    },
+    {
+     "turn": 14,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge",
+      "suggest_replies"
+     ],
+     "firstTextMs": 714,
+     "usage": {
+      "inputTokens": 15072,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 263,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.0016386999999999999
+     },
+     "perStepCached": [
+      "0/7263",
+      "0/7809"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 3,
+     "historyItems": 77,
+     "usd": 0.00164,
+     "listUsd": 0.00164,
+     "answer": "I couldn't find any information about an API in the Brightloop documentation, so I can't confirm whether one is available. For a definite answer, you can contac"
+    },
+    {
+     "turn": 15,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge",
+      "suggest_replies"
+     ],
+     "firstTextMs": 1431,
+     "usage": {
+      "inputTokens": 16547,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 443,
+      "reasoningTokens": 68,
+      "reportedCostUsd": 0.0018762000000000002
+     },
+     "perStepCached": [
+      "0/8067",
+      "0/8480"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 3,
+     "historyItems": 84,
+     "usd": 0.00188,
+     "listUsd": 0.00188,
+     "answer": "The documentation doesn't say what happens to your data after you cancel, so I can't give you a definite answer. Here's what I could find:\n\n- **Cancelling:** yo"
+    },
+    {
+     "turn": 16,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [
+      "suggest_replies"
+     ],
+     "firstTextMs": 760,
+     "usage": {
+      "inputTokens": 8915,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 143,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.000963
+     },
+     "perStepCached": [
+      "0/8915"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 3,
+     "historyItems": 88,
+     "usd": 0.00096,
+     "listUsd": 0.00096,
+     "answer": "Yes. Customer data is encrypted at rest with AES-256, and in transit with TLS 1.3.\n\nSource: [Security and privacy](https://brightloop.example/docs/security)"
+    },
+    {
+     "turn": 17,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge",
+      "suggest_replies"
+     ],
+     "firstTextMs": 982,
+     "usage": {
+      "inputTokens": 18661,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 325,
+      "reasoningTokens": 72,
+      "reportedCostUsd": 0.0020286
+     },
+     "perStepCached": [
+      "0/9110",
+      "0/9551"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 3,
+     "historyItems": 95,
+     "usd": 0.00203,
+     "listUsd": 0.00203,
+     "answer": "Yes, you can pay yearly for the Team and Business plans, and it saves 20% compared with monthly billing. The Free plan doesn't have paid billing options.\n\nThe d"
+    },
+    {
+     "turn": 18,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [
+      "suggest_replies"
+     ],
+     "firstTextMs": 748,
+     "usage": {
+      "inputTokens": 9873,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 179,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.0010768
+     },
+     "perStepCached": [
+      "0/9873"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 3,
+     "historyItems": 99,
+     "usd": 0.00108,
+     "listUsd": 0.00108,
+     "answer": "Yes. Registered non-profits and schools get 50% off the Business plan. To apply, contact the support team with proof of your status. You can reach them through "
+    },
+    {
+     "turn": 19,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [
+      "suggest_replies"
+     ],
+     "firstTextMs": 1685,
+     "usage": {
+      "inputTokens": 10115,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 459,
+      "reasoningTokens": 179,
+      "reportedCostUsd": 0.001241
+     },
+     "perStepCached": [
+      "0/10115"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 3,
+     "historyItems": 104,
+     "usd": 0.00124,
+     "listUsd": 0.00124,
+     "answer": "For 12 people, the **Team plan** is a good fit. It supports up to 50 users, and at €8 per user per month, that's €96 per month, excluding VAT.\n\nThe **Business p"
+    },
+    {
+     "turn": 20,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [],
+     "firstTextMs": 685,
+     "usage": {
+      "inputTokens": 10623,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 32,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.0010783
+     },
+     "perStepCached": [
+      "0/10623"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 0,
+     "historyItems": 106,
+     "usd": 0.00108,
+     "listUsd": 0.00108,
+     "answer": "Goodbye, Alex, and thanks for visiting Brightloop! Have a great day."
+    }
+   ],
+   "total": {
+    "inputTokens": 166770,
+    "cachedInputTokens": 0,
+    "cacheWriteTokens": 0,
+    "outputTokens": 5360,
+    "reasoningTokens": 847,
+    "reportedCostUsd": 0.019357
+   },
+   "usd": 0.0194,
+   "listUsd": 0.0194,
+   "sameTokensAtTerraPrices": 0.1936,
+   "perTurnUsd": 0.00097,
+   "cacheHitRatio": 0,
+   "medianFirstTextMs": 769.5
+  }
+ },
+ "openai-terra": {
+  "stream": {
+   "medianFirstTextMs": 3385,
+   "runs": [
+    {
+     "reason": "completed",
+     "steps": 1,
+     "firstTextMs": 3829,
+     "totalMs": 4170,
+     "protocol": [
+      {
+       "type": "reasoning",
+       "state": "started"
+      },
+      {
+       "type": "reasoning",
+       "state": "done"
+      },
+      {
+       "type": "text.delta",
+       "delta": "I’m Brightloop’s website assistant, here to help answer your questions about the app."
+      }
+     ]
+    },
+    {
+     "reason": "completed",
+     "steps": 1,
+     "firstTextMs": 3385,
+     "totalMs": 3637
+    },
+    {
+     "reason": "completed",
+     "steps": 1,
+     "firstTextMs": 1032,
+     "totalMs": 1532
+    }
+   ],
+   "conformance": {
+    "eventTypes": [
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.output_item.done",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.output_text.delta",
+      "response.output_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.completed"
+     ],
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.output_item.done",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.output_text.delta",
+      "response.output_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.completed"
+     ],
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.output_text.delta",
+      "response.output_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.completed"
+     ]
+    ],
+    "outsideSpec": [],
+    "issues": [],
+    "messagePhases": [
+     "final_answer"
+    ],
+    "itemTypes": [
+     "reasoning",
+     "message"
+    ],
+    "models": [
+     "gpt-6.1-terra",
+     "gpt-6.1-terra",
+     "gpt-6.1-terra"
+    ],
+    "usage": [
+     {
+      "inputTokens": 578,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 109,
+      "reasoningTokens": 85,
+      "reportedCostUsd": 0
+     },
+     {
+      "inputTokens": 578,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 90,
+      "reasoningTokens": 70,
+      "reportedCostUsd": 0
+     },
+     {
+      "inputTokens": 578,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 21,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0
+     }
+    ]
+   }
+  },
+  "tools": {
+   "reason": "completed",
+   "steps": [
+    {
+     "choice": "auto",
+     "calls": [
+      {
+       "name": "get_current_time",
+       "validArgs": true,
+       "args": "{\"timeZone\": \"Europe/Warsaw\"}"
+      },
+      {
+       "name": "get_current_time",
+       "validArgs": true,
+       "args": "{\"timeZone\": \"Asia/Tokyo\"}"
+      },
+      {
+       "name": "get_exchange_rate",
+       "validArgs": true,
+       "args": "{\"from\": \"EUR\", \"to\": \"PLN\"}"
+      }
+     ],
+     "output": [
+      "function_call",
+      "function_call",
+      "function_call"
+     ],
+     "status": "completed"
+    },
+    {
+     "choice": "auto",
+     "calls": [],
+     "output": [
+      "message"
+     ],
+     "status": "completed"
+    }
+   ],
+   "parallelInOneStep": true,
+   "text": "- **Warsaw:** 3:05 pm, Saturday, 21 November 2026.\n- **Tokyo:** 11:05 pm, Saturday, 21 November 2026.\n- **100 EUR in PLN:** The exchange-rate service is unavailable right now, so I can’t calculate it.",
+   "protocol": [
+    {
+     "type": "text.delta",
+     "delta": "- **Warsaw:** 3:05 pm, Saturday, 21 November 2026.\n- **Tokyo:** 11:05 pm, Saturday, 21 November 2026.\n- **100 EUR in PLN:** The exchange-rate service is unavailable right now, so I can’t calculate it."
+    }
+   ],
+   "conformance": {
+    "eventTypes": [
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.function_call_arguments.delta",
+      "response.function_call_arguments.done",
+      "response.output_item.done",
+      "response.output_item.added",
+      "response.function_call_arguments.delta",
+      "response.function_call_arguments.done",
+      "response.output_item.done",
+      "response.output_item.added",
+      "response.function_call_arguments.delta",
+      "response.function_call_arguments.done",
+      "response.output_item.done",
+      "response.completed"
+     ],
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.output_text.delta",
+      "response.output_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.completed"
+     ]
+    ],
+    "outsideSpec": [],
+    "issues": [],
+    "messagePhases": [
+     "final_answer"
+    ],
+    "itemTypes": [
+     "function_call",
+     "message"
+    ],
+    "models": [
+     "gpt-6.1-terra",
+     "gpt-6.1-terra"
+    ],
+    "usage": [
+     {
+      "inputTokens": 589,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 78,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0
+     },
+     {
+      "inputTokens": 784,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 66,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0
+     }
+    ]
+   }
+  },
+  "finalStep": {
+   "none": {
+    "reason": "completed",
+    "choice": "none",
+    "calls": [],
+    "output": [
+     "reasoning",
+     "message"
+    ],
+    "text": "I can’t access the current time in Warsaw right now."
+   },
+   "allowedTools1": {
+    "calls": [
+     "search_knowledge"
+    ],
+    "suggestRepliesCalledAnyway": false
+   },
+   "allowedTools2": {
+    "calls": [
+     "search_knowledge"
+    ],
+    "suggestRepliesCalledAnyway": false
+   }
+  },
+  "conversation": {
+   "turnsOk": 20,
+   "errors": [],
+   "turns": [
+    {
+     "turn": 1,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [],
+     "firstTextMs": 937,
+     "usage": {
+      "inputTokens": 590,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 15,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0
+     },
+     "perStepCached": [
+      "0/590"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 0,
+     "historyItems": 2,
+     "usd": 0.00067,
+     "listUsd": 0.00067,
+     "answer": "Hi, Alex! How can I help you today?"
+    },
+    {
+     "turn": 2,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge",
+      "suggest_replies"
+     ],
+     "firstTextMs": 933,
+     "usage": {
+      "inputTokens": 1626,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 201,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0
+     },
+     "perStepCached": [
+      "0/617",
+      "0/1009"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 3,
+     "historyItems": 8,
+     "usd": 0.00263,
+     "listUsd": 0.00263,
+     "answer": "Brightloop offers three plans:\n\n- **Free:** €0 for up to 3 users; unlimited projects and 1 GB of storage.\n- **Team:** €8 per user/month for up to 50 users; incl"
+    },
+    {
+     "turn": 3,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [
+      "suggest_replies"
+     ],
+     "firstTextMs": 4827,
+     "usage": {
+      "inputTokens": 1235,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 1232,
+      "outputTokens": 129,
+      "reasoningTokens": 44,
+      "reportedCostUsd": 0
+     },
+     "perStepCached": [
+      "0/1235"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 3,
+     "historyItems": 13,
+     "usd": 0.00219,
+     "listUsd": 0.00219,
+     "answer": "The Business plan costs **€15 per user per month**, excluding VAT. Annual billing saves 20%. [Pricing details](https://brightloop.example/docs/pricing)"
+    },
+    {
+     "turn": 4,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "get_exchange_rate",
+      "suggest_replies"
+     ],
+     "firstTextMs": 2542,
+     "usage": {
+      "inputTokens": 2892,
+      "cachedInputTokens": 2642,
+      "cacheWriteTokens": 244,
+      "outputTokens": 152,
+      "reasoningTokens": 38,
+      "reportedCostUsd": 0
+     },
+     "perStepCached": [
+      "1232/1413",
+      "1410/1479"
+     ],
+     "cacheHitRatio": 0.914,
+     "replies": 3,
+     "historyItems": 21,
+     "usd": 0.0012,
+     "listUsd": 0.0012,
+     "answer": "The Business plan is [€15 per user per month](https://brightloop.example/docs/pricing), excluding VAT. I can’t convert that to PLN right now because the exchang"
+    },
+    {
+     "turn": 5,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "get_current_time"
+     ],
+     "firstTextMs": 1520,
+     "usage": {
+      "inputTokens": 3356,
+      "cachedInputTokens": 3117,
+      "cacheWriteTokens": 233,
+      "outputTokens": 41,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0
+     },
+     "perStepCached": [
+      "1476/1644",
+      "1641/1712"
+     ],
+     "cacheHitRatio": 0.929,
+     "replies": 0,
+     "historyItems": 25,
+     "usd": 0.00066,
+     "listUsd": 0.00066,
+     "answer": "It’s **3:05 pm CET** in Warsaw right now."
+    },
+    {
+     "turn": 6,
+     "reason": "completed",
+     "steps": 3,
+     "tools": [
+      "search_knowledge",
+      "get_current_time",
+      "suggest_replies"
+     ],
+     "firstTextMs": 2005,
+     "usage": {
+      "inputTokens": 5983,
+      "cachedInputTokens": 5531,
+      "cacheWriteTokens": 443,
+      "outputTokens": 138,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0
+     },
+     "perStepCached": [
+      "1709/1741",
+      "1738/2087",
+      "2084/2155"
+     ],
+     "cacheHitRatio": 0.924,
+     "replies": 2,
+     "historyItems": 33,
+     "usd": 0.00153,
+     "listUsd": 0.00153,
+     "answer": "No. It’s Saturday in Warsaw, and Brightloop support works Monday–Friday, 9:00–17:00 Central European Time, except Polish public holidays. [Support details](http"
+    },
+    {
+     "turn": 7,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge",
+      "suggest_replies"
+     ],
+     "firstTextMs": 1280,
+     "usage": {
+      "inputTokens": 4829,
+      "cachedInputTokens": 4439,
+      "cacheWriteTokens": 384,
+      "outputTokens": 129,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0
+     },
+     "perStepCached": [
+      "2152/2290",
+      "2287/2539"
+     ],
+     "cacheHitRatio": 0.919,
+     "replies": 2,
+     "historyItems": 39,
+     "usd": 0.00135,
+     "listUsd": 0.00135,
+     "answer": "You can contact support in the app via **Help → Contact support**, or email **support@example.com**. The in-app option is fastest because it includes your works"
+    },
+    {
+     "turn": 8,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge",
+      "suggest_replies"
+     ],
+     "firstTextMs": 1262,
+     "usage": {
+      "inputTokens": 5612,
+      "cachedInputTokens": 5219,
+      "cacheWriteTokens": 387,
+      "outputTokens": 119,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0
+     },
+     "perStepCached": [
+      "2536/2686",
+      "2683/2926"
+     ],
+     "cacheHitRatio": 0.93,
+     "replies": 3,
+     "historyItems": 45,
+     "usd": 0.00135,
+     "listUsd": 0.00135,
+     "answer": "All customer data is stored in the **European Union**: Frankfurt is the primary data centre, and Amsterdam is the backup. Data is encrypted in transit and at re"
+    },
+    {
+     "turn": 9,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge",
+      "suggest_replies"
+     ],
+     "firstTextMs": 993,
+     "usage": {
+      "inputTokens": 6480,
+      "cachedInputTokens": 5984,
+      "cacheWriteTokens": 490,
+      "outputTokens": 124,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0
+     },
+     "perStepCached": [
+      "2923/3064",
+      "3061/3416"
+     ],
+     "cacheHitRatio": 0.923,
+     "replies": 3,
+     "historyItems": 51,
+     "usd": 0.00154,
+     "listUsd": 0.00154,
+     "answer": "I can’t confirm overall GDPR compliance from the available documentation. It does say Brightloop offers a **GDPR data processing agreement (DPA)** to paying cus"
+    },
+    {
+     "turn": 10,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge",
+      "suggest_replies"
+     ],
+     "firstTextMs": 1714,
+     "usage": {
+      "inputTokens": 7519,
+      "cachedInputTokens": 6970,
+      "cacheWriteTokens": 543,
+      "outputTokens": 117,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0
+     },
+     "perStepCached": [
+      "3413/3560",
+      "3557/3959"
+     ],
+     "cacheHitRatio": 0.927,
+     "replies": 3,
+     "historyItems": 57,
+     "usd": 0.00162,
+     "listUsd": 0.00162,
+     "answer": "Yes. **SAML single sign-on** is available on the Business plan, with Okta, Microsoft Entra ID and Google Workspace. [Security details](https://brightloop.exampl"
+    },
+    {
+     "turn": 11,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [
+      "suggest_replies"
+     ],
+     "firstTextMs": 2549,
+     "usage": {
+      "inputTokens": 4096,
+      "cachedInputTokens": 3956,
+      "cacheWriteTokens": 137,
+      "outputTokens": 72,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0
+     },
+     "perStepCached": [
+      "3956/4096"
+     ],
+     "cacheHitRatio": 0.966,
+     "replies": 3,
+     "historyItems": 61,
+     "usd": 0.00073,
+     "listUsd": 0.00073,
+     "answer": "SSO is available on the **Business plan**. [Security details](https://brightloop.example/docs/security)"
+    },
+    {
+     "turn": 12,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [
+      "suggest_replies"
+     ],
+     "firstTextMs": 3756,
+     "usage": {
+      "inputTokens": 4216,
+      "cachedInputTokens": 4093,
+      "cacheWriteTokens": 120,
+      "outputTokens": 126,
+      "reasoningTokens": 34,
+      "reportedCostUsd": 0
+     },
+     "perStepCached": [
+      "4093/4216"
+     ],
+     "cacheHitRatio": 0.971,
+     "replies": 3,
+     "historyItems": 66,
+     "usd": 0.00099,
+     "listUsd": 0.00099,
+     "answer": "Yes. The Business plan has a **14-day free trial**, with no card needed to start. SSO is a Business-plan feature. [Pricing details](https://brightloop.example/d"
+    },
+    {
+     "turn": 13,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge",
+      "suggest_replies"
+     ],
+     "firstTextMs": 3235,
+     "usage": {
+      "inputTokens": 9137,
+      "cachedInputTokens": 8602,
+      "cacheWriteTokens": 529,
+      "outputTokens": 127,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0
+     },
+     "perStepCached": [
+      "4213/4392",
+      "4389/4745"
+     ],
+     "cacheHitRatio": 0.941,
+     "replies": 3,
+     "historyItems": 72,
+     "usd": 0.00173,
+     "listUsd": 0.00173,
+     "answer": "I don’t see a Starter plan in Brightloop’s current pricing documentation. The **Free plan** supports up to 3 users, Team supports up to 50, and Business support"
+    },
+    {
+     "turn": 14,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge",
+      "suggest_replies"
+     ],
+     "firstTextMs": 1985,
+     "usage": {
+      "inputTokens": 9944,
+      "cachedInputTokens": 9631,
+      "cacheWriteTokens": 307,
+      "outputTokens": 105,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0
+     },
+     "perStepCached": [
+      "4742/4892",
+      "4889/5052"
+     ],
+     "cacheHitRatio": 0.969,
+     "replies": 2,
+     "historyItems": 78,
+     "usd": 0.0014,
+     "listUsd": 0.0014,
+     "answer": "I don’t know whether Brightloop offers an API; I couldn’t find it in the available documentation. You can ask [support](https://brightloop.example/docs/support)"
+    },
+    {
+     "turn": 15,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge",
+      "suggest_replies"
+     ],
+     "firstTextMs": 1485,
+     "usage": {
+      "inputTokens": 10607,
+      "cachedInputTokens": 10228,
+      "cacheWriteTokens": 373,
+      "outputTokens": 109,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0
+     },
+     "perStepCached": [
+      "5049/5182",
+      "5179/5425"
+     ],
+     "cacheHitRatio": 0.964,
+     "replies": 2,
+     "historyItems": 84,
+     "usd": 0.00153,
+     "listUsd": 0.00153,
+     "answer": "I don’t know what happens to your data after cancellation; the available documentation doesn’t specify. Please [contact support](https://brightloop.example/docs"
+    },
+    {
+     "turn": 16,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [
+      "suggest_replies"
+     ],
+     "firstTextMs": 1168,
+     "usage": {
+      "inputTokens": 5551,
+      "cachedInputTokens": 5422,
+      "cacheWriteTokens": 126,
+      "outputTokens": 74,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0
+     },
+     "perStepCached": [
+      "5422/5551"
+     ],
+     "cacheHitRatio": 0.977,
+     "replies": 3,
+     "historyItems": 88,
+     "usd": 0.0008,
+     "listUsd": 0.0008,
+     "answer": "Yes. Brightloop encrypts data at rest using **AES-256**. [Security details](https://brightloop.example/docs/security)"
+    },
+    {
+     "turn": 17,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [
+      "suggest_replies"
+     ],
+     "firstTextMs": 3576,
+     "usage": {
+      "inputTokens": 5671,
+      "cachedInputTokens": 5548,
+      "cacheWriteTokens": 120,
+      "outputTokens": 77,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0
+     },
+     "perStepCached": [
+      "5548/5671"
+     ],
+     "cacheHitRatio": 0.978,
+     "replies": 3,
+     "historyItems": 92,
+     "usd": 0.00082,
+     "listUsd": 0.00082,
+     "answer": "Yes. Paying yearly saves **20%** on the Team and Business plans. [Billing details](https://brightloop.example/docs/pricing)"
+    },
+    {
+     "turn": 18,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [
+      "suggest_replies"
+     ],
+     "firstTextMs": 1048,
+     "usage": {
+      "inputTokens": 5796,
+      "cachedInputTokens": 5668,
+      "cacheWriteTokens": 125,
+      "outputTokens": 86,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0
+     },
+     "perStepCached": [
+      "5668/5796"
+     ],
+     "cacheHitRatio": 0.978,
+     "replies": 3,
+     "historyItems": 96,
+     "usd": 0.00087,
+     "listUsd": 0.00087,
+     "answer": "Yes. Registered nonprofits get **50% off the Business plan**. Apply through the support team with proof of status. [Discount details](https://brightloop.example"
+    },
+    {
+     "turn": 19,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [
+      "suggest_replies"
+     ],
+     "firstTextMs": 1582,
+     "usage": {
+      "inputTokens": 5937,
+      "cachedInputTokens": 5793,
+      "cacheWriteTokens": 141,
+      "outputTokens": 130,
+      "reasoningTokens": 20,
+      "reportedCostUsd": 0
+     },
+     "perStepCached": [
+      "5793/5937"
+     ],
+     "cacheHitRatio": 0.976,
+     "replies": 3,
+     "historyItems": 101,
+     "usd": 0.00112,
+     "listUsd": 0.00112,
+     "answer": "For 12 people, I’d recommend **Team**: it supports up to 50 users and costs €8 per user per month, excluding VAT. Choose **Business** instead if you need SSO. ["
+    },
+    {
+     "turn": 20,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [],
+     "firstTextMs": 785,
+     "usage": {
+      "inputTokens": 6112,
+      "cachedInputTokens": 5934,
+      "cacheWriteTokens": 175,
+      "outputTokens": 12,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0
+     },
+     "perStepCached": [
+      "5934/6112"
+     ],
+     "cacheHitRatio": 0.971,
+     "replies": 0,
+     "historyItems": 103,
+     "usd": 0.00058,
+     "listUsd": 0.00058,
+     "answer": "You’re welcome, Alex. Bye!"
+    }
+   ],
+   "total": {
+    "inputTokens": 107189,
+    "cachedInputTokens": 98777,
+    "cacheWriteTokens": 6109,
+    "outputTokens": 2083,
+    "reasoningTokens": 136,
+    "reportedCostUsd": 0
+   },
+   "usd": 0.0253,
+   "listUsd": 0.0253,
+   "sameTokensAtTerraPrices": 0.0253,
+   "perTurnUsd": 0.00126,
+   "cacheHitRatio": 0.922,
+   "medianFirstTextMs": 1551
+  }
+ },
+ "hf-oss": {
+  "stream": {
+   "failed": {
+    "class": "MapperError",
+    "message": "response.failed",
+    "cause": {
+     "code": "server_error",
+     "message": "402 \"Purchase pre-paid credits to continue using Inference Providers. Alternatively, subscribe to PRO to get monthly included credits.\""
+    },
+    "mapped": {
+     "code": "upstream_error"
+    }
+   }
+  },
+  "tools": {
+   "failed": {
+    "class": "MapperError",
+    "message": "response.failed",
+    "cause": {
+     "code": "server_error",
+     "message": "402 \"Purchase pre-paid credits to continue using Inference Providers. Alternatively, subscribe to PRO to get monthly included credits.\""
+    },
+    "mapped": {
+     "code": "upstream_error"
+    }
+   }
+  },
+  "finalStep": {
+   "none": {
+    "error": {
+     "class": "MapperError",
+     "message": "response.failed",
+     "cause": {
+      "code": "server_error",
+      "message": "402 \"Purchase pre-paid credits to continue using Inference Providers. Alternatively, subscribe to PRO to get monthly included credits.\""
+     },
+     "mapped": {
+      "code": "upstream_error"
+     }
+    }
+   },
+   "allowedTools1": {
+    "error": {
+     "class": "BadRequestError",
+     "status": 400,
+     "message": "400 [{\"code\":\"invalid_union\",\"unionErrors\":[{\"issues\":[{\"expected\":\"'auto' | 'none' | 'required'\",\"received\":\"object\",\"code\":\"invalid_type\",\"path\":[\"tool_choice\"],\"message\":\"Expected 'auto' | 'none' | 'required', received object\"}],\"name\":\"ZodError\"},{\"issues\":[{\"received\":\"allowed_tools\",\"code\":\"in",
+     "bodyKeys": [
+      "0"
+     ],
+     "mapped": {
+      "code": "upstream_error"
+     }
+    }
+   },
+   "allowedTools2": {
+    "error": {
+     "class": "BadRequestError",
+     "status": 400,
+     "message": "400 [{\"code\":\"invalid_union\",\"unionErrors\":[{\"issues\":[{\"expected\":\"'auto' | 'none' | 'required'\",\"received\":\"object\",\"code\":\"invalid_type\",\"path\":[\"tool_choice\"],\"message\":\"Expected 'auto' | 'none' | 'required', received object\"}],\"name\":\"ZodError\"},{\"issues\":[{\"received\":\"allowed_tools\",\"code\":\"in",
+     "bodyKeys": [
+      "0"
+     ],
+     "mapped": {
+      "code": "upstream_error"
+     }
+    }
+   }
+  },
+  "strict": {
+   "looseSchemaStrict": {
+    "accepted": true,
+    "status": "failed",
+    "error": {
+     "code": "server_error",
+     "message": "402 \"Purchase pre-paid credits to continue using Inference Providers. Alternatively, subscribe to PRO to get monthly included credits.\""
+    },
+    "output": []
+   },
+   "requiredChoice": {
+    "accepted": true,
+    "status": "failed",
+    "error": {
+     "code": "server_error",
+     "message": "402 \"Purchase pre-paid credits to continue using Inference Providers. Alternatively, subscribe to PRO to get monthly included credits.\""
+    },
+    "output": []
+   }
+  },
+  "errors": {
+   "unknownModel": {
+    "accepted": true,
+    "status": "failed",
+    "error": {
+     "code": "server_error",
+     "message": "400 The requested model 'askdare-spike/no-such-model' does not exist."
+    },
+    "model": "askdare-spike/no-such-model",
+    "output": []
+   },
+   "badKey": {
+    "accepted": true,
+    "status": "failed",
+    "error": {
+     "code": "server_error",
+     "message": "401 \"Invalid username or password.\""
+    },
+    "model": "openai/gpt-oss-120b",
+    "output": []
+   },
+   "badRequest": {
+    "accepted": true,
+    "status": "failed",
+    "error": {
+     "code": "server_error",
+     "message": "402 \"Purchase pre-paid credits to continue using Inference Providers. Alternatively, subscribe to PRO to get monthly included credits.\""
+    },
+    "model": "openai/gpt-oss-120b",
+    "output": []
+   },
+   "storeTrue": {
+    "accepted": true,
+    "status": "failed",
+    "error": {
+     "code": "server_error",
+     "message": "402 \"Purchase pre-paid credits to continue using Inference Providers. Alternatively, subscribe to PRO to get monthly included credits.\""
+    },
+    "model": "openai/gpt-oss-120b",
+    "output": []
+   },
+   "previousResponseId": {
+    "accepted": true,
+    "status": "failed",
+    "error": {
+     "code": "server_error",
+     "message": "402 \"Purchase pre-paid credits to continue using Inference Providers. Alternatively, subscribe to PRO to get monthly included credits.\""
+    },
+    "model": "openai/gpt-oss-120b",
+    "output": []
+   },
+   "conversation": {
+    "accepted": true,
+    "status": "failed",
+    "error": {
+     "code": "server_error",
+     "message": "402 \"Purchase pre-paid credits to continue using Inference Providers. Alternatively, subscribe to PRO to get monthly included credits.\""
+    },
+    "model": "openai/gpt-oss-120b",
+    "output": []
+   },
+   "streamUnknownModel": {
+    "accepted": true,
+    "status": "stream",
+    "error": {
+     "code": "server_error",
+     "message": "400 The requested model 'askdare-spike/no-such-model' does not exist."
+    },
+    "output": [
+     "response.created",
+     "response.in_progress",
+     "response.failed"
+    ]
+   }
+  }
+ },
+ "ollama": {
+  "stream": {
+   "medianFirstTextMs": 14295,
+   "runs": [
+    {
+     "reason": "completed",
+     "steps": 2,
+     "totalMs": 115229,
+     "protocol": [
+      {
+       "type": "reasoning",
+       "state": "started"
+      },
+      {
+       "type": "reasoning",
+       "state": "done"
+      },
+      {
+       "type": "reasoning",
+       "state": "started"
+      },
+      {
+       "type": "reasoning",
+       "state": "done"
+      },
+      {
+       "type": "text.delta",
+       "delta": "I'm Brightloop's project management assistant, here to help with team collaboration and project tracking.  \n\nsuggest_replies: [\"Show pricing plans\", \"How do I add team members?\", \"What support options are available?\", \"Can I get a demo?\"]"
+      }
+     ]
+    },
+    {
+     "reason": "completed",
+     "steps": 1,
+     "firstTextMs": 14295,
+     "totalMs": 16432
+    },
+    {
+     "reason": "completed",
+     "steps": 1,
+     "totalMs": 54410
+    }
+   ],
+   "conformance": {
+    "eventTypes": [
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.reasoning_summary_text.delta",
+      "response.reasoning_summary_text.done",
+      "response.output_item.done",
+      "response.output_item.added",
+      "response.function_call_arguments.delta",
+      "response.function_call_arguments.done",
+      "response.output_item.done",
+      "response.completed"
+     ],
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.reasoning_summary_text.delta",
+      "response.reasoning_summary_text.done",
+      "response.output_item.done",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.output_text.delta",
+      "response.output_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.completed"
+     ],
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.reasoning_summary_text.delta",
+      "response.reasoning_summary_text.done",
+      "response.output_item.done",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.output_text.delta",
+      "response.output_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.completed"
+     ],
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.reasoning_summary_text.delta",
+      "response.reasoning_summary_text.done",
+      "response.output_item.done",
+      "response.completed"
+     ]
+    ],
+    "outsideSpec": [],
+    "issues": [
+     "no cache_write_tokens"
+    ],
+    "messagePhases": [
+     "(absent)"
+    ],
+    "itemTypes": [
+     "reasoning",
+     "function_call",
+     "message"
+    ],
+    "models": [
+     "qwen3:4b",
+     "qwen3:4b",
+     "qwen3:4b",
+     "qwen3:4b"
+    ],
+    "usage": [
+     {
+      "inputTokens": 728,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 996,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0
+     },
+     {
+      "inputTokens": 2046,
+      "cachedInputTokens": 727,
+      "cacheWriteTokens": 0,
+      "outputTokens": 833,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0
+     },
+     {
+      "inputTokens": 728,
+      "cachedInputTokens": 727,
+      "cacheWriteTokens": 0,
+      "outputTokens": 314,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0
+     },
+     {
+      "inputTokens": 728,
+      "cachedInputTokens": 727,
+      "cacheWriteTokens": 0,
+      "outputTokens": 1024,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0
+     }
+    ]
+   }
+  }
+ },
+ "or-haiku-cc": {
+  "conversation": {
+   "turnsOk": 20,
+   "errors": [],
+   "turns": [
+    {
+     "turn": 1,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [
+      "suggest_replies"
+     ],
+     "firstTextMs": 1097,
+     "usage": {
+      "inputTokens": 1423,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 1419,
+      "outputTokens": 139,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.000247275
+     },
+     "perStepCached": [
+      "0/1423"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 3,
+     "historyItems": 4,
+     "usd": 0.00025,
+     "listUsd": 0.00025,
+     "answer": "Hi Alex, welcome to Brightloop! How can I help you today? I can answer questions about our pricing, security, and support, or help with currency rates and the c"
+    },
+    {
+     "turn": 2,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge",
+      "suggest_replies"
+     ],
+     "firstTextMs": 556,
+     "usage": {
+      "inputTokens": 3964,
+      "cachedInputTokens": 3027,
+      "cacheWriteTokens": 931,
+      "outputTokens": 573,
+      "reasoningTokens": 112,
+      "reportedCostUsd": 0.00043374500000000003
+     },
+     "perStepCached": [
+      "1419/1612",
+      "1608/2352"
+     ],
+     "cacheHitRatio": 0.764,
+     "replies": 3,
+     "historyItems": 11,
+     "usd": 0.00043,
+     "listUsd": 0.00043,
+     "answer": "Brightloop has three plans (prices in euros, excluding VAT):\n\n| Plan | Price | Users | Highlights |\n|---|---|---|---|\n| **Free** | €0 | up to 3 | Unlimited proj"
+    },
+    {
+     "turn": 3,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [
+      "suggest_replies"
+     ],
+     "firstTextMs": 1057,
+     "usage": {
+      "inputTokens": 2807,
+      "cachedInputTokens": 2350,
+      "cacheWriteTokens": 453,
+      "outputTokens": 279,
+      "reasoningTokens": 103,
+      "reportedCostUsd": 0.000220025
+     },
+     "perStepCached": [
+      "2350/2807"
+     ],
+     "cacheHitRatio": 0.837,
+     "replies": 3,
+     "historyItems": 16,
+     "usd": 0.00022,
+     "listUsd": 0.00022,
+     "answer": "The Business plan costs **€15 per user per month**, excluding VAT. It covers unlimited users, and you're billed per active user. Paying yearly saves 20%.\n\nSourc"
+    },
+    {
+     "turn": 4,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "get_exchange_rate",
+      "suggest_replies"
+     ],
+     "firstTextMs": 1160,
+     "usage": {
+      "inputTokens": 6388,
+      "cachedInputTokens": 5938,
+      "cacheWriteTokens": 444,
+      "outputTokens": 342,
+      "reasoningTokens": 130,
+      "reportedCostUsd": 0.00028648
+     },
+     "perStepCached": [
+      "2803/3139",
+      "3135/3249"
+     ],
+     "cacheHitRatio": 0.93,
+     "replies": 2,
+     "historyItems": 23,
+     "usd": 0.00029,
+     "listUsd": 0.00029,
+     "answer": "Sorry, the exchange rate service is unavailable right now, so I can't give you the PLN price. Please try again in a little while. The Business plan is €15 per u"
+    },
+    {
+     "turn": 5,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "get_current_time"
+     ],
+     "firstTextMs": 607,
+     "usage": {
+      "inputTokens": 7264,
+      "cachedInputTokens": 6813,
+      "cacheWriteTokens": 445,
+      "outputTokens": 95,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.000171855
+     },
+     "perStepCached": [
+      "3247/3570",
+      "3566/3694"
+     ],
+     "cacheHitRatio": 0.938,
+     "replies": 0,
+     "historyItems": 27,
+     "usd": 0.00017,
+     "listUsd": 0.00017,
+     "answer": "It's currently **15:05 on Saturday, 21 November 2026** in Warsaw (CET)."
+    },
+    {
+     "turn": 6,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge",
+      "suggest_replies"
+     ],
+     "firstTextMs": 795,
+     "usage": {
+      "inputTokens": 7990,
+      "cachedInputTokens": 7427,
+      "cacheWriteTokens": 557,
+      "outputTokens": 340,
+      "reasoningTokens": 63,
+      "reportedCostUsd": 0.000314495
+     },
+     "perStepCached": [
+      "3692/3739",
+      "3735/4251"
+     ],
+     "cacheHitRatio": 0.93,
+     "replies": 2,
+     "historyItems": 34,
+     "usd": 0.00031,
+     "listUsd": 0.00031,
+     "answer": "I couldn't find support opening hours in the Brightloop documentation, so I can't say for sure whether support is open right now.\n\nYou can reach support in thes"
+    },
+    {
+     "turn": 7,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [],
+     "firstTextMs": 558,
+     "usage": {
+      "inputTokens": 4587,
+      "cachedInputTokens": 4249,
+      "cacheWriteTokens": 334,
+      "outputTokens": 152,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.00016064
+     },
+     "perStepCached": [
+      "4249/4587"
+     ],
+     "cacheHitRatio": 0.926,
+     "replies": 0,
+     "historyItems": 36,
+     "usd": 0.00016,
+     "listUsd": 0.00016,
+     "answer": "You can reach Brightloop support in three ways:\n\n- **In the app:** go to Help → Contact support. This is the fastest option, since it includes your workspace de"
+    },
+    {
+     "turn": 8,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge",
+      "suggest_replies"
+     ],
+     "firstTextMs": 660,
+     "usage": {
+      "inputTokens": 9891,
+      "cachedInputTokens": 9330,
+      "cacheWriteTokens": 555,
+      "outputTokens": 328,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.000327275
+     },
+     "perStepCached": [
+      "4583/4751",
+      "4747/5140"
+     ],
+     "cacheHitRatio": 0.943,
+     "replies": 3,
+     "historyItems": 42,
+     "usd": 0.00033,
+     "listUsd": 0.00033,
+     "answer": "Your data is stored in the European Union. The primary data centre is in Frankfurt, and the backup is in Amsterdam. Data is encrypted in transit (TLS 1.3) and a"
+    },
+    {
+     "turn": 9,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [
+      "suggest_replies"
+     ],
+     "firstTextMs": 893,
+     "usage": {
+      "inputTokens": 5466,
+      "cachedInputTokens": 5138,
+      "cacheWriteTokens": 324,
+      "outputTokens": 295,
+      "reasoningTokens": 72,
+      "reportedCostUsd": 0.00023978
+     },
+     "perStepCached": [
+      "5138/5466"
+     ],
+     "cacheHitRatio": 0.94,
+     "replies": 2,
+     "historyItems": 47,
+     "usd": 0.00024,
+     "listUsd": 0.00024,
+     "answer": "The documentation says Brightloop signs a GDPR data processing agreement (DPA) with every paying customer on request. It also says an independent ISO/IEC 27001 "
+    },
+    {
+     "turn": 10,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [
+      "suggest_replies"
+     ],
+     "firstTextMs": 593,
+     "usage": {
+      "inputTokens": 5813,
+      "cachedInputTokens": 5462,
+      "cacheWriteTokens": 347,
+      "outputTokens": 162,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.000179395
+     },
+     "perStepCached": [
+      "5462/5813"
+     ],
+     "cacheHitRatio": 0.94,
+     "replies": 2,
+     "historyItems": 51,
+     "usd": 0.00018,
+     "listUsd": 0.00018,
+     "answer": "Yes, SSO is available on the **Business** plan, which supports SAML. The Business plan costs €15 per user per month, excluding VAT.\n\nSource: Brightloop document"
+    },
+    {
+     "turn": 11,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [],
+     "firstTextMs": 537,
+     "usage": {
+      "inputTokens": 6027,
+      "cachedInputTokens": 5809,
+      "cacheWriteTokens": 214,
+      "outputTokens": 77,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.00012374
+     },
+     "perStepCached": [
+      "5809/6027"
+     ],
+     "cacheHitRatio": 0.964,
+     "replies": 0,
+     "historyItems": 53,
+     "usd": 0.00012,
+     "listUsd": 0.00012,
+     "answer": "The **Business** plan is the only one with SSO (SAML), at €15 per user per month, excluding VAT.\n\nSource: Brightloop documentation, \"Pricing and plans\" (https:/"
+    },
+    {
+     "turn": 12,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [],
+     "firstTextMs": 871,
+     "usage": {
+      "inputTokens": 6116,
+      "cachedInputTokens": 6023,
+      "cacheWriteTokens": 89,
+      "outputTokens": 165,
+      "reasoningTokens": 48,
+      "reportedCostUsd": 0.000154255
+     },
+     "perStepCached": [
+      "6023/6116"
+     ],
+     "cacheHitRatio": 0.985,
+     "replies": 0,
+     "historyItems": 56,
+     "usd": 0.00015,
+     "listUsd": 0.00015,
+     "answer": "Yes. Every paid plan, including Business, starts with a **14-day free trial**, and you don't need a card to start it. If you want to keep using Brightloop after"
+    },
+    {
+     "turn": 13,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [
+      "suggest_replies"
+     ],
+     "firstTextMs": 753,
+     "usage": {
+      "inputTokens": 6297,
+      "cachedInputTokens": 6112,
+      "cacheWriteTokens": 181,
+      "outputTokens": 222,
+      "reasoningTokens": 28,
+      "reportedCostUsd": 0.000195145
+     },
+     "perStepCached": [
+      "6112/6297"
+     ],
+     "cacheHitRatio": 0.971,
+     "replies": 2,
+     "historyItems": 61,
+     "usd": 0.0002,
+     "listUsd": 0.0002,
+     "answer": "Brightloop doesn't have a plan called Starter. The three plans are:\n\n- **Free:** €0, up to 3 users\n- **Team:** €8 per user per month, up to 50 users\n- **Busines"
+    },
+    {
+     "turn": 14,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge"
+     ],
+     "firstTextMs": 757,
+     "usage": {
+      "inputTokens": 13633,
+      "cachedInputTokens": 12858,
+      "cacheWriteTokens": 769,
+      "outputTokens": 127,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.000288805
+     },
+     "perStepCached": [
+      "6293/6569",
+      "6565/7064"
+     ],
+     "cacheHitRatio": 0.943,
+     "replies": 0,
+     "historyItems": 65,
+     "usd": 0.00029,
+     "listUsd": 0.00029,
+     "answer": "I couldn't find any information about an API in the Brightloop documentation, so I can't confirm whether one is available. For a definite answer, you can ask su"
+    },
+    {
+     "turn": 15,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge"
+     ],
+     "firstTextMs": 1036,
+     "usage": {
+      "inputTokens": 14722,
+      "cachedInputTokens": 14209,
+      "cacheWriteTokens": 507,
+      "outputTokens": 341,
+      "reasoningTokens": 89,
+      "reportedCostUsd": 0.00037656500000000004
+     },
+     "perStepCached": [
+      "7062/7151",
+      "7147/7571"
+     ],
+     "cacheHitRatio": 0.965,
+     "replies": 0,
+     "historyItems": 70,
+     "usd": 0.00038,
+     "listUsd": 0.00038,
+     "answer": "The documentation I searched doesn't say what happens to your data after you cancel, such as whether it's deleted or how long it's kept. I don't want to guess. "
+    },
+    {
+     "turn": 16,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [],
+     "firstTextMs": 634,
+     "usage": {
+      "inputTokens": 7866,
+      "cachedInputTokens": 7569,
+      "cacheWriteTokens": 293,
+      "outputTokens": 74,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.000149715
+     },
+     "perStepCached": [
+      "7569/7866"
+     ],
+     "cacheHitRatio": 0.962,
+     "replies": 0,
+     "historyItems": 72,
+     "usd": 0.00015,
+     "listUsd": 0.00015,
+     "answer": "Yes. Brightloop encrypts data at rest with AES-256 and in transit with TLS 1.3.\n\nSource: Brightloop documentation, \"Security and privacy\" (https://brightloop.ex"
+    },
+    {
+     "turn": 17,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [],
+     "firstTextMs": 595,
+     "usage": {
+      "inputTokens": 7953,
+      "cachedInputTokens": 7862,
+      "cacheWriteTokens": 87,
+      "outputTokens": 85,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.000132395
+     },
+     "perStepCached": [
+      "7862/7953"
+     ],
+     "cacheHitRatio": 0.989,
+     "replies": 0,
+     "historyItems": 74,
+     "usd": 0.00013,
+     "listUsd": 0.00013,
+     "answer": "Yes. Paying yearly saves 20% on the **Team** and **Business** plans. The Free plan has no paid billing cycle.\n\nSource: Brightloop documentation, \"Pricing and pl"
+    },
+    {
+     "turn": 18,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [],
+     "firstTextMs": 690,
+     "usage": {
+      "inputTokens": 8055,
+      "cachedInputTokens": 7949,
+      "cacheWriteTokens": 102,
+      "outputTokens": 113,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.00014914
+     },
+     "perStepCached": [
+      "7949/8055"
+     ],
+     "cacheHitRatio": 0.987,
+     "replies": 0,
+     "historyItems": 76,
+     "usd": 0.00015,
+     "listUsd": 0.00015,
+     "answer": "Yes. Registered non-profits and schools get **50% off the Business plan**. To apply, contact the support team with proof of your status. You can reach them from"
+    },
+    {
+     "turn": 19,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [],
+     "firstTextMs": 1435,
+     "usage": {
+      "inputTokens": 8192,
+      "cachedInputTokens": 8051,
+      "cacheWriteTokens": 137,
+      "outputTokens": 337,
+      "reasoningTokens": 156,
+      "reportedCostUsd": 0.000266535
+     },
+     "perStepCached": [
+      "8051/8192"
+     ],
+     "cacheHitRatio": 0.983,
+     "replies": 0,
+     "historyItems": 79,
+     "usd": 0.00027,
+     "listUsd": 0.00027,
+     "answer": "For 12 people, I'd recommend the **Team** plan, unless you need SSO, the audit log, or priority support, which are only on Business.\n\n- **Team:** 12 × €8 = **€9"
+    },
+    {
+     "turn": 20,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [],
+     "firstTextMs": 611,
+     "usage": {
+      "inputTokens": 8539,
+      "cachedInputTokens": 8188,
+      "cacheWriteTokens": 347,
+      "outputTokens": 32,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.000141655
+     },
+     "perStepCached": [
+      "8188/8539"
+     ],
+     "cacheHitRatio": 0.959,
+     "replies": 0,
+     "historyItems": 81,
+     "usd": 0.00014,
+     "listUsd": 0.00014,
+     "answer": "Goodbye, Alex, and thanks for visiting Brightloop. Have a great day!"
+    }
+   ],
+   "total": {
+    "inputTokens": 142993,
+    "cachedInputTokens": 134364,
+    "cacheWriteTokens": 8535,
+    "outputTokens": 4278,
+    "reasoningTokens": 801,
+    "reportedCostUsd": 0.004558915
+   },
+   "usd": 0.0046,
+   "listUsd": 0.0046,
+   "sameTokensAtTerraPrices": 0.0389,
+   "perTurnUsd": 0.00023,
+   "cacheHitRatio": 0.94,
+   "medianFirstTextMs": 721.5
+  }
+ },
+ "or-oss": {
+  "stream": {
+   "medianFirstTextMs": 691,
+   "runs": [
+    {
+     "reason": "completed",
+     "steps": 2,
+     "totalMs": 2464,
+     "replies": [
+      "What does Brightloop do?",
+      "How much does it cost?",
+      "Can I try a demo?"
+     ],
+     "protocol": [
+      {
+       "type": "reasoning",
+       "state": "started"
+      },
+      {
+       "type": "reasoning",
+       "state": "done"
+      },
+      {
+       "type": "reasoning",
+       "state": "started"
+      },
+      {
+       "type": "reasoning",
+       "state": "done"
+      },
+      {
+       "type": "text.delta",
+       "delta": "I’m Brightloop’s virtual assistant, here to help you with any questions about our project‑management app."
+      }
+     ]
+    },
+    {
+     "reason": "completed",
+     "steps": 2,
+     "totalMs": 3110,
+     "replies": [
+      "What does Brightloop do?",
+      "Tell me about pricing",
+      "How can I start a free trial?"
+     ]
+    },
+    {
+     "reason": "completed",
+     "steps": 1,
+     "firstTextMs": 691,
+     "totalMs": 1010
+    }
+   ],
+   "conformance": {
+    "eventTypes": [
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.reasoning_text.delta",
+      "response.reasoning_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.output_item.added",
+      "response.function_call_arguments.delta",
+      "response.function_call_arguments.done",
+      "response.output_item.done",
+      "response.completed"
+     ],
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.reasoning_text.delta",
+      "response.reasoning_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.output_text.delta",
+      "response.output_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.completed"
+     ],
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.reasoning_text.delta",
+      "response.reasoning_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.output_item.added",
+      "response.function_call_arguments.delta",
+      "response.function_call_arguments.done",
+      "response.output_item.done",
+      "response.completed"
+     ],
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.reasoning_text.delta",
+      "response.reasoning_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.output_text.delta",
+      "response.output_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.completed"
+     ],
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.reasoning_text.delta",
+      "response.reasoning_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.output_text.delta",
+      "response.output_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.completed"
+     ]
+    ],
+    "outsideSpec": [
+     "response.reasoning_text.delta",
+     "response.reasoning_text.done"
+    ],
+    "issues": [
+     "no cache_write_tokens"
+    ],
+    "messagePhases": [
+     "(absent)"
+    ],
+    "itemTypes": [
+     "reasoning",
+     "function_call",
+     "message"
+    ],
+    "models": [
+     "openai/gpt-oss-120b",
+     "openai/gpt-oss-120b",
+     "openai/gpt-oss-120b",
+     "openai/gpt-oss-120b",
+     "openai/gpt-oss-120b"
+    ],
+    "usage": [
+     {
+      "inputTokens": 626,
+      "cachedInputTokens": 64,
+      "cacheWriteTokens": 0,
+      "outputTokens": 202,
+      "reasoningTokens": 181,
+      "reportedCostUsd": 0.0000818
+     },
+     {
+      "inputTokens": 509,
+      "cachedInputTokens": 64,
+      "cacheWriteTokens": 0,
+      "outputTokens": 144,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.0001229
+     },
+     {
+      "inputTokens": 626,
+      "cachedInputTokens": 608,
+      "cacheWriteTokens": 0,
+      "outputTokens": 195,
+      "reasoningTokens": 174,
+      "reportedCostUsd": 0.00008005
+     },
+     {
+      "inputTokens": 510,
+      "cachedInputTokens": 64,
+      "cacheWriteTokens": 0,
+      "outputTokens": 354,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.000228
+     },
+     {
+      "inputTokens": 626,
+      "cachedInputTokens": 608,
+      "cacheWriteTokens": 0,
+      "outputTokens": 111,
+      "reasoningTokens": 78,
+      "reportedCostUsd": 0.00005905
+     }
+    ]
+   }
+  },
+  "tools": {
+   "reason": "completed",
+   "steps": [
+    {
+     "choice": "auto",
+     "calls": [
+      {
+       "name": "get_current_time",
+       "validArgs": true,
+       "args": "{\n  \"timeZone\": \"Europe/Warsaw\"\n}"
+      }
+     ],
+     "output": [
+      "reasoning",
+      "function_call"
+     ],
+     "status": "completed"
+    },
+    {
+     "choice": "auto",
+     "calls": [
+      {
+       "name": "get_current_time",
+       "validArgs": true,
+       "args": "{\n  \"timeZone\": \"Asia/Tokyo\"\n}"
+      }
+     ],
+     "output": [
+      "reasoning",
+      "function_call"
+     ],
+     "status": "completed"
+    },
+    {
+     "choice": "auto",
+     "calls": [
+      {
+       "name": "get_exchange_rate",
+       "validArgs": true,
+       "args": "{\n  \"from\": \"EUR\",\n  \"to\": \"PLN\"\n}"
+      }
+     ],
+     "output": [
+      "reasoning",
+      "function_call"
+     ],
+     "status": "completed"
+    },
+    {
+     "choice": "auto",
+     "calls": [
+      {
+       "name": "get_exchange_rate",
+       "validArgs": true,
+       "args": "{\n  \"from\": \"EUR\",\n  \"to\": \"PLN\"\n}"
+      }
+     ],
+     "output": [
+      "reasoning",
+      "function_call"
+     ],
+     "status": "completed"
+    },
+    {
+     "choice": "none",
+     "calls": [],
+     "output": [
+      "reasoning",
+      "message"
+     ],
+     "status": "completed"
+    }
+   ],
+   "parallelInOneStep": false,
+   "text": "**Current time**  \n- Warsaw (Europe/Warsaw): **Saturday, 21 November 2026 at 15:05 CET**  \n- Tokyo (Asia/Tokyo): **Saturday, 21 November 2026 at 23:05 GMT+9**\n\n**Currency conversion**  \nI’m sorry, but the EUR → PLN exchange‑rate service is unavailable at the moment, so I can’t give you the exact amount for 100 EUR.\n\n---\n\n**Suggested next steps**  \n- “Can you tell me about Brightloop’s pricing plans?”  \n- “What features does Brightloop offer for team collaboration?”  \n- “How do I get a free trial of Brightloop?”  \n\nFeel free to ask any other question!",
+   "protocol": [
+    {
+     "type": "reasoning",
+     "state": "started"
+    },
+    {
+     "type": "reasoning",
+     "state": "done"
+    },
+    {
+     "type": "reasoning",
+     "state": "started"
+    },
+    {
+     "type": "reasoning",
+     "state": "done"
+    },
+    {
+     "type": "reasoning",
+     "state": "started"
+    },
+    {
+     "type": "reasoning",
+     "state": "done"
+    },
+    {
+     "type": "reasoning",
+     "state": "started"
+    },
+    {
+     "type": "reasoning",
+     "state": "done"
+    },
+    {
+     "type": "reasoning",
+     "state": "started"
+    },
+    {
+     "type": "reasoning",
+     "state": "done"
+    },
+    {
+     "type": "text.delta",
+     "delta": "**Current time**  \n- Warsaw (Europe/Warsaw): **Saturday, 21 November 2026 at 15:05 CET**  \n- Tokyo (Asia/Tokyo): **Saturday, 21 November 2026 at 23:05 GMT+9**\n\n**Currency conversion**  \nI’m sorry, but the EUR → PLN exchange‑rate service is unavailable at the moment, so I can’t give you the exact amount for 100 EUR.\n\n---\n\n**Suggested next steps**  \n- “Can you tell me about Brightloop’s pricing plans?”  \n- “What features does Brightloop offer for team collaboration?”  \n- “How do I get a free trial of Brightloop?”  \n\nFeel free to ask any other question!"
+    }
+   ],
+   "conformance": {
+    "eventTypes": [
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.reasoning_text.delta",
+      "response.reasoning_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.output_item.added",
+      "response.function_call_arguments.delta",
+      "response.function_call_arguments.done",
+      "response.output_item.done",
+      "response.completed"
+     ],
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.reasoning_text.delta",
+      "response.reasoning_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.output_item.added",
+      "response.function_call_arguments.delta",
+      "response.function_call_arguments.done",
+      "response.output_item.done",
+      "response.completed"
+     ],
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.reasoning_text.delta",
+      "response.reasoning_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.output_item.added",
+      "response.function_call_arguments.delta",
+      "response.function_call_arguments.done",
+      "response.output_item.done",
+      "response.completed"
+     ],
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.reasoning_text.delta",
+      "response.reasoning_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.output_item.added",
+      "response.function_call_arguments.delta",
+      "response.function_call_arguments.done",
+      "response.output_item.done",
+      "response.completed"
+     ],
+     [
+      "response.created",
+      "response.in_progress",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.reasoning_text.delta",
+      "response.reasoning_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.output_item.added",
+      "response.content_part.added",
+      "response.output_text.delta",
+      "response.output_text.done",
+      "response.content_part.done",
+      "response.output_item.done",
+      "response.completed"
+     ]
+    ],
+    "outsideSpec": [
+     "response.reasoning_text.delta",
+     "response.reasoning_text.done"
+    ],
+    "issues": [
+     "no cache_write_tokens"
+    ],
+    "messagePhases": [
+     "(absent)"
+    ],
+    "itemTypes": [
+     "reasoning",
+     "function_call",
+     "message"
+    ],
+    "models": [
+     "openai/gpt-oss-120b",
+     "openai/gpt-oss-120b",
+     "openai/gpt-oss-120b",
+     "openai/gpt-oss-120b",
+     "openai/gpt-oss-120b"
+    ],
+    "usage": [
+     {
+      "inputTokens": 637,
+      "cachedInputTokens": 64,
+      "cacheWriteTokens": 0,
+      "outputTokens": 106,
+      "reasoningTokens": 86,
+      "reportedCostUsd": 0.00005835
+     },
+     {
+      "inputTokens": 789,
+      "cachedInputTokens": 608,
+      "cacheWriteTokens": 0,
+      "outputTokens": 36,
+      "reasoningTokens": 16,
+      "reportedCostUsd": 0.00004845
+     },
+     {
+      "inputTokens": 873,
+      "cachedInputTokens": 768,
+      "cacheWriteTokens": 0,
+      "outputTokens": 41,
+      "reasoningTokens": 21,
+      "reportedCostUsd": 0.0000539
+     },
+     {
+      "inputTokens": 944,
+      "cachedInputTokens": 848,
+      "cacheWriteTokens": 0,
+      "outputTokens": 89,
+      "reasoningTokens": 70,
+      "reportedCostUsd": 0.00006945
+     },
+     {
+      "inputTokens": 687,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 260,
+      "reasoningTokens": 91,
+      "reportedCostUsd": 0.00034318
+     }
+    ]
+   }
+  },
+  "finalStep": {
+   "none": {
+    "reason": "completed",
+    "choice": "none",
+    "calls": [],
+    "output": [
+     "reasoning",
+     "message"
+    ],
+    "text": "{\"location\":\"Warsaw\"}"
+   },
+   "allowedTools1": {
+    "calls": [
+     "search_knowledge"
+    ],
+    "suggestRepliesCalledAnyway": false
+   },
+   "allowedTools2": {
+    "calls": [
+     "search_knowledge"
+    ],
+    "suggestRepliesCalledAnyway": false
+   }
+  },
+  "strict": {
+   "looseSchemaStrict": {
+    "accepted": true,
+    "status": "completed",
+    "error": null,
+    "output": [
+     "reasoning",
+     "function_call {\n  \"city\": \"Paris\"\n}"
+    ]
+   },
+   "requiredChoice": {
+    "accepted": true,
+    "status": "completed",
+    "error": null,
+    "output": [
+     "reasoning",
+     "function_call {\"city\": \"Paris\"}"
+    ]
+   }
+  },
+  "errors": {
+   "unknownModel": {
+    "accepted": false,
+    "error": {
+     "class": "BadRequestError",
+     "status": 400,
+     "code": 400,
+     "message": "400 askdare-spike/no-such-model is not a valid model ID",
+     "bodyKeys": [
+      "message",
+      "code"
+     ],
+     "mapped": {
+      "code": "upstream_error"
+     }
+    }
+   },
+   "badKey": {
+    "accepted": false,
+    "error": {
+     "class": "AuthenticationError",
+     "status": 401,
+     "code": 401,
+     "message": "401 Missing Authentication header",
+     "bodyKeys": [
+      "message",
+      "code"
+     ],
+     "mapped": {
+      "code": "bot_unavailable"
+     }
+    }
+   },
+   "badRequest": {
+    "accepted": true,
+    "status": "completed",
+    "error": null,
+    "model": "openai/gpt-oss-120b",
+    "output": [
+     "reasoning",
+     "message"
+    ]
+   },
+   "storeTrue": {
+    "accepted": false,
+    "error": {
+     "class": "BadRequestError",
+     "status": 400,
+     "code": "invalid_prompt",
+     "message": "400 store: true is not supported on this proxy. Each response request is independent.",
+     "bodyKeys": [
+      "code",
+      "message"
+     ],
+     "mapped": {
+      "code": "upstream_error"
+     }
+    }
+   },
+   "previousResponseId": {
+    "accepted": false,
+    "error": {
+     "class": "BadRequestError",
+     "status": 400,
+     "code": "invalid_prompt",
+     "message": "400 previous_response_id is not supported on this proxy. Each response request is independent.",
+     "bodyKeys": [
+      "code",
+      "message"
+     ],
+     "mapped": {
+      "code": "upstream_error"
+     }
+    }
+   },
+   "conversation": {
+    "accepted": true,
+    "status": "completed",
+    "error": null,
+    "model": "openai/gpt-oss-120b",
+    "output": [
+     "reasoning",
+     "message"
+    ]
+   },
+   "streamUnknownModel": {
+    "accepted": false,
+    "error": {
+     "class": "BadRequestError",
+     "status": 400,
+     "code": 400,
+     "message": "400 askdare-spike/no-such-model is not a valid model ID",
+     "bodyKeys": [
+      "message",
+      "code"
+     ],
+     "mapped": {
+      "code": "upstream_error"
+     }
+    }
+   }
+  },
+  "overflow": {
+   "disabled": {
+    "accepted": false,
+    "error": {
+     "class": "BadRequestError",
+     "status": 400,
+     "code": 400,
+     "message": "400 This endpoint's maximum context length is 131072 tokens. However, you requested about 154053 tokens (154003 of text input, 50 in the output). Please reduce the length of the input, or use the context-compression plugin to compress your prompt automatically.",
+     "bodyKeys": [
+      "message",
+      "code",
+      "metadata"
+     ],
+     "mapped": {
+      "code": "upstream_error"
+     }
+    }
+   },
+   "auto": {
+    "accepted": false,
+    "error": {
+     "class": "BadRequestError",
+     "status": 400,
+     "code": 400,
+     "message": "400 This endpoint's maximum context length is 131072 tokens. However, you requested about 154053 tokens (154003 of text input, 50 in the output). Please reduce the length of the input, or use the context-compression plugin to compress your prompt automatically.",
+     "bodyKeys": [
+      "message",
+      "code",
+      "metadata"
+     ],
+     "mapped": {
+      "code": "upstream_error"
+     }
+    }
+   }
+  },
+  "conversation": {
+   "turnsOk": 20,
+   "errors": [],
+   "turns": [
+    {
+     "turn": 1,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [],
+     "firstTextMs": 412,
+     "usage": {
+      "inputTokens": 638,
+      "cachedInputTokens": 64,
+      "cacheWriteTokens": 0,
+      "outputTokens": 48,
+      "reasoningTokens": 25,
+      "reportedCostUsd": 0.0000439
+     },
+     "perStepCached": [
+      "64/638"
+     ],
+     "cacheHitRatio": 0.1,
+     "replies": 0,
+     "historyItems": 3,
+     "usd": 0.00004,
+     "listUsd": 0.00012,
+     "answer": "Hello Alex! How can I help you with Brightloop today?"
+    },
+    {
+     "turn": 2,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge"
+     ],
+     "firstTextMs": 592,
+     "usage": {
+      "inputTokens": 1749,
+      "cachedInputTokens": 1248,
+      "cacheWriteTokens": 0,
+      "outputTokens": 314,
+      "reasoningTokens": 80,
+      "reportedCostUsd": 0.00016595
+     },
+     "perStepCached": [
+      "608/667",
+      "640/1082"
+     ],
+     "cacheHitRatio": 0.714,
+     "replies": 0,
+     "historyItems": 9,
+     "usd": 0.00017,
+     "listUsd": 0.00045,
+     "answer": "Brightloop offers three plans:\n\n| Plan | Price | Users | Key features |\n|------|-------|-------|--------------|\n| **Free** | €0 | Up to 3 members | Unlimited pr"
+    },
+    {
+     "turn": 3,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [],
+     "firstTextMs": 382,
+     "usage": {
+      "inputTokens": 1284,
+      "cachedInputTokens": 640,
+      "cacheWriteTokens": 0,
+      "outputTokens": 104,
+      "reasoningTokens": 26,
+      "reportedCostUsd": 0.0000902
+     },
+     "perStepCached": [
+      "640/1284"
+     ],
+     "cacheHitRatio": 0.498,
+     "replies": 0,
+     "historyItems": 12,
+     "usd": 0.00009,
+     "listUsd": 0.00026,
+     "answer": "The Business plan costs **€15 per user per month** (prices are shown in euros, excluding VAT)【untrusted_tool_result.results[0].text】.\n\n**Suggested next steps**\n"
+    },
+    {
+     "turn": 4,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "get_exchange_rate"
+     ],
+     "firstTextMs": 229,
+     "usage": {
+      "inputTokens": 2820,
+      "cachedInputTokens": 2608,
+      "cacheWriteTokens": 0,
+      "outputTokens": 109,
+      "reasoningTokens": 30,
+      "reportedCostUsd": 0.00016825
+     },
+     "perStepCached": [
+      "1264/1370",
+      "1344/1450"
+     ],
+     "cacheHitRatio": 0.925,
+     "replies": 0,
+     "historyItems": 17,
+     "usd": 0.00017,
+     "listUsd": 0.00049,
+     "answer": "I’m sorry, but I can’t retrieve the current exchange rate at the moment. If you need an approximate conversion, you could check a reliable currency‑exchange sit"
+    },
+    {
+     "turn": 5,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "get_current_time"
+     ],
+     "firstTextMs": 265,
+     "usage": {
+      "inputTokens": 3103,
+      "cachedInputTokens": 2832,
+      "cacheWriteTokens": 0,
+      "outputTokens": 114,
+      "reasoningTokens": 27,
+      "reportedCostUsd": 0.00018365
+     },
+     "perStepCached": [
+      "1344/1505",
+      "1488/1598"
+     ],
+     "cacheHitRatio": 0.913,
+     "replies": 0,
+     "historyItems": 22,
+     "usd": 0.00018,
+     "listUsd": 0.00053,
+     "answer": "It’s currently **Saturday, 21 November 2026, 15:05 CET** in Warsaw.\n\n**Suggested follow‑up**\n\n- “What are the support hours in Warsaw?”\n- “Can I set my project "
+    },
+    {
+     "turn": 6,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge"
+     ],
+     "firstTextMs": 288,
+     "usage": {
+      "inputTokens": 3644,
+      "cachedInputTokens": 3120,
+      "cacheWriteTokens": 0,
+      "outputTokens": 153,
+      "reasoningTokens": 30,
+      "reportedCostUsd": 0.00022045000000000002
+     },
+     "perStepCached": [
+      "1488/1656",
+      "1632/1988"
+     ],
+     "cacheHitRatio": 0.856,
+     "replies": 0,
+     "historyItems": 27,
+     "usd": 0.00022,
+     "listUsd": 0.00064,
+     "answer": "Brightloop’s support team is available **Monday to Friday, 9:00 – 17:00 CET** (excluding Polish public holidays)【untrusted_tool_result.results[1].text】. Since i"
+    },
+    {
+     "turn": 7,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge"
+     ],
+     "firstTextMs": 292,
+     "usage": {
+      "inputTokens": 4506,
+      "cachedInputTokens": 1696,
+      "cacheWriteTokens": 0,
+      "outputTokens": 205,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.00039174999999999995
+     },
+     "perStepCached": [
+      "64/2079",
+      "1632/2427"
+     ],
+     "cacheHitRatio": 0.376,
+     "replies": 0,
+     "historyItems": 32,
+     "usd": 0.00039,
+     "listUsd": 0.0008,
+     "answer": "You can reach Brightloop support in three ways:\n\n1. **In the app** – go to **Help → Contact support**. This is the fastest option because it automatically inclu"
+    },
+    {
+     "turn": 8,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge"
+     ],
+     "firstTextMs": 586,
+     "usage": {
+      "inputTokens": 5536,
+      "cachedInputTokens": 4192,
+      "cacheWriteTokens": 0,
+      "outputTokens": 155,
+      "reasoningTokens": 27,
+      "reportedCostUsd": 0.00031555
+     },
+     "perStepCached": [
+      "1632/2578",
+      "2560/2958"
+     ],
+     "cacheHitRatio": 0.757,
+     "replies": 0,
+     "historyItems": 37,
+     "usd": 0.00032,
+     "listUsd": 0.00092,
+     "answer": "All Brightloop customer data is hosted **within the European Union**, specifically in data centres in **Frankfurt (primary)** and **Amsterdam (backup)**. The da"
+    },
+    {
+     "turn": 9,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [],
+     "firstTextMs": 413,
+     "usage": {
+      "inputTokens": 3059,
+      "cachedInputTokens": 2560,
+      "cacheWriteTokens": 0,
+      "outputTokens": 126,
+      "reasoningTokens": 29,
+      "reportedCostUsd": 0.00018445
+     },
+     "perStepCached": [
+      "2560/3059"
+     ],
+     "cacheHitRatio": 0.837,
+     "replies": 0,
+     "historyItems": 40,
+     "usd": 0.00018,
+     "listUsd": 0.00053,
+     "answer": "Yes. Brightloop can sign a **GDPR Data‑Processing Agreement (DPA)** with any paying customer on request, and all data is stored within the EU under strict secur"
+    },
+    {
+     "turn": 10,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [],
+     "firstTextMs": 475,
+     "usage": {
+      "inputTokens": 3162,
+      "cachedInputTokens": 3040,
+      "cacheWriteTokens": 0,
+      "outputTokens": 136,
+      "reasoningTokens": 45,
+      "reportedCostUsd": 0.0001921
+     },
+     "perStepCached": [
+      "3040/3162"
+     ],
+     "cacheHitRatio": 0.961,
+     "replies": 0,
+     "historyItems": 43,
+     "usd": 0.00019,
+     "listUsd": 0.00056,
+     "answer": "Yes—Brightloop provides **SAML‑based Single Sign‑On (SSO)**, which is included in the **Business plan**【untrusted_tool_result.results[0].text】.\n\n**Suggested nex"
+    },
+    {
+     "turn": 11,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [],
+     "firstTextMs": 456,
+     "usage": {
+      "inputTokens": 3259,
+      "cachedInputTokens": 3136,
+      "cacheWriteTokens": 0,
+      "outputTokens": 117,
+      "reasoningTokens": 33,
+      "reportedCostUsd": 0.0001922
+     },
+     "perStepCached": [
+      "3136/3259"
+     ],
+     "cacheHitRatio": 0.962,
+     "replies": 0,
+     "historyItems": 46,
+     "usd": 0.00019,
+     "listUsd": 0.00056,
+     "answer": "The **Business plan** includes SAML‑based Single Sign‑On (SSO)【untrusted_tool_result.results[0].text】. \n\n**Suggested next steps**\n\n- “How do I set up SSO for my"
+    },
+    {
+     "turn": 12,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [],
+     "firstTextMs": 1034,
+     "usage": {
+      "inputTokens": 3626,
+      "cachedInputTokens": 64,
+      "cacheWriteTokens": 0,
+      "outputTokens": 220,
+      "reasoningTokens": 59,
+      "reportedCostUsd": 0.00014618
+     },
+     "perStepCached": [
+      "64/3626"
+     ],
+     "cacheHitRatio": 0.018,
+     "replies": 0,
+     "historyItems": 49,
+     "usd": 0.00015,
+     "listUsd": 0.00068,
+     "answer": "Yes—you can try the Business plan (and its SSO feature) **free for 14 days**. The trial starts automatically from the moment you enable the plan in your workspa"
+    },
+    {
+     "turn": 13,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [],
+     "firstTextMs": 932,
+     "usage": {
+      "inputTokens": 3526,
+      "cachedInputTokens": 48,
+      "cacheWriteTokens": 0,
+      "outputTokens": 241,
+      "reasoningTokens": 143,
+      "reportedCostUsd": 0.00023655
+     },
+     "perStepCached": [
+      "48/3526"
+     ],
+     "cacheHitRatio": 0.014,
+     "replies": 0,
+     "historyItems": 52,
+     "usd": 0.00024,
+     "listUsd": 0.00067,
+     "answer": "I’m sorry, but Brightloop’s documentation doesn’t mention a “Starter” plan. The available plans are:\n\n| Plan | Users |\n|------|-------|\n| **Free** | Up to 3 use"
+    },
+    {
+     "turn": 14,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge"
+     ],
+     "firstTextMs": 618,
+     "usage": {
+      "inputTokens": 7615,
+      "cachedInputTokens": 7104,
+      "cacheWriteTokens": 0,
+      "outputTokens": 207,
+      "reasoningTokens": 107,
+      "reportedCostUsd": 0.00043250000000000005
+     },
+     "perStepCached": [
+      "3504/3630",
+      "3600/3985"
+     ],
+     "cacheHitRatio": 0.933,
+     "replies": 0,
+     "historyItems": 58,
+     "usd": 0.00043,
+     "listUsd": 0.00127,
+     "answer": "I’m sorry, but the documentation I have doesn’t mention an API for Brightloop, so I can’t confirm whether one is available.\n\n**Suggested next steps**\n\n- “Can yo"
+    },
+    {
+     "turn": 15,
+     "reason": "completed",
+     "steps": 2,
+     "tools": [
+      "search_knowledge"
+     ],
+     "firstTextMs": 465,
+     "usage": {
+      "inputTokens": 8521,
+      "cachedInputTokens": 7632,
+      "cacheWriteTokens": 0,
+      "outputTokens": 227,
+      "reasoningTokens": 36,
+      "reportedCostUsd": 0.0004828
+     },
+     "perStepCached": [
+      "3600/4056",
+      "4032/4465"
+     ],
+     "cacheHitRatio": 0.896,
+     "replies": 0,
+     "historyItems": 63,
+     "usd": 0.00048,
+     "listUsd": 0.00141,
+     "answer": "You can cancel your Brightloop subscription at any time in **Settings → Billing**. When you cancel:\n\n* Your plan rights end at the end of the current billing pe"
+    },
+    {
+     "turn": 16,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [],
+     "firstTextMs": 457,
+     "usage": {
+      "inputTokens": 4621,
+      "cachedInputTokens": 4032,
+      "cacheWriteTokens": 0,
+      "outputTokens": 110,
+      "reasoningTokens": 26,
+      "reportedCostUsd": 0.00025855
+     },
+     "perStepCached": [
+      "4032/4621"
+     ],
+     "cacheHitRatio": 0.873,
+     "replies": 0,
+     "historyItems": 66,
+     "usd": 0.00026,
+     "listUsd": 0.00076,
+     "answer": "Yes. All Brightloop data is encrypted **at rest with AES‑256** and in transit with TLS 1.3【untrusted_tool_result.results[2].text】.\n\n**Suggested next steps**\n\n- "
+    },
+    {
+     "turn": 17,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [],
+     "firstTextMs": 929,
+     "usage": {
+      "inputTokens": 4710,
+      "cachedInputTokens": 4592,
+      "cacheWriteTokens": 0,
+      "outputTokens": 215,
+      "reasoningTokens": 116,
+      "reportedCostUsd": 0.00028925
+     },
+     "perStepCached": [
+      "4592/4710"
+     ],
+     "cacheHitRatio": 0.975,
+     "replies": 0,
+     "historyItems": 69,
+     "usd": 0.00029,
+     "listUsd": 0.00084,
+     "answer": "Yes—you can choose a **yearly billing cycle**. Paying yearly gives you a **20 % discount** on the Team and Business plans【untrusted_tool_result.results[0].text】"
+    },
+    {
+     "turn": 18,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [],
+     "firstTextMs": 1828,
+     "usage": {
+      "inputTokens": 4856,
+      "cachedInputTokens": 64,
+      "cacheWriteTokens": 0,
+      "outputTokens": 213,
+      "reasoningTokens": 101,
+      "reportedCostUsd": 0.000185511
+     },
+     "perStepCached": [
+      "64/4856"
+     ],
+     "cacheHitRatio": 0.013,
+     "replies": 0,
+     "historyItems": 72,
+     "usd": 0.00019,
+     "listUsd": 0.00086,
+     "answer": "Yes. Registered non‑profits (and schools) receive a **50 % discount on the Business plan**. To get the discount you need to contact our support team and provide"
+    },
+    {
+     "turn": 19,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [],
+     "firstTextMs": 723,
+     "usage": {
+      "inputTokens": 4942,
+      "cachedInputTokens": 4688,
+      "cacheWriteTokens": 0,
+      "outputTokens": 301,
+      "reasoningTokens": 83,
+      "reportedCostUsd": 0.00032235
+     },
+     "perStepCached": [
+      "4688/4942"
+     ],
+     "cacheHitRatio": 0.949,
+     "replies": 0,
+     "historyItems": 75,
+     "usd": 0.00032,
+     "listUsd": 0.00092,
+     "answer": "For a team of **12 members**, the **Team plan** is the most appropriate:\n\n| Plan | Max users | Price | Key features for a 12‑person team |\n|------|----------|--"
+    },
+    {
+     "turn": 20,
+     "reason": "completed",
+     "steps": 1,
+     "tools": [],
+     "firstTextMs": 1059,
+     "usage": {
+      "inputTokens": 5248,
+      "cachedInputTokens": 0,
+      "cacheWriteTokens": 0,
+      "outputTokens": 27,
+      "reasoningTokens": 0,
+      "reportedCostUsd": 0.00076037
+     },
+     "perStepCached": [
+      "0/5248"
+     ],
+     "cacheHitRatio": 0,
+     "replies": 0,
+     "historyItems": 77,
+     "usd": 0.00076,
+     "listUsd": 0.0008,
+     "answer": "You’re welcome, Alex! If you have any more questions later, just let me know. Have a great day!"
+    }
+   ],
+   "total": {
+    "inputTokens": 80425,
+    "cachedInputTokens": 53360,
+    "cacheWriteTokens": 0,
+    "outputTokens": 3342,
+    "reasoningTokens": 1023,
+    "reportedCostUsd": 0.005262511
+   },
+   "usd": 0.0053,
+   "listUsd": 0.0141,
+   "sameTokensAtTerraPrices": 0.0464,
+   "perTurnUsd": 0.00026,
+   "cacheHitRatio": 0.663,
+   "medianFirstTextMs": 470
+  }
+ }
+}
