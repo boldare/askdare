@@ -1,5 +1,13 @@
 # @boldare/askdare
 
+## 0.5.1
+
+### Patch Changes
+
+- 87d0133: The `jose` dependency, which encrypts the resume token, is updated to 6.2.18.
+- da8f8dc: Answers render more Markdown correctly: the bundled `marked` is updated to 18.2.1, with fixes for block quotes and lists with lazy lines, tabs, link destinations, bracket escapes in code spans, task-list markers and trailing blank lines in fenced code. `@boldare/askdare/react` grows by about 0.5 KB gzipped; its size budget is now 34 KB (ADR-0028).
+- 5b84434: The `openai` dependency is updated to 7.62.0 (from 7.56.0). Nothing changes in how askdare calls the API.
+
 ## 0.5.0
 
 ### Minor Changes
