@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { type Bot, createBot } from '../bot/define-bot';
+import { type FakeConversations, fakeConversations } from '../conversations/testing/fake-store';
 import { AskdareError } from '../errors';
 import type { ModelGateway, TurnRequest, TurnResult } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
@@ -32,22 +33,22 @@ const COMPLETED: TurnResult = {
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 function fakeGateway(runTurn: (request: TurnRequest) => Promise<TurnResult>): ModelGateway & {
-  created: string[];
+  /** The conversations the turn created, as `bot/owner`. */
+  readonly created: string[];
   requests: TurnRequest[];
+  conversations: FakeConversations;
 } {
-  const created: string[] = [];
+  const conversations = fakeConversations();
   const requests: TurnRequest[] = [];
   return {
-    created,
-    requests,
-    createConversation: async ({ botId, visitorId }) => {
-      created.push(`${botId}/${visitorId}`);
-      return 'conv_new';
+    get created() {
+      return conversations.created.map(({ botId, owner }) => `${botId}/${owner}`);
     },
-    deleteConversation: async () => {},
+    requests,
+    conversations,
     uploadFile: async () => 'file-1',
+    deleteFiles: async () => {},
     transcribe: async () => ({ text: '', seconds: 0 }),
-    listMessages: async () => [],
     diagnose: async () => [],
     runTurn: (request) => {
       requests.push(request);
@@ -77,8 +78,12 @@ async function collect(stream: ReadableStream<Uint8Array>): Promise<{
 
 function options(overrides: Partial<StreamTurnOptions> = {}): StreamTurnOptions {
   let id = 0;
+  const gateway = overrides.gateway ?? fakeGateway(async () => COMPLETED);
   return {
-    gateway: fakeGateway(async () => COMPLETED),
+    gateway,
+    conversations:
+      (gateway as Partial<ReturnType<typeof fakeGateway>>).conversations ?? fakeConversations(),
+    owner: 'visitor:visitor-1',
     bot,
     text: 'Hello',
     context: { locale: 'en' },
@@ -109,7 +114,7 @@ describe('streamTurn', () => {
       { type: 'text.delta', messageId: 'id_2', delta: 'Hi!' },
       { type: 'message.end', messageId: 'id_2', reason: 'completed' },
     ]);
-    expect(gateway.created).toEqual(['support/visitor-1']);
+    expect(gateway.created).toEqual(['support/visitor:visitor-1']);
     expect(onUsage).toHaveBeenCalledWith(COMPLETED.usage, 'conv_new');
   });
 
@@ -418,13 +423,7 @@ describe('streamTurn', () => {
 
   it('deletes a new conversation when the visitor leaves while its handle is issued', async () => {
     const visitor = new AbortController();
-    const deleted: string[] = [];
-    const gateway = {
-      ...fakeGateway(async () => COMPLETED),
-      deleteConversation: async (id: string) => {
-        deleted.push(id);
-      },
-    };
+    const gateway = fakeGateway(async () => COMPLETED);
     await collect(
       streamTurn(
         options({
@@ -437,7 +436,7 @@ describe('streamTurn', () => {
         }),
       ),
     );
-    expect(deleted).toEqual(['conv_new']);
+    expect(gateway.conversations.deleted).toEqual(['conv_new']);
     expect(gateway.requests).toEqual([]);
   });
 
@@ -456,19 +455,15 @@ describe('streamTurn', () => {
 
   it('deletes a new conversation whose handle never reached the visitor', async () => {
     const visitor = new AbortController();
-    const deleted: string[] = [];
-    const gateway = {
-      ...fakeGateway(async () => COMPLETED),
-      createConversation: async () => {
+    const gateway = fakeGateway(async () => COMPLETED);
+    const conversations = fakeConversations({
+      id: () => {
         visitor.abort();
         return 'conv_orphan';
       },
-      deleteConversation: async (id: string) => {
-        deleted.push(id);
-      },
-    };
-    await collect(streamTurn(options({ gateway, signal: visitor.signal })));
-    expect(deleted).toEqual(['conv_orphan']);
+    });
+    await collect(streamTurn(options({ gateway, conversations, signal: visitor.signal })));
+    expect(conversations.deleted).toEqual(['conv_orphan']);
     expect(gateway.requests).toEqual([]);
   });
 

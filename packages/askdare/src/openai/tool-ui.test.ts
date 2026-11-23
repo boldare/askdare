@@ -7,6 +7,7 @@ import type { ModelGateway } from '../gateway';
 import type { ProtocolEvent, ToolUiEvent } from '../protocol/events';
 import { defineTool, type Tool } from '../tools/define-tool';
 import { createOpenAIGateway } from './gateway';
+import { testConversations } from './testing/conversations';
 import {
   type FixtureEvent,
   OPENAI_TEST_BASE_URL,
@@ -18,6 +19,7 @@ import {
 // Tool UI payloads in a live turn (ADR-0017).
 const server = setupServer();
 let gateway: ModelGateway;
+const conversations = testConversations();
 beforeAll(() => {
   server.listen({ onUnhandledFrame: 'error' });
   gateway = createOpenAIGateway({
@@ -121,6 +123,7 @@ async function run(tools: readonly Tool[], maxSteps = 4): Promise<ProtocolEvent[
   await gateway.runTurn({
     bot,
     conversationId: 'conv_1',
+    conversations: conversations.store,
     text: 'Book a call',
     context: { locale: 'en' },
     safetyIdentifier: 'h'.repeat(64),

@@ -1,5 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createBot } from '../bot/define-bot';
+import { fakeConversations } from '../conversations/testing/fake-store';
 import { AskdareError } from '../errors';
 import type { ModelGateway } from '../gateway';
 import { createLimits } from '../limits/limits';
@@ -71,6 +72,7 @@ beforeEach(() => {
     basePath: '/api/chat',
     assets,
     gateway: () => gateway,
+    conversations: fakeConversations(),
     tokens: async () => tokens,
     limits: createLimits({ store: memoryStore() }),
     clientIp: (request) => request.headers.get('x-test-ip') ?? 'test',

@@ -1,8 +1,8 @@
 import type { AttachmentKind } from './attachments/files';
 import type { Bot, BotContext } from './bot/define-bot';
+import type { ConversationStore } from './conversations/port';
 import type { DoctorCheck } from './protocol/doctor';
 import type { MessageEndReason, ProtocolEvent } from './protocol/events';
-import type { HistoryMessage } from './protocol/history';
 import type { ToolUi } from './protocol/tool-ui';
 
 export interface TokenUsage {
@@ -30,11 +30,6 @@ export interface ToolCallRecord {
   readonly startedAt: number;
   readonly durationMs: number;
   readonly outcome: 'ok' | 'error' | 'timeout';
-}
-
-export interface ConversationMetadata {
-  readonly botId: string;
-  readonly visitorId: string;
 }
 
 /** A file from a verified attachment handle, never an ID taken from the client. */
@@ -71,6 +66,8 @@ export interface TranscriptionResult {
 export interface TurnRequest {
   readonly bot: Bot;
   readonly conversationId: string;
+  /** Where the conversation lives; the turn appends what the server writes itself to it. */
+  readonly conversations: ConversationStore;
   /** May be empty when the message only carries attachments. */
   readonly text: string;
   readonly attachments?: readonly TurnAttachment[];
@@ -163,43 +160,19 @@ export interface DiagnoseRequest {
 
 /**
  * Everything the server needs from the model provider. The OpenAI implementation lives in
- * `src/openai/`; nothing else may depend on the `openai` package (ADR-0002).
+ * `src/openai/`; nothing else may depend on the `openai` package (ADR-0002). Conversations live
+ * in a `ConversationStore` (ADR-0024).
  */
 export interface ModelGateway {
-  createConversation(metadata: ConversationMetadata, signal?: AbortSignal): Promise<string>;
-  /** Deletes the conversation and, with `withFiles`, the files its visitor attached. */
-  deleteConversation(
-    conversationId: string,
-    options?: { readonly withFiles?: boolean },
-  ): Promise<void>;
   /** Stores a visitor's file as model input and returns its ID. Files expire after 30 days. */
   uploadFile(upload: UploadRequest): Promise<string>;
+  /** Deletes visitors' files, such as those of a deleted conversation. Best effort. */
+  deleteFiles(fileIds: readonly string[]): Promise<void>;
   /** Turns recorded speech into text. Nothing is stored. */
   transcribe(request: TranscriptionRequest): Promise<TranscriptionResult>;
-  /**
-   * Visible messages of a conversation, oldest first; the latest answer with its options, and
-   * every answer with its turn's UI payloads.
-   */
-  listMessages(
-    conversationId: string,
-    signal?: AbortSignal,
-    replies?: RepliesReader,
-    ui?: UiReader,
-    /** For bots with output checks: show only answers a note settled (ADR-0022). */
-    checked?: boolean,
-  ): Promise<readonly HistoryMessage[]>;
   runTurn(request: TurnRequest): Promise<TurnResult>;
   /** Classifies texts for `moderation` (ADR-0019). Absent: moderation is unavailable and skipped. */
   moderate?(request: ModerationRequest): Promise<ModerationResult>;
-  /**
-   * Records what output checks decided about the latest answer, so the history shows only answers
-   * that passed, or their replacement, and the model doesn't repeat a withheld one (ADR-0022).
-   */
-  settleAnswer?(
-    conversationId: string,
-    verdict: AnswerVerdict,
-    signal?: AbortSignal,
-  ): Promise<void>;
   /** Small live requests that show whether the key, model and stores work (`askdare doctor`). */
   diagnose(request: DiagnoseRequest): Promise<readonly DoctorCheck[]>;
 }

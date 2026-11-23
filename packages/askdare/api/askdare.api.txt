@@ -556,36 +556,22 @@ interface BotHandle {
  * visitor's message.
  */
 declare function defineBot(definition: BotDefinition): BotHandle;
-/** Result of incrementing a fixed-window counter. */
-interface CounterHit {
-  /** Counter value after the increment. */
-  readonly count: number;
-  /** Milliseconds until the window resets. */
-  readonly resetMs: number;
-}
-/**
- * Shared counter storage behind rate limits and budgets. The in-memory default works for a single
- * instance; multi-instance deployments (Vercel, several dynos) need a shared store such as
- * `@boldare/askdare-upstash`. Implementations must be atomic per key.
- */
-interface RateLimitStore {
-  /**
-   * Adds `amount` to `key`, starting a `windowMs` window if none is open. `0` reads without
-   * changing; negative amounts refund.
-   */
-  hit(key: string, windowMs: number, amount: number): Promise<CounterHit>;
-  /** True for stores that are shared across server instances. */
-  readonly shared: boolean;
-}
 /** Stable error codes sent to clients. The accompanying message never contains internals. */
 declare const ERROR_CODES: readonly ["invalid_input", "unauthorized", "session_expired", "not_found", "rate_limited", "budget_exceeded", "bot_unavailable", "content_blocked", "timeout", "upstream_error", "internal_error"];
 type ErrorCode = (typeof ERROR_CODES)[number];
 declare const MESSAGE_END_REASONS: readonly ["completed", "max_steps", "max_output_tokens", "timeout", "content_filter", "aborted"];
 type MessageEndReason = (typeof MESSAGE_END_REASONS)[number];
-export { ThemeVariants as A, ToolDefinition as C, defineTheme as D, ThemeDefinition as E, HumanChallenge as M, HumanCheckContext as N, PresetName as O, HumanVerifier as P, ToolContext as S, ColorScheme as T, GuardHook as _, RateLimitStore as a, ModerationConfig as b, BotDefinition as c, BotSecurity as d, KnowledgeConfig as f, GuardContext as g, defineBot as h, CounterHit as i, VisitorIdentity as j, ThemeTokens as k, BotHandle as l, WidgetConfig as m, ErrorCode as n, AttachmentConfig as o, VoiceConfig as p, MessageEndReason as r, BotContext as s, ERROR_CODES as t, BotLimits as u, GuardVerdict as v, defineTool as w, Tool as x, GuardrailOptions as y };
+export { HumanChallenge as A, ColorScheme as C, ThemeTokens as D, PresetName as E, HumanVerifier as M, ThemeVariants as O, defineTool as S, defineTheme as T, GuardrailOptions as _, BotContext as a, ToolContext as b, BotLimits as c, VoiceConfig as d, WidgetConfig as f, GuardVerdict as g, GuardHook as h, AttachmentConfig as i, HumanCheckContext as j, VisitorIdentity as k, BotSecurity as l, GuardContext as m, ErrorCode as n, BotDefinition as o, defineBot as p, MessageEndReason as r, BotHandle as s, ERROR_CODES as t, KnowledgeConfig as u, ModerationConfig as v, ThemeDefinition as w, ToolDefinition as x, Tool as y };
 
 // ==== index.d.ts ====
-import { A as ThemeVariants, C as ToolDefinition, D as defineTheme, E as ThemeDefinition, M as HumanChallenge, N as HumanCheckContext, O as PresetName, P as HumanVerifier, S as ToolContext, T as ColorScheme, _ as GuardHook, a as RateLimitStore, b as ModerationConfig, c as BotDefinition, d as BotSecurity, f as KnowledgeConfig, g as GuardContext, h as defineBot, i as CounterHit, j as VisitorIdentity, k as ThemeTokens, l as BotHandle, m as WidgetConfig, n as ErrorCode, o as AttachmentConfig, p as VoiceConfig, s as BotContext, t as ERROR_CODES, u as BotLimits, v as GuardVerdict, w as defineTool, x as Tool, y as GuardrailOptions } from "./events.js";
+import { A as HumanChallenge, C as ColorScheme, D as ThemeTokens, E as PresetName, M as HumanVerifier, O as ThemeVariants, S as defineTool, T as defineTheme, _ as GuardrailOptions, a as BotContext, b as ToolContext, c as BotLimits, d as VoiceConfig, f as WidgetConfig, g as GuardVerdict, h as GuardHook, i as AttachmentConfig, j as HumanCheckContext, k as VisitorIdentity, l as BotSecurity, m as GuardContext, n as ErrorCode, o as BotDefinition, p as defineBot, s as BotHandle, t as ERROR_CODES, u as KnowledgeConfig, v as ModerationConfig, w as ThemeDefinition, x as ToolDefinition, y as Tool } from "./events.js";
+import { a as ConversationOwner, c as ConversationStoreCheck, d as StoredItem, f as StoredPart, i as ConversationInfo, l as PositionedItem, n as RateLimitStore, o as ConversationPage, p as VersionConflictError, r as ConversationContext, s as ConversationStore, t as CounterHit, u as StoredCitation } from "./store.js";
+/**
+ * Conversations in this process's memory, for tests and local development. Every instance has its
+ * own, and a restart forgets them, so production warns. It is an item store: turns replay its
+ * items statelessly.
+ */
+export declare function memoryConversations(): ConversationStore;
 /**
  * Version of the SSE wire protocol between the askdare server and its clients.
  * Bumped on any breaking change to event names or payloads (ADR-0006).
@@ -617,10 +603,11 @@ interface TurnstileOptions {
  * ```
  */
 export declare function turnstile(options: TurnstileOptions): HumanVerifier;
-export { type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type CounterHit, ERROR_CODES, type ErrorCode, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type HumanChallenge, type HumanCheckContext, type HumanVerifier, type KnowledgeConfig, type ModerationConfig, type PresetName, type RateLimitStore, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type TurnstileOptions, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
+export { type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type ConversationContext, type ConversationInfo, type ConversationOwner, type ConversationPage, type ConversationStore, type ConversationStoreCheck, type CounterHit, ERROR_CODES, type ErrorCode, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type HumanChallenge, type HumanCheckContext, type HumanVerifier, type KnowledgeConfig, type ModerationConfig, type PositionedItem, type PresetName, type RateLimitStore, type StoredCitation, type StoredItem, type StoredPart, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type TurnstileOptions, VersionConflictError, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
 
 // ==== next.d.ts ====
-import { A as ThemeVariants, O as PresetName, a as RateLimitStore, j as VisitorIdentity, l as BotHandle, n as ErrorCode, r as MessageEndReason } from "./events.js";
+import { E as PresetName, O as ThemeVariants, k as VisitorIdentity, n as ErrorCode, r as MessageEndReason, s as BotHandle } from "./events.js";
+import { n as RateLimitStore, s as ConversationStore } from "./store.js";
 /** What a visitor may attach, as the bot allows it. */
 interface ChatAttachments {
   readonly images: boolean;
@@ -707,6 +694,24 @@ interface EmbedChatConfig extends ChatConfig {
  * Never expose `next start` without a proxy in front: the client then controls these headers.
  */
 type TrustProxy = "auto" | "vercel" | "heroku" | number;
+interface OpenAIConversationsOptions {
+  /**
+   * The key of the OpenAI project the conversations live in. Default `process.env.OPENAI_API_KEY`,
+   * read on first use.
+   */
+  readonly apiKey?: string;
+}
+/**
+ * Conversations stored by OpenAI's Conversations API, askdare's default (ADR-0003). A provider
+ * store: the model's items are recorded during each turn, so `context()` returns a reference and
+ * askdare appends only what the server writes itself, such as notes of output checks. No database
+ * is needed; OpenAI keeps the conversations until they are deleted, and they can't be swept.
+ *
+ * ```ts
+ * createChatHandler({ bots, conversations: openaiConversations() });
+ * ```
+ */
+export declare function openaiConversations(options?: OpenAIConversationsOptions): ConversationStore;
 /** One rating, as `onFeedback` receives it (ADR-0012). */
 interface ChatFeedbackReport {
   readonly bot: string;
@@ -792,6 +797,11 @@ interface ChatHandlerOptions {
    */
   readonly identitySecret?: string;
   readonly limits?: ChatHandlerLimitsOptions;
+  /**
+   * Where conversations are stored (ADR-0024). Default `openaiConversations()`: OpenAI keeps them,
+   * with no database of yours. Chosen on the server only; the widget never picks it.
+   */
+  readonly conversations?: ConversationStore;
   /**
    * Called for every server error (status 500 and up), for an error that ends a streamed answer,
    * and once a day when a bot-wide or the global budget runs out, for your monitoring, such as Sentry.
@@ -931,7 +941,7 @@ export declare function embedPageHeaders(options: {
   readonly bots: readonly BotHandle[];
   readonly bot: string;
 }): EmbedPageHeader[];
-export type { ChatAttachments, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlers, ChatHumanCheck, ChatStyles, ChatTokenUsage, ChatToolCallReport, ChatUsageReport, ChatWidget, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, RouteHandler, TrustProxy };
+export type { ChatAttachments, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlers, ChatHumanCheck, ChatStyles, ChatTokenUsage, ChatToolCallReport, ChatUsageReport, ChatWidget, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, OpenAIConversationsOptions, RouteHandler, TrustProxy };
 
 // ==== react.d.ts ====
 
@@ -1457,6 +1467,267 @@ interface RootProps {
  */
 export declare function Root({ config, identity, context, greeting, starters, onEvent, toolRenderers, children }: RootProps): ReactElement;
 export { type AttachButtonProps, type Chat, type ChatActions, type ChatAttachments, type ChatBot, type ChatConfig, type ChatEvent, type ChatEventListener, type ChatEventType, type ChatHumanCheck, type ChatMessage, type ChatPhase, type ChatState, type ChatStyles, type ChatWidget, type Citation, type CitationsProps, type ComposerProps, type DefaultChatComponents, type DefaultChatProps, type DictateButtonProps, type Dictation, type DisclosureProps, type ErrorMessageProps, type FeedbackButtonProps, type FilesProps, type Frame, type HumanCheckProps, type InputProps, Link, type LinkProps, type MarkdownProps, type MessageFilesProps, type MessageListProps, type MessageProps, type MessageTextProps, type MessagesProps, type PanelProps, type PendingFile, type QuickRepliesProps, type Rating, type RecorderProps, type RootProps, type SendProps, type SentFile, type StatusProps, type ThemeProps, type ToolRendererProps, type ToolRenderers, ToolResults, type ToolResultsProps, type ToolUi, type Translate };
+
+// ==== store.d.ts ====
+/**
+ * The `ConversationStore` port (ADR-0024): where conversations live. `openaiConversations()` keeps
+ * them at OpenAI (the default), `memoryConversations()` in memory for tests, and add-ons such as
+ * `@boldare/askdare-postgres` in a database. Nothing here depends on a model provider: the mapping
+ * between stored items and a provider's items lives with that provider (ADR-0002).
+ */
+/** Who may resume, read and delete a conversation (ADR-0009). */
+interface ConversationOwner {
+  readonly botId: string;
+  /**
+   * `visitor:<id>` for an anonymous visitor, `user:<hmac>` for a signed-in user. Opaque to the
+   * store: it stores and returns the string, and the server compares it.
+   */
+  readonly owner: string;
+}
+/** A stored conversation, as `info()` describes it. */
+interface ConversationInfo extends ConversationOwner {
+  readonly id: string;
+  /** Epoch milliseconds. */
+  readonly createdAt: number;
+  /** Epoch milliseconds of the last append; retention counts from here. */
+  readonly updatedAt: number;
+  /** Sequence number of the last item, 0 while empty. `append`'s `expect` compares with it. */
+  readonly version: number;
+}
+/** Where a cited passage came from, stored with the text that cites it (ADR-0024, decision 8). */
+interface StoredCitation {
+  readonly title: string;
+  readonly url?: string | undefined;
+  /** The knowledge source's ID, when the passage came from the bot's knowledge base. */
+  readonly sourceId?: string | undefined;
+}
+/** One part of a stored message. */
+type StoredPart = {
+  readonly type: "text";
+  readonly text: string;
+  readonly citations?: readonly StoredCitation[] | undefined;
+} | {
+  readonly type: "page_context";
+  readonly text: string;
+} | {
+  readonly type: "file";
+  readonly fileId: string;
+  readonly kind: "image" | "pdf";
+  readonly name?: string | undefined;
+} | {
+  readonly type: "refusal";
+  readonly text: string;
+};
+/**
+ * One conversation item. Its `id` is chosen by the writer and unique within the conversation; a
+ * store that assigns its own IDs (OpenAI) may return others.
+ */
+type StoredItem = {
+  readonly id: string;
+  readonly type: "message";
+  readonly role: "user" | "assistant" | "developer";
+  /** Assistant text written before a tool call is `commentary`; the answer is `final_answer`. */
+  readonly phase?: "commentary" | "final_answer" | undefined;
+  readonly parts: readonly StoredPart[];
+} | {
+  readonly id: string;
+  readonly type: "call";
+  readonly callId: string;
+  readonly name: string;
+  /** JSON, as the model wrote it. */
+  readonly arguments: string;
+} | {
+  readonly id: string;
+  readonly type: "call_output";
+  readonly callId: string;
+  readonly output: string;
+} | {
+  readonly id: string;
+  readonly type: "native";
+  readonly provider: string;
+  readonly family?: string | undefined;
+  readonly data: unknown;
+};
+/** A stored item with its position in the conversation. */
+type PositionedItem = StoredItem & {
+  /** 1 for the first item; increases by one per item. */
+  readonly seq: number;
+  /** Epoch milliseconds of the append that wrote it; 0 when the store doesn't know. */
+  readonly at: number;
+};
+/** What the next model call reads to continue a conversation. */
+type ConversationContext = {
+  readonly kind: "provider";
+  readonly provider: string;
+  readonly ref: string;
+  readonly version: number;
+} | {
+  readonly kind: "items";
+  readonly items: readonly PositionedItem[];
+  readonly version: number;
+};
+/** One page of a conversation's items. */
+interface ConversationPage {
+  /** Oldest first. */
+  readonly items: readonly PositionedItem[];
+  /** Pass as `before` for the next older page; absent at the start of the conversation. */
+  readonly before?: string | undefined;
+}
+/** One finding of a store's `diagnose()`, shown by `askdare doctor`. Never contains secrets. */
+interface ConversationStoreCheck {
+  readonly status: "ok" | "warn" | "fail";
+  readonly title: string;
+  /** What to do about a warning or failure. */
+  readonly fix?: string | undefined;
+}
+/**
+ * Thrown by `append` when the conversation is no longer at the `expect`ed version: another turn
+ * wrote first. Nothing of the refused append is stored.
+ */
+declare class VersionConflictError extends Error {
+  readonly expected: number;
+  readonly actual: number;
+  constructor(expected: number, actual: number);
+}
+/**
+ * Where conversations live (ADR-0024). Every method that takes an ID answers an unknown or deleted
+ * conversation the same way: `info` with `undefined`, `delete` with no files, the others by
+ * throwing. Implementations never log stored content.
+ */
+interface ConversationStore {
+  /** Stable name for logs and diagnostics, such as `openai-conversations` or `postgres`. */
+  readonly name: string;
+  /** Creates an empty conversation and returns its ID. */
+  create(owner: ConversationOwner, signal?: AbortSignal): Promise<string>;
+  /** The conversation's bot and owner, which the server compares with the resume token's. */
+  info(id: string, signal?: AbortSignal): Promise<ConversationInfo | undefined>;
+  /**
+   * What the next model call reads. An item store returns the latest `maxItems` items at most,
+   * cut forward to a visitor message so a turn is never split.
+   */
+  context(id: string, options?: {
+    readonly maxItems?: number | undefined;
+    readonly signal?: AbortSignal | undefined;
+  }): Promise<ConversationContext>;
+  /**
+   * Appends items in order, all or none. With `expect`, throws {@link VersionConflictError} unless
+   * the conversation is still at that version. Resolves to the new version. An item ID already in
+   * the conversation is refused.
+   */
+  append(id: string, items: readonly StoredItem[], options?: {
+    readonly expect?: number | undefined;
+    readonly signal?: AbortSignal | undefined;
+  }): Promise<number>;
+  /** The newest items before `before` (all when absent), oldest first. `before` is opaque. */
+  page(id: string, options?: {
+    readonly before?: string | undefined;
+    readonly limit?: number | undefined;
+    readonly signal?: AbortSignal | undefined;
+  }): Promise<ConversationPage>;
+  /**
+   * Deletes the conversation and returns the IDs of the files its visitor attached, for the
+   * server to delete. Deleting an unknown conversation is not an error.
+   */
+  delete(id: string, signal?: AbortSignal): Promise<{
+    readonly fileIds: readonly string[];
+  }>;
+  /**
+   * Retention: deletes up to `limit` conversations with no append since `idleSince` (epoch
+   * milliseconds) and returns them, so the caller deletes their files too. Absent on stores that
+   * can't list their conversations (OpenAI).
+   */
+  sweep?(idleSince: number, limit: number): Promise<readonly {
+    readonly id: string;
+    readonly fileIds: readonly string[];
+  }[]>;
+  /** Small live checks for `askdare doctor`, such as a reachable database with the right schema. */
+  diagnose?(signal?: AbortSignal): Promise<readonly ConversationStoreCheck[]>;
+}
+/** Result of incrementing a fixed-window counter. */
+interface CounterHit {
+  /** Counter value after the increment. */
+  readonly count: number;
+  /** Milliseconds until the window resets. */
+  readonly resetMs: number;
+}
+/**
+ * Shared counter storage behind rate limits and budgets. The in-memory default works for a single
+ * instance; multi-instance deployments (Vercel, several dynos) need a shared store such as
+ * `@boldare/askdare-upstash`. Implementations must be atomic per key.
+ */
+interface RateLimitStore {
+  /**
+   * Adds `amount` to `key`, starting a `windowMs` window if none is open. `0` reads without
+   * changing; negative amounts refund.
+   */
+  hit(key: string, windowMs: number, amount: number): Promise<CounterHit>;
+  /** True for stores that are shared across server instances. */
+  readonly shared: boolean;
+}
+export { ConversationOwner as a, ConversationStoreCheck as c, StoredItem as d, StoredPart as f, ConversationInfo as i, PositionedItem as l, RateLimitStore as n, ConversationPage as o, VersionConflictError as p, ConversationContext as r, ConversationStore as s, CounterHit as t, StoredCitation as u };
+
+// ==== testing.d.ts ====
+import { n as RateLimitStore, s as ConversationStore } from "./store.js";
+/**
+ * The parts of a test runner the contract suites use. Vitest's and Jest's `describe`, `it` and
+ * `expect` fit, so `@boldare/askdare/testing` depends on no runner.
+ */
+interface ContractRunner {
+  readonly describe: (name: string, body: () => void) => void;
+  readonly it: (name: string, body: () => Promise<void>, timeout?: number) => void;
+  readonly expect: ContractExpect;
+}
+/** The assertions the contract suites make. */
+type ContractExpect = (actual: unknown) => {
+  toBe(expected: unknown): void;
+  toEqual(expected: unknown): void;
+  toBeInstanceOf(expected: abstract new (...args: never[]) => unknown): void;
+};
+interface ConversationStoreContractOptions extends ContractRunner {
+  /**
+   * `items` (default) for stores that keep the items themselves and replay them; `provider` for
+   * stores whose model provider keeps them (OpenAI Conversations), which have no versions.
+   */
+  readonly kind?: "items" | "provider" | undefined;
+  /** Items written for the paging test. Default 250; smaller for stores with network costs. */
+  readonly pagingItems?: number | undefined;
+  /** Page size in the paging test. Default 100. */
+  readonly pageSize?: number | undefined;
+  /** Two real file IDs, for stores that check them on append (OpenAI refuses unknown ones). */
+  readonly files?: (() => Promise<readonly [string, string]>) | undefined;
+  /** An ID the store has never issued. Default: a random UUID, or `conv_does_not_exist` for `provider`. */
+  readonly unknownId?: string | undefined;
+  /** Per-test timeout in milliseconds, for stores behind a network. Default: the runner's. */
+  readonly timeoutMs?: number | undefined;
+}
+/**
+ * The behaviour every `ConversationStore` must have (ADR-0024). Run it from your store's tests with
+ * your runner's `describe`, `it` and `expect`:
+ *
+ * ```ts
+ * import { conversationStoreContract } from '@boldare/askdare/testing';
+ * import { describe, expect, it } from 'vitest';
+ *
+ * conversationStoreContract('my store', () => myStore(), { describe, it, expect });
+ * ```
+ *
+ * Every conversation a test creates is deleted when it ends, also when it fails.
+ */
+export declare function conversationStoreContract(name: string, createStore: () => ConversationStore, options: ConversationStoreContractOptions): void;
+/**
+ * The behaviour every `RateLimitStore` must have, so the in-memory store and add-ons such as
+ * `@boldare/askdare-upstash` stay interchangeable. Run it with your runner's `describe`, `it` and
+ * `expect`:
+ *
+ * ```ts
+ * import { rateLimitStoreContract } from '@boldare/askdare/testing';
+ * import { describe, expect, it } from 'vitest';
+ *
+ * rateLimitStoreContract('my store', () => myStore(), { describe, it, expect });
+ * ```
+ */
+export declare function rateLimitStoreContract(name: string, create: () => RateLimitStore, runner: ContractRunner): void;
+export type { ContractExpect, ContractRunner, ConversationStoreContractOptions };
 
 // ==== tool-results.d.ts ====
 

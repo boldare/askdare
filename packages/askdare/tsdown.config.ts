@@ -3,7 +3,7 @@ import { defineConfig } from 'tsdown';
 
 export default defineConfig([
   {
-    entry: { index: 'src/index.ts', next: 'src/next/index.ts' },
+    entry: { index: 'src/index.ts', next: 'src/next/index.ts', testing: 'src/testing/index.ts' },
     format: 'esm',
     // Stable chunk names, so the API snapshot (scripts/api-snapshot.mjs) compares like with like.
     hash: false,

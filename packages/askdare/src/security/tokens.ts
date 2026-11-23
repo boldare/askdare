@@ -14,7 +14,8 @@ const DOCTOR_TTL_SECONDS = 120;
 const MIN_SECRET_LENGTH = 32;
 const MIN_DISTINCT_CHARACTERS = 12;
 const VISITOR_ID = /^v_[0-9a-f]{32}$/;
-const CONVERSATION_ID = /^conv_[A-Za-z0-9_-]{1,128}$/;
+/** OpenAI's `conv_…`, or another conversation store's own ID, such as a UUID (ADR-0024). */
+const CONVERSATION_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 const FILE_ID = /^file-[A-Za-z0-9_-]{1,128}$/;
 const ITEM_ID = /^msg_[A-Za-z0-9_-]{1,128}$/;
 /** How long after expiry an access token still identifies its visitor for a renewal. */

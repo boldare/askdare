@@ -272,7 +272,7 @@ The text defaults come from the built-in dictionary of the configured language. 
 
 ## `createChatHandler`
 
-`createChatHandler(options: ChatHandlerOptions): ChatHandlers` returns `GET`, `POST` and `DELETE` for the catch-all route. Its types are exported from `@boldare/askdare/next`: `ChatHandlerOptions`, `ChatHandlerLimitsOptions`, `ChatErrorReport`, `ChatUsageReport`, `ChatTokenUsage`, `ChatToolCallReport`, `ChatFeedbackReport`, `TrustProxy`, `ChatHandlers` and `RouteHandler`.
+`createChatHandler(options: ChatHandlerOptions): ChatHandlers` returns `GET`, `POST` and `DELETE` for the catch-all route. Its types are exported from `@boldare/askdare/next`: `ChatHandlerOptions`, `ChatHandlerLimitsOptions`, `ChatErrorReport`, `ChatUsageReport`, `ChatTokenUsage`, `ChatToolCallReport`, `ChatFeedbackReport`, `TrustProxy`, `ChatHandlers` and `RouteHandler`. `openaiConversations` and `OpenAIConversationsOptions` come from there too.
 
 | Option | Type | Default | Notes |
 | --- | --- | --- | --- |
@@ -283,12 +283,13 @@ The text defaults come from the built-in dictionary of the configured language. 
 | `previousSecrets` | `readonly string[]` | `process.env.CHAT_SECRET_PREVIOUS`, split at commas | Former secrets that still verify tokens during a rotation. Each follows the same rule as `secret`. See [Going public](going-public.md#2-secrets-and-environment). |
 | `identitySecret` | `string` | `process.env.IDENTITY_SECRET` | Checks identity tokens from your site's backend. Same rule as `secret`, and it must differ from it. Without one, identity is off. See [Signed-in visitors](identity.md). |
 | `limits` | `ChatHandlerLimitsOptions` | see [Handler limits](#handler-limits) | The counter store, the client IP and a budget across bots. |
+| `conversations` | `ConversationStore` | `openaiConversations()` | Where conversations are stored. The default keeps them at OpenAI, with the handler's `openaiApiKey`; `openaiConversations({ apiKey })` takes its own key. Stores that keep the items themselves aren't supported in this version yet: the route refuses one when it loads. See [Custom stores](custom-store.md#conversation-store). |
 | `onError` | `(report: ChatErrorReport) => void \| Promise<void>` | one `console.error` line | Your error reporting. See [`onError`](#onerror). |
 | `onUsage` | `(report: ChatUsageReport) => void \| Promise<void>` | none | Each turn's tokens, timings and tool calls, for cost tracking and tracing. See [`onUsage`](#onusage). |
 | `onFeedback` | `(report: ChatFeedbackReport) => void \| Promise<void>` | none | Visitors' ratings of answers. Without it, answers can't be rated. See [`onFeedback`](#onfeedback). |
 | `gallery` | `boolean` | `false` | Serves the state gallery. See [`gallery`](#gallery). |
 
-A wrong `basePath`, a duplicate bot ID or an empty `bots` list throws a `TypeError` when the route loads. A missing key or a missing or weak secret doesn't stop the route from loading. Instead, requests that need it answer `bot_unavailable`, and `onError` receives the reason. In development (`next dev`), the chat itself says what to fix.
+A wrong `basePath`, a duplicate bot ID, an empty `bots` list or an unsupported conversation store throws a `TypeError` when the route loads. A missing key or a missing or weak secret doesn't stop the route from loading. Instead, requests that need it answer `bot_unavailable`, and `onError` receives the reason. In development (`next dev`), the chat itself says what to fix.
 
 ### Handler limits
 
@@ -296,7 +297,7 @@ A wrong `basePath`, a duplicate bot ID or an empty `bots` list throws a `TypeErr
 
 | Option | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `store` | `RateLimitStore` | in memory, per process | Counter storage for rate limits and budgets. With more than one instance, use a shared store such as `@boldare/askdare-upstash`. See [Custom rate-limit store](custom-store.md). |
+| `store` | `RateLimitStore` | in memory, per process | Counter storage for rate limits and budgets. With more than one instance, use a shared store such as `@boldare/askdare-upstash`. See [Custom stores](custom-store.md#rate-limit-store). |
 | `trustProxy` | `'auto' \| 'vercel' \| 'heroku' \| number` | `'auto'` | How to read the client IP behind your proxy. |
 | `globalDailyTokens` | `number` | unlimited | Input plus output tokens per UTC day, across all bots of this handler. Reaching it answers `budget_exceeded`. |
 | `requireSharedStore` | `boolean` | `false` | `true` makes `createChatHandler` throw as the route loads unless `store` is shared (`shared: true`), instead of only warning in production. For example `process.env.NODE_ENV === 'production'`, so development keeps the in-memory store. Note that `next build` loads the route with `NODE_ENV=production`. |
@@ -476,7 +477,7 @@ A database from the Vercel Marketplace (Upstash for Redis) sets the `KV_` names 
 
 | To… | Read |
 | --- | --- |
-| Count limits in your own database | [Custom rate-limit store](custom-store.md) |
+| Count limits in your own database, or build a conversation store | [Custom stores](custom-store.md) |
 | Set secrets and limits before launch | [Going public](going-public.md) |
 | Deploy to Vercel or Heroku | [Deployment](deployment.md) |
 | Change texts, language or CSS | [Styling](styling.md) |

@@ -7,6 +7,8 @@ export type {
   EmbedChatConfig,
 } from '../chat/config';
 export type { TrustProxy } from '../limits/client-ip';
+export type { OpenAIConversationsOptions } from '../openai/conversations';
+export { openaiConversations } from '../openai/conversations';
 export type { ChatFeedbackReport } from '../server/feedback-report';
 export type {
   ChatTokenUsage,

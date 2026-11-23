@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { type BotDefinition, createBot } from '../bot/define-bot';
+import { guardNoteAction } from '../conversations/guard-notes';
+import { type FakeConversations, fakeConversations } from '../conversations/testing/fake-store';
 import { AskdareError } from '../errors';
 import type {
   AnswerVerdict,
@@ -29,8 +31,26 @@ const BASE: BotDefinition = { id: 'support', model: 'test-model', instructions: 
 interface FakeGateway extends ModelGateway {
   readonly turns: TurnRequest[];
   readonly moderated: ModerationRequest[];
+  /** What the turn noted in the conversation (ADR-0022), read back from the appended items. */
   readonly settled: AnswerVerdict[];
   readonly created: number;
+  readonly conversations: FakeConversations;
+}
+
+/** The verdicts that notes appended to a conversation record. */
+function verdictsOf(appended: FakeConversations['appended']): AnswerVerdict[] {
+  return appended.flatMap(({ items }): AnswerVerdict[] => {
+    const [note, replacement] = items;
+    const action =
+      note?.type === 'message' && note.role === 'developer' && note.parts[0]?.type === 'text'
+        ? guardNoteAction(note.parts[0].text)
+        : undefined;
+    if (action === 'replaced') {
+      const part = replacement?.type === 'message' ? replacement.parts[0] : undefined;
+      return [{ action, text: part?.type === 'text' ? part.text : '' }];
+    }
+    return action ? [{ action }] : [];
+  });
 }
 
 /** A gateway whose turn streams `chunks`, and whose moderation flags texts containing "bad". */
@@ -40,23 +60,20 @@ function fakeGateway(
 ): FakeGateway {
   const turns: TurnRequest[] = [];
   const moderated: ModerationRequest[] = [];
-  const settled: AnswerVerdict[] = [];
-  let created = 0;
+  const conversations = fakeConversations();
   return {
     turns,
     moderated,
-    settled,
+    get settled() {
+      return verdictsOf(conversations.appended);
+    },
     get created() {
-      return created;
+      return conversations.created.length;
     },
-    createConversation: async () => {
-      created += 1;
-      return 'conv_new';
-    },
-    deleteConversation: async () => {},
+    conversations,
     uploadFile: async () => 'file-1',
+    deleteFiles: async () => {},
     transcribe: async () => ({ text: '', seconds: 0 }),
-    listMessages: async () => [],
     diagnose: async () => [],
     runTurn: async (request) => {
       turns.push(request);
@@ -72,22 +89,21 @@ function fakeGateway(
       const hits = request.input.some((text) => text.includes('bad'));
       return { flagged: hits, categories: hits ? ['harassment'] : [] };
     },
-    settleAnswer: async (_id, verdict) => {
-      settled.push(verdict);
-    },
     ...overrides,
   };
 }
 
 async function run(
   definition: Partial<BotDefinition>,
-  gateway: ModelGateway,
+  gateway: FakeGateway,
   overrides: Partial<StreamTurnOptions> = {},
 ): Promise<{ events: ProtocolEvent[]; errors: AskdareError[] }> {
   let id = 0;
   const errors: AskdareError[] = [];
   const stream = streamTurn({
     gateway,
+    conversations: gateway.conversations,
+    owner: 'visitor:visitor-1',
     bot: createBot({ ...BASE, ...definition }),
     text: 'Hello',
     context: { locale: 'en' },
@@ -162,6 +178,8 @@ describe('a bot without guardrails', () => {
     });
     const stream = streamTurn({
       gateway,
+      conversations: gateway.conversations,
+      owner: 'visitor:v',
       bot: createBot(BASE),
       text: 'Hi',
       context: { locale: 'en' },
@@ -324,6 +342,8 @@ describe('onOutput', () => {
     });
     const stream = streamTurn({
       gateway,
+      conversations: gateway.conversations,
+      owner: 'visitor:v',
       bot: createBot({ ...BASE, onOutput: () => undefined }),
       text: 'Hi',
       context: { locale: 'en' },
@@ -446,11 +466,10 @@ describe('onOutput', () => {
 
   it('still ends the turn when noting the verdict fails', async () => {
     const log = errorSpy();
-    const gateway = fakeGateway(['x'], {
-      settleAnswer: async () => {
-        throw new Error('down');
-      },
-    });
+    const gateway = fakeGateway(['x']);
+    gateway.conversations.append = async () => {
+      throw new Error('down');
+    };
     const { events } = await run({ onOutput: () => ({ action: 'block' }) }, gateway);
     expect(errorOf(events)?.code).toBe('content_blocked');
     expect(log).toHaveBeenCalledWith(

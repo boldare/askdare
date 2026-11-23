@@ -13,12 +13,18 @@ import OpenAI, { NotFoundError } from 'openai';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { createBot } from '../bot/define-bot';
+import { type HistoryReader, historyReader } from '../conversations/provider-history';
 import type { ProtocolEvent } from '../protocol/events';
 import { defineTool } from '../tools/define-tool';
 import { readSuggestedReplies } from '../tools/suggest-replies';
+import { openaiConversations } from './conversations';
 import { createOpenAIGateway } from './gateway';
 
 const apiKey = process.env['OPENAI_API_KEY'];
+const conversations = openaiConversations(apiKey ? { apiKey } : {});
+const readHistory = historyReader(conversations);
+const readMessages: HistoryReader = (id, request) =>
+  readHistory ? readHistory(id, request) : Promise.reject(new Error('No history reader.'));
 const model = process.env['SMOKE_MODEL'];
 const vectorStoreId = process.env['SMOKE_VECTOR_STORE_ID'];
 const audioFile = process.env['SMOKE_AUDIO_FILE'];
@@ -82,12 +88,13 @@ describe.skipIf(!apiKey || !model)('OpenAI gateway (live)', () => {
       instructions: 'Reply with exactly one word: pong.',
       limits: { maxOutputTokens: 64 },
     });
-    const conversationId = await gateway.createConversation({ botId: bot.id, visitorId: 'smoke' });
+    const conversationId = await conversations.create({ botId: bot.id, owner: 'visitor:smoke' });
     try {
       const events: ProtocolEvent[] = [];
       const result = await gateway.runTurn({
         bot,
         conversationId,
+        conversations,
         text: 'ping',
         context: { locale: 'en' },
         safetyIdentifier: 'askdare-smoke',
@@ -102,7 +109,7 @@ describe.skipIf(!apiKey || !model)('OpenAI gateway (live)', () => {
       expect(text.toLowerCase()).toContain('pong');
       expect(result.usage.outputTokens).toBeGreaterThan(0);
     } finally {
-      await gateway.deleteConversation(conversationId);
+      await conversations.delete(conversationId);
     }
   }, 90_000);
 
@@ -116,12 +123,13 @@ describe.skipIf(!apiKey || !model)('OpenAI gateway (live)', () => {
       limits: { maxOutputTokens: 512 },
       widget: { replies: 'suggest' },
     });
-    const conversationId = await gateway.createConversation({ botId: bot.id, visitorId: 'smoke' });
+    const conversationId = await conversations.create({ botId: bot.id, owner: 'visitor:smoke' });
     const ask = async (text: string) => {
       const steps: unknown[] = [];
       const result = await gateway.runTurn({
         bot,
         conversationId,
+        conversations,
         text,
         context: { locale: 'en' },
         safetyIdentifier: 'askdare-smoke',
@@ -141,14 +149,14 @@ describe.skipIf(!apiKey || !model)('OpenAI gateway (live)', () => {
       );
       expect(first.result.reason).toBe('completed');
       expect(first.result.answerItemId).toBeDefined();
-      const history = await gateway.listMessages(conversationId, undefined, readSuggestedReplies);
+      const history = await readMessages(conversationId, { replies: readSuggestedReplies });
       expect(history.at(-1)?.role).toBe('assistant');
       expect(history.at(-1)?.text).not.toBe('');
       // The call was answered: the next turn doesn't need a repair.
       const second = await ask(first.result.replies?.[0] ?? 'Pro, please.');
       expect(second.result.reason).toBe('completed');
     } finally {
-      await gateway.deleteConversation(conversationId);
+      await conversations.delete(conversationId);
     }
   }, 120_000);
 
@@ -172,15 +180,16 @@ describe.skipIf(!apiKey || !model)('OpenAI gateway (live)', () => {
         ],
         knowledge: { vectorStoreId: vectorStoreId ?? '', maxResults: 3 },
       });
-      const conversationId = await gateway.createConversation({
+      const conversationId = await conversations.create({
         botId: bot.id,
-        visitorId: 'smoke',
+        owner: 'visitor:smoke',
       });
       try {
         const events: ProtocolEvent[] = [];
         await gateway.runTurn({
           bot,
           conversationId,
+          conversations,
           text: 'How much does the Business plan cost per user per month?',
           context: { locale: 'en' },
           safetyIdentifier: 'askdare-smoke',
@@ -195,12 +204,12 @@ describe.skipIf(!apiKey || !model)('OpenAI gateway (live)', () => {
         expect(events).toContainEqual(
           expect.objectContaining({ type: 'citation', url: 'https://example.com/pricing' }),
         );
-        const history = await gateway.listMessages(conversationId);
+        const history = await readMessages(conversationId, {});
         expect(history.at(-1)?.citations).toContainEqual(
           expect.objectContaining({ url: 'https://example.com/pricing' }),
         );
       } finally {
-        await gateway.deleteConversation(conversationId);
+        await conversations.delete(conversationId);
       }
     },
     90_000,
@@ -225,12 +234,13 @@ describe.skipIf(!apiKey || !model)('OpenAI gateway (live)', () => {
       filename: 'note.pdf',
       mime: 'application/pdf',
     });
-    const conversationId = await gateway.createConversation({ botId: bot.id, visitorId: 'smoke' });
+    const conversationId = await conversations.create({ botId: bot.id, owner: 'visitor:smoke' });
     try {
       const events: ProtocolEvent[] = [];
       await gateway.runTurn({
         bot,
         conversationId,
+        conversations,
         text: 'What color is the image, and what is the secret word in the PDF?',
         attachments: [
           { fileId: imageId, kind: 'image' },
@@ -249,10 +259,10 @@ describe.skipIf(!apiKey || !model)('OpenAI gateway (live)', () => {
         .toLowerCase();
       expect(text).toContain('red');
       expect(text).toContain('pelican');
-      const history = await gateway.listMessages(conversationId);
+      const history = await readMessages(conversationId, {});
       expect(history[0]).toMatchObject({ role: 'user', attachments: 2 });
     } finally {
-      await gateway.deleteConversation(conversationId, { withFiles: true });
+      await gateway.deleteFiles((await conversations.delete(conversationId)).fileIds);
     }
     const client = new OpenAI({ apiKey: apiKey ?? '' });
     for (const id of [imageId, pdfId]) {
