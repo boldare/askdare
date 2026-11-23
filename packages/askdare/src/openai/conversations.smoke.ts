@@ -5,6 +5,7 @@
  *   ASKDARE_CONTRACT_OPENAI=1 OPENAI_API_KEY=… pnpm smoke
  */
 import { afterAll, describe, expect, it } from 'vitest';
+import type { ConversationStore } from '../conversations/port';
 import { conversationStoreContract } from '../testing/conversation-store-contract';
 import { createOpenAIClient } from './client';
 import { openaiConversations } from './conversations';
@@ -30,23 +31,40 @@ if (enabled) {
     uploaded.push(file.id);
     return file.id;
   };
+  const store = openaiConversations({ apiKey: apiKey ?? '' });
+  // Every conversation the run creates, checked at the end: OpenAI can't list them, so one left
+  // behind could never be found again.
+  const created: string[] = [];
+  const tracked: ConversationStore = {
+    ...store,
+    create: async (owner, signal) => {
+      const id = await store.create(owner, signal);
+      created.push(id);
+      return id;
+    },
+  };
   afterAll(async () => {
     for (const id of uploaded) await client.files.delete(id).catch(() => undefined);
+    const left: string[] = [];
+    for (const id of created) {
+      if ((await store.info(id)) === undefined) continue;
+      await store.delete(id).catch(() => undefined);
+      if ((await store.info(id)) !== undefined) left.push(id);
+    }
+    console.log(
+      `contract run: ${created.length} conversations created, ${left.length} left behind${left.length ? `: ${left.join(', ')}` : ''}; ${uploaded.length} files deleted`,
+    );
   });
-  conversationStoreContract(
-    'openaiConversations',
-    () => openaiConversations({ apiKey: apiKey ?? '' }),
-    {
-      describe,
-      it,
-      expect,
-      kind: 'provider',
-      pagingItems: 48,
-      pageSize: 20,
-      files: async () => [await upload(), await upload()],
-      timeoutMs: 120_000,
-    },
-  );
+  conversationStoreContract('openaiConversations', () => tracked, {
+    describe,
+    it,
+    expect,
+    kind: 'provider',
+    pagingItems: 48,
+    pageSize: 20,
+    files: async () => [await upload(), await upload()],
+    timeoutMs: 120_000,
+  });
 } else {
   describe.skip('openaiConversations (ConversationStore contract, live)', () => {
     it('needs ASKDARE_CONTRACT_OPENAI=1 and OPENAI_API_KEY', () => {});
