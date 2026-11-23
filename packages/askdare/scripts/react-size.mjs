@@ -13,7 +13,7 @@ const pkg = join(dirname(fileURLToPath(import.meta.url)), '..');
 const entry = JSON.stringify(join(pkg, 'dist', 'react.js'));
 const embed = JSON.stringify(join(pkg, 'dist', 'embed.js'));
 const CASES = [
-  { name: 'react.js', budget: 33 * 1024, source: `export * from ${entry};` },
+  { name: 'react.js', budget: 34 * 1024, source: `export * from ${entry};` },
   {
     name: 'headless (Root and useChat)',
     budget: 12 * 1024,

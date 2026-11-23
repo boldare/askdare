@@ -1,6 +1,6 @@
 # ADR-0023: The human check as built, and a 33 KB budget for the React entry
 
-- **Status:** Accepted
+- **Status:** Accepted (decision 5, the budget, superseded by [ADR-0028](0028-react-budget-34-kb.md))
 - **Date:** 2026-11-21
 - **Extends:** [ADR-0019](0019-compliance-and-guardrails.md), decisions 4 and 5. ADR-0019 stays as written.
 - **Supersedes in part:** [ADR-0006](0006-support-matrix-and-versioning.md), the size budget of `@boldare/askdare/react` in an app's bundle (32 KB). The rest of ADR-0006 stands.
