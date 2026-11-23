@@ -23,14 +23,13 @@ askdare is the website chatbot a team owns in code: self-hosted in their Next.js
 
 ## 0.6: own your data
 
-The foundation that admin, handoff, data residency and other providers all need: conversations stored outside OpenAI.
-- A `ConversationStore` port with OpenAI Conversations as the default and a Postgres add-on (`@boldare/askdare-postgres`), plus an `onTranscript` hook. This opens zero-data-retention and EU-resident setups.
-- A retrieval port: OpenAI vector stores by default, pgvector as an option.
-- Both are split out of the existing `ModelGateway` (`src/gateway.ts`), so a second provider would only have to run turns.
-- Stream resume after a dropped connection, and history beyond the latest 100 items.
-- Compaction, decided again in a new ADR now that we can own the stored history (spikes S5 and S5b ruled out OpenAI's server-side compaction as a default).
-
-Four spikes run in parallel before this release is planned: S6a (Claude behind the gateway), S6b (Open Responses endpoints), S7 (conversations stored outside OpenAI) and S8 (retrieval outside OpenAI vector stores). Task P1 then writes the ADRs and the 0.6 task files from their findings.
+The foundation that admin, handoff, data residency and other providers all need: conversations and knowledge stored outside OpenAI. Spikes S6a, S6b, S7 and S8 ran first; their findings are in [ADR-0024](docs/adr/0024-conversation-store.md) to [ADR-0027](docs/adr/0027-stream-resume.md) (Proposed), and the work is in [`tasks/`](tasks/README.md) as `0.6-*.md`.
+- **A `ConversationStore` port** (ADR-0024): OpenAI Conversations stays the default, with no database; `memoryConversations()` for tests; a Postgres add-on, `@boldare/askdare-postgres`. With a store of your own, turns replay the history with `store: false`, so nothing stays at OpenAI: zero-data-retention and EU-resident setups work. Ownership is checked against the store, old conversations can be swept, and the `onTranscript` hook (ADR-0016) lands too.
+- **A retrieval port** (ADR-0025): OpenAI vector stores stay the default; pgvector in the same add-on, behind a `search_knowledge` tool that works on every model path, with citations on today's protocol. `askdare kb sync` syncs the same folder to either. Markdown, MDX, text and HTML on the own path; PDFs later.
+- **Both are split out of `ModelGateway`** (ADR-0026), so a second provider (0.9) only has to run turns. No new provider in 0.6.
+- **History beyond the latest 100 items,** paged by turn.
+- **Resuming an answer after a dropped connection** (ADR-0027): a separate `TurnEventLog` port, in memory by default and on Upstash for sites with several instances.
+- **Compaction:** spike S9 tests it on a store we own, where S5 and S5b's blockers may not apply. It ships in 0.6 only if S9 shows a gain; otherwise it waits.
 
 ## 0.7: support-grade
 
@@ -42,14 +41,16 @@ The features buyers compare against Intercom Fin and Chatbase.
 
 ## 0.8: quality and reach
 
-- **`askdare eval`:** regression tests for answers and citations, run in CI. 👎 conversations from admin become test cases. OpenAI's own Evals go read-only on 2026-11-30.
+- **`askdare eval`:** regression tests for answers and citations, run in CI. 👎 conversations from admin become test cases. OpenAI's own Evals go read-only on 2026-11-30. It starts from spike S8's questions and grading (`spikes/s8-retrieval/`), plus a harder set: 100 or more documents, questions across languages, multi-turn follow-ups and PDFs. S8's set showed parity between `file_search` and our own retrieval, not a margin.
 - **Prompt versions and A/B tests** in `defineBot`.
 - **More tools:** remote MCP tools, an `httpTool` preset, `web_search` as a fallback when `file_search` finds nothing, and approving a tool call in the chat.
 - **Model settings:** reasoning effort and verbosity, passed through and checked per model, with no model IDs in the library.
 
 ## 0.9: open
 
-- **A second provider path:** an Open Responses adapter behind the gateway, decided in an ADR after a spike against two or three endpoints. Full multi-provider support (native Anthropic, Google or Mistral adapters) stays an option for when a client needs it.
+- **A second provider path** ([ADR-0026](docs/adr/0026-provider-path.md)): OpenRouter as a stateless provider profile of the existing OpenAI gateway, on 0.6's own store and retrieval. A profile carries its capabilities, the request fields its provider needs (such as `cache_control` for prompt caching), the forced-last-step note and an error classifier. Support covers verified models only, listed in the docs: Claude Haiku 5.5 passed spike S6b, `gpt-oss-120b` did not.
+- **Verify Hugging Face and local servers** for a profile each: rerun the S6b probes in `spikes/s6b-open-responses/` with a funded Hugging Face account (about 5 USD) and, for Ollama or another local server, on a machine that can run a model with tools. What to look at: errors that arrive as HTTP 200 with `response.failed`, and Hugging Face refusing `allowed_tools`. S6b couldn't run either (402 without credits; the 16 GB laptop froze), so they are not verified, not rejected.
+- **Native adapters** (Claude first, as `@boldare/askdare-anthropic`) stay an option for when a client needs them, under ADR-0026's conditions: a public `ModelGateway` port, reply options before the answer, and no voice or moderation.
 - **Interop:** expose the chat stream to AI SDK UI messages or AG-UI, so those ecosystems can use askdare's backend.
 - **Handoff adapters:** Slack, HubSpot and Zendesk.
 
@@ -62,7 +63,10 @@ API freeze, a support policy and a migration guide from 0.x. We cut 1.0 once two
 Ordered when a release is planned:
 - other channels (Slack, Teams, WhatsApp) through a chat SDK;
 - voice conversations;
-- native adapters for other model providers;
+- native adapters for other model providers (ADR-0026);
+- PDF, DOCX and PPTX on the own knowledge path, built in or through an extractor the site supplies (ADR-0025);
+- searching before the turn without a tool, and an in-process knowledge index for small static sites (ADR-0025);
+- adopting an anonymous conversation at sign-in (`reassign`, ADR-0024), and a Postgres turn log (ADR-0027);
 - right-to-left layouts;
 - business hours, copying and exporting a conversation;
 - a `CustomEvent` for GTM ([ADR-0013](docs/adr/0013-browser-events.md)).
@@ -76,23 +80,46 @@ Ordered when a release is planned:
 
 ### Lanes and hot files
 
-Work runs in parallel lanes. Tasks that touch the **hot files** run one at a time, because those files meet in every feature:
+Work runs in parallel lanes. A **hot file** is changed by one task at a time, because those files meet in every feature; tasks that share none can run side by side. Paths are under `packages/askdare/src/`:
 - `protocol/*` and `docs/protocol.md`;
 - `chat/state.ts`, `chat/reducer.ts`, `chat/store.ts` and `chat/events.ts`;
 - `bot/define-bot.ts`;
 - `i18n/texts.ts`;
 - `react/headless.ts`;
 - `embed/loader.ts`, which has a 5 KB budget;
-- the API snapshot (`api/askdare.api.txt`) and ADR-0006.
+- **for 0.6, the seams of the gateway split:** `gateway.ts`, `openai/turn.ts`, `openai/history.ts`, `server/handler.ts` and `server/stream-turn.ts`.
+
+Two shared files don't make a task hot in 0.6:
+- **The API snapshot** (`api/askdare.api.txt`) is generated. A task that changes the public API rebases and regenerates it (`pnpm --filter @boldare/askdare api:update`) instead of merging it by hand.
+- **ADR-0006** is updated once, by task 0.6-z1, from the public surface that ADR-0024 to ADR-0027 list. Other 0.6 tasks don't edit it.
 
 | Lane | What runs in it | Hot files |
 |---|---|---|
 | Organization | The roadmap and `tasks/` | No |
-| Hygiene | 0.5.x patches | No |
-| CI | Workflows, visual baselines, the starter check | No |
-| Decisions | ADRs, as decisions come up (0019 to 0023 accepted for 0.5) | No |
-| Docs | Guides for new features, the compliance guide, the accessibility statement | No |
-| Spikes | S6a, S6b, S7 and S8, side by side; each writes only its own `spikes/` folder | No |
-| Core | 0.6 work that touches hot files, one task at a time | **Yes** |
+| Hygiene | 0.5.x patches; 0.6-h1 | No |
+| CI | Workflows, visual baselines, the starter check; 0.6-c1 | No |
+| Decisions | ADRs 0024 to 0027, accepted or amended by the tasks that build them; 0.6-z1 | No |
+| Docs | Guides for new features; 0.6-d1 | No |
+| Spikes | S9 (compaction on a store we own), in its own `spikes/` folder | No |
+| Ports | New modules inside `packages/askdare` that no hot file reaches yet: 0.6-k1, 0.6-k3, 0.6-r1 | No |
+| Add-ons | `packages/askdare-postgres` (0.6-a1, a2, a3) and `packages/askdare-upstash` (0.6-r2); one folder per task inside a package | No |
+| Core | 0.6-1, 2, k2, t1, 3a, 3b, r3a, r3b: work on hot files, in the order below | **Yes** |
 
-Patches for 0.5.x land on `main` with `--no-ff` and ship as they are ready. Breaking 0.6 work goes to an integration branch `release/0.6` until the release ([RELEASING.md](RELEASING.md)).
+**The 0.6 order.** A task starts when everything before its arrow is merged; tasks on one line run side by side.
+
+```text
+Ready now:  1 · k1 · r1 · a1 · h1 · c1 · s9
+1 ─────────────→ 2 · a2 (a2 also needs a1)
+k1 ────────────→ a3 (needs a1) · k3
+r1 ────────────→ r2
+2 + k1 + h1 ───→ k2 · t1 (t1 needs only 2)
+k2 + t1 ───────→ 3a
+3a ────────────→ 3b · r3a (r3a also needs r1)
+3b + r3a ──────→ r3b
+a2 + a3 + k2 + k3 → d1
+everything ────→ z1
+```
+
+The critical path is 1 → 2 → k2 → 3a → 3b or r3a → r3b → z1, all in Core. Everything else runs beside it.
+
+**Branches.** 0.5.x patches land on `main` with `--no-ff` and ship as they are ready; so do 0.6-h1 and 0.6-c1. Every other 0.6 task targets the integration branch `release/0.6` until the release ([RELEASING.md](RELEASING.md)). The maintainer creates `release/0.6` from `main` before the first 0.6 pull request.
