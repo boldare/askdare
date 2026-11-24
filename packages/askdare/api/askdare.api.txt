@@ -20,6 +20,7 @@ export declare function EmbedRoot({ config, toolRenderers, children }: EmbedRoot
 export type { EmbedChatConfig, EmbedRootProps };
 
 // ==== events.d.ts ====
+import { b as KnowledgeIndex } from "./store.js";
 import { z } from "zod";
 /**
  * Every text the widget shows. The keys are public API (ADR-0008): override any of them with
@@ -422,12 +423,27 @@ interface BotSecurity {
    */
   readonly humanVerifier?: HumanVerifier | undefined;
 }
-interface KnowledgeConfig {
+/**
+ * Where the bot's documents are searched (ADR-0025): an OpenAI vector store with hosted file
+ * search, or the bot's own index through the `search_knowledge` tool. One or the other.
+ */
+type KnowledgeConfig = {
   /** Vector store filled by `askdare kb sync`, usually `process.env.KB_VECTOR_STORE_ID`. */
   readonly vectorStoreId: string;
+  readonly index?: never;
   /** Chunks the model reads per search: more grounds answers better but costs input tokens. Default 5. */
   readonly maxResults?: number;
-}
+} | {
+  /**
+   * The bot's own index, such as `pgvectorIndex({ embedder, indexId })` from
+   * `@boldare/askdare-postgres`, filled by `askdare kb sync --index`. The model searches it with
+   * the `search_knowledge` tool and cites passages as it does with a vector store.
+   */
+  readonly index: KnowledgeIndex;
+  readonly vectorStoreId?: never;
+  /** Passages the model reads per search: more grounds answers better but costs input tokens. Default 5. */
+  readonly maxResults?: number;
+};
 interface AttachmentConfig {
   /** PNG, JPEG, WebP and GIF. The widget downsizes photos and strips their metadata. Default true. */
   readonly images?: boolean;
@@ -525,7 +541,10 @@ interface BotDefinition extends GuardrailOptions {
    * gets no more trust than what visitors type. Off by default.
    */
   readonly pageContext?: boolean;
-  /** Documents the model searches with OpenAI file search and cites in its answers. */
+  /**
+   * Documents the model searches and cites in its answers: an OpenAI vector store (file search) or
+   * the bot's own index (the `search_knowledge` tool).
+   */
   readonly knowledge?: KnowledgeConfig | undefined;
   /**
    * Lets visitors attach images and PDFs. Off when absent. Files go to OpenAI (purpose
@@ -571,13 +590,48 @@ export { HumanChallenge as A, ColorScheme as C, ThemeTokens as D, PresetName as 
 
 // ==== index.d.ts ====
 import { A as HumanChallenge, C as ColorScheme, D as ThemeTokens, E as PresetName, M as HumanVerifier, O as ThemeVariants, S as defineTool, T as defineTheme, _ as GuardrailOptions, a as BotContext, b as ToolContext, c as BotLimits, d as VoiceConfig, f as WidgetConfig, g as GuardVerdict, h as GuardHook, i as AttachmentConfig, j as HumanCheckContext, k as VisitorIdentity, l as BotSecurity, m as GuardContext, n as ErrorCode, o as BotDefinition, p as defineBot, s as BotHandle, t as ERROR_CODES, u as KnowledgeConfig, v as ModerationConfig, w as ThemeDefinition, x as ToolDefinition, y as Tool } from "./events.js";
-import { a as ConversationOwner, c as ConversationStoreCheck, d as StoredItem, f as StoredPart, i as ConversationInfo, l as PositionedItem, n as RateLimitStore, o as ConversationPage, p as VersionConflictError, r as ConversationContext, s as ConversationStore, t as CounterHit, u as StoredCitation } from "./store.js";
+import { C as SyncReport, S as SearchOptions, _ as KnowledgeCheck, a as ConversationOwner, b as KnowledgeIndex, c as ConversationStoreCheck, d as StoredItem, f as StoredPart, g as KnowledgeCallOptions, h as Embeddings, i as ConversationInfo, l as PositionedItem, m as Embedder, n as RateLimitStore, o as ConversationPage, p as VersionConflictError, r as ConversationContext, s as ConversationStore, t as CounterHit, u as StoredCitation, v as KnowledgeChunk, x as Passage, y as KnowledgeDocument } from "./store.js";
 /**
  * Conversations in this process's memory, for tests and local development. Every instance has its
  * own, and a restart forgets them, so production warns. It is an item store: turns replay its
  * items statelessly.
  */
 export declare function memoryConversations(): ConversationStore;
+/**
+ * What the embedder sees for a chunk, and what makes a passage readable on its own: the document
+ * title and section above the text. Every index embeds the same input for the same chunk.
+ */
+export declare function embeddingInput(document: Pick<KnowledgeDocument, "title">, chunk: Pick<KnowledgeChunk, "section" | "text">): string;
+/**
+ * What every `KnowledgeIndex.sync` checks before it changes anything: unique paths, http(s) URLs,
+ * well-formed hashes, source IDs derived from them, and no source ID shared by two different chunks
+ * (a 48-bit prefix collision would make a citation resolve to the wrong passage). The same chunk in
+ * two places is fine: it is the same text under the same title and section.
+ */
+export declare function checkKnowledgeDocuments(documents: readonly KnowledgeDocument[]): void;
+interface OpenAIEmbedderOptions {
+  /** The embedding model. Required: the library names no model IDs. */
+  readonly model: string;
+  /** Vector size, sent as `dimensions`; part of the embedder's ID and of the index's schema. */
+  readonly dimensions: number;
+  /** Defaults to `OPENAI_API_KEY`, read on the first call. */
+  readonly apiKey?: string;
+  /** Override for tests or proxies. */
+  readonly baseURL?: string;
+  /** Per-request timeout for the SDK. Default 60 s. */
+  readonly timeoutMs?: number;
+  /** SDK retries for a failed request. Default 2. */
+  readonly maxRetries?: number;
+  /** Custom fetch, for example to route through a proxy. */
+  readonly fetch?: typeof fetch;
+  /** Inputs per request, 1 to 2048. Default 256. */
+  readonly batchSize?: number;
+}
+/**
+ * Embeddings from OpenAI for a knowledge index (ADR-0025, decision 3), with the OpenAI key the site
+ * already has, on any model path. Batched, abortable, and checked: one vector of `dimensions` per input.
+ */
+export declare function openaiEmbedder(options: OpenAIEmbedderOptions): Embedder;
 /**
  * Version of the SSE wire protocol between the askdare server and its clients.
  * Bumped on any breaking change to event names or payloads (ADR-0006).
@@ -609,7 +663,7 @@ interface TurnstileOptions {
  * ```
  */
 export declare function turnstile(options: TurnstileOptions): HumanVerifier;
-export { type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type ConversationContext, type ConversationInfo, type ConversationOwner, type ConversationPage, type ConversationStore, type ConversationStoreCheck, type CounterHit, ERROR_CODES, type ErrorCode, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type HumanChallenge, type HumanCheckContext, type HumanVerifier, type KnowledgeConfig, type ModerationConfig, type PositionedItem, type PresetName, type RateLimitStore, type StoredCitation, type StoredItem, type StoredPart, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type TurnstileOptions, VersionConflictError, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
+export { type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type ConversationContext, type ConversationInfo, type ConversationOwner, type ConversationPage, type ConversationStore, type ConversationStoreCheck, type CounterHit, ERROR_CODES, type Embedder, type Embeddings, type ErrorCode, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type HumanChallenge, type HumanCheckContext, type HumanVerifier, type KnowledgeCallOptions, type KnowledgeCheck, type KnowledgeChunk, type KnowledgeConfig, type KnowledgeDocument, type KnowledgeIndex, type ModerationConfig, type OpenAIEmbedderOptions, type Passage, type PositionedItem, type PresetName, type RateLimitStore, type SearchOptions, type StoredCitation, type StoredItem, type StoredPart, type SyncReport, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type TurnstileOptions, VersionConflictError, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
 
 // ==== next.d.ts ====
 import { E as PresetName, O as ThemeVariants, k as VisitorIdentity, n as ErrorCode, r as MessageEndReason, s as BotHandle } from "./events.js";
@@ -1479,6 +1533,108 @@ export { type AttachButtonProps, type Chat, type ChatActions, type ChatAttachmen
 
 // ==== store.d.ts ====
 /**
+ * The retrieval port of ADR-0025: what a bot's own knowledge index is, with no OpenAI or database
+ * types. Every model path and every adapter (in-memory, pgvector, community ones) speaks only these.
+ * Server-side only: the client never chooses an index (ADR-0004).
+ */
+/**
+ * One piece of a document: within one section, at most about 350 tokens. Core chunks every
+ * document (`knowledgeDocument`), so every index stores the same chunks.
+ */
+interface KnowledgeChunk {
+  /** What the model cites: `k` and the first 12 hex characters of `sha256`. Stable across syncs and turns. */
+  readonly sourceId: string;
+  /** The heading trail inside the document, such as "Pricing › Billing"; undefined before the first heading. */
+  readonly section: string | undefined;
+  readonly text: string;
+  /** SHA-256 (hex) over the document title, the section and the text: the embedding cache key. */
+  readonly sha256: string;
+}
+/** One file of the knowledge folder, extracted and chunked. Built by `askdare kb sync`, never at runtime. */
+interface KnowledgeDocument {
+  /** POSIX path relative to the knowledge folder: the document's identity in the index. */
+  readonly path: string;
+  /** SHA-256 (hex) of the file's bytes: an unchanged file is skipped. */
+  readonly sha256: string;
+  readonly title: string;
+  /** http(s) only; the only link a citation may carry. */
+  readonly url: string | undefined;
+  /** In document order. */
+  readonly chunks: readonly KnowledgeChunk[];
+}
+/** What one `sync` did. */
+interface SyncReport {
+  readonly added: readonly string[];
+  readonly changed: readonly string[];
+  readonly removed: readonly string[];
+  /** Documents whose file hash, title and URL were already in the index. */
+  readonly unchanged: number;
+  /** Distinct chunks embedded in this run. */
+  readonly embeddedChunks: number;
+  /** Chunks of added or changed documents whose embedding the index already had. */
+  readonly reusedChunks: number;
+  readonly embeddingTokens: number;
+}
+/** A chunk with its document, as search and citations see it. `text` is untrusted third-party content. */
+interface Passage {
+  readonly sourceId: string;
+  readonly path: string;
+  readonly title: string;
+  readonly url: string | undefined;
+  readonly section: string | undefined;
+  readonly text: string;
+  /** Relevance from `search`, higher is better; absent from `passage()`. */
+  readonly score?: number;
+}
+interface SearchOptions {
+  readonly maxResults: number;
+  readonly signal?: AbortSignal;
+}
+interface KnowledgeCallOptions {
+  readonly signal?: AbortSignal;
+}
+/**
+ * One finding of `diagnose`, for `askdare doctor`. Every index reports `knowledge.synced` and
+ * `knowledge.embedder`; adapters add their own, such as `knowledge.pgvector`.
+ */
+interface KnowledgeCheck {
+  readonly id: string;
+  readonly ok: boolean;
+  /** Counts, versions and what to do. Never document text. */
+  readonly detail: string;
+}
+/** A bot's knowledge. One database may hold many bots' indexes, each under its own index ID. */
+interface KnowledgeIndex {
+  /**
+   * Makes the index mirror `documents`, the whole folder. Idempotent: an unchanged file is skipped,
+   * and only chunks whose hash the index doesn't have are embedded. Each document is written
+   * atomically. Refuses documents that `checkKnowledgeDocuments` refuses, before changing anything.
+   */
+  sync(documents: readonly KnowledgeDocument[], options?: KnowledgeCallOptions): Promise<SyncReport>;
+  /** The best passages first, each with a score. */
+  search(query: string, options: SearchOptions): Promise<readonly Passage[]>;
+  /** Resolves a cited source ID from this turn or an earlier one; undefined once the chunk is gone. */
+  passage(sourceId: string, options?: KnowledgeCallOptions): Promise<Passage | undefined>;
+  /** Removes everything this index holds. */
+  clear(options?: KnowledgeCallOptions): Promise<void>;
+  diagnose(options?: KnowledgeCallOptions): Promise<readonly KnowledgeCheck[]>;
+}
+interface Embeddings {
+  /** One vector per input, in input order, each `dimensions` long. */
+  readonly vectors: readonly (readonly number[])[];
+  readonly tokens: number;
+}
+/** Turns text into vectors. Separate from the index, so the site picks the key and the model. */
+interface Embedder {
+  /**
+   * Provider, model and dimensions, such as `openai:<model>:1536`. Stored with the index: a
+   * different ID makes the next sync embed everything again.
+   */
+  readonly id: string;
+  readonly dimensions: number;
+  embed(texts: readonly string[], options?: KnowledgeCallOptions): Promise<Embeddings>;
+}
+/**
  * The `ConversationStore` port (ADR-0024): where conversations live. `openaiConversations()` keeps
  * them at OpenAI (the default), `memoryConversations()` in memory for tests, and add-ons such as
  * `@boldare/askdare-postgres` in a database. Nothing here depends on a model provider: the mapping
@@ -1676,10 +1832,10 @@ interface RateLimitStore {
   /** True for stores that are shared across server instances. */
   readonly shared: boolean;
 }
-export { ConversationOwner as a, ConversationStoreCheck as c, StoredItem as d, StoredPart as f, ConversationInfo as i, PositionedItem as l, RateLimitStore as n, ConversationPage as o, VersionConflictError as p, ConversationContext as r, ConversationStore as s, CounterHit as t, StoredCitation as u };
+export { SyncReport as C, SearchOptions as S, KnowledgeCheck as _, ConversationOwner as a, KnowledgeIndex as b, ConversationStoreCheck as c, StoredItem as d, StoredPart as f, KnowledgeCallOptions as g, Embeddings as h, ConversationInfo as i, PositionedItem as l, Embedder as m, RateLimitStore as n, ConversationPage as o, VersionConflictError as p, ConversationContext as r, ConversationStore as s, CounterHit as t, StoredCitation as u, KnowledgeChunk as v, Passage as x, KnowledgeDocument as y };
 
 // ==== testing.d.ts ====
-import { n as RateLimitStore, s as ConversationStore } from "./store.js";
+import { b as KnowledgeIndex, m as Embedder, n as RateLimitStore, s as ConversationStore, y as KnowledgeDocument } from "./store.js";
 /**
  * The parts of a test runner the contract suites use. Vitest's and Jest's `describe`, `it` and
  * `expect` fit, so `@boldare/askdare/testing` depends on no runner.
@@ -1694,7 +1850,64 @@ type ContractExpect = (actual: unknown) => {
   toBe(expected: unknown): void;
   toEqual(expected: unknown): void;
   toBeInstanceOf(expected: abstract new (...args: never[]) => unknown): void;
+  toHaveLength(length: number): void;
+  toBeGreaterThan(expected: number): void;
 };
+interface KnowledgeIndexContractOptions extends ContractRunner {
+  /** Of the fake embedder; set it for an index with fixed dimensions. Default 64. */
+  readonly dimensions?: number | undefined;
+}
+/**
+ * Opens the index `indexId` with `embedder`. Two calls with the same index ID must see the same
+ * data, as two server instances on one database do. Each test uses fresh index IDs and clears them.
+ */
+type OpenKnowledgeIndex = (options: {
+  readonly indexId: string;
+  readonly embedder: Embedder;
+}) => KnowledgeIndex | Promise<KnowledgeIndex>;
+/**
+ * Behaviour every `KnowledgeIndex` must have (ADR-0025), with a deterministic fake embedder. Used
+ * by the in-memory index and by adapters such as `pgvectorIndex`, so they stay interchangeable.
+ * Runner-agnostic: pass your test runner's `describe`, `it` and `expect`:
+ *
+ * ```ts
+ * import { knowledgeIndexContract } from '@boldare/askdare/testing';
+ * import { describe, expect, it } from 'vitest';
+ *
+ * knowledgeIndexContract('my index', ({ indexId, embedder }) => myIndex({ indexId, embedder }), {
+ *   describe,
+ *   it,
+ *   expect,
+ * });
+ * ```
+ */
+export declare function knowledgeIndexContract(name: string, openIndex: OpenKnowledgeIndex, options: KnowledgeIndexContractOptions): void;
+interface ChunkOptions {
+  readonly maxTokens?: number;
+}
+interface KnowledgeDocumentInput {
+  /** POSIX path relative to the knowledge folder. */
+  readonly path: string;
+  /** SHA-256 (hex) of the file's bytes. */
+  readonly sha256: string;
+  readonly title: string;
+  readonly url: string | undefined;
+  /** Extracted text (`extractKnowledgeText`). */
+  readonly text: string;
+}
+/** Chunks an extracted document and gives every chunk its hash and source ID. */
+export declare function knowledgeDocument(input: KnowledgeDocumentInput, options?: ChunkOptions): KnowledgeDocument;
+interface FakeEmbedderOptions {
+  /** Default 64; set it to the column size of an index with fixed dimensions. */
+  readonly dimensions?: number;
+  /** Default `fake:bag-of-words:<dimensions>`; change it to test an embedder switch. */
+  readonly id?: string;
+}
+/**
+ * A deterministic, offline embedder for tests and the contract suite: a hashed bag of words,
+ * normalized, so texts sharing words are close. One token per word. Honors the abort signal.
+ */
+export declare function fakeEmbedder(options?: FakeEmbedderOptions): Embedder;
 interface ConversationStoreContractOptions extends ContractRunner {
   /**
    * `items` (default) for stores that keep the items themselves and replay them; `provider` for
@@ -1739,7 +1952,7 @@ export declare function conversationStoreContract(name: string, createStore: () 
  * ```
  */
 export declare function rateLimitStoreContract(name: string, create: () => RateLimitStore, runner: ContractRunner): void;
-export type { ContractExpect, ContractRunner, ConversationStoreContractOptions };
+export type { ContractExpect, ContractRunner, ConversationStoreContractOptions, FakeEmbedderOptions, KnowledgeDocumentInput, KnowledgeIndexContractOptions, OpenKnowledgeIndex };
 
 // ==== tool-results.d.ts ====
 

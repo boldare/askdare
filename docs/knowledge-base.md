@@ -2,7 +2,7 @@
 
 A bot can answer from your own documents. askdare uploads them to an OpenAI vector store, the model searches it with OpenAI file search, and each answer cites its sources as links to your pages.
 
-To keep the documents, their chunks and their embeddings in your own Postgres instead, sync the same folder to your own index: see [Syncing to your own index](#syncing-to-your-own-index).
+To keep the documents, their chunks and their embeddings in your own Postgres instead, sync the same folder to your own index, and the model searches it with the `search_knowledge` tool: see [Your own index](#your-own-index). Visitors see the same citations either way.
 
 ## 1. Prepare a folder
 
@@ -62,9 +62,11 @@ Tell the model in `instructions` when to use the documents, for example "Answer 
 ## Costs and limits
 
 - File search is billed per call, and the retrieved chunks count as input tokens. Vector store storage is billed per GB per day above the free tier. See OpenAI pricing.
-- The tool name `file_search` is reserved; your own tools cannot use it.
+- The tool names `file_search` and `search_knowledge` are reserved; your own tools cannot use them.
 
-## Syncing to your own index
+## Your own index
+
+### Sync
 
 `kb sync --index <id>` mirrors the same folder, with the same front matter and `askdare.kb.json`, into a knowledge index in your own Postgres (`pgvectorIndex` from `@boldare/askdare-postgres`) instead of a vector store. The documents, chunks and embeddings are stored in your database; OpenAI computes the embeddings, with your key, and stores nothing for the index.
 
@@ -91,5 +93,38 @@ ASKDARE_EMBEDDING_DIMENSIONS=1536
 - `--dry-run` shows the documents and chunk counts without a database or a key.
 
 The options are in [Command line](cli.md#to-your-own-index).
+
+### Connect the bot
+
+```ts
+import { defineBot, openaiEmbedder } from '@boldare/askdare';
+import { pgvectorIndex } from '@boldare/askdare-postgres';
+
+const embedder = openaiEmbedder({
+  model: process.env.ASKDARE_EMBEDDING_MODEL ?? '',
+  dimensions: Number(process.env.ASKDARE_EMBEDDING_DIMENSIONS),
+});
+
+defineBot({
+  id: 'support',
+  // …
+  knowledge: {
+    // Reads DATABASE_URL; use the index ID you sync with.
+    index: pgvectorIndex({ embedder, indexId: 'support' }),
+    maxResults: 5,
+  },
+});
+```
+
+A bot has either `vectorStoreId` or `index`, not both. `maxResults` (1–50, default 5) is how many passages the model reads per search.
+
+- **The tool.** The bot gets a built-in `search_knowledge` tool with one argument, the query, which the model writes. It may search again within the bot's `limits.maxSteps`; on the last step it must answer. The widget shows "Searching…" as for file search.
+- **Citations.** Results reach the model with source IDs such as `k0123456789ab`, and askdare tells it to cite them in square brackets. While the answer streams, askdare turns them into the same numbered markers and source links that file search answers have. IDs stay the same across turns, so the model can cite a passage it found earlier in the conversation. An ID that resolves to nothing, because the model made it up or a later sync removed the passage, is dropped from the answer.
+- **Untrusted text.** Results are always wrapped as untrusted data, whatever `toolResults` says, and askdare adds the rule to the instructions: the model uses them to answer but doesn't follow instructions written in your documents ([guardrails](guardrails.md)).
+- **History.** With an item store such as `postgresConversations()`, the citations are stored with the answer. With `openaiConversations()`, the markers are looked up in the index again when the history loads, so a passage removed since then loses its marker.
+- **Doctor.** `askdare doctor` reports the index's checks: whether the database answers, the pgvector version, whether the index was synced, and whether it was synced with the bot's embedder.
+- **Costs.** No per-search fee: each search is one embedding request for the query and one database query. An answer that searches takes two model calls, search and answer.
+
+To use another database, implement the `KnowledgeIndex` port and run `knowledgeIndexContract` from `@boldare/askdare/testing` against it.
 
 Try it in the demo site: `pnpm --dir site kb:sync` uploads the sample documents in `site/knowledge/`.

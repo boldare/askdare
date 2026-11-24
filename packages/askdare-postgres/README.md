@@ -156,13 +156,19 @@ try {
 `pgvectorIndex` keeps a bot's knowledge in your database: documents, chunks and their embeddings. You choose the embedder, so you choose the key, the model and the vector size:
 
 ```ts
-import { openaiEmbedder } from '@boldare/askdare'; // exported from the next 0.6 release
+import { defineBot, openaiEmbedder } from '@boldare/askdare';
 import { pgvectorIndex } from '@boldare/askdare-postgres';
 
 export const knowledge = pgvectorIndex({
   embedder: openaiEmbedder({ model: '<embedding model>', dimensions: 1536 }),
   indexId: 'support', // default `default`
 }); // DATABASE_URL; or { url } or { pool }
+
+export const bot = defineBot({
+  id: 'support',
+  // …
+  knowledge: { index: knowledge }, // the model searches it with the search_knowledge tool
+});
 ```
 
 | Option | Default | What it does |
