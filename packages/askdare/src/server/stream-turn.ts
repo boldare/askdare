@@ -415,11 +415,9 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           });
         } catch (error) {
           // The name only: a hook that stores transcripts may fail with their content in its message.
-          reportError(
-            new AskdareError('internal_error', {
-              message: `The onTranscript hook failed: ${hookError(error)}.`,
-            }),
-          );
+          const message = `The onTranscript hook failed: ${hookError(error)}.`;
+          if (options.onError) options.onError(new AskdareError('internal_error', { message }));
+          else console.error(`[askdare] ${message}`);
         }
       };
 

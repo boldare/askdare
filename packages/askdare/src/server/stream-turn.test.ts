@@ -628,11 +628,26 @@ describe('streamTurn', () => {
       consoleError.mockRestore();
     });
 
-    it('keeps nothing of the answer when no hook is set', async () => {
+    it('runs the turn and the other hooks as before when no hook is set', async () => {
       const usage = vi.fn();
       const { events } = await turn({ gateway: answering, transcript: undefined, report: usage });
       expect(events.at(-1)).toMatchObject({ type: 'message.end' });
       expect(usage).toHaveBeenCalledOnce();
+    });
+
+    it('logs a throwing hook by its name only when there is no onError', async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      await turn({
+        text: 'my secret question',
+        onError: undefined,
+        transcript: () => {
+          throw new TypeError('my secret question');
+        },
+      });
+      expect(consoleError.mock.calls).toEqual([
+        ['[askdare] The onTranscript hook failed: TypeError.'],
+      ]);
+      consoleError.mockRestore();
     });
   });
 
