@@ -737,6 +737,55 @@ interface ChatFeedbackReport {
   /** The OpenAI ID of the rated answer within the conversation. */
   readonly itemId: string;
 }
+/** One source of an answer, as the visitor saw it under the answer. */
+interface ChatTranscriptCitation {
+  /** The 1-based marker shown in the answer's text as `[n]`. */
+  readonly index: number;
+  readonly title: string;
+  readonly url?: string | undefined;
+}
+/**
+ * One finished turn, as `onTranscript` receives it (ADR-0016): what the visitor sent and the
+ * answer they saw. It is the only report that carries message content, so treat all of it as
+ * personal data.
+ */
+interface ChatTranscriptReport {
+  readonly bot: string;
+  /**
+   * A pseudonym (HMAC) of the signed-in user's ID, or of the visitor's: the same value `onUsage`
+   * and `onFeedback` report.
+   */
+  readonly visitor: string;
+  /** The signed-in user, verified (ADR-0009); absent for anonymous visitors. */
+  readonly identity?: VisitorIdentity | undefined;
+  /** The conversation in your conversation store, as `onFeedback` gets it. Never sent to the browser. */
+  readonly conversationId: string;
+  /**
+   * The answer's ID in the conversation: the `itemId` `onFeedback` gets when the visitor rates
+   * it. Absent for a replaced or withheld answer, and when the store reported none.
+   */
+  readonly itemId?: string | undefined;
+  /** When the turn started, in epoch milliseconds: the same value `onUsage` reports for it. */
+  readonly startedAt: number;
+  /**
+   * What the visitor sent, as the model received it: after `onInput` redacted it. Empty when
+   * they sent only files.
+   */
+  readonly input: string;
+  /** How many files the visitor attached. Their names and contents are not included. */
+  readonly attachments: number;
+  /**
+   * The answer the visitor saw: the replacement when output checks replaced it, undefined when
+   * they withheld it. Reply options and tool cards are not included.
+   */
+  readonly answer: string | undefined;
+  /** The sources shown with the answer; empty for a withheld one. */
+  readonly citations: readonly ChatTranscriptCitation[];
+  /** What output checks decided (ADR-0022); absent for bots without them. */
+  readonly check?: "allowed" | "replaced" | "withheld" | undefined;
+  /** Why the answer ended. */
+  readonly reason: MessageEndReason;
+}
 /** Tokens one turn used, summed over its model calls, as OpenAI reports them. */
 interface ChatTokenUsage {
   readonly inputTokens: number;
@@ -810,9 +859,10 @@ interface ChatHandlerOptions {
   readonly conversations?: ConversationStore;
   /**
    * Called for every server error (status 500 and up), for an error that ends a streamed answer,
-   * and once a day when a bot-wide or the global budget runs out, for your monitoring, such as Sentry.
-   * Defaults to one `console.error` line with a pointer to the troubleshooting guide. Never
-   * receives message contents or API keys. May be async; nothing it throws reaches the request.
+   * once a day when a bot-wide or the global budget runs out, and when `onTranscript` throws, for
+   * your monitoring, such as Sentry. Defaults to one `console.error` line with a pointer to the
+   * troubleshooting guide. Never receives message contents or API keys. May be async; nothing it
+   * throws reaches the request.
    */
   readonly onError?: (report: ChatErrorReport) => void | Promise<void>;
   /**
@@ -828,6 +878,14 @@ interface ChatHandlerOptions {
    * askdare stores no ratings: keep them here. May be async; nothing it throws reaches the chat.
    */
   readonly onFeedback?: (report: ChatFeedbackReport) => void | Promise<void>;
+  /**
+   * Called once per chat turn whose answer finished, after it has streamed, with what the visitor
+   * sent (after `onInput`) and the answer they saw (after output checks), to keep your own
+   * transcripts. The only hook that receives message content: treat it as personal data. Off
+   * unless set. May be async; nothing it throws reaches the chat, and `onError` gets its error's
+   * name, never its message.
+   */
+  readonly onTranscript?: (report: ChatTranscriptReport) => void | Promise<void>;
   /**
    * Serves the state gallery: `/embed/<bot>?gallery=<state>&preset=<preset>&scheme=<scheme>`
    * renders fixture states without calling the model. For development and visual tests; leave
@@ -950,7 +1008,7 @@ export declare function embedPageHeaders(options: {
   readonly bots: readonly BotHandle[];
   readonly bot: string;
 }): EmbedPageHeader[];
-export type { ChatAttachments, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlers, ChatHumanCheck, ChatStyles, ChatTokenUsage, ChatToolCallReport, ChatUsageReport, ChatWidget, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, OpenAIConversationsOptions, RouteHandler, TrustProxy };
+export type { ChatAttachments, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlers, ChatHumanCheck, ChatStyles, ChatTokenUsage, ChatToolCallReport, ChatTranscriptCitation, ChatTranscriptReport, ChatUsageReport, ChatWidget, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, OpenAIConversationsOptions, RouteHandler, TrustProxy };
 
 // ==== react.d.ts ====
 

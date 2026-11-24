@@ -272,7 +272,7 @@ The text defaults come from the built-in dictionary of the configured language. 
 
 ## `createChatHandler`
 
-`createChatHandler(options: ChatHandlerOptions): ChatHandlers` returns `GET`, `POST` and `DELETE` for the catch-all route. Its types are exported from `@boldare/askdare/next`: `ChatHandlerOptions`, `ChatHandlerLimitsOptions`, `ChatErrorReport`, `ChatUsageReport`, `ChatTokenUsage`, `ChatToolCallReport`, `ChatFeedbackReport`, `TrustProxy`, `ChatHandlers` and `RouteHandler`. `openaiConversations` and `OpenAIConversationsOptions` come from there too.
+`createChatHandler(options: ChatHandlerOptions): ChatHandlers` returns `GET`, `POST` and `DELETE` for the catch-all route. Its types are exported from `@boldare/askdare/next`: `ChatHandlerOptions`, `ChatHandlerLimitsOptions`, `ChatErrorReport`, `ChatUsageReport`, `ChatTokenUsage`, `ChatToolCallReport`, `ChatFeedbackReport`, `ChatTranscriptReport`, `ChatTranscriptCitation`, `TrustProxy`, `ChatHandlers` and `RouteHandler`. `openaiConversations` and `OpenAIConversationsOptions` come from there too.
 
 | Option | Type | Default | Notes |
 | --- | --- | --- | --- |
@@ -283,10 +283,11 @@ The text defaults come from the built-in dictionary of the configured language. 
 | `previousSecrets` | `readonly string[]` | `process.env.CHAT_SECRET_PREVIOUS`, split at commas | Former secrets that still verify tokens during a rotation. Each follows the same rule as `secret`. See [Going public](going-public.md#2-secrets-and-environment). |
 | `identitySecret` | `string` | `process.env.IDENTITY_SECRET` | Checks identity tokens from your site's backend. Same rule as `secret`, and it must differ from it. Without one, identity is off. See [Signed-in visitors](identity.md). |
 | `limits` | `ChatHandlerLimitsOptions` | see [Handler limits](#handler-limits) | The counter store, the client IP and a budget across bots. |
-| `conversations` | `ConversationStore` | `openaiConversations()` | Where conversations are stored. The default keeps them at OpenAI, with the handler's `openaiApiKey`; `openaiConversations({ apiKey })` takes its own key. Stores that keep the items themselves aren't supported in this version yet: the route refuses one when it loads. See [Custom stores](custom-store.md#conversation-store). |
+| `conversations` | `ConversationStore` | `openaiConversations()` | Where conversations are stored. The default keeps them at OpenAI, with the handler's `openaiApiKey`; `openaiConversations({ apiKey })` takes its own key. A store that keeps the items itself, such as `memoryConversations()` or `@boldare/askdare-postgres`, runs each turn statelessly (`store: false`). See [Custom stores](custom-store.md#conversation-store). |
 | `onError` | `(report: ChatErrorReport) => void \| Promise<void>` | one `console.error` line | Your error reporting. See [`onError`](#onerror). |
 | `onUsage` | `(report: ChatUsageReport) => void \| Promise<void>` | none | Each turn's tokens, timings and tool calls, for cost tracking and tracing. See [`onUsage`](#onusage). |
 | `onFeedback` | `(report: ChatFeedbackReport) => void \| Promise<void>` | none | Visitors' ratings of answers. Without it, answers can't be rated. See [`onFeedback`](#onfeedback). |
+| `onTranscript` | `(report: ChatTranscriptReport) => void \| Promise<void>` | none | Each finished turn's message and answer, to keep your own transcripts. The only hook with message content. See [`onTranscript`](#ontranscript). |
 | `gallery` | `boolean` | `false` | Serves the state gallery. See [`gallery`](#gallery). |
 
 A wrong `basePath`, a duplicate bot ID, an empty `bots` list or an unsupported conversation store throws a `TypeError` when the route loads. A missing key or a missing or weak secret doesn't stop the route from loading. Instead, requests that need it answer `bot_unavailable`, and `onError` receives the reason. In development (`next dev`), the chat itself says what to fix.
@@ -319,7 +320,7 @@ See [Deployment](deployment.md#behind-another-proxy-or-cdn) for setups with a CD
 
 ### `onError`
 
-`onError` receives server errors (status 500 and up), any error that ends an answer while it streams, and once a day a `budget_exceeded` report when a bot's or the global budget runs out (never a single visitor's). Use it for your monitoring. It never receives message contents or API keys. It may be async: askdare keeps the function alive until it finishes, and anything it throws is logged by its error's name and never reaches the request.
+`onError` receives server errors (status 500 and up), any error that ends an answer while it streams, once a day a `budget_exceeded` report when a bot's or the global budget runs out (never a single visitor's), and an `internal_error` when [`onTranscript`](#ontranscript) throws. Use it for your monitoring. It never receives message contents or API keys. It may be async: askdare keeps the function alive until it finishes, and anything it throws is logged by its error's name and never reaches the request.
 
 ```ts
 import * as Sentry from '@sentry/nextjs';
@@ -406,6 +407,57 @@ It may be async, like `onUsage`, and nothing it throws reaches the chat. A bot h
 | `itemId` | `string` | The OpenAI ID of the rated answer within that conversation. |
 
 A visitor can rate only answers in their own conversations: each answer carries an encrypted handle bound to the visitor, or to the signed-in user, and the bot. Ratings are limited to 20 per minute per visitor.
+
+### `onTranscript`
+
+`onTranscript` hands you each turn as the visitor saw it, so you can keep your own transcripts: for review, export, analysis or a retention policy of your own ([ADR-0016](adr/0016-admin.md)). It works with every conversation store. It is off unless you set it, and it is the only hook that receives message content.
+
+```ts
+export const { GET, POST, DELETE } = createChatHandler({
+  bots,
+  onTranscript: async ({ bot, visitor, conversationId, itemId, startedAt, input, answer, check }) => {
+    await db.insert(transcripts).values({
+      bot,
+      visitor,
+      conversationId,
+      itemId,
+      at: new Date(startedAt),
+      input,
+      answer,
+      check,
+    });
+  },
+});
+```
+
+**When it runs.** Once per turn whose answer finished, after the answer has streamed and the stream has closed, so it never delays an answer. askdare keeps the function alive until it finishes (Next.js `after`). A slow hook doesn't hold the conversation either: the visitor can send the next message while it runs. It isn't called for a message that `onInput` or moderation blocked, or for a turn that failed or stopped before its answer finished (`onUsage` still reports those). An answer that output checks withheld is reported, without its text. A visitor who closes the chat mid-answer still gets a transcript: the answer is finished and stored in the conversation all the same.
+
+**What it receives.** What the visitor sent and what they saw, never more:
+
+- the message **after** `onInput`: when the hook redacts it, you get the redacted text, the same text the model and the conversation got;
+- the answer **after** output checks ([Guardrails](guardrails.md)): the replacement when `onOutput` replaced it, nothing for a withheld answer;
+- not the instructions, page context, file names or contents, tool calls, tool results, reasoning, reply options or tool cards.
+
+**When it throws.** Nothing it throws reaches the chat, and the other hooks still run. askdare reports the failure to `onError` as an `internal_error` whose message names only the error's class, such as `The onTranscript hook failed: Error.`, never its message, because an error from a database insert can quote the values it was given. Without `onError`, that is one `console.error` line. The transcript of that turn is lost, so catch errors inside the hook when you need to retry or know more.
+
+**Personal data.** A transcript is what the visitor typed, so it can hold anything: names, addresses, health details. askdare doesn't store it; you do. Cover it in your privacy notice and keep it no longer than you need. A visitor who starts a new conversation deletes the old one from the conversation store, but askdare calls no hook when that happens, so your transcript outlives it: set a retention period, and keep transcripts by `conversationId` and `visitor` so you can find and delete them when someone asks. See [Privacy](privacy.md#transcripts).
+
+`ChatTranscriptReport`:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `bot` | `string` | The bot's ID. |
+| `visitor` | `string` | The same pseudonym `onUsage` and `onFeedback` report, so transcripts, costs and ratings line up. |
+| `identity` | `VisitorIdentity` | The signed-in user, verified ([Signed-in visitors](identity.md)). Absent for anonymous visitors. |
+| `conversationId` | `string` | The conversation in your conversation store: the same ID `onFeedback` gets. Never sent to the browser. |
+| `itemId` | `string` | The answer's ID in the conversation, the `itemId` `onFeedback` gets when the visitor rates it. Absent for a replaced or withheld answer, and when the store reported none. |
+| `startedAt` | `number` | When the turn started, in epoch milliseconds: the same value as in its `onUsage` report. |
+| `input` | `string` | What the visitor sent, after `onInput`. Empty when they sent only files. |
+| `attachments` | `number` | How many files the visitor attached. |
+| `answer` | `string \| undefined` | The answer the visitor saw, with its `[n]` source markers. The replacement when output checks replaced it; `undefined` when they withheld it. |
+| `citations` | `ChatTranscriptCitation[]` | The sources shown with the answer: `index` (the `[n]` marker), `title` and `url` when there is one. Empty for a withheld answer. |
+| `check` | `'allowed' \| 'replaced' \| 'withheld'` | What output checks decided. Absent for bots without them. |
+| `reason` | `string` | Why the answer ended: `completed`, `max_steps`, `max_output_tokens` or `content_filter`. |
 
 ### `gallery`
 

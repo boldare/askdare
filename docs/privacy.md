@@ -20,6 +20,7 @@ This page lists what data the chat handles, where it goes and how long it stays,
 | Error reports | Your server log, or your `onError` function | Your hosting's log retention |
 | Turn reports: token counts, timings, tool names, pseudonyms | Your `onUsage` function, if you set one | Wherever you keep them |
 | Ratings of answers and the comments visitors write | Your `onFeedback` function, if you set one | Wherever you keep them |
+| Transcripts: each message (after `onInput`) and the answer the visitor saw | Your [`onTranscript`](#transcripts) function, if you set one | Wherever you keep them |
 | Chat events: counts, durations, outcomes, ratings (no text) | Your page's `askdare('on')` or `onEvent` listeners ([Chat events](events.md)), if you add any | Wherever your analytics keeps them |
 
 ## In the visitor's browser
@@ -88,7 +89,17 @@ The server gives every new visitor a random ID: `v_` followed by 32 hexadecimal 
 - With `onError` in `createChatHandler`, the same reports go to your function, for example to Sentry, instead of the log.
 - With `onUsage`, every turn's report goes to your function: token counts, timings, tool names and outcomes, and pseudonyms (HMACs) of the conversation and the visitor or user. It holds no message text. See [Observability](observability.md).
 - With `onFeedback`, visitors can rate answers, and each rating goes to your function with the comment the visitor wrote, the OpenAI conversation and answer IDs, a pseudonym of the visitor, and the signed-in user if there is one. askdare keeps none of it. A comment is free text the visitor typed, so treat it like a message: mention it in your notice and keep it no longer than you need. The visitor's browser also remembers which answers they rated 👍 or 👎 (not the comments), next to the conversation in its storage (see [What it stores](#what-it-stores)). See [Answer ratings](feedback.md).
+- With `onTranscript`, every finished turn goes to your function with what the visitor sent and the answer they saw. See [Transcripts](#transcripts).
 - Your hosting provider may log every request, IP addresses included, according to its own settings.
+
+### Transcripts
+
+`onTranscript` in `createChatHandler` is off unless you set it. It is the only hook that receives message content ([ADR-0016](adr/0016-admin.md)), so with it, conversations reach a place you run, next to the conversation store.
+
+- **What it receives:** after each turn whose answer finished, the visitor's message after your `onInput` hook (a redacted message arrives redacted), the number of attached files (not their names or contents), and the answer the visitor saw after output checks (the replacement of a replaced answer, nothing of a withheld one), with its sources. With it come the bot ID, a pseudonym of the visitor or user, the signed-in user if there is one, and the raw conversation and answer IDs. Never the instructions, page context, tool calls or their results.
+- **When:** after the answer has streamed, so it never delays the chat. Not for messages your checks blocked, or turns that failed before their answer finished.
+- **When it throws:** the chat carries on, and `onError` receives `internal_error` with the name of the error's class only. askdare never logs the transcript or the hook's error message, since a failed database write can quote the values it was given. That turn's transcript is lost.
+- **askdare keeps none of it.** Where you store transcripts, for how long and who reads them is your decision, and your privacy notice must cover it. A visitor who starts a new conversation deletes it from the conversation store, but askdare calls no hook then, so a stored transcript stays until you delete it: set a retention period, and keep transcripts by conversation and visitor so you can find, export or delete one person's on request.
 
 ### `safety_identifier`
 
@@ -224,6 +235,7 @@ There is no previous-secret setting for `IDENTITY_SECRET`. When you change it:
 - [ ] Say that conversations, including what visitors type and attach, are stored by OpenAI until deleted, and how visitors delete them.
 - [ ] Describe the `localStorage` entries and their purpose: the conversation, and the ratings if you use `onFeedback`.
 - [ ] If you collect ratings, say that visitors' comments reach you and how long you keep them.
+- [ ] If you use `onTranscript`, say that you keep copies of conversations, where, for how long, and how visitors ask for theirs to be deleted.
 - [ ] Mention IP addresses in rate limits and their retention.
 - [ ] Decide on a retention policy for conversations.
 - [ ] Keep the AI disclosure, and link this notice from it with `privacyUrl`.
