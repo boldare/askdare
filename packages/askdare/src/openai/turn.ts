@@ -127,7 +127,7 @@ class Replay {
     const items: StoredItem[] = [];
     let lastMessage: string | undefined;
     for (const output of outcome.output) {
-      const item = fromResponseOutput(output, this.#family, citations.sources);
+      const item = fromResponseOutput(output, this.#family, citations);
       if (!item) continue;
       items.push(item);
       if (item.type === 'message') lastMessage = item.id;
@@ -196,12 +196,18 @@ async function runStep(
       prompt_cache_key: `askdare:${bot.id}`,
       ...(tools.length > 0 ? { tools, tool_choice: choice, parallel_tool_calls: true } : {}),
       // Search results carry the titles and URLs that file citations link to.
-      ...(bot.knowledge ? { include: ['file_search_call.results' as const] } : {}),
+      ...(bot.knowledge?.vectorStoreId ? { include: ['file_search_call.results' as const] } : {}),
     },
     { signal: request.signal },
   );
-  const mapper = new ResponseStreamMapper(request.messageId, request.emit, citations);
-  for await (const event of stream) mapper.handle(event);
+  const mapper = new ResponseStreamMapper(
+    request.messageId,
+    request.emit,
+    citations,
+    request.signal,
+  );
+  // One event at a time: a cited passage may be looked up before the text after it goes out.
+  for await (const event of stream) await mapper.handle(event);
   // The SDK ends iteration quietly when the signal aborts, so check it explicitly.
   if (request.signal.aborted) throw request.signal.reason;
   return mapper.outcome();
@@ -215,7 +221,24 @@ async function runStep(
  */
 export async function runTurn(client: OpenAI, request: TurnRequest): Promise<TurnResult> {
   const { bot } = request;
-  const citations = new CitationRegistry();
+  const citations = new CitationRegistry(bot.knowledge?.index);
+  try {
+    return await turn(client, request, citations);
+  } finally {
+    const unknown = citations.passages?.unknown ?? 0;
+    // Counted, never logged with the text around them (ADR-0025, decision 5).
+    if (unknown > 0) {
+      console.warn(`[askdare] dropped ${unknown} citation(s) of passages the index doesn't have.`);
+    }
+  }
+}
+
+async function turn(
+  client: OpenAI,
+  request: TurnRequest,
+  citations: CitationRegistry,
+): Promise<TurnResult> {
+  const { bot } = request;
   let usage: TokenUsage = ZERO_USAGE;
   let repairs = 0;
   // Options the bot's tools defined in this turn; a later call's replace an earlier one's.
@@ -327,6 +350,7 @@ export async function runTurn(client: OpenAI, request: TurnRequest): Promise<Tur
                 toolReplies = items;
               },
               onUi,
+              onPassages: (passages) => citations.passages?.add(passages),
             })
           : []),
       ];

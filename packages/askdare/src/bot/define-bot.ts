@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { isEmbedPath } from '../base-path';
 import { canonicalLocale, TEXT_KEYS, type TextKey, textLocale, textsFor } from '../i18n/texts';
+import type { KnowledgeIndex } from '../knowledge/port';
+import { SEARCH_KNOWLEDGE } from '../knowledge/tool';
 import type { HumanVerifier } from '../security/human-verifier';
 import type { VisitorIdentity } from '../security/identity';
 import { PRESET_NAMES, type PresetName } from '../theme/presets';
@@ -86,12 +88,42 @@ export interface BotSecurity {
   readonly humanVerifier?: HumanVerifier | undefined;
 }
 
-export interface KnowledgeConfig {
-  /** Vector store filled by `askdare kb sync`, usually `process.env.KB_VECTOR_STORE_ID`. */
-  readonly vectorStoreId: string;
-  /** Chunks the model reads per search: more grounds answers better but costs input tokens. Default 5. */
-  readonly maxResults?: number;
-}
+/**
+ * Where the bot's documents are searched (ADR-0025): an OpenAI vector store with hosted file
+ * search, or the bot's own index through the `search_knowledge` tool. One or the other.
+ */
+export type KnowledgeConfig =
+  | {
+      /** Vector store filled by `askdare kb sync`, usually `process.env.KB_VECTOR_STORE_ID`. */
+      readonly vectorStoreId: string;
+      readonly index?: never;
+      /** Chunks the model reads per search: more grounds answers better but costs input tokens. Default 5. */
+      readonly maxResults?: number;
+    }
+  | {
+      /**
+       * The bot's own index, such as `pgvectorIndex({ embedder, indexId })` from
+       * `@boldare/askdare-postgres`, filled by `askdare kb sync --index`. The model searches it with
+       * the `search_knowledge` tool and cites passages as it does with a vector store.
+       */
+      readonly index: KnowledgeIndex;
+      readonly vectorStoreId?: never;
+      /** Passages the model reads per search: more grounds answers better but costs input tokens. Default 5. */
+      readonly maxResults?: number;
+    };
+
+/** The bot's knowledge with its defaults: exactly one of a vector store and an index. */
+export type ResolvedKnowledge =
+  | {
+      readonly vectorStoreId: string;
+      readonly index: undefined;
+      readonly maxResults: number;
+    }
+  | {
+      readonly vectorStoreId: undefined;
+      readonly index: KnowledgeIndex;
+      readonly maxResults: number;
+    };
 
 export interface AttachmentConfig {
   /** PNG, JPEG, WebP and GIF. The widget downsizes photos and strips their metadata. Default true. */
@@ -220,7 +252,10 @@ export interface BotDefinition extends GuardrailOptions {
    * gets no more trust than what visitors type. Off by default.
    */
   readonly pageContext?: boolean;
-  /** Documents the model searches with OpenAI file search and cites in its answers. */
+  /**
+   * Documents the model searches and cites in its answers: an OpenAI vector store (file search) or
+   * the bot's own index (the `search_knowledge` tool).
+   */
   readonly knowledge?: KnowledgeConfig | undefined;
   /**
    * Lets visitors attach images and PDFs. Off when absent. Files go to OpenAI (purpose
@@ -265,7 +300,7 @@ export interface Bot extends BotHandle {
   readonly limits: Required<BotLimits>;
   readonly tools: readonly Tool[];
   readonly pageContext: boolean;
-  readonly knowledge: Required<KnowledgeConfig> | undefined;
+  readonly knowledge: ResolvedKnowledge | undefined;
   readonly attachments: Required<AttachmentConfig> | undefined;
   readonly voice: Required<VoiceConfig> | undefined;
   readonly security: {
@@ -426,13 +461,30 @@ const definitionSchema = z.object({
       (tools) => tools.every((tool) => tool.name !== SUGGEST_REPLIES),
       `must not use the reserved name ${SUGGEST_REPLIES}`,
     )
+    .refine(
+      (tools) => tools.every((tool) => tool.name !== SEARCH_KNOWLEDGE),
+      `must not use the reserved name ${SEARCH_KNOWLEDGE}`,
+    )
     .optional(),
   pageContext: z.boolean().optional(),
   knowledge: z
     .object({
-      vectorStoreId: z.string().regex(/^vs_[A-Za-z0-9_-]+$/, 'must be a vector store ID like vs_…'),
+      vectorStoreId: z
+        .string()
+        .regex(/^vs_[A-Za-z0-9_-]+$/, 'must be a vector store ID like vs_…')
+        .optional(),
+      index: z
+        .custom<KnowledgeIndex>(
+          isKnowledgeIndex,
+          'must be a KnowledgeIndex, such as pgvectorIndex() from @boldare/askdare-postgres',
+        )
+        .optional(),
       maxResults: z.number().int().min(1).max(50).optional(),
     })
+    .refine(
+      (value) => (value.vectorStoreId === undefined) !== (value.index === undefined),
+      'must have either vectorStoreId or index, not both',
+    )
     .optional(),
   attachments: z
     .object({
@@ -513,6 +565,21 @@ const definitionSchema = z.object({
   ...guardrailShape,
 });
 
+/** What `search_knowledge` and `askdare doctor` call; checked at startup, not on a visitor's turn. */
+function isKnowledgeIndex(value: unknown): value is KnowledgeIndex {
+  if (typeof value !== 'object' || value === null) return false;
+  const index = value as Record<string, unknown>;
+  return ['search', 'passage', 'diagnose'].every((method) => typeof index[method] === 'function');
+}
+
+function resolveKnowledge(knowledge: KnowledgeConfig | undefined): ResolvedKnowledge | undefined {
+  if (!knowledge) return undefined;
+  const maxResults = knowledge.maxResults ?? 5;
+  return knowledge.index
+    ? Object.freeze({ vectorStoreId: undefined, index: knowledge.index, maxResults })
+    : Object.freeze({ vectorStoreId: knowledge.vectorStoreId, index: undefined, maxResults });
+}
+
 /**
  * Declares a chatbot. Validates eagerly so misconfiguration fails at startup, not on the first
  * visitor's message.
@@ -590,12 +657,7 @@ export function createBot(definition: BotDefinition): Bot {
     limits: Object.freeze({ ...DEFAULT_LIMITS, ...definition.limits }),
     tools: Object.freeze([...(definition.tools ?? [])]),
     pageContext: definition.pageContext ?? false,
-    knowledge: definition.knowledge
-      ? Object.freeze({
-          vectorStoreId: definition.knowledge.vectorStoreId,
-          maxResults: definition.knowledge.maxResults ?? 5,
-        })
-      : undefined,
+    knowledge: resolveKnowledge(definition.knowledge),
     attachments: definition.attachments
       ? Object.freeze({
           images: definition.attachments.images ?? true,

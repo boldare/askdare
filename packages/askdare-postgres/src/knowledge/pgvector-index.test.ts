@@ -1,11 +1,8 @@
 import { createHash, randomBytes } from 'node:crypto';
+import type { Embedder, KnowledgeDocument } from '@boldare/askdare';
+import { fakeEmbedder, knowledgeDocument, knowledgeIndexContract } from '@boldare/askdare/testing';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-// Until task k2 exports the suite from @boldare/askdare/testing (ADR-0025, decision 12).
-import { knowledgeIndexContract } from '../../../askdare/src/knowledge/contract';
-import { knowledgeDocument } from '../../../askdare/src/knowledge/document';
-import { fakeEmbedder } from '../../../askdare/src/knowledge/fake-embedder';
-import type { Embedder, KnowledgeDocument } from '../../../askdare/src/knowledge/port';
 import { migrate, pgvectorIndex } from '../index';
 import { createTestSchema, TEST_DATABASE_URL, type TestSchema } from '../testing/database';
 import { fullTextQuery, hnswIndexName, vectorExpression } from './pgvector-index';
@@ -73,12 +70,11 @@ describe.skipIf(!TEST_DATABASE_URL)('pgvectorIndex against Postgres', () => {
     await schema.drop();
   });
 
-  knowledgeIndexContract('pgvectorIndex', {
-    describe,
-    it,
-    expect,
-    open: ({ indexId, embedder }) => pgvectorIndex({ pool: schema.pool, indexId, embedder }),
-  });
+  knowledgeIndexContract(
+    'pgvectorIndex',
+    ({ indexId, embedder }) => pgvectorIndex({ pool: schema.pool, indexId, embedder }),
+    { describe, it, expect },
+  );
 
   const open = (indexId: string, embedder: Embedder = fakeEmbedder()) =>
     pgvectorIndex({ pool: schema.pool, indexId, embedder });

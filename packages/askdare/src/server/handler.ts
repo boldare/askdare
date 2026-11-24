@@ -967,6 +967,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
         replies: repliesReader(bot),
         ui: uiReader(bot),
         checked: checksOutput(bot.guardrails),
+        knowledge: bot.knowledge?.index,
       }),
     ]);
     if (!ownsConversation(info, bot.id, grant)) throw conversationGone();
@@ -1067,6 +1068,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
           ? await gateway.diagnose({
               model: bot.model,
               vectorStoreId: bot.knowledge?.vectorStoreId,
+              knowledgeIndex: bot.knowledge?.index,
               transcriptionModel: bot.voice?.model,
               attachments: bot.attachments !== undefined,
             })

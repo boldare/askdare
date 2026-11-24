@@ -1,4 +1,5 @@
 import type { RepliesReader, UiReader } from '../gateway';
+import type { KnowledgeIndex } from '../knowledge/port';
 import type { HistoryMessage } from '../protocol/history';
 import type { ConversationStore } from './port';
 
@@ -8,6 +9,11 @@ export interface HistoryRequest {
   readonly ui?: UiReader | undefined;
   /** For bots with output checks: show only answers a note settled (ADR-0022). */
   readonly checked?: boolean | undefined;
+  /**
+   * The bot's own index (ADR-0025): its answers' `[id]` markers become `[n]`, from the citations
+   * stored with the text, or through `passage()` where the provider stored none.
+   */
+  readonly knowledge?: KnowledgeIndex | undefined;
 }
 
 /** Reads the visible messages of a conversation, oldest first. */

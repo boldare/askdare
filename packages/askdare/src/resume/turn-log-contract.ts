@@ -1,17 +1,5 @@
+import type { ContractRunner } from '../testing/runner';
 import type { TurnEvent, TurnEventLog } from './turn-log';
-
-/** The few matchers the suite uses; Vitest's and Jest's `expect` both fit. */
-export interface ContractAssertion {
-  toBe(expected: unknown): void;
-  toEqual(expected: unknown): void;
-}
-
-/** The test runner's functions, so the suite depends on none (ADR-0024 decision 10). */
-export interface ContractRunner {
-  readonly describe: (name: string, body: () => void) => void;
-  readonly it: (name: string, body: () => Promise<void>) => void;
-  readonly expect: (actual: unknown) => ContractAssertion;
-}
 
 export interface TurnEventLogContractOptions {
   /** The time to live in the expiry tests. Default 1 000 ms; Redis needs whole milliseconds. */

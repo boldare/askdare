@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createBot, widgetTexts } from './define-bot';
+import { z } from 'zod';
+import { fakeEmbedder } from '../knowledge/fake-embedder';
+import { memoryKnowledgeIndex } from '../knowledge/memory-index';
+import { defineTool } from '../tools/define-tool';
+import { type BotDefinition, createBot, widgetTexts } from './define-bot';
 
 describe('createBot', () => {
   it('applies default limits and normalizes instructions to a function', () => {
@@ -113,6 +117,40 @@ describe('createBot', () => {
     expect(
       createBot({ id: 'a', model: 'm', instructions: 'x', knowledge: undefined }).knowledge,
     ).toBeUndefined();
+  });
+
+  it('takes an own index instead of a vector store, and one or the other', () => {
+    const index = memoryKnowledgeIndex({ embedder: fakeEmbedder() });
+    const bot = createBot({ id: 'a', model: 'm', instructions: 'x', knowledge: { index } });
+    expect(bot.knowledge).toEqual({ vectorStoreId: undefined, index, maxResults: 5 });
+    const both = { index, vectorStoreId: 'vs_1' } as unknown as BotDefinition['knowledge'];
+    expect(() => createBot({ id: 'a', model: 'm', instructions: 'x', knowledge: both })).toThrow(
+      /knowledge must have either vectorStoreId or index, not both/,
+    );
+    expect(() =>
+      createBot({
+        id: 'a',
+        model: 'm',
+        instructions: 'x',
+        knowledge: {} as BotDefinition['knowledge'],
+      }),
+    ).toThrow(/either vectorStoreId or index/);
+    const fake = { index: { search: () => [] } } as unknown as BotDefinition['knowledge'];
+    expect(() => createBot({ id: 'a', model: 'm', instructions: 'x', knowledge: fake })).toThrow(
+      /knowledge\.index must be a KnowledgeIndex/,
+    );
+  });
+
+  it('reserves search_knowledge', () => {
+    const tool = defineTool({
+      name: 'search_knowledge',
+      description: 'Mine.',
+      input: z.object({}),
+      execute: () => null,
+    });
+    expect(() => createBot({ id: 'a', model: 'm', instructions: 'x', tools: [tool] })).toThrow(
+      /reserved name search_knowledge/,
+    );
   });
 
   it('is frozen', () => {

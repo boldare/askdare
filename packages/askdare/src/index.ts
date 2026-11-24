@@ -31,7 +31,22 @@ export type {
   StoredPart,
 } from './conversations/port';
 export { VersionConflictError } from './conversations/port';
+export { checkKnowledgeDocuments, embeddingInput } from './knowledge/check';
+export type {
+  Embedder,
+  Embeddings,
+  KnowledgeCallOptions,
+  KnowledgeCheck,
+  KnowledgeChunk,
+  KnowledgeDocument,
+  KnowledgeIndex,
+  Passage,
+  SearchOptions,
+  SyncReport,
+} from './knowledge/port';
 export type { CounterHit, RateLimitStore } from './limits/store';
+export type { OpenAIEmbedderOptions } from './openai/embedder';
+export { openaiEmbedder } from './openai/embedder';
 export type { ErrorCode } from './protocol/events';
 export { ERROR_CODES } from './protocol/events';
 export { PROTOCOL_VERSION } from './protocol/version';

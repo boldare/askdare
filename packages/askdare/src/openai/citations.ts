@@ -1,4 +1,6 @@
 import type { ResponseFileSearchToolCall } from 'openai/resources/responses/responses';
+import type { StoredCitation } from '../conversations/port';
+import type { PassageLookup } from '../knowledge/passages';
 
 const MAX_TITLE = 200;
 const MAX_URL = 512;
@@ -66,4 +68,32 @@ export function citationSource(
     };
   }
   return undefined;
+}
+
+/** How the text of a turn or of history finds what it cites. */
+export interface CitationContext {
+  /** Files of `file_search` results, by ID. */
+  readonly sources: KnowledgeSources;
+  /** Passages of the bot's own index, for its `[id]` markers; undefined without one. */
+  readonly passages?: PassageLookup | undefined;
+}
+
+/**
+ * The citations stored with one output text (ADR-0024, decision 8): the sources its file
+ * annotations cite, and the passages its `[id]` markers cite, whose markers stay in the text.
+ */
+export function textCitations(
+  text: string,
+  annotations: readonly unknown[],
+  { sources, passages }: CitationContext,
+): StoredCitation[] {
+  const files: StoredCitation[] = [];
+  const seen = new Set<string>();
+  for (const annotation of annotations) {
+    const source = citationSource(annotation, sources);
+    if (!source || seen.has(source.key)) continue;
+    seen.add(source.key);
+    files.push(source.url ? { title: source.title, url: source.url } : { title: source.title });
+  }
+  return [...files, ...(passages?.citationsOf(text) ?? [])];
 }

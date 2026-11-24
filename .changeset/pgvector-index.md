@@ -2,7 +2,7 @@
 '@boldare/askdare-postgres': minor
 ---
 
-`pgvectorIndex({ embedder })` keeps a bot's knowledge in your own Postgres with pgvector (ADR-0025). It implements the `KnowledgeIndex` port, which `defineBot` takes once `@boldare/askdare` exports it later in 0.6, and `askdare kb sync` fills it.
+`pgvectorIndex({ embedder })` keeps a bot's knowledge in your own Postgres with pgvector (ADR-0025). It implements the `KnowledgeIndex` port of `@boldare/askdare`: `defineBot({ knowledge: { index } })` takes it, and `askdare kb sync` fills it.
 
 - **Search:** hybrid. Vector search (an HNSW index per knowledge index) and full text in the language-neutral `simple` configuration are fused by reciprocal rank, with the full-text ranking weighted 0.3. On the evaluation set of spike S8 it found the right document in the top 5 for 23 of 23 questions.
 - **Sync:** incremental. An unchanged file is skipped, a changed file re-embeds only the chunks that changed, and a renamed file re-embeds nothing. Each document is written in one transaction. A different embedder (another model or size) makes the next sync embed everything again.

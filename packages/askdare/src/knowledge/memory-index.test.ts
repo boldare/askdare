@@ -7,12 +7,11 @@ import { memoryKnowledgeIndex, memoryKnowledgeStore } from './memory-index';
 import type { Embedder } from './port';
 
 const store = memoryKnowledgeStore();
-knowledgeIndexContract('memoryKnowledgeIndex', {
-  describe,
-  it,
-  expect,
-  open: ({ indexId, embedder }) => memoryKnowledgeIndex({ indexId, embedder, store }),
-});
+knowledgeIndexContract(
+  'memoryKnowledgeIndex',
+  ({ indexId, embedder }) => memoryKnowledgeIndex({ indexId, embedder, store }),
+  { describe, it, expect },
+);
 
 const text = '# Plans\n\nThe Team plan costs 12 euros.';
 const document = knowledgeDocument({

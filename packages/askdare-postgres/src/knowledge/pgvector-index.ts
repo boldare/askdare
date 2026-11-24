@@ -1,18 +1,17 @@
 import { createHash } from 'node:crypto';
-// k1's knowledge code is internal to @boldare/askdare until task k2 exports the port. Until then
-// the types are inlined into this package's .d.ts and the two helpers are bundled into its dist:
-// the same code, so every index checks and embeds documents the same way.
-import { checkKnowledgeDocuments, embeddingInput } from '../../../askdare/src/knowledge/document';
-import type {
-  Embedder,
-  KnowledgeCallOptions,
-  KnowledgeCheck,
-  KnowledgeDocument,
-  KnowledgeIndex,
-  Passage,
-  SearchOptions,
-  SyncReport,
-} from '../../../askdare/src/knowledge/port';
+// Core's helpers, so every index checks and embeds documents the same way.
+import {
+  checkKnowledgeDocuments,
+  type Embedder,
+  embeddingInput,
+  type KnowledgeCallOptions,
+  type KnowledgeCheck,
+  type KnowledgeDocument,
+  type KnowledgeIndex,
+  type Passage,
+  type SearchOptions,
+  type SyncReport,
+} from '@boldare/askdare';
 import {
   type PostgresConnectionOptions,
   type PostgresPool,

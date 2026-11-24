@@ -1,8 +1,8 @@
 import type { ConversationItem } from 'openai/resources/conversations/items';
 import type { ResponseInputContent, ResponseInputItem } from 'openai/resources/responses/responses';
 import { newItemId } from '../conversations/items';
-import type { StoredCitation, StoredItem, StoredPart } from '../conversations/port';
-import { citationSource, type KnowledgeSources } from './citations';
+import type { StoredItem, StoredPart } from '../conversations/port';
+import { type CitationContext, textCitations } from './citations';
 import { PAGE_CONTEXT_MARKER, pageContextPart } from './page-context';
 
 /** What `pageContextPart` puts before the page's description. */
@@ -74,25 +74,9 @@ export function toResponseInput(item: StoredItem): ResponseInputItem | undefined
   }
 }
 
-/** The sources a text part's annotations cite, each once, as stored with the text. */
-export function citationsOf(
-  annotations: readonly unknown[],
-  sources: KnowledgeSources,
-): StoredCitation[] {
-  const citations: StoredCitation[] = [];
-  const seen = new Set<string>();
-  for (const annotation of annotations) {
-    const source = citationSource(annotation, sources);
-    if (!source || seen.has(source.key)) continue;
-    seen.add(source.key);
-    citations.push(source.url ? { title: source.title, url: source.url } : { title: source.title });
-  }
-  return citations;
-}
-
 function storedParts(
   content: Extract<ConversationItem, { type: 'message' }>['content'],
-  sources: KnowledgeSources,
+  context: CitationContext,
 ): StoredPart[] {
   return content.flatMap((part): StoredPart[] => {
     switch (part.type) {
@@ -105,7 +89,7 @@ function storedParts(
         }
         return [{ type: 'text', text: part.text }];
       case 'output_text': {
-        const citations = citationsOf(part.annotations, sources);
+        const citations = textCitations(part.text, part.annotations, context);
         return [
           citations.length > 0
             ? { type: 'text', text: part.text, citations }
@@ -131,7 +115,7 @@ function storedParts(
  */
 export function fromConversationItem(
   item: ConversationItem,
-  sources: KnowledgeSources = new Map(),
+  context: CitationContext = { sources: new Map() },
 ): StoredItem {
   const id = 'id' in item && typeof item.id === 'string' ? item.id : newItemId();
   if (
@@ -143,7 +127,7 @@ export function fromConversationItem(
       type: 'message',
       role: item.role,
       ...(item.phase ? { phase: item.phase } : {}),
-      parts: storedParts(item.content, sources),
+      parts: storedParts(item.content, context),
     };
   }
   if (item.type === 'function_call') {
