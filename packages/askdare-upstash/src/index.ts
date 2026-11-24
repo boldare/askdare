@@ -1,6 +1,9 @@
 import type { CounterHit, RateLimitStore } from '@boldare/askdare';
 import { Redis } from '@upstash/redis';
 
+export type { UpstashTurnLogOptions } from './turn-log';
+export { upstashTurnLog } from './turn-log';
+
 /** The subset of an Upstash Redis client this store uses. */
 export interface RedisEval {
   eval<TArgs extends unknown[], TData = unknown>(

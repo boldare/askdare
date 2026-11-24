@@ -1,6 +1,6 @@
 # @boldare/askdare-upstash
 
-Shared rate limits and token budgets for [`@boldare/askdare`](https://www.npmjs.com/package/@boldare/askdare), stored in [Upstash Redis](https://upstash.com/).
+Shared rate limits, token budgets and answer resume for [`@boldare/askdare`](https://www.npmjs.com/package/@boldare/askdare), stored in [Upstash Redis](https://upstash.com/).
 
 **[askdare website and docs](https://askdare.vercel.app)** · [GitHub](https://github.com/boldare/askdare/tree/main/packages/askdare-upstash)
 
@@ -57,6 +57,31 @@ limits: {
   requireSharedStore: process.env.NODE_ENV === 'production',
 },
 ```
+
+## Resuming answers across instances
+
+When a visitor's connection drops in the middle of an answer, askdare can resume it from where it stopped, as long as the server that picks up the reconnect can read the answer's events. By default they stay in the memory of the instance that wrote them, so on Vercel or with several dynos a reconnect often lands where they aren't, and the visitor reloads the history instead. `upstashTurnLog()` keeps them in the same database as the rate limits, so any instance can resume:
+
+```ts
+import { upstashStore, upstashTurnLog } from '@boldare/askdare-upstash';
+
+export const { GET, POST, DELETE } = createChatHandler({
+  bots,
+  limits: { store: upstashStore() },
+  resume: { log: upstashTurnLog() },
+});
+```
+
+You don't need it on a single server or a single dyno: the in-memory default resumes there.
+
+Each answer is a Redis stream under `<prefix>turn:<id>`, written in batches of events (a few writes per answer, not one per word). **The stream holds the answer's text.** It expires a few minutes after the answer's last event, with the time to live askdare gives it, and the add-on logs nothing about what it holds. Mention the database in your privacy notice as you would any store of chat content.
+
+Upstash's REST API can't block until a stream grows, so a reader that waits for the rest of an answer checks every 150 ms: about 7 commands a second for each visitor resuming a running answer, and none otherwise. `pollMs` changes the interval; longer saves commands, shorter shows the resumed text sooner.
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `url`, `token`, `redis`, `prefix` | as for `upstashStore` | The same connection options. |
+| `pollMs` | `150` | How often a waiting reader checks for new events, in ms. |
 
 ## Requirements
 
