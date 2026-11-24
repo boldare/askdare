@@ -11,4 +11,4 @@ pre-commit:
 commit-msg:
   jobs:
     - name: commitlint
-      run: ./node_modules/.bin/commitlint --edit {1}
+      run: ./node_modules/.bin/commitlint --edit "{1}"
