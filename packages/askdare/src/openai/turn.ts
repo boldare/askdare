@@ -1,7 +1,7 @@
 import type OpenAI from 'openai';
 import type { ResponseInputItem } from 'openai/resources/responses/responses';
 import { newItemId, visitorItem } from '../conversations/items';
-import { conversationBusy } from '../conversations/owner';
+import { conversationBusy, storeFailure } from '../conversations/owner';
 import {
   type ConversationContext,
   type StoredItem,
@@ -146,7 +146,8 @@ class Replay {
     } catch (error) {
       // Another turn wrote first: this one stores nothing more (ADR-0024, decision 3).
       if (error instanceof VersionConflictError) throw conversationBusy(error);
-      throw error;
+      const { conversations, conversationId, signal } = this.#request;
+      throw await storeFailure(conversations, conversationId, error, signal);
     }
   }
 }
@@ -229,9 +230,16 @@ export async function runTurn(client: OpenAI, request: TurnRequest): Promise<Tur
     return true;
   };
   try {
-    const context = await request.conversations.context(request.conversationId, {
-      signal: request.signal,
-    });
+    const context = await request.conversations
+      .context(request.conversationId, { signal: request.signal })
+      .catch(async (error: unknown) => {
+        throw await storeFailure(
+          request.conversations,
+          request.conversationId,
+          error,
+          request.signal,
+        );
+      });
     const replay = context.kind === 'items' ? await Replay.start(request, context) : undefined;
     // With a provider store, each request sends only what is new since the last one.
     let input: ResponseInputItem[] = replay

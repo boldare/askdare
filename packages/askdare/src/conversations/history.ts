@@ -1,12 +1,11 @@
 import { mergeRepeatedMarkers } from '../citation-markers';
-import { AskdareError } from '../errors';
 import type { StoredCall, UiReader } from '../gateway';
 import type { HistoryCitation, HistoryMessage } from '../protocol/history';
 import { normalizeReplies } from '../protocol/replies';
 import { isToolUiList, MAX_TOOL_UI, type ToolUi } from '../protocol/tool-ui';
 import { isFailedOutput, unwrapToolOutput } from '../tools/outputs';
 import { storedGuardNote } from './guard-notes';
-import { conversationGone } from './owner';
+import { storeFailure } from './owner';
 import type { ConversationStore, StoredCitation, StoredItem } from './port';
 import type { HistoryReader, HistoryRequest } from './provider-history';
 
@@ -230,7 +229,7 @@ export function historyFromItems(
 
 /**
  * The history reader of an item store: its latest items, read with `page()`. A conversation the
- * store doesn't know answers as one that belongs to someone else, so the two can't be told apart.
+ * store no longer has answers as one that belongs to someone else, so the two can't be told apart.
  */
 export function itemHistory(store: ConversationStore): HistoryReader {
   return async (conversationId, { signal, ...request }) => {
@@ -238,8 +237,7 @@ export function itemHistory(store: ConversationStore): HistoryReader {
       const page = await store.page(conversationId, { limit: HISTORY_ITEMS, signal });
       return historyFromItems(page.items, request);
     } catch (error) {
-      if (error instanceof AskdareError && error.code === 'not_found') throw conversationGone();
-      throw error;
+      throw await storeFailure(store, conversationId, error, signal);
     }
   };
 }

@@ -593,3 +593,79 @@ describe('modelFamily', () => {
     expect(modelFamily('gpt-5.5')).toBe('gpt-5.5');
   });
 });
+
+describe('a conversation deleted during a turn', () => {
+  /** A store that, like a database, throws a plain error for a conversation it no longer has. */
+  function plainErrors(): ConversationStore {
+    const memory = memoryConversations();
+    const known = async (id: string): Promise<void> => {
+      if (!(await memory.info(id))) throw new Error('relation row missing');
+    };
+    return {
+      ...memory,
+      async context(id, options) {
+        await known(id);
+        return memory.context(id, options);
+      },
+      async append(id, items, options) {
+        await known(id);
+        return memory.append(id, items, options);
+      },
+    };
+  }
+
+  const gone = { code: 'not_found', key: 'error.conversationGone' };
+
+  it.each([
+    ['the memory store', memoryConversations],
+    ['a store that throws plain errors', plainErrors],
+  ])('answers as gone when %s loses it before the turn reads it', async (_, make) => {
+    const where = await newConversation(make());
+    await where.store.delete(where.conversationId);
+    await expect(turn(where).result).rejects.toMatchObject(gone);
+    expect(bodies).toHaveLength(0);
+  });
+
+  it.each([
+    ['the memory store', memoryConversations],
+    ['a store that throws plain errors', plainErrors],
+  ])('answers as gone when %s loses it between steps', async (_, make) => {
+    const where = await newConversation(make());
+    serve(fixture('function-call'));
+    const deleting = defineTool({
+      name: 'get_weather',
+      description: 'Current weather for a city.',
+      input: z.object({ city: z.string() }),
+      execute: async () => {
+        // The visitor starts a new conversation in another tab, or a sweep removes this one.
+        await where.store.delete(where.conversationId);
+        return { tempC: 12 };
+      },
+    });
+    await expect(turn(where, { bot: makeBot({ tools: [deleting] }) }).result).rejects.toMatchObject(
+      gone,
+    );
+  });
+
+  it('keeps any other failure of the store as it was', async () => {
+    const memory = memoryConversations();
+    const where = await newConversation({
+      ...memory,
+      append: async () => {
+        throw new Error('connection reset');
+      },
+    });
+    await expect(turn(where).result).rejects.toMatchObject({ code: 'internal_error' });
+  });
+
+  it('answers the history of a conversation the store lost as gone', async () => {
+    const memory = memoryConversations();
+    const store: ConversationStore = {
+      ...memory,
+      page: async () => {
+        throw new Error('relation row missing');
+      },
+    };
+    await expect(itemHistory(store)('nope', {})).rejects.toMatchObject(gone);
+  });
+});

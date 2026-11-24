@@ -288,6 +288,8 @@ interface ConversationStore {
 
 Items are provider-neutral: `message` (with `text`, `page_context`, `file` and `refusal` parts), `call`, `call_output`, and `native` for provider state that only the same provider reads back, such as encrypted reasoning. Store each item as given and return it unchanged: never rewrite a stored item, and never log its content.
 
+`context`, `append` and `page` throw for a conversation the store doesn't have; any error will do. When one of them fails, the server asks `info(id)` again, and if the conversation is gone (deleted in another tab, or swept during the turn), it answers the visitor as for an unknown conversation and the chat starts afresh. `VersionConflictError` is the one error the server reads by type.
+
 ### Test it
 
 `conversationStoreContract` from `@boldare/askdare/testing` is the suite `memoryConversations()` and `openaiConversations()` pass. Every conversation a test creates is deleted when it ends, also when it fails:
