@@ -23,6 +23,15 @@ const MAX_PAGE = 1_000;
 /** The IDs this store issues: lowercase UUIDs, which fit the resume token's check. */
 const CONVERSATION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
+/** The largest epoch milliseconds a `Date` holds. */
+const MAX_DATE_MS = 8.64e15;
+
+/**
+ * How long a write waits for a conversation's row lock, held by another append, a delete or a
+ * sweep for milliseconds at a time. Bounds a request stuck behind a transaction that never ends.
+ */
+const LOCK_TIMEOUT = '10s';
+
 /** A `page` cursor: the `seq` of the oldest item already returned. */
 const CURSOR = /^[1-9][0-9]{0,15}$/;
 
@@ -91,7 +100,8 @@ async function transaction<T>(
   const client = await pool.connect();
   let broken = false;
   try {
-    await client.query('begin');
+    // `set local` ends with the transaction, so a pool the app passes keeps its own settings.
+    await client.query(`begin; set local lock_timeout = '${LOCK_TIMEOUT}'`);
     const result = await work(client);
     await client.query('commit');
     return result;
@@ -211,8 +221,12 @@ export function postgresConversations(
     async context(id, options) {
       options?.signal?.throwIfAborted();
       if (!CONVERSATION_ID.test(id)) throw unknownConversation();
+      // Anything but a finite number means no limit, as in the memory store.
+      const requested = options?.maxItems;
       const maxItems =
-        options?.maxItems === undefined ? null : Math.max(0, Math.floor(options.maxItems));
+        requested === undefined || !Number.isFinite(requested)
+          ? null
+          : Math.max(0, Math.floor(requested));
       // One statement, so the items and the version come from the same snapshot.
       const rows = await queryRows<ItemRow>(db(), selectItems(''), [id, maxItems]);
       const found = positioned(rows);
@@ -316,7 +330,7 @@ export function postgresConversations(
     },
 
     async sweep(idleSince, limit) {
-      if (!Number.isFinite(idleSince)) {
+      if (!Number.isFinite(idleSince) || Math.abs(idleSince) > MAX_DATE_MS) {
         throw new Error('[askdare-postgres] sweep needs idleSince in epoch milliseconds.');
       }
       const count = Math.floor(limit);

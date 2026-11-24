@@ -253,6 +253,18 @@ describe.skipIf(!TEST_DATABASE_URL)('postgresConversations against Postgres', ()
     await conversations.delete(id);
   });
 
+  it('takes a non-finite maxItems as no limit, and refuses an idleSince no Date can hold', async () => {
+    const conversations = store();
+    const id = await conversations.create(OWNER);
+    await conversations.append(id, [user('hi'), assistant('hello')]);
+    for (const maxItems of [Number.POSITIVE_INFINITY, Number.NaN]) {
+      const context = await conversations.context(id, { maxItems });
+      expect(context.kind === 'items' ? context.items.length : -1).toBe(2);
+    }
+    await expect(conversations.sweep(1e20, 10)).rejects.toThrow('epoch milliseconds');
+    await conversations.delete(id);
+  });
+
   it('returns an empty window for maxItems 0, with the version', async () => {
     const conversations = store();
     const id = await conversations.create(OWNER);

@@ -68,7 +68,7 @@ That is personal data: choose a retention period and [sweep](#retention) old con
 
 ### Retention
 
-`sweep(idleSince, limit)` deletes up to `limit` conversations with no new message since `idleSince` (epoch milliseconds) and returns their IDs with the files their visitors attached. Sweepers on several instances never block each other or a turn in progress, and never delete the same conversation twice.
+`sweep(idleSince, limit)` deletes up to `limit` conversations with no new message since `idleSince` (epoch milliseconds) and returns their IDs with the files their visitors attached. Idle time counts from the database's clock (each append's `now()`), so keep the app server's clock in sync with it when the retention is short. Sweepers on several instances never block each other or a turn in progress, and never delete the same conversation twice.
 
 askdare can't schedule work, so call it from a cron route or a scheduled job, and delete the returned files as `DELETE /conversation` does. Attachments also expire at OpenAI 30 days after upload, so with a retention of 30 days or more they are already gone; for a shorter one, delete them. If you keep transcripts or ratings elsewhere (such as from `onTranscript`), delete them by the same conversation IDs.
 
@@ -111,7 +111,7 @@ In `vercel.json`:
 
 Add `openai` to your dependencies for the file deletion, and let the route through your `proxy.ts` if it has one.
 
-**Heroku:** a script run daily by [Heroku Scheduler](https://devcenter.heroku.com/articles/scheduler), as `node scripts/sweep-conversations.mjs`. It ends its own pool, so the dyno exits as soon as it is done.
+**Heroku:** a script run daily by [Heroku Scheduler](https://devcenter.heroku.com/articles/scheduler), as `node scripts/sweep-conversations.mjs`. It ends its own pool, so the dyno exits as soon as it is done; add `pg` and `openai` to your dependencies for it.
 
 ```js
 // scripts/sweep-conversations.mjs
