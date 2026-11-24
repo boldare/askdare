@@ -191,6 +191,29 @@ describe('in-memory store warning', () => {
   });
 });
 
+describe('limits.compactAt', () => {
+  const compacting = defineBot({
+    id: 'support',
+    model: 'test-model',
+    instructions: 'Be brief.',
+    limits: { compactAt: 40_000 },
+  });
+
+  it('warns at startup that conversations kept at OpenAI never compact', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    createChatHandler({ bots: [compacting] });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('sets limits.compactAt'));
+    warn.mockRestore();
+  });
+
+  it('stays quiet with a store that keeps the items', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    createChatHandler({ bots: [compacting], conversations: memoryConversations() });
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('compactAt'));
+    warn.mockRestore();
+  });
+});
+
 describe('limits.requireSharedStore', () => {
   it('refuses to start with the in-memory store, or another store that is not shared', () => {
     expect(() => createChatHandler({ bots: [bot], limits: { requireSharedStore: true } })).toThrow(

@@ -15,6 +15,7 @@ export type {
   ChatTranscriptReport,
 } from '../server/transcript-report';
 export type {
+  ChatCompactionReport,
   ChatTokenUsage,
   ChatToolCallReport,
   ChatUsageReport,

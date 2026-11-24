@@ -159,9 +159,28 @@ A conversation is stored by OpenAI, and every message sends the whole conversati
 
 - `maxTurns` (default 50) ends a conversation: the visitor is asked to start a new one.
 - askdare sends `truncation: 'auto'`. When a conversation outgrows the model's context window, OpenAI drops the oldest items instead of failing. OpenAI has deprecated the parameter but announced no shutdown date; askdare keeps sending it until then. If OpenAI ever refuses an overflowing conversation, the visitor sees "This conversation is too long. Please start a new one."
-- askdare doesn't compact or summarize conversations. OpenAI's server-side compaction isn't planned for a release yet: in spikes [S5](https://github.com/boldare/askdare/blob/main/spikes/s5-compaction/README.md) and S5b it cut answers off, ran on every turn and lost prompt caching ([ADR-0003](adr/0003-conversation-state.md)).
+- With OpenAI's conversations (the default), askdare doesn't compact or summarize them. OpenAI's server-side compaction there cut answers off, ran on every turn and lost prompt caching in spikes [S5](https://github.com/boldare/askdare/blob/main/spikes/s5-compaction/README.md) and S5b ([ADR-0003](adr/0003-conversation-state.md)). With your own store, see [compaction](#long-conversations-and-compaction) below.
 - Attached files and your tools' results stay in the conversation, so every later message reads them again. Keep tool results small ([Tools](tools.md)).
 - **With your own [conversation store](custom-store.md#conversation-store)**, askdare sends the whole conversation itself with every model call (`store: false`), instead of OpenAI reading it from its copy. Requests get larger: spike S7 measured 32 KB at turn 20, 22 KB of it the model's encrypted reasoning, and about 5 % more input tokens. Almost all of it is read from the prompt cache, so the cost was the same: 0.0135 USD for 20 turns against 0.0138 USD with OpenAI's conversations. askdare sends no `truncation` then: `maxTurns` bounds the conversation, and one that still outgrows the context window ends with "This conversation is too long. Please start a new one."
+
+### Long conversations and compaction
+
+With a store that keeps the items, `limits.compactAt` has askdare compact a conversation after the turn that reaches it ([Configuration](configuration.md#compaction), [ADR-0029](adr/0029-compaction-for-item-stores.md)). OpenAI summarizes the conversation into one item, and the next turns replay that instead of everything before it. Spike S9 measured it on a 50-turn support conversation with knowledge searches, where 84 % of the replayed input was search results:
+
+| | Without | With compaction |
+| --- | --- | --- |
+| Input of a turn late in the conversation | 80k tokens (`gpt-6.1-terra`) | 3–5k after each compaction, growing again from there |
+| Cost of 50 turns, `gpt-6-luna` (measured, `compactAt: 20_000`) | 0.071 USD | 0.031 USD (−56 %) |
+| Cost of 50 turns, `gpt-6.1-terra` (estimated from measured turns) | 0.307 USD | 0.246 USD at 60,000, 0.228 at 40,000, 0.223 at 20,000 (−20 to −27 %) |
+| Tokens counted against the budgets (terra) | 3.8M | 2.5M at 60,000, 1.2M at 20,000 |
+
+What one compaction costs:
+
+- **One extra request.** It reads the turn's prompt cache, so on terra at 82k tokens it cost 0.0085 USD and wrote 862 output tokens. It takes up to about 15 s, after the answer, so nobody waits for it.
+- **One cache miss.** The first model call after it starts from a new, short prefix (a few thousand tokens) that isn't cached yet.
+- **Budgets.** askdare reserves the window as cached input plus 2,000 output tokens before it runs, and charges what it used, like a model call of the turn. It sets `max_output_tokens` to 20,000 because the API requires that for a compaction, but doesn't reserve it.
+
+The savings are modest per token and larger for the budgets. A lower `compactAt` compacts more often: between 20,000 and 40,000 the cost barely changes, while the budgets keep saving. Start around 40,000 and look at the `compaction` entries in [`onUsage`](configuration.md#onusage). Conversations shorter than `compactAt` never compact, and cost what they did.
 
 ## Prompt caching
 

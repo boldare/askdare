@@ -4,7 +4,13 @@ import { settledAnswerItems } from '../conversations/guard-notes';
 import { conversationGone } from '../conversations/owner';
 import type { ConversationInfo, ConversationStore } from '../conversations/port';
 import { AskdareError, forLog, TurnAbortedError, toAskdareError } from '../errors';
-import type { ModelGateway, TokenUsage, ToolCallRecord, TurnAttachment } from '../gateway';
+import type {
+  CompactionResult,
+  ModelGateway,
+  TokenUsage,
+  ToolCallRecord,
+  TurnAttachment,
+} from '../gateway';
 import type {
   ErrorCode,
   FeedbackHandle,
@@ -18,7 +24,7 @@ import { PROTOCOL_HEADER, PROTOCOL_VERSION } from '../protocol/version';
 import { addUsage, ZERO_USAGE } from '../usage';
 import { blockedError, type GuardOptions, guardInput, guardOutput } from './guardrails';
 import type { ChatTranscriptCitation, ChatTranscriptReport } from './transcript-report';
-import type { ChatUsageReport } from './usage-report';
+import type { ChatCompactionReport, ChatUsageReport } from './usage-report';
 
 export interface StreamTurnOptions {
   readonly gateway: ModelGateway;
@@ -84,6 +90,13 @@ export interface StreamTurnOptions {
     | undefined;
   /** Holds the budget for one more model call before a tool round; see `TurnRequest`. */
   readonly reserveCall?: (() => Promise<boolean>) | undefined;
+  /**
+   * Holds the budget for a compaction after the turn, which rereads `inputTokens`; resolves to its
+   * settlement, or undefined when a budget can't cover it. Absent means it is covered.
+   */
+  readonly reserveCompaction?:
+    | ((inputTokens: number) => Promise<{ settle(usage: TokenUsage): Promise<void> } | undefined>)
+    | undefined;
   /** Server-side reporting hook. Receives client-safe errors with internals in `cause`. */
   readonly onError?: ((error: AskdareError) => void) | undefined;
   /** Development only: a setup error's description, shown in the chat instead of the generic one. */
@@ -108,6 +121,12 @@ function defaultId(): string {
 function logError(error: AskdareError): void {
   console.error(`[askdare] turn failed: ${error.code}`, forLog(error.cause));
 }
+
+/**
+ * How long a compaction after a turn may take in all: the store reads and writes, and the request,
+ * which the gateway bounds at a minute.
+ */
+const COMPACTION_DEADLINE_MS = 90_000;
 
 /** Events that carry the answer's content, held back while output checks run (docs/guardrails.md). */
 const HELD: ReadonlySet<ProtocolEvent['type']> = new Set(['text.delta', 'citation', 'tool.ui']);
@@ -218,6 +237,12 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
       let input = '';
       let verdict: ChatTranscriptReport['check'];
       let answerItemId: string | undefined;
+      // A compaction after the turn (ADR-0029): due once the turn's last model call read
+      // `compactAt` tokens, at the conversation's version after everything the turn wrote.
+      let safetyIdentifier: string | undefined;
+      let version: number | undefined;
+      let compactionDue = false;
+      let compaction: ChatCompactionReport | undefined;
 
       const guard: GuardOptions = {
         bot,
@@ -261,7 +286,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         emit({ type: 'user.ack', messageId: generateId() });
         const messageId = generateId();
         emit({ type: 'message.start', messageId });
-        const safetyIdentifier = await options.pseudonym(subject);
+        safetyIdentifier = await options.pseudonym(subject);
         ran = true;
         const result = await gateway.runTurn({
           bot,
@@ -287,9 +312,17 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         });
         finishReason = result.reason;
         answerItemId = result.answerItemId;
+        version = result.version;
         options.settle?.(result.usage, conversationId, lastInput ?? result.usage.inputTokens);
         const proposed = result.replies && normalizeReplies(result.replies);
         const released = holding ? await releaseAnswer(conversationId, proposed ?? []) : 'allowed';
+        // Only an item store reports a version, so only its conversations compact.
+        const { compactAt } = bot.limits;
+        compactionDue =
+          compactAt !== undefined &&
+          version !== undefined &&
+          lastInput !== undefined &&
+          lastInput >= compactAt;
         const replies = released === 'allowed' ? proposed : undefined;
         // A resumed conversation gets a fresh handle: its 30 days count from the last message.
         // Best effort: the old handle stays valid until it expires.
@@ -343,11 +376,18 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
             ),
             { signal: deadline },
           )
-          .catch((error: unknown) => {
-            console.error(
-              `[askdare] could not note the checked answer in the conversation, so a reload hides it: ${hookError(error)}`,
-            );
-          });
+          .then(
+            (next) => {
+              // The note is part of the turn: a compaction comes after it.
+              if (version !== undefined) version = next;
+            },
+            (error: unknown) => {
+              version = undefined;
+              console.error(
+                `[askdare] could not note the checked answer in the conversation, so a reload hides it: ${hookError(error)}`,
+              );
+            },
+          );
         if (outcome.action === 'block') {
           await noted;
           throw blockedError(outcome, 'output');
@@ -364,6 +404,64 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         held.length = 0;
         await noted;
         return outcome.action === 'redact' ? 'replaced' : 'allowed';
+      };
+
+      /**
+       * Compacts the conversation when the turn made it due (ADR-0029): after the stream closed and
+       * the conversation's lock was released, so neither the visitor nor their next turn waits for
+       * it. Its budget is held first and settled with what it used; a failure is reported, and the
+       * next turn that reaches `compactAt` tries again.
+       */
+      const compact = async (): Promise<void> => {
+        const id = conversationId;
+        const at = version;
+        if (
+          !compactionDue ||
+          !gateway.compact ||
+          id === undefined ||
+          at === undefined ||
+          safetyIdentifier === undefined
+        ) {
+          return;
+        }
+        const started = Date.now();
+        let result: CompactionResult | undefined;
+        try {
+          const held = options.reserveCompaction
+            ? await options.reserveCompaction(lastInput ?? 0)
+            : undefined;
+          if (options.reserveCompaction && !held) {
+            result = { outcome: 'skipped', usage: ZERO_USAGE };
+            return;
+          }
+          result = await gateway.compact({
+            bot,
+            conversationId: id,
+            conversations,
+            context: options.context,
+            safetyIdentifier,
+            version: at,
+            signal: AbortSignal.timeout(COMPACTION_DEADLINE_MS),
+          });
+          await held?.settle(result.usage).catch((error: unknown) => {
+            console.error(
+              `[askdare] could not settle the compaction's budget: ${hookError(error)}`,
+            );
+          });
+        } catch (error) {
+          reportError(
+            new AskdareError('internal_error', {
+              message: 'The conversation could not be compacted; a later turn tries again.',
+              cause: error,
+            }),
+          );
+        } finally {
+          compaction = {
+            outcome: result?.outcome ?? 'failed',
+            usage: result?.usage ?? ZERO_USAGE,
+            durationMs: Date.now() - started,
+          };
+        }
       };
 
       /** Hands the report to the hook once the stream is closed, so it never delays the answer. */
@@ -385,6 +483,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
             usage,
             steps,
             tools,
+            ...(compaction ? { compaction } : {}),
           });
         } catch (error) {
           console.error(`[askdare] the onUsage hook failed: ${hookError(error)}`);
@@ -456,7 +555,8 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
             console.error(`[askdare] could not release the conversation: ${hookError(error)}`);
           });
         })
-        .then(() => Promise.all([sendReport(), sendTranscript()]));
+        // The usage report waits for the compaction, which it reports; the transcript doesn't.
+        .then(() => Promise.all([compact().then(sendReport), sendTranscript()]));
       try {
         options.waitUntil?.(work);
       } catch {

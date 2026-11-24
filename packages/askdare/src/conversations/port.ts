@@ -89,6 +89,12 @@ export type StoredItem =
       readonly type: 'native';
       readonly provider: string;
       readonly family?: string | undefined;
+      /**
+       * What the item is, for a store that must recognise it without reading `data`. A
+       * `compaction` item stands for everything before it: the replay window starts at the latest
+       * one of the model's provider and family (ADR-0029). Absent for other state.
+       */
+      readonly kind?: 'compaction' | undefined;
       readonly data: unknown;
     };
 
@@ -102,6 +108,12 @@ export type PositionedItem = StoredItem & {
   /** Epoch milliseconds of the append that wrote it; 0 when the store doesn't know. */
   readonly at: number;
 };
+
+/** The model a conversation is replayed to: a compaction item of another one is ignored. */
+export interface CompactionModel {
+  readonly provider: string;
+  readonly family: string;
+}
 
 /** What the next model call reads to continue a conversation. */
 export type ConversationContext =
@@ -161,11 +173,18 @@ export interface ConversationStore {
   info(id: string, signal?: AbortSignal): Promise<ConversationInfo | undefined>;
   /**
    * What the next model call reads. An item store returns the latest `maxItems` items at most,
-   * cut forward to a visitor message so a turn is never split.
+   * cut forward to a visitor message so a turn is never split. With `model`, the items start at
+   * the latest `compaction` item of that provider and family instead, when it is later than that
+   * cut (ADR-0029).
    */
   context(
     id: string,
-    options?: { readonly maxItems?: number | undefined; readonly signal?: AbortSignal | undefined },
+    options?: {
+      readonly maxItems?: number | undefined;
+      /** The model that reads the items, whose compaction items may start the window. */
+      readonly model?: CompactionModel | undefined;
+      readonly signal?: AbortSignal | undefined;
+    },
   ): Promise<ConversationContext>;
   /**
    * Appends items in order, all or none. With `expect`, throws {@link VersionConflictError} unless

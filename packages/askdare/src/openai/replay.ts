@@ -4,8 +4,9 @@ import type {
   ResponseOutputItem,
   ResponseOutputMessage,
 } from 'openai/resources/responses/responses';
+import type { Bot } from '../bot/define-bot';
 import { newItemId } from '../conversations/items';
-import type { StoredItem, StoredPart } from '../conversations/port';
+import type { CompactionModel, StoredItem, StoredPart } from '../conversations/port';
 import { type CitationContext, textCitations } from './citations';
 import { toResponseInput } from './items';
 
@@ -21,6 +22,19 @@ const PROVIDER = 'openai';
  */
 export function modelFamily(model: string): string {
   return model.replace(/-\d{4}-\d{2}-\d{2}$/, '').replace(/-[a-z]+$/, '');
+}
+
+/** The model a bot's conversations are replayed to, for `context()` and compaction items. */
+export function compactionModel(model: string): CompactionModel {
+  return { provider: PROVIDER, family: modelFamily(model) };
+}
+
+/**
+ * The bot's prompt cache key: every request of its turns, and the compactions after them, share
+ * a prefix.
+ */
+export function promptCacheKey(bot: Bot): string {
+  return `askdare:${bot.id}`;
 }
 
 /**

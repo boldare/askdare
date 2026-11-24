@@ -20,7 +20,7 @@ export declare function EmbedRoot({ config, toolRenderers, children }: EmbedRoot
 export type { EmbedChatConfig, EmbedRootProps };
 
 // ==== events.d.ts ====
-import { b as KnowledgeIndex } from "./store.js";
+import { x as KnowledgeIndex } from "./store.js";
 import { z } from "zod";
 /**
  * Every text the widget shows. The keys are public API (ADR-0008): override any of them with
@@ -409,6 +409,15 @@ interface BotLimits {
   readonly voiceSecondsPerDay?: number;
   /** Seconds of speech transcribed per client IP per UTC day. Default 600. */
   readonly voiceSecondsPerIpPerDay?: number;
+  /**
+   * Compacts a conversation once a model call of a turn reads this many input tokens: after the
+   * turn, in the background, OpenAI summarises it into one opaque item, and the next turns replay
+   * from there (ADR-0029). Between 20 000 and 272 000. Off by default.
+   *
+   * Only with a conversation store that keeps the items, such as `@boldare/askdare-postgres`;
+   * `openaiConversations()` never compacts.
+   */
+  readonly compactAt?: number;
 }
 interface BotSecurity {
   /**
@@ -590,7 +599,7 @@ export { HumanChallenge as A, ColorScheme as C, ThemeTokens as D, PresetName as 
 
 // ==== index.d.ts ====
 import { A as HumanChallenge, C as ColorScheme, D as ThemeTokens, E as PresetName, M as HumanVerifier, O as ThemeVariants, S as defineTool, T as defineTheme, _ as GuardrailOptions, a as BotContext, b as ToolContext, c as BotLimits, d as VoiceConfig, f as WidgetConfig, g as GuardVerdict, h as GuardHook, i as AttachmentConfig, j as HumanCheckContext, k as VisitorIdentity, l as BotSecurity, m as GuardContext, n as ErrorCode, o as BotDefinition, p as defineBot, s as BotHandle, t as ERROR_CODES, u as KnowledgeConfig, v as ModerationConfig, w as ThemeDefinition, x as ToolDefinition, y as Tool } from "./events.js";
-import { C as SyncReport, S as SearchOptions, _ as KnowledgeCheck, a as ConversationOwner, b as KnowledgeIndex, c as ConversationStoreCheck, d as StoredItem, f as StoredPart, g as KnowledgeCallOptions, h as Embeddings, i as ConversationInfo, l as PositionedItem, m as Embedder, n as RateLimitStore, o as ConversationPage, p as VersionConflictError, r as ConversationContext, s as ConversationStore, t as CounterHit, u as StoredCitation, v as KnowledgeChunk, x as Passage, y as KnowledgeDocument } from "./store.js";
+import { C as SearchOptions, S as Passage, _ as KnowledgeCallOptions, a as ConversationInfo, b as KnowledgeDocument, c as ConversationStore, d as StoredCitation, f as StoredItem, g as Embeddings, h as Embedder, i as ConversationContext, l as ConversationStoreCheck, m as VersionConflictError, n as RateLimitStore, o as ConversationOwner, p as StoredPart, r as CompactionModel, s as ConversationPage, t as CounterHit, u as PositionedItem, v as KnowledgeCheck, w as SyncReport, x as KnowledgeIndex, y as KnowledgeChunk } from "./store.js";
 /**
  * Conversations in this process's memory, for tests and local development. Every instance has its
  * own, and a restart forgets them, so production warns. It is an item store: turns replay its
@@ -663,11 +672,11 @@ interface TurnstileOptions {
  * ```
  */
 export declare function turnstile(options: TurnstileOptions): HumanVerifier;
-export { type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type ConversationContext, type ConversationInfo, type ConversationOwner, type ConversationPage, type ConversationStore, type ConversationStoreCheck, type CounterHit, ERROR_CODES, type Embedder, type Embeddings, type ErrorCode, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type HumanChallenge, type HumanCheckContext, type HumanVerifier, type KnowledgeCallOptions, type KnowledgeCheck, type KnowledgeChunk, type KnowledgeConfig, type KnowledgeDocument, type KnowledgeIndex, type ModerationConfig, type OpenAIEmbedderOptions, type Passage, type PositionedItem, type PresetName, type RateLimitStore, type SearchOptions, type StoredCitation, type StoredItem, type StoredPart, type SyncReport, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type TurnstileOptions, VersionConflictError, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
+export { type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type CompactionModel, type ConversationContext, type ConversationInfo, type ConversationOwner, type ConversationPage, type ConversationStore, type ConversationStoreCheck, type CounterHit, ERROR_CODES, type Embedder, type Embeddings, type ErrorCode, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type HumanChallenge, type HumanCheckContext, type HumanVerifier, type KnowledgeCallOptions, type KnowledgeCheck, type KnowledgeChunk, type KnowledgeConfig, type KnowledgeDocument, type KnowledgeIndex, type ModerationConfig, type OpenAIEmbedderOptions, type Passage, type PositionedItem, type PresetName, type RateLimitStore, type SearchOptions, type StoredCitation, type StoredItem, type StoredPart, type SyncReport, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type TurnstileOptions, VersionConflictError, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
 
 // ==== next.d.ts ====
 import { E as PresetName, O as ThemeVariants, k as VisitorIdentity, n as ErrorCode, r as MessageEndReason, s as BotHandle } from "./events.js";
-import { n as RateLimitStore, s as ConversationStore } from "./store.js";
+import { c as ConversationStore, n as RateLimitStore } from "./store.js";
 /** What a visitor may attach, as the bot allows it. */
 interface ChatAttachments {
   readonly images: boolean;
@@ -860,6 +869,25 @@ interface ChatToolCallReport {
   readonly outcome: "ok" | "error" | "timeout";
 }
 /**
+ * The compaction after a turn (ADR-0029), when one was due: the turn's last model call read at
+ * least `limits.compactAt` input tokens in a conversation store that keeps the items. Its usage is
+ * apart from the turn's own.
+ */
+interface ChatCompactionReport {
+  /**
+   * - `compacted`: the summary was stored, and the next turns replay from it;
+   * - `conflict`: the visitor wrote again before it was stored, so it was dropped; a later turn
+   *   compacts again;
+   * - `skipped`: no request was made: a budget couldn't cover it, or the conversation stopped
+   *   compacting because each summary left too large a floor;
+   * - `failed`: the request failed or returned no summary; a later turn tries again.
+   */
+  readonly outcome: "compacted" | "conflict" | "skipped" | "failed";
+  /** What the compaction request used, as OpenAI reported it; zero when none finished. */
+  readonly usage: ChatTokenUsage;
+  readonly durationMs: number;
+}
+/**
  * One chat turn, as `onUsage` receives it (ADR-0012). It carries counters, timings and
  * pseudonyms only: never message text, tool arguments or results, IP addresses or raw IDs.
  */
@@ -888,6 +916,11 @@ interface ChatUsageReport {
   /** Model calls in the turn: one, plus one after each round of tool calls. */
   readonly steps: number;
   readonly tools: readonly ChatToolCallReport[];
+  /**
+   * The compaction after the turn, when one was due (`limits.compactAt`). The report then comes
+   * once it has ended, up to a minute and a half after the turn.
+   */
+  readonly compaction?: ChatCompactionReport | undefined;
 }
 interface ChatHandlerOptions {
   readonly bots: readonly BotHandle[];
@@ -1062,7 +1095,7 @@ export declare function embedPageHeaders(options: {
   readonly bots: readonly BotHandle[];
   readonly bot: string;
 }): EmbedPageHeader[];
-export type { ChatAttachments, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlers, ChatHumanCheck, ChatStyles, ChatTokenUsage, ChatToolCallReport, ChatTranscriptCitation, ChatTranscriptReport, ChatUsageReport, ChatWidget, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, OpenAIConversationsOptions, RouteHandler, TrustProxy };
+export type { ChatAttachments, ChatCompactionReport, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlers, ChatHumanCheck, ChatStyles, ChatTokenUsage, ChatToolCallReport, ChatTranscriptCitation, ChatTranscriptReport, ChatUsageReport, ChatWidget, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, OpenAIConversationsOptions, RouteHandler, TrustProxy };
 
 // ==== react.d.ts ====
 
@@ -1769,6 +1802,12 @@ type StoredItem = {
   readonly type: "native";
   readonly provider: string;
   readonly family?: string | undefined;
+  /**
+   * What the item is, for a store that must recognise it without reading `data`. A
+   * `compaction` item stands for everything before it: the replay window starts at the latest
+   * one of the model's provider and family (ADR-0029). Absent for other state.
+   */
+  readonly kind?: "compaction" | undefined;
   readonly data: unknown;
 };
 /** A stored item with its position in the conversation. */
@@ -1781,6 +1820,11 @@ type PositionedItem = StoredItem & {
   /** Epoch milliseconds of the append that wrote it; 0 when the store doesn't know. */
   readonly at: number;
 };
+/** The model a conversation is replayed to: a compaction item of another one is ignored. */
+interface CompactionModel {
+  readonly provider: string;
+  readonly family: string;
+}
 /** What the next model call reads to continue a conversation. */
 type ConversationContext = {
   readonly kind: "provider";
@@ -1829,10 +1873,14 @@ interface ConversationStore {
   info(id: string, signal?: AbortSignal): Promise<ConversationInfo | undefined>;
   /**
    * What the next model call reads. An item store returns the latest `maxItems` items at most,
-   * cut forward to a visitor message so a turn is never split.
+   * cut forward to a visitor message so a turn is never split. With `model`, the items start at
+   * the latest `compaction` item of that provider and family instead, when it is later than that
+   * cut (ADR-0029).
    */
   context(id: string, options?: {
     readonly maxItems?: number | undefined;
+    /** The model that reads the items, whose compaction items may start the window. */
+    readonly model?: CompactionModel | undefined;
     readonly signal?: AbortSignal | undefined;
   }): Promise<ConversationContext>;
   /**
@@ -1890,10 +1938,10 @@ interface RateLimitStore {
   /** True for stores that are shared across server instances. */
   readonly shared: boolean;
 }
-export { SyncReport as C, SearchOptions as S, KnowledgeCheck as _, ConversationOwner as a, KnowledgeIndex as b, ConversationStoreCheck as c, StoredItem as d, StoredPart as f, KnowledgeCallOptions as g, Embeddings as h, ConversationInfo as i, PositionedItem as l, Embedder as m, RateLimitStore as n, ConversationPage as o, VersionConflictError as p, ConversationContext as r, ConversationStore as s, CounterHit as t, StoredCitation as u, KnowledgeChunk as v, Passage as x, KnowledgeDocument as y };
+export { SearchOptions as C, Passage as S, KnowledgeCallOptions as _, ConversationInfo as a, KnowledgeDocument as b, ConversationStore as c, StoredCitation as d, StoredItem as f, Embeddings as g, Embedder as h, ConversationContext as i, ConversationStoreCheck as l, VersionConflictError as m, RateLimitStore as n, ConversationOwner as o, StoredPart as p, CompactionModel as r, ConversationPage as s, CounterHit as t, PositionedItem as u, KnowledgeCheck as v, SyncReport as w, KnowledgeIndex as x, KnowledgeChunk as y };
 
 // ==== testing.d.ts ====
-import { b as KnowledgeIndex, m as Embedder, n as RateLimitStore, s as ConversationStore, y as KnowledgeDocument } from "./store.js";
+import { b as KnowledgeDocument, c as ConversationStore, h as Embedder, n as RateLimitStore, x as KnowledgeIndex } from "./store.js";
 /**
  * The parts of a test runner the contract suites use. Vitest's and Jest's `describe`, `it` and
  * `expect` fit, so `@boldare/askdare/testing` depends on no runner.

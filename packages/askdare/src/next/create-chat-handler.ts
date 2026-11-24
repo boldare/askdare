@@ -1,8 +1,9 @@
 // The .js suffix: Next.js has no exports map, so plain Node ESM can't resolve `next/server`.
 import { after } from 'next/server.js';
 import { isBasePath } from '../base-path';
-import { type BotHandle, botOf } from '../bot/define-bot';
+import { type BotHandle, botOf, compactionWarnings } from '../bot/define-bot';
 import type { ConversationStore } from '../conversations/port';
+import { historyReader } from '../conversations/provider-history';
 import { AskdareError, forLog } from '../errors';
 import type { ModelGateway } from '../gateway';
 import {
@@ -201,6 +202,10 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
   const conversations =
     options.conversations ??
     openaiConversations(options.openaiApiKey === undefined ? {} : { apiKey: options.openaiApiKey });
+  const bots = options.bots.map(botOf);
+  for (const warning of compactionWarnings(bots, historyReader(conversations) !== undefined)) {
+    console.warn(`[askdare] ${warning}`);
+  }
   const trustProxy = options.limits?.trustProxy ?? 'auto';
   const development = process.env['NODE_ENV'] === 'development';
   const onError = guard('onError', options.onError);
@@ -225,7 +230,7 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
     error instanceof TypeError ? new AskdareError('bot_unavailable', { cause: error }) : error;
 
   const handle = createRequestHandler({
-    bots: options.bots.map(botOf),
+    bots,
     basePath,
     // A turn outlives a visitor who disconnects; on serverless hosts this keeps the function alive.
     waitUntil: keepAlive,

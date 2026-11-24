@@ -1,4 +1,4 @@
-import type { StoredItem, StoredPart } from './port';
+import type { CompactionModel, StoredItem, StoredPart } from './port';
 
 /** A new item ID, unique enough within a conversation. */
 export function newItemId(): string {
@@ -16,17 +16,42 @@ export function attachedFiles(items: Iterable<StoredItem>): string[] {
 }
 
 /**
- * The latest `maxItems` items, moved forward to a visitor message so a turn is never cut in half:
- * a call without its output breaks the next model call (spike S1).
+ * Where the latest `maxItems` items start, moved forward to a visitor message so a turn is never
+ * cut in half: a call without its output breaks the next model call (spike S1).
  */
-export function replayWindow<T extends StoredItem>(items: readonly T[], maxItems: number): T[] {
-  if (items.length <= maxItems) return [...items];
-  let start = items.length - maxItems;
+function windowStart(items: readonly StoredItem[], maxItems: number): number {
+  if (items.length <= maxItems) return 0;
+  let start = Math.max(0, items.length - maxItems);
   for (; start < items.length; start += 1) {
     const item = items[start];
     if (item?.type === 'message' && item.role === 'user') break;
   }
-  return items.slice(start);
+  return start;
+}
+
+/** Whether an item is a compaction item that `model` can read (ADR-0029). */
+export function isCompaction(item: StoredItem, model: CompactionModel): boolean {
+  return (
+    item.type === 'native' &&
+    item.kind === 'compaction' &&
+    item.provider === model.provider &&
+    item.family === model.family
+  );
+}
+
+/**
+ * What `context()` returns of a conversation's items: from the latest compaction item of `model`,
+ * or from the `maxItems` cut, whichever comes later (ADR-0024, ADR-0029). A compaction item is
+ * written after a whole turn, so starting at it never splits one.
+ */
+export function contextWindow<T extends StoredItem>(
+  items: readonly T[],
+  options: { readonly maxItems?: number | undefined; readonly model?: CompactionModel | undefined },
+): T[] {
+  const { maxItems, model } = options;
+  const cut = maxItems === undefined ? 0 : windowStart(items, maxItems);
+  const compaction = model ? items.findLastIndex((item) => isCompaction(item, model)) : -1;
+  return items.slice(Math.max(cut, compaction));
 }
 
 /** The visitor's turn as stored: the page's description, their text and their attached files. */

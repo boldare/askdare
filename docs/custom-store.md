@@ -266,7 +266,10 @@ interface ConversationStore {
   readonly name: string;
   create(owner: ConversationOwner, signal?: AbortSignal): Promise<string>;
   info(id: string, signal?: AbortSignal): Promise<ConversationInfo | undefined>;
-  context(id: string, options?: { maxItems?: number; signal?: AbortSignal }): Promise<ConversationContext>;
+  context(
+    id: string,
+    options?: { maxItems?: number; model?: CompactionModel; signal?: AbortSignal },
+  ): Promise<ConversationContext>;
   append(id: string, items: readonly StoredItem[], options?: { expect?: number; signal?: AbortSignal }): Promise<number>;
   page(id: string, options?: { before?: string; limit?: number; signal?: AbortSignal }): Promise<ConversationPage>;
   delete(id: string, signal?: AbortSignal): Promise<{ readonly fileIds: readonly string[] }>;
@@ -279,7 +282,7 @@ interface ConversationStore {
 | --- | --- |
 | `create(owner)` | Creates an empty conversation for `{ botId, owner }` and returns its ID: letters, digits, `_` and `-`, at most 128 characters, such as a UUID. `owner` is `visitor:<id>` or `user:<hmac>` ([Signed-in visitors](identity.md)); store it as an opaque string. |
 | `info(id)` | The conversation's `botId`, `owner`, times and `version`, or `undefined` when it doesn't exist. The server compares `botId` and `owner` with the visitor's resume token, and answers a mismatch exactly like a conversation that doesn't exist. |
-| `context(id, { maxItems })` | What the next model call reads. An item store returns `{ kind: 'items', items, version }`: the latest `maxItems` items at most, cut forward to a visitor message so a turn is never split. |
+| `context(id, { maxItems, model })` | What the next model call reads. An item store returns `{ kind: 'items', items, version }`: the latest `maxItems` items at most, cut forward to a visitor message so a turn is never split. With `model` (`{ provider, family }`), the items start at the latest compaction item of that provider and family instead, when it comes later: see below. |
 | `append(id, items, { expect })` | Appends the items in order, all or none, and returns the new version: the number of items stored. With `expect`, it throws `VersionConflictError` unless the conversation is still at that version, so of two concurrent turns only one writes. An item ID that is already stored is refused. |
 | `page(id, { before, limit })` | The newest `limit` items before `before`, oldest first, and a `before` for the next older page, absent at the start. `before` is opaque to the caller. |
 | `delete(id)` | Deletes the conversation and returns the file IDs from its visitor messages, so the server deletes the files too. Deleting an unknown conversation is not an error. |
@@ -287,6 +290,8 @@ interface ConversationStore {
 | `diagnose()` | Optional: checks for `askdare doctor`, such as a reachable database with the right schema. |
 
 Items are provider-neutral: `message` (with `text`, `page_context`, `file` and `refusal` parts), `call`, `call_output`, and `native` for provider state that only the same provider reads back, such as encrypted reasoning. Store each item as given and return it unchanged: never rewrite a stored item, and never log its content.
+
+A `native` item with `kind: 'compaction'` is a summary of everything before it, written after a turn when the bot sets `limits.compactAt` ([ADR-0029](adr/0029-compaction-for-item-stores.md)). `context()` starts there when `model` matches the item's `provider` and `family`: a store needs `kind`, `provider` and `family`, never `data`, to find it. `page()` returns it like any other item, and history leaves it out. A store that ignores `model` still works, since askdare cuts the window again, but it reads the whole conversation on every turn.
 
 `context`, `append` and `page` throw for a conversation the store doesn't have; any error will do. When one of them fails, the server asks `info(id)` again, and if the conversation is gone (deleted in another tab, or swept during the turn), it answers the visitor as for an unknown conversation and the chat starts afresh. `VersionConflictError` is the one error the server reads by type.
 
