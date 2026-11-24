@@ -47,6 +47,7 @@ import type { ChatFeedbackReport } from './feedback-report';
 import { loaderWithLook } from './launcher';
 import { publicConfig } from './public-config';
 import { hookError, STREAM_HEADERS, streamTurn } from './stream-turn';
+import type { ChatTranscriptReport } from './transcript-report';
 import type { ChatUsageReport } from './usage-report';
 
 export interface HandlerConfig {
@@ -67,6 +68,11 @@ export interface HandlerConfig {
   readonly onUsage?: ((report: ChatUsageReport) => void | Promise<void>) | undefined;
   /** Receives visitors' ratings of answers; without it, answers can't be rated (ADR-0012). */
   readonly onFeedback?: ((report: ChatFeedbackReport) => void | Promise<void>) | undefined;
+  /**
+   * Receives each finished turn's text and answer once its stream has ended (ADR-0016). Not
+   * wrapped: a failure goes to `onError` by name, from inside the turn.
+   */
+  readonly onTranscript?: ((report: ChatTranscriptReport) => void | Promise<void>) | undefined;
   /**
    * Development only: a description of a setup error to show in the chat instead of the generic
    * message, such as a missing OPENAI_API_KEY. Never given in production.
@@ -755,6 +761,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
         reservation.settle(usage, id).catch((error: unknown) => report(toAskdareError(error)));
       },
       report: config.onUsage,
+      transcript: config.onTranscript,
       issueFeedback: feedbackOn(bot)
         ? (id, itemId) => feedbackHandle(tokens, bot, { visitorId, key }, id, itemId)
         : undefined,

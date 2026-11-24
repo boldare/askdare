@@ -29,6 +29,7 @@ import { explain, TROUBLESHOOTING } from '../server/explain';
 import type { ChatFeedbackReport } from '../server/feedback-report';
 import { createRequestHandler } from '../server/handler';
 import { hookError } from '../server/stream-turn';
+import type { ChatTranscriptReport } from '../server/transcript-report';
 import type { ChatUsageReport } from '../server/usage-report';
 
 export interface ChatHandlerOptions {
@@ -55,9 +56,10 @@ export interface ChatHandlerOptions {
   readonly conversations?: ConversationStore;
   /**
    * Called for every server error (status 500 and up), for an error that ends a streamed answer,
-   * and once a day when a bot-wide or the global budget runs out, for your monitoring, such as Sentry.
-   * Defaults to one `console.error` line with a pointer to the troubleshooting guide. Never
-   * receives message contents or API keys. May be async; nothing it throws reaches the request.
+   * once a day when a bot-wide or the global budget runs out, and when `onTranscript` throws, for
+   * your monitoring, such as Sentry. Defaults to one `console.error` line with a pointer to the
+   * troubleshooting guide. Never receives message contents or API keys. May be async; nothing it
+   * throws reaches the request.
    */
   readonly onError?: (report: ChatErrorReport) => void | Promise<void>;
   /**
@@ -73,6 +75,14 @@ export interface ChatHandlerOptions {
    * askdare stores no ratings: keep them here. May be async; nothing it throws reaches the chat.
    */
   readonly onFeedback?: (report: ChatFeedbackReport) => void | Promise<void>;
+  /**
+   * Called once per chat turn whose answer finished, after it has streamed, with what the visitor
+   * sent (after `onInput`) and the answer they saw (after output checks), to keep your own
+   * transcripts. The only hook that receives message content: treat it as personal data. Off
+   * unless set. May be async; nothing it throws reaches the chat, and `onError` gets its error's
+   * name, never its message.
+   */
+  readonly onTranscript?: (report: ChatTranscriptReport) => void | Promise<void>;
   /**
    * Serves the state gallery: `/embed/<bot>?gallery=<state>&preset=<preset>&scheme=<scheme>`
    * renders fixture states without calling the model. For development and visual tests; leave
@@ -221,6 +231,8 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
     waitUntil: keepAlive,
     onUsage: guard('onUsage', options.onUsage),
     onFeedback: guard('onFeedback', options.onFeedback),
+    // Not guarded: a failure goes to onError, by its error's name, from inside the turn.
+    onTranscript: options.onTranscript,
     assets: {
       loaderJs: LOADER_JS,
       widgetJs: WIDGET_JS,

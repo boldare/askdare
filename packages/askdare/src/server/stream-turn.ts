@@ -17,6 +17,7 @@ import { MAX_TOOL_UI } from '../protocol/tool-ui';
 import { PROTOCOL_HEADER, PROTOCOL_VERSION } from '../protocol/version';
 import { addUsage, ZERO_USAGE } from '../usage';
 import { blockedError, type GuardOptions, guardInput, guardOutput } from './guardrails';
+import type { ChatTranscriptCitation, ChatTranscriptReport } from './transcript-report';
 import type { ChatUsageReport } from './usage-report';
 
 export interface StreamTurnOptions {
@@ -56,6 +57,14 @@ export interface StreamTurnOptions {
    * the turn's `waitUntil` work; whatever it throws is caught.
    */
   readonly report?: ((report: ChatUsageReport) => void | Promise<void>) | undefined;
+  /**
+   * Receives the turn's transcript once the stream has ended, for the `onTranscript` hook: the
+   * visitor's text after `onInput` and the answer they saw after output checks. Called once for
+   * each turn whose answer finished, withheld ones included; never for a turn that failed or
+   * stopped before that. Awaited inside the turn's `waitUntil` work; whatever it throws goes to
+   * `onError` by its error's name only, since it may hold content.
+   */
+  readonly transcript?: ((report: ChatTranscriptReport) => void | Promise<void>) | undefined;
   /** Issues the rating handle of the answer; absent when the bot's answers can't be rated. */
   readonly issueFeedback?:
     | ((conversationId: string, itemId: string) => Promise<FeedbackHandle>)
@@ -133,7 +142,19 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           closed = true;
         }
       };
-      const emit = (event: ProtocolEvent): void => write(encodeEvent(event));
+      // What the visitor saw of the answer, for the transcript; kept only when there is a hook.
+      const shown: string[] = [];
+      const citations: ChatTranscriptCitation[] = [];
+      const emit = (event: ProtocolEvent): void => {
+        if (options.transcript) {
+          if (event.type === 'text.delta') shown.push(event.delta);
+          else if (event.type === 'citation') {
+            const { index, title, url } = event;
+            citations.push({ index, title, ...(url === undefined ? {} : { url }) });
+          }
+        }
+        write(encodeEvent(event));
+      };
       const holding = checksOutput(bot.guardrails);
       const held: ProtocolEvent[] = [];
       // At most four UI payloads per answer, each call once, whatever the gateway sends (ADR-0017).
@@ -187,6 +208,10 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
       let outcome: ChatUsageReport['outcome'] = 'completed';
       let errorCode: ErrorCode | undefined;
       let release: (() => Promise<void>) | undefined;
+      // What the visitor sent, after `onInput`, and what the checks did with the answer.
+      let input = '';
+      let verdict: ChatTranscriptReport['check'];
+      let answerItemId: string | undefined;
 
       const guard: GuardOptions = {
         bot,
@@ -209,6 +234,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         const text = checksInput(bot.guardrails)
           ? await guardInput(options.text, options.pageContext, guard)
           : options.text;
+        input = text;
         if (visitorLeft()) return;
         if (conversationId === undefined) {
           conversationId = await conversations.create(
@@ -253,6 +279,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           onToolCall: (call) => tools.push(call),
         });
         finishReason = result.reason;
+        answerItemId = result.answerItemId;
         options.settle?.(result.usage, conversationId);
         const proposed = result.replies && normalizeReplies(result.replies);
         const released = holding ? await releaseAnswer(conversationId, proposed ?? []) : 'allowed';
@@ -291,6 +318,12 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
       ): Promise<'allowed' | 'replaced'> => {
         const answer = held.flatMap((event) => (event.type === 'text.delta' ? [event.delta] : []));
         const outcome = await guardOutput(answer.join(''), replies, guard);
+        verdict =
+          outcome.action === 'allow'
+            ? 'allowed'
+            : outcome.action === 'redact'
+              ? 'replaced'
+              : 'withheld';
         const noted = conversations
           .append(
             id,
@@ -351,6 +384,45 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         }
       };
 
+      /**
+       * Hands the transcript to the hook once the stream is closed, for a turn whose answer
+       * finished. An answer the checks never released counts as withheld: the visitor didn't see
+       * it, and history hides it (ADR-0022).
+       */
+      const sendTranscript = async (): Promise<void> => {
+        if (!options.transcript || finishReason === undefined || conversationId === undefined) {
+          return;
+        }
+        const check = holding ? (verdict ?? 'withheld') : undefined;
+        const withheld = check === 'withheld';
+        try {
+          await options.transcript({
+            bot: bot.id,
+            visitor: await options.pseudonym(subject),
+            ...(options.context.identity ? { identity: options.context.identity } : {}),
+            conversationId,
+            // Only an answer shown as it was keeps its ID, like the rating handle.
+            ...(answerItemId && (check === undefined || check === 'allowed')
+              ? { itemId: answerItemId }
+              : {}),
+            startedAt,
+            input,
+            attachments: options.attachments?.length ?? 0,
+            answer: withheld ? undefined : shown.join(''),
+            citations: withheld ? [] : citations,
+            ...(check ? { check } : {}),
+            reason: finishReason,
+          });
+        } catch (error) {
+          // The name only: a hook that stores transcripts may fail with their content in its message.
+          reportError(
+            new AskdareError('internal_error', {
+              message: `The onTranscript hook failed: ${hookError(error)}.`,
+            }),
+          );
+        }
+      };
+
       const work = run()
         .catch((error: unknown) => {
           if (error instanceof TurnAbortedError) {
@@ -379,7 +451,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
             console.error(`[askdare] could not release the conversation: ${hookError(error)}`);
           });
         })
-        .then(sendReport);
+        .then(() => Promise.all([sendReport(), sendTranscript()]));
       try {
         options.waitUntil?.(work);
       } catch {

@@ -11,6 +11,10 @@ export type { OpenAIConversationsOptions } from '../openai/conversations';
 export { openaiConversations } from '../openai/conversations';
 export type { ChatFeedbackReport } from '../server/feedback-report';
 export type {
+  ChatTranscriptCitation,
+  ChatTranscriptReport,
+} from '../server/transcript-report';
+export type {
   ChatTokenUsage,
   ChatToolCallReport,
   ChatUsageReport,

@@ -6,6 +6,7 @@ import type { ModelGateway, TurnRequest, TurnResult } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
 import { decodeEvent, SseParser } from '../protocol/sse';
 import { STREAM_HEADERS, type StreamTurnOptions, streamTurn } from './stream-turn';
+import type { ChatTranscriptReport } from './transcript-report';
 import type { ChatUsageReport } from './usage-report';
 
 const bot: Bot = {
@@ -465,6 +466,174 @@ describe('streamTurn', () => {
     await collect(streamTurn(options({ gateway, conversations, signal: visitor.signal })));
     expect(conversations.deleted).toEqual(['conv_orphan']);
     expect(gateway.requests).toEqual([]);
+  });
+
+  describe('transcript', () => {
+    /** Runs one turn and waits for its after-the-response work, hooks included. */
+    async function turn(overrides: Partial<StreamTurnOptions>): Promise<{
+      events: ProtocolEvent[];
+      reports: ChatTranscriptReport[];
+    }> {
+      const reports: ChatTranscriptReport[] = [];
+      let work: Promise<unknown> | undefined;
+      const { events } = await collect(
+        streamTurn(
+          options({
+            transcript: (report) => {
+              reports.push(report);
+            },
+            waitUntil: (promise) => {
+              work = promise;
+            },
+            ...overrides,
+          }),
+        ),
+      );
+      await work;
+      return { events, reports };
+    }
+
+    const answering = fakeGateway(async (request) => {
+      request.emit({ type: 'text.delta', messageId: request.messageId, delta: 'See ' });
+      request.emit({
+        type: 'tool.ui',
+        messageId: request.messageId,
+        callId: 'c1',
+        name: 'card',
+        data: {},
+      });
+      request.emit({ type: 'text.delta', messageId: request.messageId, delta: 'the docs [1].' });
+      request.emit({
+        type: 'citation',
+        messageId: request.messageId,
+        index: 1,
+        title: 'Docs',
+        url: 'https://example.com/docs',
+      });
+      return { ...COMPLETED, reason: 'max_steps', answerItemId: 'msg_answer', replies: ['More'] };
+    });
+
+    it('is called once per turn with the text and the answer the visitor saw', async () => {
+      const identity = { id: 'user-7', claims: {} };
+      const { reports } = await turn({
+        gateway: answering,
+        conversationId: 'conv_old',
+        text: 'Where are the docs?',
+        attachments: [{ fileId: 'file-1', kind: 'image' }],
+        context: { locale: 'en', identity },
+      });
+      expect(reports).toEqual([
+        {
+          bot: 'support',
+          visitor: 'hmac(user:user-7)',
+          identity,
+          conversationId: 'conv_old',
+          itemId: 'msg_answer',
+          startedAt: expect.any(Number),
+          input: 'Where are the docs?',
+          attachments: 1,
+          answer: 'See the docs [1].',
+          citations: [{ index: 1, title: 'Docs', url: 'https://example.com/docs' }],
+          reason: 'max_steps',
+        },
+      ]);
+    });
+
+    it('gives the same start time and visitor as the usage report', async () => {
+      const usage: ChatUsageReport[] = [];
+      const { reports } = await turn({
+        report: (report) => {
+          usage.push(report);
+        },
+      });
+      expect(reports[0]).toMatchObject({
+        startedAt: usage[0]?.startedAt,
+        visitor: usage[0]?.visitor,
+        conversationId: 'conv_new',
+        answer: '',
+        citations: [],
+      });
+      expect(reports[0]).not.toHaveProperty('identity');
+      expect(reports[0]).not.toHaveProperty('check');
+    });
+
+    it('still reports the answer of a visitor who left: it is in the conversation', async () => {
+      const visitor = new AbortController();
+      const gateway = fakeGateway(async (request) => {
+        visitor.abort();
+        request.emit({ type: 'text.delta', messageId: request.messageId, delta: 'Done.' });
+        return COMPLETED;
+      });
+      const { reports } = await turn({ gateway, signal: visitor.signal });
+      expect(reports).toMatchObject([{ answer: 'Done.', reason: 'completed' }]);
+    });
+
+    it('is not called for a turn that failed or never started', async () => {
+      const failing = fakeGateway(async (request) => {
+        request.emit({ type: 'text.delta', messageId: request.messageId, delta: 'Half' });
+        throw new AskdareError('upstream_error');
+      });
+      expect((await turn({ gateway: failing })).reports).toEqual([]);
+      const visitor = new AbortController();
+      visitor.abort();
+      expect((await turn({ signal: visitor.signal })).reports).toEqual([]);
+    });
+
+    it("doesn't let a slow hook hold the answer or the conversation", async () => {
+      let finish: () => void = () => {};
+      const slow = new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      const released = vi.fn(async () => {});
+      let work: Promise<unknown> | undefined;
+      const { events } = await collect(
+        streamTurn(
+          options({
+            gateway: answering,
+            conversationId: 'conv_old',
+            lockConversation: async () => released,
+            transcript: () => slow,
+            waitUntil: (promise) => {
+              work = promise;
+            },
+          }),
+        ),
+      );
+      expect(events.at(-1)).toMatchObject({ type: 'message.end', reason: 'max_steps' });
+      await vi.waitFor(() => expect(released).toHaveBeenCalledOnce());
+      finish();
+      await work;
+    });
+
+    it('reports a throwing hook to onError by its name only, and still ends the answer', async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const errors: AskdareError[] = [];
+      const usage = vi.fn();
+      const { events } = await turn({
+        text: 'my secret question',
+        transcript: () => {
+          throw new RangeError('could not store "my secret question"');
+        },
+        report: usage,
+        onError: (error) => errors.push(error),
+      });
+      expect(events.at(-1)).toMatchObject({ type: 'message.end' });
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toMatchObject({ code: 'internal_error' });
+      expect(errors[0]?.message).toBe('The onTranscript hook failed: RangeError.');
+      expect(errors[0]?.cause).toBeUndefined();
+      expect(JSON.stringify([errors, consoleError.mock.calls])).not.toContain('secret');
+      // The other hooks still run.
+      expect(usage).toHaveBeenCalledOnce();
+      consoleError.mockRestore();
+    });
+
+    it('keeps nothing of the answer when no hook is set', async () => {
+      const usage = vi.fn();
+      const { events } = await turn({ gateway: answering, transcript: undefined, report: usage });
+      expect(events.at(-1)).toMatchObject({ type: 'message.end' });
+      expect(usage).toHaveBeenCalledOnce();
+    });
   });
 
   it('declares the streaming headers including the protocol version', () => {

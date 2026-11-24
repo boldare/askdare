@@ -9,7 +9,7 @@ Once the chat is live, you'll want to know what it costs, where a slow answer sp
 
 Both may be async. askdare calls them after the answer has streamed, keeps the function alive until they finish, and logs anything they throw by its error's name, so a broken hook never breaks the chat. Neither receives message text: reports carry counters and pseudonyms.
 
-Visitors' ratings of answers reach a third hook, `onFeedback`: see [Answer ratings](feedback.md).
+Visitors' ratings of answers reach a third hook, `onFeedback`: see [Answer ratings](feedback.md). A fourth, [`onTranscript`](configuration.md#ontranscript), hands you each turn's message and answer to keep your own transcripts; it is the only hook with message content, and off unless you set it.
 
 For analytics on the page itself, such as GA4 or a GTM `dataLayer`, listen to the chat's [events in the browser](events.md).
 

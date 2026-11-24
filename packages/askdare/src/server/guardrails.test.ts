@@ -14,6 +14,7 @@ import type {
 import type { ProtocolEvent } from '../protocol/events';
 import { decodeEvent, SseParser } from '../protocol/sse';
 import { type StreamTurnOptions, streamTurn } from './stream-turn';
+import type { ChatTranscriptReport } from './transcript-report';
 
 const COMPLETED: TurnResult = {
   reason: 'completed',
@@ -634,5 +635,91 @@ describe('one turn at a time per conversation', () => {
     });
     expect(errorOf(events)).toMatchObject({ code: 'rate_limited', key: 'error.rate_limited' });
     expect(gateway.turns).toEqual([]);
+  });
+});
+
+describe('the transcript (onTranscript)', () => {
+  /** Runs one turn and returns what the transcript hook received once the turn's work ended. */
+  async function transcribed(
+    definition: Partial<BotDefinition>,
+    gateway: FakeGateway,
+    overrides: Partial<StreamTurnOptions> = {},
+  ): Promise<ChatTranscriptReport[]> {
+    const reports: ChatTranscriptReport[] = [];
+    let work: Promise<unknown> | undefined;
+    await run(definition, gateway, {
+      transcript: (report) => {
+        reports.push(report);
+      },
+      waitUntil: (promise) => {
+        work = promise;
+      },
+      ...overrides,
+    });
+    await work;
+    return reports;
+  }
+
+  it('has the text onInput redacted, never the original', async () => {
+    const reports = await transcribed(
+      { onInput: (text) => ({ action: 'redact', text: text.replace(/\d{4}-\d{4}/, '[card]') }) },
+      fakeGateway(),
+      { text: 'My card is 1234-5678' },
+    );
+    expect(reports).toMatchObject([{ input: 'My card is [card]', answer: 'Hello there.' }]);
+    expect(JSON.stringify(reports)).not.toContain('1234-5678');
+  });
+
+  it('is not called for a message blocked before the model saw it', async () => {
+    const reports = await transcribed({ onInput: () => ({ action: 'block' }) }, fakeGateway());
+    expect(reports).toEqual([]);
+  });
+
+  it('has an allowed answer as it was, with its ID', async () => {
+    const reports = await transcribed({ onOutput: () => undefined }, fakeGateway());
+    expect(reports).toMatchObject([
+      {
+        answer: 'Hello there.',
+        citations: [{ index: 1, title: 'Doc' }],
+        check: 'allowed',
+        itemId: 'msg_answer',
+        reason: 'completed',
+      },
+    ]);
+  });
+
+  it('has the replacement of a replaced answer, with its sources and without the ID', async () => {
+    const reports = await transcribed(
+      { onOutput: (text) => ({ action: 'redact', text: text.replace(/\d{3}-\d{4}/, '[phone]') }) },
+      fakeGateway(['Call me at ', '555-0100.']),
+    );
+    expect(reports).toHaveLength(1);
+    expect(reports[0]).toMatchObject({
+      answer: 'Call me at [phone].',
+      citations: [{ index: 1, title: 'Doc' }],
+      check: 'replaced',
+    });
+    expect(reports[0]).not.toHaveProperty('itemId');
+    expect(JSON.stringify(reports)).not.toContain('555-0100');
+  });
+
+  it('has no answer for a withheld one, whichever check withheld it', async () => {
+    const blocking = await transcribed({ onOutput: () => ({ action: 'block' }) }, fakeGateway());
+    const moderated = await transcribed(
+      { moderation: { model: 'omni-moderation-latest', check: 'output' } },
+      fakeGateway(['A bad answer.']),
+    );
+    for (const reports of [blocking, moderated]) {
+      expect(reports).toHaveLength(1);
+      expect(reports[0]).toMatchObject({
+        input: 'Hello',
+        answer: undefined,
+        citations: [],
+        check: 'withheld',
+        reason: 'completed',
+      });
+      expect(reports[0]).not.toHaveProperty('itemId');
+    }
+    expect(JSON.stringify(moderated)).not.toContain('bad answer');
   });
 });

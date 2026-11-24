@@ -404,6 +404,61 @@ describe('hook isolation', () => {
     expect(errorLog).toHaveBeenCalledWith('[askdare] the onUsage hook failed: RangeError');
   });
 
+  it('hands each finished turn to onTranscript, with the same visitor as onUsage', async () => {
+    const onUsage = vi.fn();
+    const onTranscript = vi.fn();
+    const { POST } = createChatHandler({ bots: [bot], onUsage, onTranscript });
+    const stream = await chat(POST, await accessToken(POST));
+    await settle();
+    expect(stream.at(-1)).toMatchObject({ type: 'message.end' });
+    expect(onTranscript).toHaveBeenCalledExactlyOnceWith({
+      bot: 'support',
+      visitor: onUsage.mock.calls[0]?.[0].visitor,
+      conversationId: 'conv_1',
+      startedAt: onUsage.mock.calls[0]?.[0].startedAt,
+      input: 'Hi',
+      attachments: 0,
+      answer: 'Hello!',
+      citations: [],
+      reason: 'completed',
+    });
+  });
+
+  it('reports a throwing onTranscript to onError by its name only', async () => {
+    const reports: ChatErrorReport[] = [];
+    const onTranscript = vi.fn(async () => {
+      throw new Error(`could not store ${VISITOR_TEXT}`);
+    });
+    const { POST } = createChatHandler({
+      bots: [bot],
+      onTranscript,
+      onError: (report) => void reports.push(report),
+    });
+    const stream = await chat(POST, await accessToken(POST));
+    await settle();
+    expect(stream.at(-1)).toMatchObject({ type: 'message.end', reason: 'completed' });
+    expect(reports).toEqual([
+      { code: 'internal_error', message: 'The onTranscript hook failed: Error.', cause: undefined },
+    ]);
+  });
+
+  it('logs a throwing onTranscript without onError by its name only', async () => {
+    const { POST } = createChatHandler({
+      bots: [bot],
+      onTranscript: () => {
+        throw new Error(`could not store ${VISITOR_TEXT}`);
+      },
+    });
+    const stream = await chat(POST, await accessToken(POST));
+    await settle();
+    expect(stream.at(-1)).toMatchObject({ type: 'message.end' });
+    const lines = errorLog.mock.calls.map((call) => call.join(' '));
+    expect(lines).toContain(
+      `[askdare] internal_error: The onTranscript hook failed: Error. (see ${TROUBLESHOOTING})`,
+    );
+    expect(lines.join('\n')).not.toContain(VISITOR_TEXT);
+  });
+
   it('answers the request when onError throws', async () => {
     vi.stubEnv('CHAT_SECRET', '');
     const onError = vi.fn(() => {
