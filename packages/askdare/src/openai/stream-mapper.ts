@@ -2,6 +2,9 @@ import type { ResponseOutputItem, ResponseStreamEvent } from 'openai/resources/r
 import { MarkerMerger } from '../citation-markers';
 import { AskdareError } from '../errors';
 import type { TokenUsage } from '../gateway';
+import { MarkerRewriter } from '../knowledge/markers';
+import { citationKey, PassageLookup, passageCitation } from '../knowledge/passages';
+import type { KnowledgeIndex } from '../knowledge/port';
 import type { ProtocolEvent } from '../protocol/events';
 import { ZERO_USAGE } from '../usage';
 import { addSources, citationSource, type KnowledgeSources } from './citations';
@@ -32,6 +35,12 @@ export class CitationRegistry {
   readonly #indices = new Map<string, number>();
   /** Files returned by this turn's searches, so citations can link to their pages. */
   readonly sources: KnowledgeSources = new Map();
+  /** Passages of the bot's own index this turn can cite; undefined without one. */
+  readonly passages: PassageLookup | undefined;
+
+  constructor(index?: KnowledgeIndex) {
+    this.passages = index ? new PassageLookup(index) : undefined;
+  }
 
   /** Returns the marker for a source and whether it is new. */
   register(key: string): { readonly index: number; readonly isNew: boolean } {
@@ -61,6 +70,9 @@ export class ResponseStreamMapper {
   /** Finished output items by position, for servers whose terminal event leaves them out. */
   readonly #done: ResponseOutputItem[] = [];
   readonly #markers: MarkerMerger;
+  /** Rewrites `[id]` markers of the bot's own index into `[n]`; undefined without one. */
+  readonly #rewriter: MarkerRewriter | undefined;
+  readonly #signal: AbortSignal | undefined;
   #answerItemId: string | undefined;
   #textItemId: string | undefined;
   #outcome: StepOutcome | undefined;
@@ -69,18 +81,32 @@ export class ResponseStreamMapper {
     messageId: string,
     emit: (event: ProtocolEvent) => void,
     citations: CitationRegistry,
+    signal?: AbortSignal,
   ) {
     this.#messageId = messageId;
     this.#emit = emit;
     this.#citations = citations;
+    this.#signal = signal;
     this.#markers = new MarkerMerger((index) => citations.has(index));
+    const passages = citations.passages;
+    this.#rewriter = passages
+      ? new MarkerRewriter((ids) => this.#resolvePassages(passages, ids))
+      : undefined;
   }
 
-  handle(event: ResponseStreamEvent): void {
+  /**
+   * Handles one event. Returns a promise while a cited passage is looked up in the bot's index:
+   * await it before the next event, so text stays in order.
+   */
+  handle(event: ResponseStreamEvent): void | Promise<void> {
     switch (event.type) {
       case 'response.output_text.delta':
       case 'response.refusal.delta':
-        this.#emitText(this.#markers.push(event.delta));
+        // Rewritten markers are registered before the merger sees them, so their repeats merge.
+        if (this.#rewriter) {
+          return this.#rewriter.push(event.delta).then((text) => this.#pushText(text));
+        }
+        this.#pushText(event.delta);
         return;
       case 'response.output_text.annotation.added':
         this.#handleAnnotation(event.annotation);
@@ -121,30 +147,14 @@ export class ResponseStreamMapper {
         return;
       case 'response.completed':
       case 'response.incomplete': {
-        this.#emitText(this.#markers.flush());
-        // Optional chains: servers other than OpenAI may leave the details out (spike S6b).
-        const usage = event.response.usage;
-        this.#outcome = {
-          status: event.type === 'response.completed' ? 'completed' : 'incomplete',
-          incompleteReason: event.response.incomplete_details?.reason,
-          model: event.response.model || undefined,
-          answerItemId: this.#answerItemId,
-          textItemId: this.#textItemId,
-          usage: usage
-            ? {
-                inputTokens: usage.input_tokens,
-                cachedInputTokens: usage.input_tokens_details?.cached_tokens ?? 0,
-                cacheWriteTokens: usage.input_tokens_details?.cache_write_tokens ?? 0,
-                outputTokens: usage.output_tokens,
-                reasoningTokens: usage.output_tokens_details?.reasoning_tokens ?? 0,
-              }
-            : ZERO_USAGE,
-          functionCalls: this.#functionCalls,
-          output:
-            event.response.output?.length > 0
-              ? event.response.output
-              : this.#done.filter((item) => item !== undefined),
-        };
+        if (this.#rewriter) {
+          const terminal = event;
+          return this.#rewriter.flush().then((text) => {
+            this.#pushText(text);
+            this.#finish(terminal);
+          });
+        }
+        this.#finish(event);
         return;
       }
       case 'response.failed':
@@ -158,6 +168,35 @@ export class ResponseStreamMapper {
     }
   }
 
+  #finish(
+    event: Extract<ResponseStreamEvent, { type: 'response.completed' | 'response.incomplete' }>,
+  ): void {
+    this.#emitText(this.#markers.flush());
+    // Optional chains: servers other than OpenAI may leave the details out (spike S6b).
+    const usage = event.response.usage;
+    this.#outcome = {
+      status: event.type === 'response.completed' ? 'completed' : 'incomplete',
+      incompleteReason: event.response.incomplete_details?.reason,
+      model: event.response.model || undefined,
+      answerItemId: this.#answerItemId,
+      textItemId: this.#textItemId,
+      usage: usage
+        ? {
+            inputTokens: usage.input_tokens,
+            cachedInputTokens: usage.input_tokens_details?.cached_tokens ?? 0,
+            cacheWriteTokens: usage.input_tokens_details?.cache_write_tokens ?? 0,
+            outputTokens: usage.output_tokens,
+            reasoningTokens: usage.output_tokens_details?.reasoning_tokens ?? 0,
+          }
+        : ZERO_USAGE,
+      functionCalls: this.#functionCalls,
+      output:
+        event.response.output?.length > 0
+          ? event.response.output
+          : this.#done.filter((item) => item !== undefined),
+    };
+  }
+
   /** Result of the step. Throws when the stream ended without a terminal event. */
   outcome(): StepOutcome {
     if (!this.#outcome) {
@@ -166,6 +205,40 @@ export class ResponseStreamMapper {
       });
     }
     return this.#outcome;
+  }
+
+  #pushText(text: string): void {
+    this.#emitText(this.#markers.push(text));
+  }
+
+  /**
+   * Looks up the cited IDs (this turn's results first, the index after) and returns each one's
+   * `[n]`, announcing a source the first time it is cited. Unknown IDs are dropped and counted.
+   */
+  async #resolvePassages(
+    passages: PassageLookup,
+    ids: readonly string[],
+  ): Promise<(id: string) => number | undefined> {
+    await passages.resolve(ids, this.#signal);
+    return (id) => {
+      const passage = passages.get(id);
+      if (!passage) {
+        passages.unknown += 1;
+        return undefined;
+      }
+      const citation = passageCitation(passage);
+      const { index, isNew } = this.#citations.register(citationKey(citation));
+      if (isNew) {
+        this.#emit({
+          type: 'citation',
+          messageId: this.#messageId,
+          index,
+          title: citation.title,
+          url: citation.url,
+        });
+      }
+      return index;
+    };
   }
 
   #emitText(delta: string): void {

@@ -1,6 +1,7 @@
 import type OpenAI from 'openai';
 import { APIConnectionError, APIError, toFile } from 'openai';
 import type { DiagnoseRequest } from '../gateway';
+import { knowledgeChecks } from '../knowledge/diagnose';
 import type { DoctorCheck } from '../protocol/doctor';
 
 /** Doctor requests fail fast instead of retrying: the operator is waiting at a terminal. */
@@ -179,6 +180,10 @@ export async function diagnoseBot(
 
   if (request.vectorStoreId !== undefined) {
     checks.push(await checkVectorStore(client, request.vectorStoreId));
+  }
+
+  if (request.knowledgeIndex !== undefined) {
+    checks.push(...(await knowledgeChecks(request.knowledgeIndex)));
   }
 
   if (request.transcriptionModel !== undefined) {

@@ -1,10 +1,10 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fakeEmbedder } from '@boldare/askdare/testing';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-// The CLI lives in core; until k2 exports the port, its pieces come by relative path here too.
+// The CLI isn't importable from the package: the test runs core's source.
 import { kbSync } from '../../../askdare/src/cli/kb-sync';
-import { fakeEmbedder } from '../../../askdare/src/knowledge/fake-embedder';
 import { migrate, pgvectorIndex } from '../index';
 import { createTestSchema, TEST_DATABASE_URL, type TestSchema } from '../testing/database';
 

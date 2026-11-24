@@ -13,4 +13,6 @@ export type ContractExpect = (actual: unknown) => {
   toBe(expected: unknown): void;
   toEqual(expected: unknown): void;
   toBeInstanceOf(expected: abstract new (...args: never[]) => unknown): void;
+  toHaveLength(length: number): void;
+  toBeGreaterThan(expected: number): void;
 };

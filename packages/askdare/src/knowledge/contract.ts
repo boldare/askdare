@@ -1,31 +1,22 @@
 import { createHash, randomUUID } from 'node:crypto';
+import type { ContractRunner } from '../testing/runner';
 import { knowledgeDocument, sourceIdOf } from './document';
 import { fakeEmbedder } from './fake-embedder';
 import type { Embedder, KnowledgeChunk, KnowledgeDocument, KnowledgeIndex, Passage } from './port';
 
-/** The matchers the suite uses; Vitest's and Jest's `expect` fit. */
-export type ContractExpect = (actual: unknown) => {
-  toBe(expected: unknown): void;
-  toEqual(expected: unknown): void;
-  toHaveLength(length: number): void;
-  toBeGreaterThan(expected: number): void;
-};
-
-export interface KnowledgeIndexContractOptions {
-  readonly describe: (name: string, body: () => void) => void;
-  readonly it: (name: string, body: () => Promise<void>) => void;
-  readonly expect: ContractExpect;
-  /**
-   * Opens the index `indexId` with `embedder`. Two calls with the same index ID must see the same
-   * data, as two server instances on one database do. Each test uses fresh index IDs and clears them.
-   */
-  readonly open: (options: {
-    readonly indexId: string;
-    readonly embedder: Embedder;
-  }) => KnowledgeIndex | Promise<KnowledgeIndex>;
+export interface KnowledgeIndexContractOptions extends ContractRunner {
   /** Of the fake embedder; set it for an index with fixed dimensions. Default 64. */
-  readonly dimensions?: number;
+  readonly dimensions?: number | undefined;
 }
+
+/**
+ * Opens the index `indexId` with `embedder`. Two calls with the same index ID must see the same
+ * data, as two server instances on one database do. Each test uses fresh index IDs and clears them.
+ */
+export type OpenKnowledgeIndex = (options: {
+  readonly indexId: string;
+  readonly embedder: Embedder;
+}) => KnowledgeIndex | Promise<KnowledgeIndex>;
 
 const sha256 = (text: string): string => createHash('sha256').update(text).digest('hex');
 
@@ -83,9 +74,24 @@ async function rejects(promise: Promise<unknown>): Promise<boolean> {
 /**
  * Behaviour every `KnowledgeIndex` must have (ADR-0025), with a deterministic fake embedder. Used
  * by the in-memory index and by adapters such as `pgvectorIndex`, so they stay interchangeable.
- * Runner-agnostic: pass your test runner's `describe`, `it` and `expect`.
+ * Runner-agnostic: pass your test runner's `describe`, `it` and `expect`:
+ *
+ * ```ts
+ * import { knowledgeIndexContract } from '@boldare/askdare/testing';
+ * import { describe, expect, it } from 'vitest';
+ *
+ * knowledgeIndexContract('my index', ({ indexId, embedder }) => myIndex({ indexId, embedder }), {
+ *   describe,
+ *   it,
+ *   expect,
+ * });
+ * ```
  */
-export function knowledgeIndexContract(name: string, options: KnowledgeIndexContractOptions): void {
+export function knowledgeIndexContract(
+  name: string,
+  openIndex: OpenKnowledgeIndex,
+  options: KnowledgeIndexContractOptions,
+): void {
   const { describe, it, expect } = options;
   const embedder = fakeEmbedder(
     options.dimensions === undefined ? {} : { dimensions: options.dimensions },
@@ -104,13 +110,13 @@ export function knowledgeIndexContract(name: string, options: KnowledgeIndexCont
         withEmbedder: Embedder = embedder,
       ): Promise<KnowledgeIndex> => {
         opened.add(`${prefix}-${key}`);
-        return options.open({ indexId: `${prefix}-${key}`, embedder: withEmbedder });
+        return openIndex({ indexId: `${prefix}-${key}`, embedder: withEmbedder });
       };
       try {
         await body(open);
       } finally {
         for (const indexId of opened) {
-          await Promise.resolve(options.open({ indexId, embedder }))
+          await Promise.resolve(openIndex({ indexId, embedder }))
             .then((index) => index.clear())
             .catch(() => undefined);
         }

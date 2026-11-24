@@ -6,8 +6,8 @@ import type {
 } from 'openai/resources/responses/responses';
 import { newItemId } from '../conversations/items';
 import type { StoredItem, StoredPart } from '../conversations/port';
-import type { KnowledgeSources } from './citations';
-import { citationsOf, toResponseInput } from './items';
+import { type CitationContext, textCitations } from './citations';
+import { toResponseInput } from './items';
 
 /** The `provider` of native items written by OpenAI models. */
 const PROVIDER = 'openai';
@@ -61,13 +61,13 @@ export function replayInput(items: readonly StoredItem[], family: string): Respo
   return items.flatMap((item) => toReplayInput(item, family) ?? []);
 }
 
-function messageParts(message: ResponseOutputMessage, sources: KnowledgeSources): StoredPart[] {
+function messageParts(message: ResponseOutputMessage, context: CitationContext): StoredPart[] {
   return message.content.flatMap((part): StoredPart[] => {
     if (part.type === 'refusal') return [{ type: 'refusal', text: part.refusal }];
     if (part.type !== 'output_text') return [];
     // Titles and URLs are stored with the text, so history needs neither the search nor its
     // results (ADR-0024, decision 8).
-    const citations = citationsOf(part.annotations, sources);
+    const citations = textCitations(part.text, part.annotations, context);
     return [
       citations.length > 0
         ? { type: 'text', text: part.text, citations }
@@ -91,7 +91,7 @@ const NATIVE: ReadonlySet<string> = new Set(['reasoning', 'file_search_call']);
 export function fromResponseOutput(
   output: ResponseOutputItem,
   family: string,
-  sources: KnowledgeSources,
+  context: CitationContext,
 ): StoredItem | undefined {
   const id = newItemId();
   if (output.type === 'message') {
@@ -100,7 +100,7 @@ export function fromResponseOutput(
       type: 'message',
       role: 'assistant',
       ...(output.phase ? { phase: output.phase } : {}),
-      parts: messageParts(output, sources),
+      parts: messageParts(output, context),
     };
   }
   if (output.type === 'function_call') {

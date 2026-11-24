@@ -1,5 +1,7 @@
 import { mergeRepeatedMarkers } from '../citation-markers';
 import type { StoredCall, UiReader } from '../gateway';
+import { rewriteMarkers } from '../knowledge/markers';
+import { citationKey } from '../knowledge/passages';
 import type { HistoryCitation, HistoryMessage } from '../protocol/history';
 import { normalizeReplies } from '../protocol/replies';
 import { isToolUiList, MAX_TOOL_UI, type ToolUi } from '../protocol/tool-ui';
@@ -14,35 +16,50 @@ export const HISTORY_ITEMS = 100;
 
 type StoredMessage = Extract<StoredItem, { type: 'message' }>;
 
-/** Identity of a cited source across a message's parts: the same page cited twice shows once. */
-function citationKey(citation: StoredCitation): string {
-  if (citation.sourceId !== undefined) return `source:${citation.sourceId}`;
-  if (citation.url !== undefined) return `url:${citation.url}`;
-  return `title:${citation.title}`;
-}
-
 /**
  * Maps one stored message to a visible message: visitors' and assistants' messages only, without
- * the page's description, with the citations stored on its text (ADR-0024, decision 8).
+ * the page's description, with the citations stored on its text (ADR-0024, decision 8). An
+ * answer's `[id]` markers of the bot's own index become `[n]` through the citations stored with
+ * them, as they did while it streamed (ADR-0025); with `knowledge`, markers no citation resolves
+ * are dropped, as they were then.
  */
-export function historyMessage(item: StoredMessage): HistoryMessage | undefined {
+export function historyMessage(item: StoredMessage, knowledge = false): HistoryMessage | undefined {
   if (item.role !== 'user' && item.role !== 'assistant') return undefined;
   let text = '';
   let attachments = 0;
   const citations: HistoryCitation[] = [];
-  const seen = new Set<string>();
+  const numbers = new Map<string, number>();
+  const add = (citation: StoredCitation): number => {
+    const index = citations.length + 1;
+    citations.push({ index, title: citation.title, url: citation.url });
+    if (!numbers.has(citationKey(citation))) numbers.set(citationKey(citation), index);
+    return index;
+  };
   for (const part of item.parts) {
     switch (part.type) {
-      case 'text':
-        text += part.text;
-        // A part's citations were told apart when they were stored, by the file they came from,
-        // which two sources with the same title don't share: only another part's repeat a source.
+      case 'text': {
+        const passages = new Map<string, StoredCitation>();
         for (const citation of part.citations ?? []) {
-          if (seen.has(citationKey(citation))) continue;
-          citations.push({ index: citations.length + 1, title: citation.title, url: citation.url });
+          if (citation.sourceId !== undefined) passages.set(citation.sourceId, citation);
         }
-        for (const citation of part.citations ?? []) seen.add(citationKey(citation));
+        if (item.role === 'assistant' && (knowledge || passages.size > 0)) {
+          text += rewriteMarkers(part.text, (id) => {
+            const citation = passages.get(id);
+            if (!citation) return undefined;
+            return numbers.get(citationKey(citation)) ?? add(citation);
+          });
+        } else {
+          text += part.text;
+        }
+        // A part's file citations were told apart when they were stored, by the file they came
+        // from, which two sources with the same title don't share: only another part's repeat one.
+        const files = (part.citations ?? []).filter((citation) => citation.sourceId === undefined);
+        const before = new Set(numbers.keys());
+        for (const citation of files) {
+          if (!before.has(citationKey(citation))) add(citation);
+        }
         break;
+      }
       case 'refusal':
         text += part.text;
         break;
@@ -87,6 +104,7 @@ interface Turn {
 function readTurns(
   oldestFirst: readonly StoredItem[],
   checked: boolean,
+  knowledge: boolean,
 ): { messages: HistoryMessage[]; turns: Turn[] } {
   const messages: HistoryMessage[] = [];
   const turns: Turn[] = [];
@@ -149,10 +167,10 @@ function readTurns(
     }
     if (item.type !== 'message') continue;
     if (item.role === 'assistant' && item.phase === 'commentary') {
-      unanswered = historyMessage(item);
+      unanswered = historyMessage(item, knowledge);
       continue;
     }
-    const message = historyMessage(item);
+    const message = historyMessage(item, knowledge);
     if (!message) continue;
     if (message.role === 'assistant') unanswered = undefined;
     messages.push(message);
@@ -198,9 +216,9 @@ function turnUi(reader: UiReader, calls: readonly StoredCall[]): readonly ToolUi
  */
 export function historyFromItems(
   oldestFirst: readonly StoredItem[],
-  { replies, ui, checked = false }: Omit<HistoryRequest, 'signal'>,
+  { replies, ui, checked = false, knowledge }: Omit<HistoryRequest, 'signal'>,
 ): HistoryMessage[] {
-  const { messages, turns } = readTurns(oldestFirst, checked);
+  const { messages, turns } = readTurns(oldestFirst, checked, knowledge !== undefined);
   // Every answer shows its turn's cards (ADR-0017).
   if (ui) {
     for (const { answer, calls, plain } of turns) {

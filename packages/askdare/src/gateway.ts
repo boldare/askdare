@@ -1,6 +1,7 @@
 import type { AttachmentKind } from './attachments/files';
 import type { Bot, BotContext } from './bot/define-bot';
 import type { ConversationStore } from './conversations/port';
+import type { KnowledgeIndex } from './knowledge/port';
 import type { DoctorCheck } from './protocol/doctor';
 import type { MessageEndReason, ProtocolEvent } from './protocol/events';
 import type { ToolUi } from './protocol/tool-ui';
@@ -161,6 +162,8 @@ export type AnswerVerdict =
 export interface DiagnoseRequest {
   readonly model: string;
   readonly vectorStoreId?: string | undefined;
+  /** The bot's own index (ADR-0025): its `diagnose()` checks join the report. */
+  readonly knowledgeIndex?: KnowledgeIndex | undefined;
   readonly transcriptionModel?: string | undefined;
   readonly attachments: boolean;
 }

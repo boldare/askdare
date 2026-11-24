@@ -2,6 +2,9 @@ import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { ModelGateway } from '../gateway';
+import { fakeEmbedder } from '../knowledge/fake-embedder';
+import { memoryKnowledgeIndex, memoryKnowledgeStore } from '../knowledge/memory-index';
+import type { KnowledgeIndex } from '../knowledge/port';
 import { createOpenAIGateway } from './gateway';
 import { OPENAI_TEST_BASE_URL } from './testing/msw';
 
@@ -78,6 +81,36 @@ describe('diagnose', () => {
       'POST /files',
       'DELETE /files/file-doc',
     ]);
+  });
+
+  it("reports the bot's own index through its diagnose()", async () => {
+    server.use(...healthy);
+    const index = memoryKnowledgeIndex({ embedder: fakeEmbedder(), store: memoryKnowledgeStore() });
+    const checks = await gateway.diagnose({
+      model: 'gpt-test',
+      knowledgeIndex: index,
+      attachments: false,
+    });
+    expect(checks.slice(-1)).toEqual([
+      {
+        status: 'fail',
+        title: 'Knowledge index: Never synced: run `askdare kb sync`.',
+        fix: 'Run `npx @boldare/askdare kb sync <folder> --index <id>` with the embedder the bot uses.',
+      },
+    ]);
+    const broken: KnowledgeIndex = {
+      ...index,
+      diagnose: () => Promise.reject(new Error('connect ECONNREFUSED')),
+    };
+    const failed = await gateway.diagnose({
+      model: 'gpt-test',
+      knowledgeIndex: broken,
+      attachments: false,
+    });
+    expect(failed.at(-1)).toEqual({
+      status: 'fail',
+      title: 'The knowledge index could not be checked.',
+    });
   });
 
   it('warns about a chat or transcription model with a shutdown date and keeps checking', async () => {

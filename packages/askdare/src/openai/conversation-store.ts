@@ -102,7 +102,7 @@ export function createOpenAIConversations(client: () => OpenAI): ConversationSto
         // No sequence numbers at OpenAI: positions count within the page.
         const items = oldestFirst.map(
           (item, index): PositionedItem => ({
-            ...fromConversationItem(item, sources),
+            ...fromConversationItem(item, { sources }),
             seq: index + 1,
             at: 0,
           }),
@@ -132,9 +132,9 @@ export function createOpenAIConversations(client: () => OpenAI): ConversationSto
       }
     },
   };
-  return withHistory(store, async (id, { signal, replies, ui, checked }) => {
+  return withHistory(store, async (id, request) => {
     try {
-      return await listHistory(client(), id, signal, replies, ui, checked);
+      return await listHistory(client(), id, request);
     } catch (error) {
       throw fromOpenAIError(error, false);
     }
