@@ -41,9 +41,19 @@ describe('knowledge markers', () => {
 
   it(`gives up holding after ${MARKER_HOLD_LIMIT} characters`, async () => {
     const rewriter = new MarkerRewriter(async () => number);
-    const long = `[${`${A}, `.repeat(4)}`;
+    const long = `[${`${A}, `.repeat(9)}`;
     expect(long.length).toBeGreaterThanOrEqual(MARKER_HOLD_LIMIT);
     expect(await rewriter.push(long)).toBe(long);
+  });
+
+  it('rewrites a marker of several IDs split across deltas', async () => {
+    const rewriter = new MarkerRewriter(async () => number);
+    const ids = [A, B, A, B, A, B, A, B].join(', ');
+    let out = '';
+    for (const piece of ['x [', ids.slice(0, 40), ids.slice(40), '] y'])
+      out += await rewriter.push(piece);
+    out += await rewriter.flush();
+    expect(out).toBe('x [1][2] y');
   });
 
   it('resolves only when a marker is complete, with every ID of the text at once', async () => {

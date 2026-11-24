@@ -88,8 +88,9 @@ export class PassageLookup {
       const passage = await this.#index.passage(id, signal ? { signal } : {});
       // An index must answer for the ID asked; anything else is not this citation.
       this.#found.set(id, passage?.sourceId === id ? passage : undefined);
-    } catch (error) {
-      if (signal?.aborted) throw error;
+    } catch {
+      // The turn's own reason, so a deadline ends it as a timeout whatever the index threw.
+      if (signal?.aborted) throw signal.reason;
       this.#found.set(id, undefined);
       console.error('[askdare] a cited knowledge passage could not be read; it is dropped.');
     }

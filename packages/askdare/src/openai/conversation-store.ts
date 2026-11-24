@@ -95,6 +95,8 @@ export function createOpenAIConversations(client: () => OpenAI): ConversationSto
           options?.signal ? { signal: options.signal } : undefined,
         );
         const oldestFirst = page.data.toReversed();
+        // Answers from a bot's own index keep their `[id]` markers without citations here: the
+        // store doesn't know the bot. The history reader resolves them (`HistoryRequest.knowledge`).
         const sources: KnowledgeSources = new Map();
         for (const item of oldestFirst) {
           if (item.type === 'file_search_call') addSources(item, sources);

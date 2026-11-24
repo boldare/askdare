@@ -11,8 +11,11 @@ const MARKER = new RegExp(`\\[[ \\t]*(${ID}(?:[ \\t]*[,;][ \\t]*${ID})*)[ \\t]*\
 /** What could still grow into a marker: an open `[` followed by a prefix of the grammar above. */
 const PARTIAL =
   /\[[ \t]*(?:k[0-9a-f]{0,12}(?:[ \t]*[,;][ \t]*k[0-9a-f]{0,12})*[ \t]*[,;]?[ \t]*)?$/i;
-/** Longest text held back while a marker may still be open. */
-export const MARKER_HOLD_LIMIT = 48;
+/**
+ * Longest text held back while a marker may still be open: eight 13-character IDs with their
+ * separators. S8's 48 was for `k1`-style IDs and would split a marker of four.
+ */
+export const MARKER_HOLD_LIMIT = 128;
 
 /** The source IDs of one marker's content, lowercase, in the order written. */
 const idsOf = (content: string): string[] =>

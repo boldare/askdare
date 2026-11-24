@@ -24,7 +24,7 @@ Spike S8 built the alternative on Postgres with pgvector and answered the same 2
 4. **Search:** hybrid, vector (HNSW) plus Postgres full text with the language-neutral `simple` configuration, fused by reciprocal rank with a text weight of 0.3. Results come with a score and stay in the order the fusion gives. A per-index full-text language is not in 0.6.
 5. **Citations keep the protocol:**
    - Results reach the model with their **source IDs**, and the instructions ask it to write `[id]` after a statement.
-   - The stream mapper rewrites the IDs into today's `[n]` markers while streaming and emits one `citation { index, title, url? }` per new source. It holds back up to 48 characters of an unclosed `[`, passes other brackets and Markdown links through, merges adjacent identical markers, and drops IDs it can't resolve (counted, never logged with content).
+   - The stream mapper rewrites the IDs into today's `[n]` markers while streaming and emits one `citation { index, title, url? }` per new source. It holds back up to 128 characters of an unclosed `[` (eight 12-character IDs; S8's 48 fit only its short `k1` IDs), passes other brackets and Markdown links through, merges adjacent identical markers, and drops IDs it can't resolve (counted, never logged with content).
    - **Source IDs are stable across turns:** `k` followed by the first 12 hex characters of the chunk's hash. Earlier turns' results stay in the model's context, so a per-turn `k1, k2…` registry would map a later citation to the wrong passage. Any ID resolves through `passage()`, with one indexed lookup and no state per turn; a chunk removed by a later sync stops resolving and its marker is dropped. `sync` refuses an ID that two different chunks of one index would share.
    - **Stored history:** item stores keep the citations on the text part (ADR-0024). With `openaiConversations()`, history rewrites the stored `[id]` markers on reload through `passage()`.
    - **Claude** (later, [ADR-0026](0026-provider-path.md)): each passage goes in as a `search_result` block with `source` = the source ID, never the page URL. Documents without a URL still cite, and two chunks of one page stay apart.
@@ -46,7 +46,7 @@ Spike S8 built the alternative on Postgres with pgvector and answered the same 2
 - Answers on the own path cost about a twentieth on a small model, since there is no per-search fee and chunks are smaller. Embedding cost is negligible: about $0.016 for a 1,000-page site.
 - Text extraction becomes our job, and PDFs wait on the own path.
 - Each answer that searches costs two model calls (search, then answer). S8 still measured it faster end to end than `file_search`.
-- Not yet tested: 12-character source IDs instead of S8's `k1`, and citations of a passage from an earlier turn. The implementing task reruns S8's evaluation with both before this ADR is accepted.
+- Not yet tested live: 12-character source IDs instead of S8's `k1`, and citations of a passage from an earlier turn. Task k2 built the rerun on the shipped code path (`spikes/s8-retrieval/k2/eval.test.ts`: S8's 27 questions plus four multi-turn follow-ups, item store, reload check) and covered both cases with recorded-stream tests; the live run, which needs an OpenAI key, is still to be recorded here before this ADR is accepted.
 - Search quality is proven only on 11 documents in one language.
 
 ## Alternatives considered
