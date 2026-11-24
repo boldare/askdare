@@ -120,6 +120,11 @@ describe.skipIf(!TEST_DATABASE_URL)('pgvectorIndex against Postgres', () => {
         ['planned', vector],
       );
       expect(JSON.stringify(plan.rows)).toContain(name);
+      // A sync puts back an HNSW index that went missing.
+      await client.query(`drop index ${name}`);
+      await index.sync([doc('a.md', 'A', 'Refunds are possible within 30 days.')]);
+      const found = await client.query('select to_regclass($1) as found', [name]);
+      expect(found.rows[0]?.found).toBe(name);
     } finally {
       await client.query('reset all');
       client.release();
@@ -160,6 +165,7 @@ describe.skipIf(!TEST_DATABASE_URL)('pgvectorIndex against Postgres', () => {
     expect(await index.search('?! a', { maxResults: 3 })).toHaveLength(1);
     expect(await index.search("refunds' & !(days | :*", { maxResults: 3 })).toHaveLength(1);
     expect(await index.search('   ', { maxResults: 3 })).toEqual([]);
+    expect(await index.search('refunds', { maxResults: Number.POSITIVE_INFINITY })).toHaveLength(1);
     await index.clear();
   });
 

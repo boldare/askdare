@@ -14,10 +14,11 @@ export function connectionString(options: PostgresConnectionOptions): string {
 }
 
 /** A new pool for a connection string. Whoever creates it ends it. */
-export function createPool(url: string, max?: number): Pool {
+export function createPool(url: string, max?: number, allowExitOnIdle = false): Pool {
   const pool = new Pool({
     connectionString: url,
     connectionTimeoutMillis: CONNECT_TIMEOUT_MS,
+    allowExitOnIdle,
     ...(max === undefined ? {} : { max }),
   });
   // Without a listener, an idle connection that drops (a database restart, a proxy timeout)
@@ -39,7 +40,9 @@ export function resolvePool(options: PostgresConnectionOptions): PostgresPool {
   const url = connectionString(options);
   let pool = shared.get(url);
   if (!pool) {
-    pool = createPool(url);
+    // Idle connections don't keep the process alive, so a script or CLI (such as `askdare kb
+    // sync`) exits when its work is done, without having to end a pool it never saw.
+    pool = createPool(url, undefined, true);
     shared.set(url, pool);
   }
   return pool;

@@ -41,6 +41,8 @@ const RRF_K = 60;
 const CANDIDATES = 20;
 /** Words of a query the full-text side looks for, at most. */
 const MAX_QUERY_WORDS = 32;
+/** Results of one search, at most: far more than a model's context wants. */
+const MAX_RESULTS = 1_000;
 const EMBED_BATCH = 256;
 /** pgvector's limits: `vector` holds up to 16,000 dimensions, HNSW indexes 2,000 (`halfvec` 4,000). */
 const MAX_DIMENSIONS = 16_000;
@@ -284,9 +286,9 @@ export function pgvectorIndex(options: PgvectorIndexOptions): KnowledgeIndex {
   };
 
   /**
-   * Gives the index the HNSW index for its embedder's size, and drops one for another size: it
-   * would fail on every new vector. Only while the index holds no chunks. DDL, so only the tables'
-   * owner may run it.
+   * Gives the index the HNSW index for its embedder's size, and drops any for another size, which
+   * stay empty. Only reads when the index is as it should be; otherwise DDL, which only the
+   * tables' owner may run.
    */
   const ensureHnsw = async (client: PostgresPoolClient): Promise<void> => {
     const { column, opclass, predicate } = vectorExpression(dimensions);
@@ -308,6 +310,21 @@ export function pgvectorIndex(options: PgvectorIndexOptions): KnowledgeIndex {
     await client.query(
       `create index if not exists ${name} on ${CHUNKS_TABLE} using hnsw (${column} ${opclass}) where index_id = ${literal} and ${predicate}`,
     );
+  };
+
+  const ensureHnswAsOwner = async (client: PostgresPoolClient): Promise<void> => {
+    try {
+      await ensureHnsw(client);
+    } catch (error) {
+      // Postgres' "insufficient privilege": only the tables' owner may create an index.
+      if (!(error instanceof Error) || (error as Error & { code?: unknown }).code !== '42501') {
+        throw error;
+      }
+      throw new Error(
+        `${PREFIX} The first sync of an index creates its vector index, which only the owner of the askdare tables may: sync as the database user that runs \`migrate\`.`,
+        { cause: error },
+      );
+    }
   };
 
   const embedAll = async (
@@ -412,17 +429,11 @@ export function pgvectorIndex(options: PgvectorIndexOptions): KnowledgeIndex {
            on conflict (index_id) do update set embedder = excluded.embedder, dimensions = excluded.dimensions`,
           [indexId, embedder.id, dimensions],
         );
-        try {
-          await ensureHnsw(client);
-        } catch (error) {
-          // Postgres' "insufficient privilege": only the tables' owner may create an index.
-          if ((error as { code?: unknown }).code !== '42501') throw error;
-          throw new Error(
-            `${PREFIX} The first sync of an index creates its vector index, which only the owner of the askdare tables may: sync as the database user that runs \`migrate\`.`,
-            { cause: error },
-          );
-        }
+        await ensureHnswAsOwner(client);
       });
+    } else {
+      // Puts back an HNSW index that went missing; only reads when it is there.
+      await ensureHnswAsOwner(client);
     }
 
     // One transaction per document: a search never sees half a document.
@@ -496,7 +507,7 @@ export function pgvectorIndex(options: PgvectorIndexOptions): KnowledgeIndex {
 
     async search(query: string, search: SearchOptions): Promise<readonly Passage[]> {
       search.signal?.throwIfAborted();
-      const limit = Math.floor(search.maxResults);
+      const limit = Math.min(Math.floor(search.maxResults), MAX_RESULTS);
       if (!(limit > 0) || query.trim() === '') return [];
       const pool = db();
       const index = await withSchemaHint(() => readIndex(pool));

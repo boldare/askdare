@@ -56,7 +56,7 @@ The database user that migrates needs the right to create tables, and for the `k
 `pgvectorIndex` keeps a bot's knowledge in your database: documents, chunks and their embeddings. You choose the embedder, so you choose the key, the model and the vector size:
 
 ```ts
-import { openaiEmbedder } from '@boldare/askdare';
+import { openaiEmbedder } from '@boldare/askdare'; // exported from the next 0.6 release
 import { pgvectorIndex } from '@boldare/askdare-postgres';
 
 export const knowledge = pgvectorIndex({
@@ -68,7 +68,7 @@ export const knowledge = pgvectorIndex({
 | Option | Default | What it does |
 | --- | --- | --- |
 | `embedder` | (required) | Turns chunks and questions into vectors. Its ID (provider, model and size) is stored with the index. |
-| `indexId` | `default` | Which index this is. One database holds many bots' indexes, each under its own ID: letters, digits, `.`, `_`, `:` and `-`, at most 128 characters. |
+| `indexId` | `default` | Which index this is. One database holds many bots' indexes, each under its own ID: letters, digits, `.`, `_`, `:` and `-`, at most 128 characters. Give every bot its own, such as the bot's ID: two bots on one ID share their documents. |
 | `url`, `pool` | `DATABASE_URL` | As for `migrate`. One pool per connection string is shared with the conversation store. |
 
 **Syncing.** `askdare kb sync` fills the index from your knowledge folder; the library never reads files at runtime. A sync is incremental: an unchanged file is skipped, a changed file re-embeds only its changed chunks, and a renamed file re-embeds nothing. Each document is written in one transaction, so a search never sees half a document. Syncs of one index wait for each other. A different embedder (another model or size) makes the next sync embed everything again; until it has run, searches fail and `diagnose()` says to sync.
