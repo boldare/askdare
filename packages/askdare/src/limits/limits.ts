@@ -64,8 +64,12 @@ export interface TurnReservation {
    * when a budget can't cover it: the turn must then answer without tools.
    */
   extend(): Promise<boolean>;
-  /** Replaces the estimate with real usage once the turn completed. */
-  settle(usage: TokenUsage, conversationId: string): Promise<void>;
+  /**
+   * Replaces the estimate with real usage once the turn completed, and remembers the history the
+   * next turn replays: the input of the turn's last model call (`usage.inputTokens` when absent).
+   * `usage` sums every call, so after a tool round it counts the history more than once.
+   */
+  settle(usage: TokenUsage, conversationId: string, historyTokens?: number): Promise<void>;
 }
 
 export interface Limits {
@@ -351,7 +355,7 @@ export function createLimits(options: LimitsOptions): Limits {
           reserved += perCall;
           return true;
         },
-        async settle(usage, conversationId) {
+        async settle(usage, conversationId, historyTokens = usage.inputTokens) {
           const actual = budgetTokens(usage);
           await Promise.all(
             list.map((budget) => store.hit(budget.key, 2 * DAY, actual - reserved)),
@@ -360,7 +364,7 @@ export function createLimits(options: LimitsOptions): Limits {
           // estimate charges it at full weight, so it holds enough when the cache has gone cold.
           const inputKey = `ask:ci:${conversationId}`;
           const previous = (await store.hit(inputKey, CONVERSATION_TTL, 0)).count;
-          await store.hit(inputKey, CONVERSATION_TTL, usage.inputTokens - previous);
+          await store.hit(inputKey, CONVERSATION_TTL, historyTokens - previous);
           if (!keys.conversationId) await store.hit(`ask:c:${conversationId}`, CONVERSATION_TTL, 1);
         },
       };
