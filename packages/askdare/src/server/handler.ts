@@ -734,8 +734,10 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       issueResumeToken: async (id) =>
         (await tokens.issueResume(bot.id, { visitorId, conversationId: id, identityKey: key }))
           .token,
-      settle: (usage, id) => {
-        reservation.settle(usage, id).catch((error: unknown) => report(toAskdareError(error)));
+      settle: (usage, id, history) => {
+        reservation
+          .settle(usage, id, history)
+          .catch((error: unknown) => report(toAskdareError(error)));
       },
       report: config.onUsage,
       issueFeedback: feedbackOn(bot)
