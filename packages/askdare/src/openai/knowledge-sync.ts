@@ -1,34 +1,12 @@
-import { createHash } from 'node:crypto';
-import { readdir, readFile } from 'node:fs/promises';
-import { basename, extname, join, relative, sep } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { basename, extname } from 'node:path';
 import OpenAI, { NotFoundError, toFile } from 'openai';
+import { type LocalDocument, scanDirectory } from '../cli/kb-folder';
 
-/** File types OpenAI file search indexes that make sense for a website knowledge base. */
-const SUPPORTED = new Set([
-  '.md',
-  '.mdx',
-  '.txt',
-  '.pdf',
-  '.docx',
-  '.pptx',
-  '.html',
-  '.htm',
-  '.json',
-]);
 /** File search only knows these spellings, so such files are uploaded under the known one. */
 const UPLOAD_EXTENSIONS: Readonly<Record<string, string>> = { '.mdx': '.md', '.htm': '.html' };
-/** Optional per-file titles and URLs, for files without front matter (PDFs, Word…). */
-export const MANIFEST = 'askdare.kb.json';
-const MAX_ATTRIBUTE = 512;
 
-export interface LocalDocument {
-  /** POSIX path relative to the knowledge folder; the document's identity in the store. */
-  readonly path: string;
-  readonly absolutePath: string;
-  readonly sha256: string;
-  readonly title: string;
-  readonly url: string | undefined;
-}
+export type { LocalDocument };
 
 export interface RemoteDocument {
   readonly fileId: string;
@@ -48,76 +26,6 @@ export interface SyncPlan {
   readonly unchanged: number;
   /** Files in the store that this tool did not upload; left alone. */
   readonly unmanaged: number;
-}
-
-type Meta = { readonly title?: string; readonly url?: string };
-
-function frontMatter(text: string): Meta {
-  const match = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
-  if (!match?.[1]) return {};
-  const meta: Record<string, string> = {};
-  for (const line of match[1].split(/\r?\n/)) {
-    const field = /^(title|url):\s*(.+?)\s*$/.exec(line);
-    if (field?.[1] && field[2]) meta[field[1]] = field[2].replace(/^(['"])(.*)\1$/, '$2');
-  }
-  return meta;
-}
-
-function checkUrl(url: string | undefined, path: string): string | undefined {
-  if (url === undefined) return undefined;
-  if (!/^https?:\/\/\S+$/i.test(url) || url.length > MAX_ATTRIBUTE) {
-    throw new Error(`${path}: url must be an http(s) URL up to ${MAX_ATTRIBUTE} characters.`);
-  }
-  return url;
-}
-
-/** Reads every supported file under `root`, with its hash and the title/URL to cite it by. */
-export async function scanDirectory(
-  root: string,
-): Promise<{ documents: LocalDocument[]; skipped: string[] }> {
-  let manifest: Record<string, Meta> = {};
-  try {
-    manifest = JSON.parse(await readFile(join(root, MANIFEST), 'utf8')) as Record<string, Meta>;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-      throw new Error(`${MANIFEST} is not valid JSON.`, { cause: error });
-    }
-  }
-  const documents: LocalDocument[] = [];
-  const skipped: string[] = [];
-  const walk = async (dir: string): Promise<void> => {
-    for (const entry of await readdir(dir, { withFileTypes: true })) {
-      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
-      const absolutePath = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        await walk(absolutePath);
-        continue;
-      }
-      const path = relative(root, absolutePath).split(sep).join('/');
-      if (path === MANIFEST) continue;
-      if (!entry.isFile() || !SUPPORTED.has(extname(entry.name).toLowerCase())) {
-        skipped.push(path);
-        continue;
-      }
-      if (path.length > MAX_ATTRIBUTE)
-        throw new Error(`${path}: path is longer than ${MAX_ATTRIBUTE}.`);
-      const content = await readFile(absolutePath);
-      const meta: Meta = {
-        ...(/\.mdx?$/i.test(path) ? frontMatter(content.toString('utf8')) : {}),
-        ...manifest[path],
-      };
-      documents.push({
-        path,
-        absolutePath,
-        sha256: createHash('sha256').update(content).digest('hex'),
-        title: (meta.title ?? basename(path, extname(path))).slice(0, MAX_ATTRIBUTE),
-        url: checkUrl(meta.url, path),
-      });
-    }
-  };
-  await walk(root);
-  documents.sort((a, b) => a.path.localeCompare(b.path));
-  return { documents, skipped };
 }
 
 /** Compares the folder with the store. Pure, so the diff is easy to test and to show as a dry run. */

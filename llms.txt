@@ -14,7 +14,7 @@ Set it up with `npx @boldare/askdare init` and verify it with `npx @boldare/askd
 - [Tools](docs/tools.md): `defineTool`, Zod schemas, what a tool may trust, and `ui`: what the visitor sees of a result as a card
 - [Reply options](docs/reply-options.md): clickable answers under the latest reply, suggested by the model (`widget.replies: 'suggest'`) or defined by a tool (`defineTool({ replies })`), limits, placement, cost
 - [Signed-in visitors](docs/identity.md): `askdare('identify')`, IDENTITY_SECRET, `context.identity`
-- [Knowledge base](docs/knowledge-base.md): `npx @boldare/askdare kb sync`, vector stores, citations
+- [Knowledge base](docs/knowledge-base.md): `npx @boldare/askdare kb sync`, vector stores or your own index in Postgres (`--index`), citations
 - [Attachments](docs/attachments.md): images and PDFs from visitors
 - [Voice input](docs/voice-input.md): dictation and its limits
 - [Styling](docs/styling.md): texts, languages, AI disclosure, custom CSS and the `data-ask-part` names, `askdare('open' | 'configure')`, inline mode
