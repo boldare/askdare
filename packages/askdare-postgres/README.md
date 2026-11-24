@@ -4,7 +4,7 @@ Keep [`@boldare/askdare`](https://www.npmjs.com/package/@boldare/askdare)'s data
 
 **[askdare website and docs](https://askdare.vercel.app)** · [GitHub](https://github.com/boldare/askdare/tree/main/packages/askdare-postgres)
 
-> **Work in progress.** The conversation store is here; the pgvector knowledge index arrives in a later release of askdare 0.6.
+> **Work in progress.** The conversation store and the pgvector knowledge index are here. `@boldare/askdare` exports the knowledge port that bots use the index through in a later release of askdare 0.6.
 
 ## Install
 
@@ -12,7 +12,7 @@ Keep [`@boldare/askdare`](https://www.npmjs.com/package/@boldare/askdare)'s data
 npm install @boldare/askdare-postgres
 ```
 
-`pg` comes with it. Any hosted or own Postgres works, such as Neon, Supabase or Heroku Postgres; askdare is tested on Postgres 17. The knowledge index will also need the [pgvector](https://github.com/pgvector/pgvector) extension.
+`pg` comes with it. Any hosted or own Postgres works, such as Neon, Supabase or Heroku Postgres; askdare is tested on Postgres 17. The knowledge index also needs the [pgvector](https://github.com/pgvector/pgvector) extension, which those hosts offer.
 
 ## Migrate
 
@@ -37,9 +37,19 @@ const report = await migrate(); // DATABASE_URL; or migrate({ url }) or migrate(
 console.log(report.applied);
 ```
 
+The schema has parts that upgrade independently: `conversations` for the conversation store and `knowledge` for the knowledge index. `migrate` creates every part. A database without pgvector can't hold the `knowledge` part, so name the parts you use:
+
+```bash
+npx askdare-postgres migrate conversations
+```
+
+```ts
+await migrate({ parts: ['conversations'] });
+```
+
 `migrate` is idempotent: when the schema is up to date it changes nothing. Concurrent runs wait for each other. Each step runs in a transaction, so a failed one leaves the previous version in place. A database that a newer version of this package migrated makes it stop before changing anything.
 
-The database user that migrates needs the right to create tables. The app's own user then only needs `select`, `insert`, `update` and `delete` on them.
+The database user that migrates needs the right to create tables, and for the `knowledge` part the right to create the `vector` extension (pgvector is a trusted extension, so a database owner may). The app's own user then only needs `select`, `insert`, `update` and `delete` on them.
 
 ## Conversations
 
@@ -141,6 +151,44 @@ try {
 }
 ```
 
+## Knowledge index
+
+`pgvectorIndex` keeps a bot's knowledge in your database: documents, chunks and their embeddings. You choose the embedder, so you choose the key, the model and the vector size:
+
+```ts
+import { openaiEmbedder } from '@boldare/askdare'; // exported from the next 0.6 release
+import { pgvectorIndex } from '@boldare/askdare-postgres';
+
+export const knowledge = pgvectorIndex({
+  embedder: openaiEmbedder({ model: '<embedding model>', dimensions: 1536 }),
+  indexId: 'support', // default `default`
+}); // DATABASE_URL; or { url } or { pool }
+```
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `embedder` | (required) | Turns chunks and questions into vectors. Its ID (provider, model and size) is stored with the index. |
+| `indexId` | `default` | Which index this is. One database holds many bots' indexes, each under its own ID: letters, digits, `.`, `_`, `:` and `-`, at most 128 characters. Give every bot its own, such as the bot's ID: two bots on one ID share their documents. |
+| `url`, `pool` | `DATABASE_URL` | As for `migrate`. One pool per connection string is shared with the conversation store. |
+
+**Syncing.** `askdare kb sync` fills the index from your knowledge folder; the library never reads files at runtime. Pass the bot's index ID and the embedder's model and size; it reads `DATABASE_URL` and `OPENAI_API_KEY`:
+
+```bash
+npx @boldare/askdare kb sync knowledge --index support --embedding-model <embedding model> --dimensions 1536
+```
+
+A sync is incremental: an unchanged file is skipped, a changed file re-embeds only its changed chunks, and a renamed file re-embeds nothing. Each document is written in one transaction, so a search never sees half a document. Syncs of one index wait for each other. A different embedder (another model or size) makes the next sync embed everything again; until it has run, searches fail and `diagnose()` says to sync.
+
+The first sync of an index creates the index's HNSW index (one per index, for its vector size), so it needs the user that owns the tables, the one that migrates. Later syncs only read and write rows.
+
+**Searching.** Search is hybrid, as ADR-0025 decided: the nearest chunks by cosine distance and the best full-text matches (Postgres' language-neutral `simple` configuration) are fused by reciprocal rank, with the full text weighted 0.3. Full text catches exact terms such as header and product names that embeddings blur. Results come in the fused order, each with its score and its source ID (`k` and 12 hex characters of the chunk's hash), which stays the same across syncs and turns. `passage(sourceId)` resolves a cited ID with one indexed lookup.
+
+Vectors of up to 2,000 dimensions are indexed as `vector`, up to 4,000 as `halfvec`. Larger ones are searched exactly, without an index.
+
+**Diagnosing.** `diagnose()` reports `knowledge.reachable` (the database answers), `knowledge.pgvector` (the extension and its version), `knowledge.schema` (run `migrate` when it is behind), `knowledge.synced` (document and chunk counts) and `knowledge.embedder` (the index was built with the bot's embedder). It reports counts and versions, never document text.
+
+**Size.** About 6 KB per chunk at 1,536 dimensions: 10,000 chunks take about 60 MB.
+
 ## Connection options
 
 | Option | Default | What it does |
@@ -148,7 +196,7 @@ try {
 | `url` | `process.env.DATABASE_URL` | A connection string, such as `postgres://host:5432/db?sslmode=require`; the user and password go in the URL or in `PGUSER` and `PGPASSWORD`. |
 | `pool` | a pool made from `url` | An existing `pg` `Pool`, or one with the same methods. askdare never ends a pool you pass. |
 
-Tables are created without a schema name, so the connection's `search_path` decides where they go. Every table name starts with `askdare_`.
+Tables are created without a schema name, so the connection's `search_path` decides where they go. Every table name starts with `askdare_`: the knowledge index uses `askdare_knowledge_indexes`, `askdare_knowledge_documents` and `askdare_knowledge_chunks`.
 
 ## Requirements
 

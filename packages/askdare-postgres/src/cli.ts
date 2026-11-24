@@ -3,9 +3,10 @@ import { existsSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { migrate } from './schema/migrate';
 
-const USAGE = `Usage: askdare-postgres migrate
+const USAGE = `Usage: askdare-postgres migrate [part…]
 
-Creates or upgrades the askdare schema in the database at DATABASE_URL.
+Creates or upgrades the askdare schema in the database at DATABASE_URL: every part, or only the
+parts named (such as \`conversations\` on a database without pgvector, which \`knowledge\` needs).
 Without DATABASE_URL in the environment, it is read from .env.local, then .env.`;
 
 async function main(): Promise<number> {
@@ -19,7 +20,8 @@ async function main(): Promise<number> {
     console.log(USAGE);
     return 0;
   }
-  if (positionals.length !== 1 || positionals[0] !== 'migrate') {
+  const [command, ...parts] = positionals;
+  if (command !== 'migrate') {
     console.error(USAGE);
     return 2;
   }
@@ -29,7 +31,7 @@ async function main(): Promise<number> {
     if (!process.env['DATABASE_URL'] && existsSync(file)) process.loadEnvFile(file);
   }
 
-  const report = await migrate();
+  const report = await migrate(parts.length === 0 ? {} : { parts });
   for (const step of report.applied) {
     console.log(`Applied ${step.part} ${step.version}: ${step.name}`);
   }

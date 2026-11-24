@@ -1,4 +1,5 @@
 import { CONVERSATIONS_PART } from '../conversations/schema';
+import { KNOWLEDGE_SCHEMA } from '../knowledge/schema';
 import type { SchemaPart } from './migration';
 
 /**
@@ -8,4 +9,6 @@ import type { SchemaPart } from './migration';
 export const SCHEMA_PARTS: readonly SchemaPart[] = [
   // The conversation store (ADR-0024).
   CONVERSATIONS_PART,
+  // The knowledge index (ADR-0025). Needs pgvector; `migrate({ parts })` can leave it out.
+  KNOWLEDGE_SCHEMA,
 ];
