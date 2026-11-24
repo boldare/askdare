@@ -669,3 +669,32 @@ describe('a conversation deleted during a turn', () => {
     await expect(itemHistory(store)('nope', {})).rejects.toMatchObject(gone);
   });
 });
+
+describe('stores of other providers', () => {
+  it("refuses another provider's conversation instead of sending its reference to OpenAI", async () => {
+    const memory = memoryConversations();
+    const where = await newConversation({
+      ...memory,
+      context: async () => ({ kind: 'provider', provider: 'acme', ref: 'acme_1', version: 0 }),
+    });
+    await expect(turn(where).result).rejects.toMatchObject({ code: 'bot_unavailable' });
+    expect(bodies).toHaveLength(0);
+  });
+});
+
+describe('servers that leave details out', () => {
+  it('stores the answer from output items without positions or a final output list', async () => {
+    const where = await newConversation();
+    serve(
+      textTurnEvents(['Stored.']).map((event) => {
+        if (event.type !== 'response.output_item.done') return event;
+        const { output_index: _index, ...rest } = event;
+        return rest as FixtureEvent;
+      }),
+    );
+    const result = await turn(where).result;
+    const items = await stored(where);
+    expect(items.map((item) => item.type)).toEqual(['message', 'message']);
+    expect(result.answerItemId).toBe(items[1]?.id);
+  });
+});

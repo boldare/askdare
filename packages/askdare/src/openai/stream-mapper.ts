@@ -104,7 +104,9 @@ export class ResponseStreamMapper {
         }
         return;
       case 'response.output_item.done':
-        this.#done[event.output_index] = event.item;
+        // By position; in arrival order from a server that leaves the position out.
+        if (typeof event.output_index === 'number') this.#done[event.output_index] = event.item;
+        else this.#done.push(event.item);
         if (event.item.type === 'reasoning') {
           this.#emit({ type: 'reasoning', messageId: this.#messageId, state: 'done' });
         } else if (event.item.type === 'file_search_call') {

@@ -76,3 +76,30 @@ describe('historyFromItems: a commentary answer before reply options (ADR-0022)'
     expect(history.at(-1)?.replies).toBeUndefined();
   });
 });
+
+describe('historyMessage citations', () => {
+  it('keeps two sources of one text that share a title, and merges a source repeated in another part', () => {
+    const [message] = historyFromItems(
+      [
+        {
+          id: 'itm_a',
+          type: 'message',
+          role: 'assistant',
+          parts: [
+            {
+              type: 'text',
+              text: 'Plans [1] and limits [2]. ',
+              citations: [{ title: 'Pricing' }, { title: 'Pricing' }],
+            },
+            { type: 'text', text: 'Again [1].', citations: [{ title: 'Pricing' }] },
+          ],
+        },
+      ],
+      {},
+    );
+    expect(message?.citations).toEqual([
+      { index: 1, title: 'Pricing', url: undefined },
+      { index: 2, title: 'Pricing', url: undefined },
+    ]);
+  });
+});

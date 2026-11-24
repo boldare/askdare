@@ -7,6 +7,7 @@ import {
   type StoredItem,
   VersionConflictError,
 } from '../conversations/port';
+import { AskdareError } from '../errors';
 import type { TokenUsage, TurnRequest, TurnResult } from '../gateway';
 import type { MessageEndReason } from '../protocol/events';
 import type { ToolUi } from '../protocol/tool-ui';
@@ -115,25 +116,28 @@ class Replay {
 
   /**
    * Stores one step: its output items together with the outputs of its calls, in one append, so
-   * a crash loses at most the step in flight. Resolves to the stored ID of each output item.
+   * a crash loses at most the step in flight. Resolves to a lookup of each output item's stored ID.
    */
   async record(
     outcome: StepOutcome,
     outputs: readonly ResponseInputItem[],
     citations: CitationRegistry,
-  ): Promise<ReadonlyMap<string, string>> {
+  ): Promise<(providerId: string) => string | undefined> {
     const ids = new Map<string, string>();
     const items: StoredItem[] = [];
+    let lastMessage: string | undefined;
     for (const output of outcome.output) {
       const item = fromResponseOutput(output, this.#family, citations.sources);
       if (!item) continue;
       items.push(item);
+      if (item.type === 'message') lastMessage = item.id;
       if ('id' in output && typeof output.id === 'string') ids.set(output.id, item.id);
     }
     items.push(...storedOutputs(outputs));
     await this.#append(items);
     this.#history.push(...replayInput(items, this.#family));
-    return ids;
+    // A server whose streamed IDs differ from its final ones: the answer is the last message.
+    return (providerId) => ids.get(providerId) ?? lastMessage;
   }
 
   async #append(items: readonly StoredItem[]): Promise<void> {
@@ -240,6 +244,12 @@ export async function runTurn(client: OpenAI, request: TurnRequest): Promise<Tur
           request.signal,
         );
       });
+    if (context.kind === 'provider' && context.provider !== 'openai') {
+      // Another provider's conversation can't continue in an OpenAI response.
+      throw new AskdareError('bot_unavailable', {
+        cause: `The conversation store keeps its conversations at "${context.provider}", which the OpenAI gateway can't continue.`,
+      });
+    }
     const replay = context.kind === 'items' ? await Replay.start(request, context) : undefined;
     // With a provider store, each request sends only what is new since the last one.
     let input: ResponseInputItem[] = replay
@@ -296,10 +306,10 @@ export async function runTurn(client: OpenAI, request: TurnRequest): Promise<Tur
         (calls.length === 0 && answered.length > 0 ? outcome.textItemId : undefined);
       if (calls.length === 0 && (answered.length === 0 || answerItemId)) {
         // The last step's items go in with the answers to its `suggest_replies` calls.
-        const ids = replay ? await replay.record(outcome, answered, citations) : undefined;
+        const storedId = replay ? await replay.record(outcome, answered, citations) : undefined;
         if (!replay && answered.length > 0) await storeOutputs(request, answered);
         // Visitors rate the answer by its stored ID in an item store (ADR-0024).
-        const rated = answerItemId && ids ? ids.get(answerItemId) : answerItemId;
+        const rated = answerItemId && storedId ? storedId(answerItemId) : answerItemId;
         const offered = toolReplies ?? replies;
         return {
           reason: endReason(outcome),

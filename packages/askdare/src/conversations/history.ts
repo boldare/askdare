@@ -14,7 +14,7 @@ export const HISTORY_ITEMS = 100;
 
 type StoredMessage = Extract<StoredItem, { type: 'message' }>;
 
-/** Identity of a cited source within one message: the same page cited twice shows once. */
+/** Identity of a cited source across a message's parts: the same page cited twice shows once. */
 function citationKey(citation: StoredCitation): string {
   if (citation.sourceId !== undefined) return `source:${citation.sourceId}`;
   if (citation.url !== undefined) return `url:${citation.url}`;
@@ -35,12 +35,13 @@ export function historyMessage(item: StoredMessage): HistoryMessage | undefined 
     switch (part.type) {
       case 'text':
         text += part.text;
+        // A part's citations were told apart when they were stored, by the file they came from,
+        // which two sources with the same title don't share: only another part's repeat a source.
         for (const citation of part.citations ?? []) {
-          const key = citationKey(citation);
-          if (seen.has(key)) continue;
-          seen.add(key);
+          if (seen.has(citationKey(citation))) continue;
           citations.push({ index: citations.length + 1, title: citation.title, url: citation.url });
         }
+        for (const citation of part.citations ?? []) seen.add(citationKey(citation));
         break;
       case 'refusal':
         text += part.text;
