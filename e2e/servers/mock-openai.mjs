@@ -75,7 +75,11 @@ const danglingCall = (items, input) => {
   return items.find((item) => item.type === 'function_call' && !answered.has(item.call_id));
 };
 
-async function streamResponse(response, text, itemId = 'msg', call = undefined) {
+/**
+ * A response's stream. `output` is the terminal event's `response.output`, which only a stateless
+ * turn reads (it stores those items itself); the Conversations API keeps them for the others.
+ */
+async function streamResponse(response, text, itemId = 'msg', call = undefined, output = []) {
   const reply = { text, outcome: 'streaming' };
   replies.push(reply);
   response.on('close', () => {
@@ -116,7 +120,7 @@ async function streamResponse(response, text, itemId = 'msg', call = undefined) 
       id: 'resp_mock',
       status: 'completed',
       incomplete_details: null,
-      output: [],
+      output,
       usage: {
         input_tokens: 10,
         input_tokens_details: { cached_tokens: 0, cache_write_tokens: 0 },
@@ -128,6 +132,55 @@ async function streamResponse(response, text, itemId = 'msg', call = undefined) 
   });
   response.end();
   if (reply.outcome === 'streaming') reply.outcome = 'completed';
+}
+
+let nextStateless = 1;
+
+/**
+ * A turn of a conversation whose store keeps its own items (stateless turns): no `conversation`,
+ * `store: false` and the whole conversation so far as input. The reply says which visitor message
+ * it answers, counted in that input, so a test sees the stored history reach the model.
+ */
+function statelessResponse(response, body) {
+  const invalid = (message) =>
+    json(response, 400, { error: { message, type: 'invalid_request_error', code: null } });
+  if (body.store !== false) return invalid('A request without a conversation must not be stored.');
+  if (body.truncation) return invalid('truncation needs a stored conversation.');
+  const input = Array.isArray(body.input) ? body.input : [];
+  const dangling = danglingCall(input, []);
+  if (dangling) return invalid(`No tool output found for function call ${dangling.call_id}.`);
+  // `type` is optional on an input message.
+  const visitor = input.filter(
+    (item) => (item.type ?? 'message') === 'message' && item.role === 'user',
+  );
+  const content = visitor.at(-1)?.content ?? '';
+  const parts = typeof content === 'string' ? [{ type: 'input_text', text: content }] : content;
+  const userText =
+    parts.find(
+      (part) => part.type === 'input_text' && !part.text.startsWith('[askdare:page-context]'),
+    )?.text ?? '';
+  const n = nextStateless++;
+  // "[card]" calls the clock first; the next request then carries its output.
+  if (input.at(-1)?.role === 'user' && callsClock(body, userText)) {
+    const clock = {
+      id: `fc_stateless_${n}`,
+      type: 'function_call',
+      call_id: `call_stateless_${n}`,
+      name: 'get_current_time',
+      arguments: JSON.stringify({ timeZone: 'Europe/Warsaw' }),
+      status: 'completed',
+    };
+    return streamResponse(response, '', undefined, clock, [clock]);
+  }
+  const reply = `You said: ${userText} (stateless, visitor message ${visitor.length})`;
+  const message = {
+    id: `msg_stateless_${n}`,
+    type: 'message',
+    role: 'assistant',
+    status: 'completed',
+    content: [{ type: 'output_text', text: reply, annotations: [], logprobs: [] }],
+  };
+  return streamResponse(response, reply, message.id, undefined, [message]);
 }
 
 createServer(async (request, response) => {
@@ -172,6 +225,7 @@ createServer(async (request, response) => {
       });
     }
     requests.push({ instructions: body.instructions ?? '', input: JSON.stringify(body.input) });
+    if (!body.conversation) return statelessResponse(response, body);
     const items = conversations.get(body.conversation);
     if (!items) return notFound(response, body.conversation);
     const input = body.input ?? [];

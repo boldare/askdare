@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { E2E_DATABASE_URL } from './e2e/support/database';
 
 const APP_ORIGIN = 'http://localhost:3100';
 // Ports differ from the dev preview (.claude/launch.json) so both can run at once.
@@ -118,6 +119,8 @@ export default defineConfig({
         ASKDARE_ALLOWED_ORIGINS: ALLOWED_HOST,
         CHAT_SECRET_PREVIOUS: '',
         ASKDARE_DISABLED: '',
+        // Turns on the chat kept in Postgres (site/app/api/e2e-postgres) for e2e/postgres.spec.ts.
+        ASKDARE_E2E_DATABASE_URL: E2E_DATABASE_URL ?? '',
       },
     },
   ],
