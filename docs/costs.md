@@ -57,7 +57,7 @@ ceiling per bot per 30 days = 60 × highest price per 1M tokens
 
 On current models the highest is usually output, and 10 × cached input equals input. Real spending is lower whenever some of the tokens are cheaper input or cached input. The ceiling is what an attacker with ten or more IP addresses can make you pay every day.
 
-Long conversations are mostly cached input: every model call reads the whole conversation again, and the cache serves all of it but the newest part. We measured a 50-turn support conversation with knowledge searches at 97.9 % cached input. It used 3.8M input tokens, cost 0.31 USD, and counts as about 460,000 tokens against the budgets. One visitor can hold a conversation of about 25 turns like it on the default `dailyTokensPerIp`.
+Long conversations are mostly cached input: every model call reads the whole conversation again, and the cache serves all of it but the newest part. We measured a 50-turn support conversation with knowledge searches at 97.9 % cached input. It used 3.8M input tokens, cost 0.31 USD, and counts as about 460,000 tokens against the budgets. One visitor can hold a conversation of about 28 turns like it on the default `dailyTokensPerIp`.
 
 ### Speech
 
@@ -88,7 +88,7 @@ The budgets are checked before each message. A few things let the real number en
 - **A message can use somewhat more than it reserved.** Before each model call, askdare reserves an estimate of that call against every budget:
 
   ```text
-  one call = input tokens of the previous message in this conversation
+  one call = input tokens of the last model call of the previous message
            + characters of the instructions, message and page context / 2
            + maxOutputTokens
            + tokens of the attached files
@@ -171,7 +171,7 @@ OpenAI caches the beginning of prompts automatically on supported models, and ca
 - Start the instructions with text that is the same for every visitor. Put what varies, such as the locale or a signed-in user's name, at the end.
 - Keep the tool list stable. askdare already keeps it the same on every model call of a message.
 
-askdare's budgets count cached tokens in full, so they overestimate the cost when caching works. OpenAI's [prompt caching guide](https://developers.openai.com/api/docs/guides/prompt-caching) lists the minimum prompt length that can be cached.
+askdare's budgets count input read from the prompt cache as a tenth of a token, close to its price, so they last longer when caching works ([Tokens](#tokens)). The estimate reserved before each model call still counts the conversation so far as whole tokens, in case the cache has gone cold. OpenAI's [prompt caching guide](https://developers.openai.com/api/docs/guides/prompt-caching) lists the minimum prompt length that can be cached.
 
 ## Reply options
 

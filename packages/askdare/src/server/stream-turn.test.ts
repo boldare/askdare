@@ -116,7 +116,7 @@ describe('streamTurn', () => {
       { type: 'message.end', messageId: 'id_2', reason: 'completed' },
     ]);
     expect(gateway.created).toEqual(['support/visitor:visitor-1']);
-    expect(onUsage).toHaveBeenCalledWith(COMPLETED.usage, 'conv_new');
+    expect(onUsage).toHaveBeenCalledWith(COMPLETED.usage, 'conv_new', COMPLETED.usage.inputTokens);
   });
 
   it('sends the cleaned-up reply options before the end of the answer, or none', async () => {
@@ -287,8 +287,22 @@ describe('streamTurn', () => {
         reasoningTokens: 0,
       },
       'conv_new',
+      40,
     );
     expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('settles with the input of the last model call as the history', async () => {
+    const step = (input: number) => ({ ...COMPLETED.usage, inputTokens: input });
+    const gateway = fakeGateway(async (request) => {
+      request.onStep?.({ model: undefined, usage: step(100) });
+      request.onStep?.({ model: undefined, usage: step(120) });
+      request.onStep?.({ model: undefined, usage: step(140) });
+      return { ...COMPLETED, usage: step(360) };
+    });
+    const settle = vi.fn();
+    await collect(streamTurn(options({ gateway, settle })));
+    expect(settle).toHaveBeenCalledWith(step(360), 'conv_new', 140);
   });
 
   it('reports the turn once its stream has ended: tokens, steps, tools and pseudonyms', async () => {
