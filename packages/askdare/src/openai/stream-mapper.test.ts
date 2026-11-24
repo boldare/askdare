@@ -33,4 +33,25 @@ describe('ResponseStreamMapper', () => {
     mapper.handle(completed);
     expect(mapper.outcome().answerItemId).toBeUndefined();
   });
+
+  it('counts missing usage details as zero instead of failing the turn', () => {
+    // Spike S6b: Open Responses servers may leave out the optional details objects.
+    const mapper = new ResponseStreamMapper('msg_local', () => {}, new CitationRegistry());
+    mapper.handle({
+      type: 'response.completed',
+      sequence_number: 9,
+      response: {
+        model: 'test-model-2026',
+        usage: { input_tokens: 21, output_tokens: 13, total_tokens: 34 },
+        incomplete_details: null,
+      },
+    } as unknown as ResponseStreamEvent);
+    expect(mapper.outcome().usage).toEqual({
+      inputTokens: 21,
+      cachedInputTokens: 0,
+      cacheWriteTokens: 0,
+      outputTokens: 13,
+      reasoningTokens: 0,
+    });
+  });
 });

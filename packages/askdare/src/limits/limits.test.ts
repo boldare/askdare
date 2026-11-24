@@ -4,7 +4,7 @@ import { createBot } from '../bot/define-bot';
 import { rateLimitStoreContract } from '../testing/rate-limit-store-contract';
 import { defineTool } from '../tools/define-tool';
 import { getClientIp, normalizeIp } from './client-ip';
-import { createLimits } from './limits';
+import { budgetTokens, createLimits } from './limits';
 import { memoryStore } from './store';
 
 const bot = createBot({
@@ -205,6 +205,25 @@ describe('budgets', () => {
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(9);
   });
 
+  it('charges input read from the prompt cache at a tenth, rounded up', async () => {
+    const { limits, spent } = setup();
+    const first = await limits.beginTurn(bot, turn('ip', 'v'));
+    await first.settle({ ...usage(400, 20), cachedInputTokens: 295 }, 'conv_1');
+    // 105 uncached + ceil(295 / 10) cached + 20 output
+    expect(await spent()).toBe(105 + 30 + 20);
+    expect(await spent('ask:ti:support:ip:2026-10-29')).toBe(155);
+  });
+
+  it('keeps the history estimate at full weight, in case the cache has gone cold', async () => {
+    const { limits, spent, advance } = setup();
+    const first = await limits.beginTurn(bot, turn('ip', 'v'));
+    await first.settle({ ...usage(300, 20), cachedInputTokens: 200 }, 'conv_1');
+    expect(await spent()).toBe(100 + 20 + 20);
+    advance(61_000);
+    await limits.beginTurn(bot, turn('ip', 'v', 'conv_1'));
+    expect(await spent()).toBe(140 + 300 + 110);
+  });
+
   it('applies a global budget across bots', async () => {
     const { limits } = setup(Date.parse('2026-10-29T12:00:00Z'), 150);
     await limits.beginTurn(bot, turn('a', 'v'));
@@ -222,6 +241,60 @@ describe('budgets', () => {
     await expect(limits.beginTurn(bot, turn('a', 'v'))).rejects.toMatchObject({
       code: 'bot_unavailable',
     });
+  });
+});
+
+describe('budgetTokens', () => {
+  it('charges cache writes, other input and output at full weight', () => {
+    expect(budgetTokens({ ...usage(1_000, 50), cacheWriteTokens: 1_000 })).toBe(1_050);
+    expect(budgetTokens({ ...usage(1_000, 50), cachedInputTokens: 1_000 })).toBe(150);
+    expect(budgetTokens({ ...usage(1_000, 50), cachedInputTokens: 1 })).toBe(1_050);
+  });
+
+  it('counts missing or impossible cached counts as nothing cached', () => {
+    // Servers other than OpenAI may leave the usage details out (task h1).
+    const missing = { ...usage(1_000, 50), cachedInputTokens: undefined as unknown as number };
+    expect(budgetTokens(missing)).toBe(1_050);
+    expect(budgetTokens({ ...usage(1_000, 50), cachedInputTokens: Number.NaN })).toBe(1_050);
+    expect(budgetTokens({ ...usage(1_000, 50), cachedInputTokens: -500 })).toBe(1_050);
+    expect(budgetTokens({ ...usage(1_000, 50), cachedInputTokens: 5_000 })).toBe(150);
+  });
+});
+
+describe('long conversations', () => {
+  const defaults = createBot({ id: 'support', model: 'm', instructions: 'x' });
+
+  /**
+   * One visitor's conversation shaped like spike S9's 50 turns: about 1,600 more input tokens each
+   * turn (80k by turn 50), with the previous turn's input read from the cache. Resolves to the
+   * number of turns answered before a budget ran out.
+   */
+  async function answeredTurns(cacheHit: boolean): Promise<number> {
+    const { limits, advance } = setup();
+    let previousInput = 0;
+    for (let index = 1; index <= defaults.limits.maxTurns; index += 1) {
+      const conversationId = index === 1 ? undefined : 'conv_long';
+      let reservation: Awaited<ReturnType<typeof limits.beginTurn>>;
+      try {
+        reservation = await limits.beginTurn(defaults, { ...turn('ip', 'v'), conversationId });
+      } catch {
+        return index - 1;
+      }
+      const input = 1_800 + 1_610 * (index - 1);
+      const cached = cacheHit ? Math.floor(previousInput / 128) * 128 : 0;
+      await reservation.settle({ ...usage(input, 40), cachedInputTokens: cached }, 'conv_long');
+      previousInput = input;
+      advance(61_000);
+    }
+    return defaults.limits.maxTurns;
+  }
+
+  it('lets a mostly cached conversation run far past where full weight cut it off', async () => {
+    // Without cache hits every input token costs full price, and the default 200,000 per IP lasts
+    // 15 turns. Charging cached input at full weight cut the cached conversation off there too.
+    expect(await answeredTurns(false)).toBe(15);
+    // With the history read from the cache (about 95 % of the input), the same budget lasts 34.
+    expect(await answeredTurns(true)).toBe(34);
   });
 });
 

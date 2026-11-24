@@ -1,0 +1,106 @@
+{
+  "model": "gpt-6-luna",
+  "historyFile": "history-luna-50.json",
+  "date": "2026-11-23",
+  "warmTurn": [
+    {
+      "input": 113476,
+      "cached": 113473,
+      "output": 46
+    },
+    {
+      "input": 115295,
+      "cached": 113473,
+      "output": 61
+    }
+  ],
+  "trigger": {
+    "ms": 15673,
+    "input": 115376,
+    "cached": 115292,
+    "cacheWrite": 0,
+    "output": 1606,
+    "reasoning": 0,
+    "usd": 0.00196,
+    "status": "completed",
+    "outputTypes": [
+      "compaction"
+    ]
+  },
+  "windowTokens": 3389,
+  "afterCompaction": [
+    {
+      "steps": [
+        {
+          "input": 3405,
+          "cached": 1778,
+          "output": 34,
+          "ttftMs": null
+        },
+        {
+          "input": 5224,
+          "cached": 3402,
+          "output": 117,
+          "ttftMs": 1278
+        }
+      ],
+      "searched": 1,
+      "lookups": 0,
+      "cited": [
+        "kf88cdbc5adf4"
+      ],
+      "citesDoorway": false,
+      "answer": "The help centre says only the Poznan showroom can handle recycling requests in person, so you can’t bring the old sofa to the Krakow showroom for recycling. Please contact support@northwind.example to"
+    },
+    {
+      "steps": [
+        {
+          "input": 5360,
+          "cached": 5221,
+          "output": 139,
+          "ttftMs": 1533
+        }
+      ],
+      "searched": 0,
+      "lookups": 0,
+      "cited": [
+        "k6c956ba7c7c5"
+      ],
+      "citesDoorway": true,
+      "answer": "It’s 39 PLN for each floor above the third; for your fifth-floor delivery, that would be 78 PLN. [k6c956ba7c7c5]"
+    },
+    {
+      "steps": [
+        {
+          "input": 5525,
+          "cached": 5357,
+          "output": 95,
+          "ttftMs": null
+        },
+        {
+          "input": 5709,
+          "cached": 5522,
+          "output": 131,
+          "ttftMs": 1879
+        }
+      ],
+      "searched": 0,
+      "lookups": 1,
+      "cited": [],
+      "citesDoorway": false,
+      "answer": "Your postcode is 31-415. Order 48213’s tracking code is NWT-38747; I checked the order record to confirm it."
+    }
+  ],
+  "spend": {
+    "usd": 0.0055,
+    "byModel": {
+      "gpt-6-luna": {
+        "input": 369370,
+        "cached": 363518,
+        "cacheWrite": 5747,
+        "output": 2229,
+        "usd": 0.0055
+      }
+    }
+  }
+}

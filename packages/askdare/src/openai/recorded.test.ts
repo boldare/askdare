@@ -60,11 +60,13 @@ const textStream = (text: string): string =>
 
 async function replay(
   name: string,
+  edit: (sse: string) => string = (sse) => sse,
 ): Promise<{ events: ProtocolEvent[]; reason: string; steps: StepRecord[] }> {
+  const body = edit(fixture(name));
   server.use(
     http.post(
       `${OPENAI_TEST_BASE_URL}/responses`,
-      () => new HttpResponse(fixture(name), { headers: { 'Content-Type': 'text/event-stream' } }),
+      () => new HttpResponse(body, { headers: { 'Content-Type': 'text/event-stream' } }),
     ),
   );
   const events: ProtocolEvent[] = [];
@@ -87,6 +89,39 @@ async function replay(
 
 const textOf = (events: readonly ProtocolEvent[]): string =>
   events.flatMap((event) => (event.type === 'text.delta' ? [event.delta] : [])).join('');
+
+/** The recording's events, each as `event:` and `data:` lines. */
+const sseBlocks = (sse: string): string[] => sse.split('\n\n').filter((block) => block !== '');
+const sseData = (block: string): Record<string, unknown> =>
+  JSON.parse(block.slice(block.indexOf('data: ') + 'data: '.length)) as Record<string, unknown>;
+const sseBlock = (data: Record<string, unknown>): string =>
+  `event: ${String(data['type'])}\ndata: ${JSON.stringify(data)}`;
+
+/** Adds text deltas to a recording right after its first annotation, as a model may write them. */
+const withDeltasAfterAnnotation =
+  (deltas: readonly string[]) =>
+  (sse: string): string => {
+    const blocks = sseBlocks(sse);
+    const template = blocks.find((block) => block.startsWith('event: response.output_text.delta'));
+    const at = blocks.findIndex((block) =>
+      block.startsWith('event: response.output_text.annotation.added'),
+    );
+    if (!template || at === -1) throw new Error('The recording has no text or no annotation.');
+    const added = deltas.map((delta) => sseBlock({ ...sseData(template), delta }));
+    return `${[...blocks.slice(0, at + 1), ...added, ...blocks.slice(at + 1)].join('\n\n')}\n\n`;
+  };
+
+/** Removes the optional usage details from the terminal event, as some Open Responses servers do. */
+const withoutUsageDetails = (sse: string): string =>
+  `${sseBlocks(sse)
+    .map((block) => {
+      if (!block.startsWith('event: response.completed')) return block;
+      const data = sseData(block) as { response: { usage: Record<string, unknown> } };
+      delete data.response.usage['input_tokens_details'];
+      delete data.response.usage['output_tokens_details'];
+      return sseBlock(data);
+    })
+    .join('\n\n')}\n\n`;
 
 describe('recorded Responses API streams', () => {
   it('maps a plain text turn', async () => {
@@ -172,6 +207,37 @@ describe('recorded Responses API streams', () => {
         index: 1,
         title: 'askdare-handbook.md',
         url: undefined,
+      },
+    ]);
+  });
+
+  it('merges a repeated citation marker, also when the repeat arrives in a later delta', async () => {
+    // Spike S8: one answer cited the same passage twice in a row, which showed as `[1] [1]`.
+    const { events } = await replay(
+      'file-search',
+      withDeltasAfterAnnotation(['[1] [', '1] Pixel visits', ' on Fridays [1]', '[1', '].']),
+    );
+    expect(textOf(events)).toBe(
+      'The office dog is called **Pixel**. [1] Pixel visits on Fridays [1].',
+    );
+    expect(events.filter((event) => event.type === 'citation')).toHaveLength(1);
+  });
+
+  it('counts usage details a server left out as zero', async () => {
+    // Spike S6b: the details objects are optional on Open Responses servers.
+    const { events, reason, steps } = await replay('text-turn', withoutUsageDetails);
+    expect(textOf(events)).toBe('The sea shimmered beneath the morning sun.');
+    expect(reason).toBe('completed');
+    expect(steps).toEqual([
+      {
+        model: expect.any(String),
+        usage: {
+          inputTokens: 21,
+          cachedInputTokens: 0,
+          cacheWriteTokens: 0,
+          outputTokens: 13,
+          reasoningTokens: 0,
+        },
       },
     ]);
   });

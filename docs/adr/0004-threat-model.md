@@ -31,6 +31,7 @@ Goal: **bound the damage** (dollars per day, requests per IP or visitor) and **p
   - new sessions and new conversations per IP; renewals by returning visitors counted per visitor;
   - messages per visitor and per IP per minute; turns per conversation;
   - daily token budgets per bot, per IP and (optionally) global. Each turn atomically **reserves** an estimate (history + message + `max_output_tokens`) before calling the model; real usage replaces it afterwards, and failed turns or turns cut short by the deadline keep the estimate charged. A turn whose model call has started runs to completion even when the visitor disconnects (kept alive with `after()` on serverless hosts), because OpenAI keeps no record of an aborted streamed response, usage included (verified live on 2026-10-29), so stopping it would hide its cost;
+    - Update (2026-11-23): settled usage charges input read from the prompt cache at a tenth of a token, close to its price (0.1× input on most OpenAI models), and everything else, cache writes included, as whole tokens. At full weight a realistic 50-turn conversation spent the default per-IP budget by turn 13 while costing cents (spike S9). The estimate still counts the history as whole tokens, so a reservation holds enough when the cache has gone cold. `onUsage` keeps the raw counts;
   - max input characters, `max_output_tokens`, max tool steps;
   - kill switch via an env var.
   - Counters live in memory by default (budgets are never evicted; the store fails closed when full); `@boldare/askdare-upstash` shares them across instances.

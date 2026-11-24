@@ -1,0 +1,104 @@
+{
+  "model": "gpt-6.1-terra",
+  "historyFile": "history-terra-50.json",
+  "date": "2026-11-23",
+  "warmTurn": [
+    {
+      "input": 80694,
+      "cached": 80691,
+      "output": 46
+    },
+    {
+      "input": 82513,
+      "cached": 80691,
+      "output": 37
+    }
+  ],
+  "trigger": {
+    "ms": 14549,
+    "input": 82570,
+    "cached": 82510,
+    "cacheWrite": 0,
+    "output": 862,
+    "reasoning": 0,
+    "usd": 0.0085,
+    "status": "completed",
+    "outputTypes": [
+      "compaction"
+    ]
+  },
+  "windowTokens": 2645,
+  "afterCompaction": [
+    {
+      "steps": [
+        {
+          "input": 2661,
+          "cached": 1778,
+          "output": 32,
+          "ttftMs": null
+        },
+        {
+          "input": 4478,
+          "cached": 2658,
+          "output": 37,
+          "ttftMs": 1035
+        }
+      ],
+      "searched": 1,
+      "lookups": 0,
+      "cited": [],
+      "citesDoorway": false,
+      "answer": "I’m sorry, I can’t confirm whether you can bring your old sofa to a showroom for recycling. Please contact support@northwind.example before taking it there."
+    },
+    {
+      "steps": [
+        {
+          "input": 4534,
+          "cached": 4475,
+          "output": 64,
+          "ttftMs": 1286
+        }
+      ],
+      "searched": 0,
+      "lookups": 0,
+      "cited": [
+        "k6c956ba7c7c5"
+      ],
+      "citesDoorway": true,
+      "answer": "The carrying charge is **39 PLN per floor above the third floor**—so 78 PLN for the fifth floor. [k6c956ba7c7c5]"
+    },
+    {
+      "steps": [
+        {
+          "input": 4624,
+          "cached": 4531,
+          "output": 41,
+          "ttftMs": null
+        },
+        {
+          "input": 4754,
+          "cached": 4621,
+          "output": 30,
+          "ttftMs": 912
+        }
+      ],
+      "searched": 0,
+      "lookups": 1,
+      "cited": [],
+      "citesDoorway": false,
+      "answer": "Your postcode is **31-415**, and the tracking code for order 48213 is **NWT-38747**."
+    }
+  ],
+  "spend": {
+    "usd": 0.0249,
+    "byModel": {
+      "gpt-6.1-terra": {
+        "input": 266828,
+        "cached": 261955,
+        "cacheWrite": 4792,
+        "output": 1149,
+        "usd": 0.0249
+      }
+    }
+  }
+}

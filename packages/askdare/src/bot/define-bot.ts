@@ -38,9 +38,15 @@ export interface BotLimits {
   readonly maxSteps?: number;
   /** Server-side deadline for a whole turn. Keep it below your route's `maxDuration`. Default 120 s. */
   readonly turnTimeoutMs?: number;
-  /** Input plus output tokens per UTC day across all visitors; then `budget_exceeded`. Default 2 000 000. */
+  /**
+   * Input plus output tokens per UTC day across all visitors; then `budget_exceeded`. Input read
+   * from the prompt cache counts as a tenth of a token. Default 2 000 000.
+   */
   readonly dailyTokens?: number;
-  /** Input plus output tokens per client IP per UTC day. Default 200 000. */
+  /**
+   * Input plus output tokens per client IP per UTC day, with input read from the prompt cache
+   * counted as a tenth of a token. Default 200 000.
+   */
   readonly dailyTokensPerIp?: number;
   /** New sessions per client IP per hour (renewals by returning visitors count separately). Default 30. */
   readonly sessionsPerIpPerHour?: number;
