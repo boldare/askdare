@@ -4,6 +4,7 @@ export type {
   PostgresPoolClient,
   PostgresQueryResult,
 } from './connection';
+export { postgresConversations } from './conversations/store';
 export {
   type PgvectorIndexOptions,
   pgvectorIndex,

@@ -4,7 +4,7 @@ import type { PostgresPool } from '../connection';
 import { migrate } from '../index';
 import { createTestSchema, TEST_DATABASE_URL, type TestSchema } from '../testing/database';
 import { migrateParts } from './migrate';
-import { type SchemaPart, validateParts } from './migration';
+import { latestVersion, type SchemaPart, validateParts } from './migration';
 import { SCHEMA_PARTS } from './parts';
 import { schemaStatus } from './status';
 
@@ -93,14 +93,14 @@ describe.skipIf(!TEST_DATABASE_URL)('migrate against Postgres', () => {
     expect(result.rowCount).toBe(1);
   });
 
-  it('applies every part this package ships, and a second run changes nothing', async () => {
-    const latest = Object.fromEntries(
-      SCHEMA_PARTS.map((part) => [part.name, part.migrations.length]),
-    );
+  it("creates every part's schema, and a second run changes nothing", async () => {
+    const latest = Object.fromEntries(SCHEMA_PARTS.map((part) => [part.name, latestVersion(part)]));
     const first = await migrate({ url: schema.url });
     expect(first.versions).toEqual(latest);
-    expect(first.applied).toHaveLength(
-      SCHEMA_PARTS.reduce((sum, part) => sum + part.migrations.length, 0),
+    expect(first.applied).toEqual(
+      SCHEMA_PARTS.flatMap((part) =>
+        part.migrations.map(({ version, name }) => ({ part: part.name, version, name })),
+      ),
     );
     const created = await tables();
     expect(created).toContain('askdare_schema_migrations');
@@ -112,10 +112,17 @@ describe.skipIf(!TEST_DATABASE_URL)('migrate against Postgres', () => {
   });
 
   it('migrates only the parts named', async () => {
-    const report = await migrate({ url: schema.url, parts: ['knowledge'] });
-    expect(Object.keys(report.versions)).toEqual(['knowledge']);
+    const conversations = await migrate({ url: schema.url, parts: ['conversations'] });
+    expect(Object.keys(conversations.versions)).toEqual(['conversations']);
+    expect((await tables()).some((table) => table.startsWith('askdare_knowledge_'))).toBe(false);
+    const knowledge = await migrate({ url: schema.url, parts: ['knowledge'] });
+    expect(knowledge.applied.every((step) => step.part === 'knowledge')).toBe(true);
+    // The report gives every part the database has.
+    expect(knowledge.versions).toEqual(
+      Object.fromEntries(SCHEMA_PARTS.map((part) => [part.name, latestVersion(part)])),
+    );
     await expect(migrate({ url: schema.url, parts: ['nope'] })).rejects.toThrow(
-      'Unknown schema part "nope"',
+      'Unknown schema part "nope"; the parts are conversations, knowledge.',
     );
     await expect(migrate({ url: schema.url, parts: [] })).rejects.toThrow(
       'Name at least one schema part.',
