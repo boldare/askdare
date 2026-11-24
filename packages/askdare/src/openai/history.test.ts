@@ -1,10 +1,12 @@
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
+import type { ConversationItem } from 'openai/resources/conversations/items';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import type { ModelGateway } from '../gateway';
 import { defineTool, readToolReplies, readToolUi } from '../tools/define-tool';
 import { createOpenAIGateway } from './gateway';
+import { toHistoryMessage } from './history';
 import { OPENAI_TEST_BASE_URL } from './testing/msw';
 
 const server = setupServer();
@@ -495,5 +497,28 @@ describe('listMessages', () => {
       ),
     );
     await expect(gateway.listMessages('conv_gone')).rejects.toMatchObject({ code: 'not_found' });
+  });
+});
+
+describe('toHistoryMessage', () => {
+  it('merges repeated citation markers as the streamed answer did', () => {
+    const message = toHistoryMessage({
+      id: 'msg_1',
+      type: 'message',
+      role: 'assistant',
+      status: 'completed',
+      content: [
+        {
+          type: 'output_text',
+          text: 'Plans start at 10 EUR. [1] [1][1] Use grid[2][2].',
+          annotations: [
+            { type: 'file_citation', file_id: 'file_a', filename: 'pricing.md', index: 23 },
+          ],
+          logprobs: [],
+        },
+      ],
+    } as unknown as ConversationItem);
+    expect(message?.text).toBe('Plans start at 10 EUR. [1] Use grid[2][2].');
+    expect(message?.citations).toEqual([{ index: 1, title: 'pricing.md', url: undefined }]);
   });
 });
