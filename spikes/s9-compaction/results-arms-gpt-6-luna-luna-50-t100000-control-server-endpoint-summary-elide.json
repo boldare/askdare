@@ -1,0 +1,919 @@
+{
+  "model": "gpt-6-luna",
+  "family": "gpt-6",
+  "historyFile": "history-luna-50.json",
+  "threshold": 100000,
+  "date": "2026-11-23",
+  "stored": {
+    "message:user": 50,
+    "call": 62,
+    "call_output": 62,
+    "native:reasoning": 93,
+    "message:assistant": 50
+  },
+  "arms": {
+    "control": {
+      "probes": [
+        {
+          "probe": "visitor-facts",
+          "replayedItems": 318,
+          "steps": [
+            {
+              "input": 113488,
+              "cached": 0,
+              "output": 43,
+              "reasoning": 23,
+              "status": "completed",
+              "types": "reasoning,message",
+              "ttftMs": 1225,
+              "ms": 1481,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 1493,
+          "usd": 0.01421,
+          "searchedAgain": 0,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "answer": "Ola — postcode 31-415 — 5th floor."
+        },
+        {
+          "probe": "tool-fact",
+          "replayedItems": 321,
+          "steps": [
+            {
+              "input": 113568,
+              "cached": 113485,
+              "output": 41,
+              "reasoning": 24,
+              "status": "completed",
+              "types": "reasoning,message",
+              "ttftMs": 1996,
+              "ms": 2190,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 2198,
+          "usd": 0.00117,
+          "searchedAgain": 0,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "answer": "DHL — tracking code NWT-38747."
+        },
+        {
+          "probe": "cited-earlier",
+          "replayedItems": 324,
+          "steps": [
+            {
+              "input": 113635,
+              "cached": 113565,
+              "output": 66,
+              "reasoning": 34,
+              "status": "completed",
+              "types": "reasoning,message",
+              "ttftMs": 1709,
+              "ms": 2057,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 2062,
+          "usd": 0.00118,
+          "searchedAgain": 0,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "citedIds": [
+            "k35538da82b41"
+          ],
+          "resolved": 1,
+          "unresolved": [],
+          "looseMarkers": 0,
+          "citesPlanted": true,
+          "wantedWasReturnedThisTurn": false,
+          "answer": "The sofa upholstery has a **7-year warranty against fraying and pilling**. [k35538da82b41]"
+        },
+        {
+          "probe": "cited-earlier-2",
+          "replayedItems": 327,
+          "steps": [
+            {
+              "input": 113726,
+              "cached": 113632,
+              "output": 73,
+              "reasoning": 39,
+              "status": "completed",
+              "types": "reasoning,message",
+              "ttftMs": 1931,
+              "ms": 2282,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 2292,
+          "usd": 0.00118,
+          "searchedAgain": 0,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "citedIds": [
+            "k6c956ba7c7c5"
+          ],
+          "resolved": 1,
+          "unresolved": [],
+          "looseMarkers": 0,
+          "citesPlanted": true,
+          "wantedWasReturnedThisTurn": false,
+          "answer": "It was **39 PLN per extra floor above the 3rd floor**. [k6c956ba7c7c5]"
+        },
+        {
+          "probe": "small",
+          "replayedItems": 330,
+          "steps": [
+            {
+              "input": 113811,
+              "cached": 113723,
+              "output": 9,
+              "reasoning": 0,
+              "status": "completed",
+              "types": "message",
+              "ttftMs": 1675,
+              "ms": 1912,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 1922,
+          "usd": 0.00115,
+          "searchedAgain": 0,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "answer": "You’re very welcome!"
+        }
+      ],
+      "storedAfter": {
+        "message:user": 55,
+        "call": 62,
+        "call_output": 62,
+        "native:reasoning": 97,
+        "message:assistant": 55
+      }
+    },
+    "server": {
+      "probes": [
+        {
+          "probe": "visitor-facts",
+          "replayedItems": 318,
+          "steps": [
+            {
+              "input": 113667,
+              "cached": 113485,
+              "output": 197,
+              "reasoning": 0,
+              "status": "completed",
+              "types": "compaction,message",
+              "ttftMs": 4197,
+              "ms": 4411,
+              "compactionMs": [
+                0
+              ]
+            }
+          ],
+          "compactions": 1,
+          "totalMs": 4423,
+          "usd": 0.00125,
+          "searchedAgain": 0,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "answer": "Ola — postcode 31-415 — 5th floor."
+        },
+        {
+          "probe": "tool-fact",
+          "replayedItems": 3,
+          "steps": [
+            {
+              "input": 4494,
+              "cached": 0,
+              "output": 65,
+              "reasoning": 43,
+              "status": "completed",
+              "types": "reasoning,function_call",
+              "ttftMs": null,
+              "ms": 1427,
+              "compactionMs": []
+            },
+            {
+              "input": 4648,
+              "cached": 4491,
+              "output": 22,
+              "reasoning": 0,
+              "status": "completed",
+              "types": "message",
+              "ttftMs": 754,
+              "ms": 1078,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 2506,
+          "usd": 0.00067,
+          "searchedAgain": 0,
+          "lookedUpAgain": 1,
+          "correct": true,
+          "answer": "Order 48213 is being delivered by DHL, tracking code NWT-38747."
+        },
+        {
+          "probe": "cited-earlier",
+          "replayedItems": 8,
+          "steps": [
+            {
+              "input": 4696,
+              "cached": 4645,
+              "output": 48,
+              "reasoning": 20,
+              "status": "completed",
+              "types": "reasoning,function_call",
+              "ttftMs": null,
+              "ms": 1039,
+              "compactionMs": []
+            },
+            {
+              "input": 6128,
+              "cached": 4693,
+              "output": 29,
+              "reasoning": 0,
+              "status": "completed",
+              "types": "message",
+              "ttftMs": 517,
+              "ms": 774,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 1819,
+          "usd": 0.00032,
+          "searchedAgain": 1,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "citedIds": [
+            "k35538da82b41"
+          ],
+          "resolved": 1,
+          "unresolved": [],
+          "looseMarkers": 0,
+          "citesPlanted": true,
+          "wantedWasReturnedThisTurn": true,
+          "answer": "Sofa upholstery has a 7-year warranty against fraying and pilling. [k35538da82b41]"
+        },
+        {
+          "probe": "cited-earlier-2",
+          "replayedItems": 13,
+          "steps": [
+            {
+              "input": 6182,
+              "cached": 6125,
+              "output": 54,
+              "reasoning": 21,
+              "status": "completed",
+              "types": "reasoning,function_call",
+              "ttftMs": null,
+              "ms": 1621,
+              "compactionMs": []
+            },
+            {
+              "input": 8028,
+              "cached": 6179,
+              "output": 29,
+              "reasoning": 0,
+              "status": "completed",
+              "types": "message",
+              "ttftMs": 556,
+              "ms": 856,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 2494,
+          "usd": 0.0004,
+          "searchedAgain": 1,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "citedIds": [
+            "k6c956ba7c7c5"
+          ],
+          "resolved": 1,
+          "unresolved": [],
+          "looseMarkers": 0,
+          "citesPlanted": true,
+          "wantedWasReturnedThisTurn": true,
+          "answer": "It’s 39 PLN for each floor above the third floor. [k6c956ba7c7c5]"
+        },
+        {
+          "probe": "small",
+          "replayedItems": 18,
+          "steps": [
+            {
+              "input": 8069,
+              "cached": 8025,
+              "output": 9,
+              "reasoning": 0,
+              "status": "completed",
+              "types": "message",
+              "ttftMs": 470,
+              "ms": 600,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 601,
+          "usd": 0.00009,
+          "searchedAgain": 0,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "answer": "You’re very welcome!"
+        }
+      ],
+      "windowTokensAfter": 7978,
+      "compactionItemTokens": 4337,
+      "storedAfter": {
+        "message:user": 55,
+        "call": 65,
+        "call_output": 65,
+        "native:reasoning": 96,
+        "message:assistant": 55,
+        "native:compaction": 1
+      }
+    },
+    "endpoint": {
+      "compact": {
+        "ms": 12960,
+        "usage": {
+          "input": 113375,
+          "cached": 0,
+          "cacheWrite": 0,
+          "output": 1350,
+          "reasoning": 0
+        },
+        "usd": 0.01201,
+        "outputTypes": [
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "message:user",
+          "compaction"
+        ],
+        "windowTokens": 3802,
+        "encryptedChars": [
+          23908
+        ]
+      },
+      "probes": [
+        {
+          "probe": "visitor-facts",
+          "replayedItems": 52,
+          "steps": [
+            {
+              "input": 3933,
+              "cached": 1778,
+              "output": 34,
+              "reasoning": 14,
+              "status": "completed",
+              "types": "reasoning,message",
+              "ttftMs": 1021,
+              "ms": 1592,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 1592,
+          "usd": 0.0003,
+          "searchedAgain": 0,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "answer": "Ola — postcode 31-415 — 5th floor."
+        },
+        {
+          "probe": "tool-fact",
+          "replayedItems": 55,
+          "steps": [
+            {
+              "input": 4004,
+              "cached": 3930,
+              "output": 44,
+              "reasoning": 27,
+              "status": "completed",
+              "types": "reasoning,message",
+              "ttftMs": 1484,
+              "ms": 1914,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 1916,
+          "usd": 0.00007,
+          "searchedAgain": 0,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "answer": "DHL, tracking code NWT-38747."
+        },
+        {
+          "probe": "cited-earlier",
+          "replayedItems": 58,
+          "steps": [
+            {
+              "input": 4074,
+              "cached": 4001,
+              "output": 61,
+              "reasoning": 31,
+              "status": "completed",
+              "types": "reasoning,message",
+              "ttftMs": 1403,
+              "ms": 1679,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 1680,
+          "usd": 0.00008,
+          "searchedAgain": 0,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "citedIds": [
+            "k35538da82b41"
+          ],
+          "resolved": 1,
+          "unresolved": [],
+          "looseMarkers": 0,
+          "citesPlanted": true,
+          "wantedWasReturnedThisTurn": false,
+          "answer": "The sofa upholstery warranty is 7 years against fraying and pilling. [k35538da82b41]"
+        },
+        {
+          "probe": "cited-earlier-2",
+          "replayedItems": 61,
+          "steps": [
+            {
+              "input": 4160,
+              "cached": 4071,
+              "output": 70,
+              "reasoning": 37,
+              "status": "completed",
+              "types": "reasoning,message",
+              "ttftMs": 1488,
+              "ms": 1822,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 1824,
+          "usd": 0.00009,
+          "searchedAgain": 0,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "citedIds": [
+            "k6c956ba7c7c5"
+          ],
+          "resolved": 1,
+          "unresolved": [],
+          "looseMarkers": 0,
+          "citesPlanted": true,
+          "wantedWasReturnedThisTurn": false,
+          "answer": "I said it was 39 PLN per additional floor above the third floor. [k6c956ba7c7c5]"
+        },
+        {
+          "probe": "small",
+          "replayedItems": 64,
+          "steps": [
+            {
+              "input": 4242,
+              "cached": 4157,
+              "output": 9,
+              "reasoning": 0,
+              "status": "completed",
+              "types": "message",
+              "ttftMs": 974,
+              "ms": 1148,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 1149,
+          "usd": 0.00006,
+          "searchedAgain": 0,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "answer": "You’re welcome! 😊"
+        }
+      ],
+      "storedAfter": {
+        "message:user": 55,
+        "call": 62,
+        "call_output": 62,
+        "native:reasoning": 97,
+        "message:assistant": 55,
+        "native:compacted_window": 1
+      }
+    },
+    "summary": {
+      "summarise": {
+        "model": "gpt-6-luna",
+        "ms": 11977,
+        "usage": {
+          "input": 9420,
+          "cached": 0,
+          "cacheWrite": 9417,
+          "output": 1383,
+          "reasoning": 516
+        },
+        "usd": 0.00187,
+        "status": "completed",
+        "transcriptChars": 35816,
+        "summaryChars": 3616,
+        "windowTokens": 2792,
+        "summaryKeeps": {
+          "name": true,
+          "postcode": true,
+          "floor": true,
+          "carrier": true,
+          "tracking": true,
+          "upholsteryId": true,
+          "doorwayId": true,
+          "idsResolved": 15,
+          "idsUnresolved": 0
+        }
+      },
+      "probes": [
+        {
+          "probe": "visitor-facts",
+          "replayedItems": 7,
+          "steps": [
+            {
+              "input": 2923,
+              "cached": 0,
+              "output": 45,
+              "reasoning": 25,
+              "status": "completed",
+              "types": "reasoning,message",
+              "ttftMs": 597,
+              "ms": 778,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 778,
+          "usd": 0.00039,
+          "searchedAgain": 0,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "answer": "Ola — postcode 31-415, 5th floor."
+        },
+        {
+          "probe": "tool-fact",
+          "replayedItems": 10,
+          "steps": [
+            {
+              "input": 3005,
+              "cached": 2920,
+              "output": 37,
+              "reasoning": 18,
+              "status": "completed",
+              "types": "reasoning,message",
+              "ttftMs": 634,
+              "ms": 811,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 812,
+          "usd": 0.00006,
+          "searchedAgain": 0,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "answer": "DHL, tracking code **NWT-38747**."
+        },
+        {
+          "probe": "cited-earlier",
+          "replayedItems": 13,
+          "steps": [
+            {
+              "input": 3068,
+              "cached": 3002,
+              "output": 51,
+              "reasoning": 20,
+              "status": "completed",
+              "types": "reasoning,message",
+              "ttftMs": 673,
+              "ms": 925,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 925,
+          "usd": 0.00006,
+          "searchedAgain": 0,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "citedIds": [
+            "k35538da82b41"
+          ],
+          "resolved": 1,
+          "unresolved": [],
+          "looseMarkers": 0,
+          "citesPlanted": true,
+          "wantedWasReturnedThisTurn": false,
+          "answer": "The sofa upholstery warranty is **7 years** against fraying and pilling. [k35538da82b41]"
+        },
+        {
+          "probe": "cited-earlier-2",
+          "replayedItems": 16,
+          "steps": [
+            {
+              "input": 3144,
+              "cached": 3065,
+              "output": 58,
+              "reasoning": 24,
+              "status": "completed",
+              "types": "reasoning,message",
+              "ttftMs": 802,
+              "ms": 1084,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 1085,
+          "usd": 0.00007,
+          "searchedAgain": 0,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "citedIds": [
+            "k6c956ba7c7c5"
+          ],
+          "resolved": 1,
+          "unresolved": [],
+          "looseMarkers": 0,
+          "citesPlanted": true,
+          "wantedWasReturnedThisTurn": false,
+          "answer": "I said the charge is **39 PLN per floor above the third floor**. [k6c956ba7c7c5]"
+        },
+        {
+          "probe": "small",
+          "replayedItems": 19,
+          "steps": [
+            {
+              "input": 3214,
+              "cached": 3141,
+              "output": 9,
+              "reasoning": 0,
+              "status": "completed",
+              "types": "message",
+              "ttftMs": 458,
+              "ms": 690,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 690,
+          "usd": 0.00004,
+          "searchedAgain": 0,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "answer": "You’re very welcome!"
+        }
+      ],
+      "storedAfter": {
+        "summary": 1,
+        "message:user": 7,
+        "native:reasoning": 5,
+        "message:assistant": 7
+      }
+    },
+    "elide": {
+      "elide": {
+        "elided": 57,
+        "windowTokens": 22205
+      },
+      "probes": [
+        {
+          "probe": "visitor-facts",
+          "replayedItems": 318,
+          "steps": [
+            {
+              "input": 22336,
+              "cached": 1778,
+              "output": 44,
+              "reasoning": 24,
+              "status": "completed",
+              "types": "reasoning,message",
+              "ttftMs": 1859,
+              "ms": 2304,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 2310,
+          "usd": 0.00261,
+          "searchedAgain": 0,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "answer": "Ola — postcode 31-415 — 5th floor."
+        },
+        {
+          "probe": "tool-fact",
+          "replayedItems": 321,
+          "steps": [
+            {
+              "input": 22417,
+              "cached": 22333,
+              "output": 43,
+              "reasoning": 24,
+              "status": "completed",
+              "types": "reasoning,message",
+              "ttftMs": 9115,
+              "ms": 9462,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 9469,
+          "usd": 0.00026,
+          "searchedAgain": 0,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "answer": "DHL — tracking code **NWT-38747**."
+        },
+        {
+          "probe": "cited-earlier",
+          "replayedItems": 324,
+          "steps": [
+            {
+              "input": 22486,
+              "cached": 22414,
+              "output": 57,
+              "reasoning": 26,
+              "status": "completed",
+              "types": "reasoning,message",
+              "ttftMs": 1554,
+              "ms": 1875,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 1882,
+          "usd": 0.00026,
+          "searchedAgain": 0,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "citedIds": [
+            "k35538da82b41"
+          ],
+          "resolved": 1,
+          "unresolved": [],
+          "looseMarkers": 0,
+          "citesPlanted": true,
+          "wantedWasReturnedThisTurn": false,
+          "answer": "The sofa upholstery warranty is **7 years** against fraying and pilling. [k35538da82b41]"
+        },
+        {
+          "probe": "cited-earlier-2",
+          "replayedItems": 327,
+          "steps": [
+            {
+              "input": 22568,
+              "cached": 22483,
+              "output": 65,
+              "reasoning": 31,
+              "status": "completed",
+              "types": "reasoning,message",
+              "ttftMs": 1396,
+              "ms": 1706,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 1711,
+          "usd": 0.00027,
+          "searchedAgain": 0,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "citedIds": [
+            "k6c956ba7c7c5"
+          ],
+          "resolved": 1,
+          "unresolved": [],
+          "looseMarkers": 0,
+          "citesPlanted": true,
+          "wantedWasReturnedThisTurn": false,
+          "answer": "It was **39 PLN per extra floor above the 3rd floor**. [k6c956ba7c7c5]"
+        },
+        {
+          "probe": "small",
+          "replayedItems": 330,
+          "steps": [
+            {
+              "input": 22645,
+              "cached": 22565,
+              "output": 9,
+              "reasoning": 0,
+              "status": "completed",
+              "types": "message",
+              "ttftMs": 1006,
+              "ms": 1211,
+              "compactionMs": []
+            }
+          ],
+          "compactions": 0,
+          "totalMs": 1217,
+          "usd": 0.00024,
+          "searchedAgain": 0,
+          "lookedUpAgain": 0,
+          "correct": true,
+          "answer": "You’re very welcome!"
+        }
+      ],
+      "storedAfter": {
+        "message:user": 55,
+        "call": 62,
+        "call_output": 62,
+        "native:reasoning": 97,
+        "message:assistant": 55
+      }
+    }
+  },
+  "historyTokens": 113357,
+  "plantedIds": {
+    "upholstery": "k35538da82b41",
+    "doorway": "k6c956ba7c7c5",
+    "returnWindow": "k79363986c297",
+    "assembly": "k49cabdd55ca0"
+  },
+  "plantedSeenInHistory": {
+    "upholstery": true,
+    "doorway": true,
+    "returnWindow": true,
+    "assembly": true
+  },
+  "plantedCitedInHistory": {
+    "upholstery": true,
+    "doorway": true,
+    "returnWindow": true,
+    "assembly": true
+  },
+  "spend": {
+    "usd": 0.0404,
+    "byModel": {
+      "gpt-6-luna": {
+        "input": 995154,
+        "cached": 723686,
+        "cacheWrite": 157827,
+        "output": 4054,
+        "usd": 0.0404
+      }
+    }
+  }
+}

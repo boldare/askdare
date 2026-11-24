@@ -1,6 +1,12 @@
 import type { ResponseFileSearchToolCall } from 'openai/resources/responses/responses';
 import { describe, expect, it } from 'vitest';
-import { addSources, citationSource, type KnowledgeSources } from './citations';
+import {
+  addSources,
+  citationSource,
+  type KnowledgeSources,
+  MarkerMerger,
+  mergeRepeatedMarkers,
+} from './citations';
 
 type Results = NonNullable<ResponseFileSearchToolCall['results']> | null;
 
@@ -141,5 +147,55 @@ describe('citationSource', () => {
     expect(citationSource({ file_id: 'file-a' }, sources)).toBeUndefined();
     expect(citationSource(null, sources)).toBeUndefined();
     expect(citationSource('file_citation', sources)).toBeUndefined();
+  });
+});
+
+describe('mergeRepeatedMarkers', () => {
+  const cited = (index: number): boolean => index <= 2;
+
+  it('merges a marker repeated right after itself, with or without spaces', () => {
+    expect(mergeRepeatedMarkers('Pixel. [1] [1] Fridays.[2][2]\t[2]', cited)).toBe(
+      'Pixel. [1] Fridays.[2]',
+    );
+  });
+
+  it('keeps different markers, markers apart, and numbers that are no citation', () => {
+    expect(mergeRepeatedMarkers('A [1][2] B [1] and [1]\n[1] grid[3][3]', cited)).toBe(
+      'A [1][2] B [1] and [1]\n[1] grid[3][3]',
+    );
+  });
+});
+
+describe('MarkerMerger', () => {
+  const stream = (deltas: readonly string[]): string[] => {
+    const merger = new MarkerMerger((index) => index === 1);
+    const sent = deltas.map((delta) => merger.push(delta));
+    return [...sent, merger.flush()];
+  };
+
+  it('merges a repeat that arrives in a later delta, however the deltas split it', () => {
+    const text = 'Pixel. [1] [1] Fridays [1][1].';
+    for (let a = 1; a < text.length; a += 1) {
+      for (let b = a; b < text.length; b += 1) {
+        const deltas = [text.slice(0, a), text.slice(a, b), text.slice(b)];
+        expect(stream(deltas).join('')).toBe('Pixel. [1] Fridays [1].');
+      }
+    }
+  });
+
+  it('sends text at once and holds only what could still become a repeat', () => {
+    expect(stream(['Pixel [1]', ' ', '[', '1] visits', ' [', 'a link](x)'])).toEqual([
+      'Pixel [1]',
+      '',
+      '',
+      ' visits',
+      ' ',
+      '[a link](x)',
+      '',
+    ]);
+  });
+
+  it('releases held text at the end of the stream', () => {
+    expect(stream(['Pixel [1] ', '['])).toEqual(['Pixel [1]', '', ' [']);
   });
 });

@@ -1,0 +1,16 @@
+{
+  "name": "askdare-spike-s9-compaction",
+  "private": true,
+  "type": "module",
+  "description": "Spike S9: compaction on a store askdare owns (stateless replay, ADR-0024).",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "openai": "7.56.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "typescript": "5.9.3"
+  }
+}

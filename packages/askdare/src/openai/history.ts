@@ -4,7 +4,12 @@ import type { RepliesReader, StoredCall, UiReader } from '../gateway';
 import type { HistoryCitation, HistoryMessage } from '../protocol/history';
 import { normalizeReplies } from '../protocol/replies';
 import { isToolUiList, MAX_TOOL_UI, type ToolUi } from '../protocol/tool-ui';
-import { addSources, citationSource, type KnowledgeSources } from './citations';
+import {
+  addSources,
+  citationSource,
+  type KnowledgeSources,
+  mergeRepeatedMarkers,
+} from './citations';
 import { readGuardNote, unwrapToolOutput } from './guardrails';
 import { PAGE_CONTEXT_MARKER } from './page-context';
 import { isFailedOutput } from './tools';
@@ -59,11 +64,13 @@ export function toHistoryMessage(
     }
   }
   if (text === '' && attachments === 0) return undefined;
+  const citations = citationsOf(annotations, sources);
   return {
     id: item.id,
     role: item.role,
-    text,
-    citations: citationsOf(annotations, sources),
+    // The same markers as the streamed answer showed.
+    text: mergeRepeatedMarkers(text, (index) => index >= 1 && index <= citations.length),
+    citations,
     attachments,
   };
 }

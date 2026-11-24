@@ -3,7 +3,7 @@ import { AskdareError } from '../errors';
 import type { TokenUsage } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
 import { ZERO_USAGE } from '../usage';
-import { addSources, citationSource, type KnowledgeSources } from './citations';
+import { addSources, citationSource, type KnowledgeSources, MarkerMerger } from './citations';
 
 export interface FunctionCall {
   readonly callId: string;
@@ -38,6 +38,11 @@ export class CitationRegistry {
     this.#indices.set(key, index);
     return { index, isNew: true };
   }
+
+  /** Whether `[index]` is the marker of a source registered in this turn. */
+  has(index: number): boolean {
+    return Number.isInteger(index) && index >= 1 && index <= this.#indices.size;
+  }
 }
 
 /**
@@ -50,6 +55,7 @@ export class ResponseStreamMapper {
   readonly #emit: (event: ProtocolEvent) => void;
   readonly #citations: CitationRegistry;
   readonly #functionCalls: FunctionCall[] = [];
+  readonly #markers: MarkerMerger;
   #answerItemId: string | undefined;
   #textItemId: string | undefined;
   #outcome: StepOutcome | undefined;
@@ -62,15 +68,14 @@ export class ResponseStreamMapper {
     this.#messageId = messageId;
     this.#emit = emit;
     this.#citations = citations;
+    this.#markers = new MarkerMerger((index) => citations.has(index));
   }
 
   handle(event: ResponseStreamEvent): void {
     switch (event.type) {
       case 'response.output_text.delta':
       case 'response.refusal.delta':
-        if (event.delta !== '') {
-          this.#emit({ type: 'text.delta', messageId: this.#messageId, delta: event.delta });
-        }
+        this.#emitText(this.#markers.push(event.delta));
         return;
       case 'response.output_text.annotation.added':
         this.#handleAnnotation(event.annotation);
@@ -107,26 +112,29 @@ export class ResponseStreamMapper {
         }
         return;
       case 'response.completed':
-      case 'response.incomplete':
+      case 'response.incomplete': {
+        this.#emitText(this.#markers.flush());
+        // Optional chains: servers other than OpenAI may leave the details out (spike S6b).
+        const usage = event.response.usage;
         this.#outcome = {
           status: event.type === 'response.completed' ? 'completed' : 'incomplete',
           incompleteReason: event.response.incomplete_details?.reason,
           model: event.response.model || undefined,
           answerItemId: this.#answerItemId,
           textItemId: this.#textItemId,
-          usage: event.response.usage
+          usage: usage
             ? {
-                inputTokens: event.response.usage.input_tokens,
-                cachedInputTokens: event.response.usage.input_tokens_details.cached_tokens,
-                // Older responses and recordings may lack these details.
-                cacheWriteTokens: event.response.usage.input_tokens_details.cache_write_tokens ?? 0,
-                outputTokens: event.response.usage.output_tokens,
-                reasoningTokens: event.response.usage.output_tokens_details?.reasoning_tokens ?? 0,
+                inputTokens: usage.input_tokens,
+                cachedInputTokens: usage.input_tokens_details?.cached_tokens ?? 0,
+                cacheWriteTokens: usage.input_tokens_details?.cache_write_tokens ?? 0,
+                outputTokens: usage.output_tokens,
+                reasoningTokens: usage.output_tokens_details?.reasoning_tokens ?? 0,
               }
             : ZERO_USAGE,
           functionCalls: this.#functionCalls,
         };
         return;
+      }
       case 'response.failed':
         throw new AskdareError('upstream_error', { cause: event.response.error });
       case 'error':
@@ -146,6 +154,10 @@ export class ResponseStreamMapper {
       });
     }
     return this.#outcome;
+  }
+
+  #emitText(delta: string): void {
+    if (delta !== '') this.#emit({ type: 'text.delta', messageId: this.#messageId, delta });
   }
 
   #handleAnnotation(annotation: unknown): void {

@@ -14,6 +14,22 @@ const TRANSCRIPTIONS_IN_FLIGHT_PER_BOT = 10;
 const IN_FLIGHT_WINDOW = 2 * MINUTE;
 /** Rough input cost of one file search chunk (about 800 tokens by default). */
 const SEARCH_RESULT_TOKENS = 800;
+/**
+ * Input read from the prompt cache costs a tenth of other input on most models (OpenAI's prompt
+ * caching guide, checked 2026-11-23), so budgets charge it at a tenth (ADR-0004).
+ */
+const CACHED_INPUT_DIVISOR = 10;
+
+/**
+ * What a turn's usage costs the budgets: cached input at a tenth, rounded up, and everything else
+ * (other input, cache writes, output) at full weight. A missing or impossible cached count counts
+ * as 0 cached, so the whole input is charged.
+ */
+export function budgetTokens(usage: TokenUsage): number {
+  const reported = usage.cachedInputTokens;
+  const cached = Number.isFinite(reported) ? Math.min(Math.max(reported, 0), usage.inputTokens) : 0;
+  return usage.inputTokens - cached + Math.ceil(cached / CACHED_INPUT_DIVISOR) + usage.outputTokens;
+}
 
 export interface SessionLimitKeys {
   readonly clientIp: string;
@@ -75,7 +91,10 @@ export interface Limits {
 
 export interface LimitsOptions {
   readonly store: RateLimitStore;
-  /** Input plus output tokens per UTC day across all bots. Unlimited when absent. */
+  /**
+   * Input plus output tokens per UTC day across all bots, with input read from the prompt cache
+   * counted at a tenth. Unlimited when absent.
+   */
   readonly globalDailyTokens?: number | undefined;
   /** When it returns true, every bot answers `bot_unavailable` (ASKDARE_DISABLED). */
   readonly disabled?: () => boolean;
@@ -333,11 +352,12 @@ export function createLimits(options: LimitsOptions): Limits {
           return true;
         },
         async settle(usage, conversationId) {
-          const actual = usage.inputTokens + usage.outputTokens;
+          const actual = budgetTokens(usage);
           await Promise.all(
             list.map((budget) => store.hit(budget.key, 2 * DAY, actual - reserved)),
           );
-          // Remember the conversation's size so the next turn's estimate includes its history.
+          // Remember the conversation's size so the next turn's estimate includes its history. The
+          // estimate charges it at full weight, so it holds enough when the cache has gone cold.
           const inputKey = `ask:ci:${conversationId}`;
           const previous = (await store.hit(inputKey, CONVERSATION_TTL, 0)).count;
           await store.hit(inputKey, CONVERSATION_TTL, usage.inputTokens - previous);

@@ -32,6 +32,7 @@ Short records of decisions that are expensive to reverse. One decision per file,
 | [0026](0026-provider-path.md) | The provider path: one turn loop, provider profiles, then native adapters | Proposed (spikes S6a, S6b) |
 | [0027](0027-stream-resume.md) | Resuming an answer after a dropped connection | Proposed (spike S7) |
 | [0028](0028-react-budget-34-kb.md) | A 34 KB budget for the React entry, for Markdown fixes | Accepted |
+| [0029](0029-compaction-for-item-stores.md) | Compaction for conversations in our own store | Proposed (spike S9) |
 
 ## Template
 
