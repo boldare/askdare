@@ -1,17 +1,11 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import OpenAI from 'openai';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import {
-  type LocalDocument,
-  planSync,
-  type RemoteDocument,
-  scanDirectory,
-  syncKnowledge,
-} from './knowledge-sync';
+import { type LocalDocument, planSync, type RemoteDocument, syncKnowledge } from './knowledge-sync';
 import { OPENAI_TEST_BASE_URL } from './testing/msw';
 
 const doc = (path: string, sha256: string, extra: Partial<LocalDocument> = {}): LocalDocument => ({
@@ -92,47 +86,6 @@ describe('planSync', () => {
     );
     expect(plan.remove.map((item) => item.fileId)).toEqual(['f-2']);
     expect(plan.unmanaged).toBe(1);
-  });
-});
-
-describe('scanDirectory', () => {
-  let root: string;
-  beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'askdare-kb-'));
-  });
-  afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
-  });
-
-  it('reads titles and URLs from front matter or the manifest and skips other files', async () => {
-    await mkdir(join(root, 'guides'));
-    await writeFile(
-      join(root, 'guides', 'pricing.md'),
-      '---\ntitle: "Pricing"\nurl: https://example.com/pricing\n---\n# Plans\n',
-    );
-    await writeFile(join(root, 'handbook.pdf'), '%PDF-1.4 fake');
-    await writeFile(join(root, 'notes.txt'), 'plain');
-    await writeFile(join(root, 'logo.png'), 'png');
-    await writeFile(join(root, '.secret.md'), 'hidden');
-    await writeFile(
-      join(root, 'askdare.kb.json'),
-      JSON.stringify({
-        'handbook.pdf': { title: 'Team handbook', url: 'https://example.com/handbook' },
-      }),
-    );
-    const { documents, skipped } = await scanDirectory(root);
-    expect(documents.map(({ path, title, url }) => ({ path, title, url }))).toEqual([
-      { path: 'guides/pricing.md', title: 'Pricing', url: 'https://example.com/pricing' },
-      { path: 'handbook.pdf', title: 'Team handbook', url: 'https://example.com/handbook' },
-      { path: 'notes.txt', title: 'notes', url: undefined },
-    ]);
-    expect(skipped).toEqual(['logo.png']);
-    expect(documents[0]?.sha256).toMatch(/^[0-9a-f]{64}$/);
-  });
-
-  it('rejects URLs that are not http(s)', async () => {
-    await writeFile(join(root, 'bad.md'), '---\nurl: javascript:alert(1)\n---\n');
-    await expect(scanDirectory(root)).rejects.toThrow(/bad\.md: url must be an http\(s\) URL/);
   });
 });
 
