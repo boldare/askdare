@@ -49,3 +49,14 @@ export function settledAnswerItems(verdict: AnswerVerdict): StoredItem[] {
   }
   return items;
 }
+
+/**
+ * The verdict a stored note records (ADR-0022). Only developer messages count, which only the
+ * server writes; neither a visitor nor the model can forge one.
+ */
+export function storedGuardNote(item: StoredItem): AnswerVerdict['action'] | undefined {
+  if (item.type !== 'message' || item.role !== 'developer') return undefined;
+  let text = '';
+  for (const part of item.parts) if (part.type === 'text') text += part.text;
+  return guardNoteAction(text);
+}

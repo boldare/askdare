@@ -212,6 +212,19 @@ describe('feedback handles', () => {
     await expect(tokens.verifyFeedback(token, 'support')).resolves.toEqual(grant);
   });
 
+  it("carries an item store's answer ID, and no other kind of ID", async () => {
+    const tokens = await createTokenService({ secret: SECRET });
+    const stored = { ...grant, itemId: `itm_${'ab'.repeat(16)}` };
+    const { token } = await tokens.issueFeedback('support', stored);
+    await expect(tokens.verifyFeedback(token, 'support')).resolves.toEqual(stored);
+    for (const itemId of ['rs_1', 'fc_1', 'itm_', '../msg_1']) {
+      const other = await tokens.issueFeedback('support', { ...grant, itemId });
+      await expect(tokens.verifyFeedback(other.token, 'support')).rejects.toMatchObject({
+        code: 'not_found',
+      });
+    }
+  });
+
   it('rejects forged handles, other token types, other bots and expired handles', async () => {
     let clock = 1_000_000;
     const tokens = await createTokenService({ secret: SECRET, now: () => clock });

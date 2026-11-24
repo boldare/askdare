@@ -317,10 +317,12 @@ describe('secret resolution', () => {
     expect(mocks.openaiConversations).not.toHaveBeenCalled();
   });
 
-  it('refuses an item store until stateless turns land', () => {
-    expect(() => createChatHandler({ bots: [bot], conversations: memoryConversations() })).toThrow(
-      /"memory" keeps the conversation's items itself, which needs stateless turns/,
-    );
+  it('accepts an item store, whose turns run statelessly', async () => {
+    const conversations = memoryConversations();
+    const { POST } = createChatHandler({ bots: [bot], conversations });
+    await chat(POST, await accessToken(POST));
+    expect(turns.at(-1)?.conversations).toBe(conversations);
+    expect(mocks.openaiConversations).not.toHaveBeenCalled();
   });
 
   it('builds the gateway once, from OPENAI_API_KEY', async () => {

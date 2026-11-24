@@ -254,7 +254,10 @@ export const { GET, POST, DELETE } = createChatHandler({
 });
 ```
 
-> **Status in this version.** Only provider stores run: `openaiConversations()`, the default. A store that keeps the items itself (an *item store*, such as `memoryConversations()` or your own database) needs stateless turns, which come later in 0.6. Until then `createChatHandler` refuses one when the route loads. The port and its contract suite are published now, so you can build and test a store against them.
+There are two kinds of store:
+
+- A **provider store** keeps the conversation at the model provider, which records the model's items itself. `openaiConversations()` is one.
+- An **item store** keeps every item itself, such as `memoryConversations()` (tests and local development) or your own database. Each turn reads the conversation, replays it to the model with `store: false`, and appends what it produces: the visitor's message before the first model call, then each model call's items together with the outputs of its calls in one `append`, so a crash never leaves a call without its output. Of two turns started on the same conversation at once, one gets a `VersionConflictError` from `append` and ends with "The previous answer in this conversation is still on its way." Nothing of the conversation stays at OpenAI ([Privacy](privacy.md#with-your-own-conversation-store)); requests are larger but cost the same ([Costs](costs.md#long-conversations)).
 
 ### The interface
 

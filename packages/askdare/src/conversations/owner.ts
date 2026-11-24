@@ -41,3 +41,16 @@ export function conversationGone(cause?: unknown): AskdareError {
     ...(cause === undefined ? {} : { cause }),
   });
 }
+
+/**
+ * How a turn ends when another turn wrote to its conversation first (ADR-0024, decision 3): as
+ * when output checks hold the conversation (ADR-0022), the visitor waits and sends again.
+ */
+export function conversationBusy(cause?: unknown): AskdareError {
+  return new AskdareError('rate_limited', {
+    retryAfterMs: 5_000,
+    message: 'The previous answer in this conversation is still on its way. Please wait a moment.',
+    key: 'error.rate_limited',
+    ...(cause === undefined ? {} : { cause }),
+  });
+}

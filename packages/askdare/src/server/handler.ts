@@ -9,6 +9,7 @@ import {
 import { isInside } from '../base-path';
 import type { Bot } from '../bot/define-bot';
 import { checksOutput } from '../bot/guardrails';
+import { itemHistory } from '../conversations/history';
 import { conversationGone, ownerOf, ownsConversation } from '../conversations/owner';
 import type { ConversationStore } from '../conversations/port';
 import { historyReader } from '../conversations/provider-history';
@@ -20,7 +21,12 @@ import type { DoctorCheck, DoctorReport } from '../protocol/doctor';
 import type { FeedbackHandle } from '../protocol/events';
 import { HUMAN_TOKEN_MAX_LENGTH } from '../security/human-verifier';
 import type { IdentityFailure, IdentityVerifier, VerifiedIdentity } from '../security/identity';
-import { newVisitorId, type ResumeGrant, type TokenService } from '../security/tokens';
+import {
+  ANSWER_ITEM_ID,
+  newVisitorId,
+  type ResumeGrant,
+  type TokenService,
+} from '../security/tokens';
 import { PRESET_NAMES, type PresetName } from '../theme/presets';
 import { type ColorScheme, type ResolvedTheme, resolveTheme } from '../theme/theme';
 import { readToolReplies, readToolUi } from '../tools/define-tool';
@@ -128,9 +134,6 @@ const feedbackBody = z.object({
   rating: z.enum(['up', 'down']).nullable(),
   comment: z.string().max(500).optional(),
 });
-
-/** Provider message IDs a feedback handle may carry; history may hold others. */
-const ANSWER_ITEM_ID = /^msg_[A-Za-z0-9_-]{1,128}$/;
 
 const conversationBody = z.object({
   botId: z.string().max(64),
@@ -947,12 +950,8 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
 
   const readHistory = async (request: Request): Promise<Response> => {
     const { bot, conversationId, grant, tokens, owner } = await ownedConversation(request);
-    const read = historyReader(config.conversations);
-    if (!read) {
-      throw new AskdareError('bot_unavailable', {
-        cause: `The conversation store "${config.conversations.name}" can't show history yet.`,
-      });
-    }
+    // A provider store reads its own items; an item store's are read as stored.
+    const read = historyReader(config.conversations) ?? itemHistory(config.conversations);
     // Side by side: the store's record decides whether the history read is returned at all.
     const [info, history] = await Promise.all([
       config.conversations.info(conversationId, request.signal),

@@ -4,6 +4,8 @@ import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { createBot } from '../bot/define-bot';
+import { memoryConversations } from '../conversations/memory';
+import type { ConversationStore } from '../conversations/port';
 import type { ModelGateway, StepRecord } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
 import { defineTool } from '../tools/define-tool';
@@ -35,11 +37,26 @@ afterAll(() => server.close());
 
 const bot = createBot({ id: 'support', model: 'gpt-6.1-terra', instructions: 'Be brief.' });
 
-function request(events: ProtocolEvent[]) {
+/** Where a turn runs: in an OpenAI conversation, or replayed statelessly from an item store. */
+type Mode = 'conversation' | 'stateless';
+interface Target {
+  readonly conversationId: string;
+  readonly conversations: ConversationStore;
+}
+
+async function target(mode: Mode): Promise<Target> {
+  if (mode === 'conversation') {
+    return { conversationId: 'conv_recorded', conversations: conversations.store };
+  }
+  const store = memoryConversations();
+  const conversationId = await store.create({ botId: 'support', owner: 'visitor:test' });
+  return { conversationId, conversations: store };
+}
+
+function request(events: ProtocolEvent[], where: Target) {
   return {
     bot,
-    conversationId: 'conv_recorded',
-    conversations: conversations.store,
+    ...where,
     text: 'replayed',
     context: { locale: 'en' },
     safetyIdentifier: 'a'.repeat(64),
@@ -60,6 +77,7 @@ const textStream = (text: string): string =>
 
 async function replay(
   name: string,
+  mode: Mode,
   edit: (sse: string) => string = (sse) => sse,
 ): Promise<{ events: ProtocolEvent[]; reason: string; steps: StepRecord[] }> {
   const body = edit(fixture(name));
@@ -73,8 +91,7 @@ async function replay(
   const steps: StepRecord[] = [];
   const result = await gateway.runTurn({
     bot,
-    conversationId: 'conv_recorded',
-    conversations: conversations.store,
+    ...(await target(mode)),
     text: 'replayed',
     context: { locale: 'en' },
     safetyIdentifier: 'a'.repeat(64),
@@ -123,206 +140,225 @@ const withoutUsageDetails = (sse: string): string =>
     })
     .join('\n\n')}\n\n`;
 
-describe('recorded Responses API streams', () => {
-  it('maps a plain text turn', async () => {
-    const { events, reason } = await replay('text-turn');
-    expect(textOf(events)).toBe('The sea shimmered beneath the morning sun.');
-    expect(reason).toBe('completed');
-    expect(events.every((event) => event.type === 'text.delta')).toBe(true);
-  });
-
-  it('maps a turn that compacts the conversation to its answer alone', async () => {
-    // Compaction items arrive before and after the message; they stay on the server.
-    const { events, reason, steps } = await replay('compaction-turn');
-    expect(textOf(events)).toBe('noted');
-    expect(reason).toBe('completed');
-    expect(events.every((event) => event.type === 'text.delta')).toBe(true);
-    // The compaction passes are reported as reasoning tokens.
-    expect(steps).toEqual([
-      {
-        model: 'gpt-6.1-terra',
-        usage: {
-          inputTokens: 1714,
-          cachedInputTokens: 1065,
-          cacheWriteTokens: 525,
-          outputTokens: 219,
-          reasoningTokens: 213,
-        },
-      },
-    ]);
-  });
-
-  it('ends a response that only compacted as max_output_tokens, with zero usage', async () => {
-    // Spike S5: compaction counts against max_output_tokens and can leave no answer.
-    const { events, reason, steps } = await replay('compaction-only');
-    expect(events).toEqual([]);
-    expect(reason).toBe('max_output_tokens');
-    expect(steps.map((step) => step.usage.inputTokens + step.usage.outputTokens)).toEqual([0]);
-  });
-
-  it('lists a compacted conversation without its compaction items', async () => {
-    server.use(
-      http.get(
-        `${OPENAI_TEST_BASE_URL}/conversations/conv_recorded/items`,
-        () =>
-          new HttpResponse(fixture('compaction-items', 'json'), {
-            headers: { 'Content-Type': 'application/json' },
-          }),
-      ),
-    );
-    const messages = await conversations.listMessages('conv_recorded');
-    // Compaction keeps every earlier message in the conversation, so history still shows them.
-    expect(messages.map((message) => message.role)).toEqual([
-      'user',
-      'assistant',
-      'user',
-      'assistant',
-      'user',
-      'assistant',
-    ]);
-    expect(messages[0]?.text).toContain('PAPAYA-42');
-    expect(messages.at(-1)?.text).toBe('noted');
-  });
-
-  it('maps a file_search turn to text plus one file citation', async () => {
-    const { events, steps } = await replay('file-search');
-    // Every counter OpenAI reports, for onUsage.
-    expect(steps).toEqual([
-      {
-        model: 'gpt-6.1-terra',
-        usage: {
-          inputTokens: 2049,
-          cachedInputTokens: 0,
-          cacheWriteTokens: 1480,
-          outputTokens: 58,
-          reasoningTokens: 30,
-        },
-      },
-    ]);
-    expect(textOf(events)).toContain('Pixel');
-    expect(events.filter((event) => event.type === 'citation')).toEqual([
-      {
-        type: 'citation',
-        messageId: 'msg_r',
-        index: 1,
-        title: 'askdare-handbook.md',
-        url: undefined,
-      },
-    ]);
-  });
-
-  it('merges a repeated citation marker, also when the repeat arrives in a later delta', async () => {
-    // Spike S8: one answer cited the same passage twice in a row, which showed as `[1] [1]`.
-    const { events } = await replay(
-      'file-search',
-      withDeltasAfterAnnotation(['[1] [', '1] Pixel visits', ' on Fridays [1]', '[1', '].']),
-    );
-    expect(textOf(events)).toBe(
-      'The office dog is called **Pixel**. [1] Pixel visits on Fridays [1].',
-    );
-    expect(events.filter((event) => event.type === 'citation')).toHaveLength(1);
-  });
-
-  it('counts usage details a server left out as zero', async () => {
-    // Spike S6b: the details objects are optional on Open Responses servers.
-    const { events, reason, steps } = await replay('text-turn', withoutUsageDetails);
-    expect(textOf(events)).toBe('The sea shimmered beneath the morning sun.');
-    expect(reason).toBe('completed');
-    expect(steps).toEqual([
-      {
-        model: expect.any(String),
-        usage: {
-          inputTokens: 21,
-          cachedInputTokens: 0,
-          cacheWriteTokens: 0,
-          outputTokens: 13,
-          reasoningTokens: 0,
-        },
-      },
-    ]);
-  });
-
-  it('runs a recorded tool call and keeps its arguments on the server', async () => {
-    const bodies: Record<string, unknown>[] = [];
-    server.use(
-      http.post(`${OPENAI_TEST_BASE_URL}/responses`, async ({ request }) => {
-        bodies.push((await request.json()) as Record<string, unknown>);
-        const stream = bodies.length === 1 ? fixture('function-call') : textStream('It is 12°C.');
-        return new HttpResponse(stream, { headers: { 'Content-Type': 'text/event-stream' } });
-      }),
-    );
-    const weatherBot = createBot({
-      id: 'support',
-      model: 'gpt-6.1-terra',
-      instructions: 'Use tools.',
-      tools: [
-        defineTool({
-          name: 'get_weather',
-          description: 'Current weather for a city.',
-          input: z.object({ city: z.string() }),
-          execute: ({ city }) => ({ city, tempC: 12 }),
-        }),
-      ],
+describe.each<Mode>(['conversation', 'stateless'])(
+  'recorded Responses API streams (%s)',
+  (mode) => {
+    it('maps a plain text turn', async () => {
+      const { events, reason } = await replay('text-turn', mode);
+      expect(textOf(events)).toBe('The sea shimmered beneath the morning sun.');
+      expect(reason).toBe('completed');
+      expect(events.every((event) => event.type === 'text.delta')).toBe(true);
     });
-    const events: ProtocolEvent[] = [];
-    await gateway.runTurn({ ...request(events), bot: weatherBot });
 
-    const call = /"call_id":"(call_[A-Za-z0-9]+)"/.exec(fixture('function-call'))?.[1];
-    expect(bodies[1]?.['input']).toEqual([
-      {
+    it('maps a turn that compacts the conversation to its answer alone', async () => {
+      // Compaction items arrive before and after the message; they stay on the server.
+      const { events, reason, steps } = await replay('compaction-turn', mode);
+      expect(textOf(events)).toBe('noted');
+      expect(reason).toBe('completed');
+      expect(events.every((event) => event.type === 'text.delta')).toBe(true);
+      // The compaction passes are reported as reasoning tokens.
+      expect(steps).toEqual([
+        {
+          model: 'gpt-6.1-terra',
+          usage: {
+            inputTokens: 1714,
+            cachedInputTokens: 1065,
+            cacheWriteTokens: 525,
+            outputTokens: 219,
+            reasoningTokens: 213,
+          },
+        },
+      ]);
+    });
+
+    it('ends a response that only compacted as max_output_tokens, with zero usage', async () => {
+      // Spike S5: compaction counts against max_output_tokens and can leave no answer.
+      const { events, reason, steps } = await replay('compaction-only', mode);
+      expect(events).toEqual([]);
+      expect(reason).toBe('max_output_tokens');
+      expect(steps.map((step) => step.usage.inputTokens + step.usage.outputTokens)).toEqual([0]);
+    });
+
+    it.skipIf(mode === 'stateless')(
+      'lists a compacted conversation without its compaction items',
+      async () => {
+        server.use(
+          http.get(
+            `${OPENAI_TEST_BASE_URL}/conversations/conv_recorded/items`,
+            () =>
+              new HttpResponse(fixture('compaction-items', 'json'), {
+                headers: { 'Content-Type': 'application/json' },
+              }),
+          ),
+        );
+        const messages = await conversations.listMessages('conv_recorded');
+        // Compaction keeps every earlier message in the conversation, so history still shows them.
+        expect(messages.map((message) => message.role)).toEqual([
+          'user',
+          'assistant',
+          'user',
+          'assistant',
+          'user',
+          'assistant',
+        ]);
+        expect(messages[0]?.text).toContain('PAPAYA-42');
+        expect(messages.at(-1)?.text).toBe('noted');
+      },
+    );
+
+    it('maps a file_search turn to text plus one file citation', async () => {
+      const { events, steps } = await replay('file-search', mode);
+      // Every counter OpenAI reports, for onUsage.
+      expect(steps).toEqual([
+        {
+          model: 'gpt-6.1-terra',
+          usage: {
+            inputTokens: 2049,
+            cachedInputTokens: 0,
+            cacheWriteTokens: 1480,
+            outputTokens: 58,
+            reasoningTokens: 30,
+          },
+        },
+      ]);
+      expect(textOf(events)).toContain('Pixel');
+      expect(events.filter((event) => event.type === 'citation')).toEqual([
+        {
+          type: 'citation',
+          messageId: 'msg_r',
+          index: 1,
+          title: 'askdare-handbook.md',
+          url: undefined,
+        },
+      ]);
+    });
+
+    it('merges a repeated citation marker, also when the repeat arrives in a later delta', async () => {
+      // Spike S8: one answer cited the same passage twice in a row, which showed as `[1] [1]`.
+      const { events } = await replay(
+        'file-search',
+        mode,
+        withDeltasAfterAnnotation(['[1] [', '1] Pixel visits', ' on Fridays [1]', '[1', '].']),
+      );
+      expect(textOf(events)).toBe(
+        'The office dog is called **Pixel**. [1] Pixel visits on Fridays [1].',
+      );
+      expect(events.filter((event) => event.type === 'citation')).toHaveLength(1);
+    });
+
+    it('counts usage details a server left out as zero', async () => {
+      // Spike S6b: the details objects are optional on Open Responses servers.
+      const { events, reason, steps } = await replay('text-turn', mode, withoutUsageDetails);
+      expect(textOf(events)).toBe('The sea shimmered beneath the morning sun.');
+      expect(reason).toBe('completed');
+      expect(steps).toEqual([
+        {
+          model: expect.any(String),
+          usage: {
+            inputTokens: 21,
+            cachedInputTokens: 0,
+            cacheWriteTokens: 0,
+            outputTokens: 13,
+            reasoningTokens: 0,
+          },
+        },
+      ]);
+    });
+
+    it('runs a recorded tool call and keeps its arguments on the server', async () => {
+      const bodies: Record<string, unknown>[] = [];
+      server.use(
+        http.post(`${OPENAI_TEST_BASE_URL}/responses`, async ({ request }) => {
+          bodies.push((await request.json()) as Record<string, unknown>);
+          const stream = bodies.length === 1 ? fixture('function-call') : textStream('It is 12°C.');
+          return new HttpResponse(stream, { headers: { 'Content-Type': 'text/event-stream' } });
+        }),
+      );
+      const weatherBot = createBot({
+        id: 'support',
+        model: 'gpt-6.1-terra',
+        instructions: 'Use tools.',
+        tools: [
+          defineTool({
+            name: 'get_weather',
+            description: 'Current weather for a city.',
+            input: z.object({ city: z.string() }),
+            execute: ({ city }) => ({ city, tempC: 12 }),
+          }),
+        ],
+      });
+      const events: ProtocolEvent[] = [];
+      await gateway.runTurn({ ...request(events, await target(mode)), bot: weatherBot });
+
+      const call = /"call_id":"(call_[A-Za-z0-9]+)"/.exec(fixture('function-call'))?.[1];
+      // A conversation gets only what is new; a stateless request the whole turn so far.
+      const input = bodies[1]?.['input'] as unknown[];
+      expect(input).toHaveLength(mode === 'conversation' ? 1 : 3);
+      expect(input.at(-1)).toEqual({
         type: 'function_call_output',
         call_id: call,
         output: JSON.stringify({ city: 'Warsaw', tempC: 12 }),
-      },
-    ]);
-    expect(
-      events.filter((event) => event.type === 'tool.status').map((event) => event.state),
-    ).toEqual(['running', 'done']);
-    expect(JSON.stringify(events)).not.toContain('Warsaw');
-    expect(textOf(events)).toBe('It is 12°C.');
-  });
+      });
+      if (mode === 'stateless') {
+        expect(input.slice(0, 2)).toEqual([
+          { role: 'user', content: 'replayed' },
+          {
+            type: 'function_call',
+            call_id: call,
+            name: 'get_weather',
+            arguments: expect.any(String),
+          },
+        ]);
+      }
+      expect(
+        events.filter((event) => event.type === 'tool.status').map((event) => event.state),
+      ).toEqual(['running', 'done']);
+      expect(JSON.stringify(events)).not.toContain('Warsaw');
+      expect(textOf(events)).toBe('It is 12°C.');
+    });
 
-  it("sends the recorded call's UI payload after its status, and only what ui picked (ADR-0017)", async () => {
-    let served = false;
-    server.use(
-      http.post(`${OPENAI_TEST_BASE_URL}/responses`, () => {
-        const first = !served;
-        served = true;
-        const stream = first ? fixture('function-call') : textStream('It is 12°C.');
-        return new HttpResponse(stream, { headers: { 'Content-Type': 'text/event-stream' } });
-      }),
-    );
-    const weatherBot = createBot({
-      id: 'support',
-      model: 'gpt-6.1-terra',
-      instructions: 'Use tools.',
-      tools: [
-        defineTool({
-          name: 'get_weather',
-          description: 'Current weather for a city.',
-          input: z.object({ city: z.string() }),
-          execute: ({ city }) => ({ city, tempC: 12, station: 'internal-42' }),
-          ui: (result) => ({ tempC: result.tempC }),
+    it("sends the recorded call's UI payload after its status, and only what ui picked (ADR-0017)", async () => {
+      let served = false;
+      server.use(
+        http.post(`${OPENAI_TEST_BASE_URL}/responses`, () => {
+          const first = !served;
+          served = true;
+          const stream = first ? fixture('function-call') : textStream('It is 12°C.');
+          return new HttpResponse(stream, { headers: { 'Content-Type': 'text/event-stream' } });
         }),
-      ],
-    });
-    const events: ProtocolEvent[] = [];
-    await gateway.runTurn({ ...request(events), bot: weatherBot });
+      );
+      const weatherBot = createBot({
+        id: 'support',
+        model: 'gpt-6.1-terra',
+        instructions: 'Use tools.',
+        tools: [
+          defineTool({
+            name: 'get_weather',
+            description: 'Current weather for a city.',
+            input: z.object({ city: z.string() }),
+            execute: ({ city }) => ({ city, tempC: 12, station: 'internal-42' }),
+            ui: (result) => ({ tempC: result.tempC }),
+          }),
+        ],
+      });
+      const events: ProtocolEvent[] = [];
+      await gateway.runTurn({ ...request(events, await target(mode)), bot: weatherBot });
 
-    const call = /"call_id":"(call_[A-Za-z0-9]+)"/.exec(fixture('function-call'))?.[1];
-    const kinds = events
-      .filter((event) => event.type === 'tool.status' || event.type === 'tool.ui')
-      .map((event) => (event.type === 'tool.status' ? event.state : event.type));
-    expect(kinds).toEqual(['running', 'done', 'tool.ui']);
-    expect(events.find((event) => event.type === 'tool.ui')).toEqual({
-      type: 'tool.ui',
-      messageId: 'msg_r',
-      callId: call,
-      name: 'get_weather',
-      data: { tempC: 12 },
+      const call = /"call_id":"(call_[A-Za-z0-9]+)"/.exec(fixture('function-call'))?.[1];
+      const kinds = events
+        .filter((event) => event.type === 'tool.status' || event.type === 'tool.ui')
+        .map((event) => (event.type === 'tool.status' ? event.state : event.type));
+      expect(kinds).toEqual(['running', 'done', 'tool.ui']);
+      expect(events.find((event) => event.type === 'tool.ui')).toEqual({
+        type: 'tool.ui',
+        messageId: 'msg_r',
+        callId: call,
+        name: 'get_weather',
+        data: { tempC: 12 },
+      });
+      const ui = events.findIndex((event) => event.type === 'tool.ui');
+      expect(events.findIndex((event) => event.type === 'text.delta')).toBeGreaterThan(ui);
+      expect(JSON.stringify(events)).not.toContain('internal-42');
     });
-    const ui = events.findIndex((event) => event.type === 'tool.ui');
-    expect(events.findIndex((event) => event.type === 'text.delta')).toBeGreaterThan(ui);
-    expect(JSON.stringify(events)).not.toContain('internal-42');
-  });
-});
+  },
+);

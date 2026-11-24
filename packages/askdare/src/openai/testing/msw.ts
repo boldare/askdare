@@ -104,6 +104,17 @@ export function textTurnEvents(
         logprobs: [],
       }),
     ),
+    {
+      type: 'response.output_item.done',
+      output_index: 0,
+      item: {
+        id: 'msg_out',
+        type: 'message',
+        role: 'assistant',
+        status: 'completed',
+        content: [{ type: 'output_text', text: chunks.join(''), annotations: [], logprobs: [] }],
+      },
+    },
     ...(options.extra ?? []),
     {
       type: status === 'completed' ? 'response.completed' : 'response.incomplete',

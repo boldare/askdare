@@ -1,9 +1,10 @@
-import type { ResponseStreamEvent } from 'openai/resources/responses/responses';
+import type { ResponseOutputItem, ResponseStreamEvent } from 'openai/resources/responses/responses';
+import { MarkerMerger } from '../citation-markers';
 import { AskdareError } from '../errors';
 import type { TokenUsage } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
 import { ZERO_USAGE } from '../usage';
-import { addSources, citationSource, type KnowledgeSources, MarkerMerger } from './citations';
+import { addSources, citationSource, type KnowledgeSources } from './citations';
 
 export interface FunctionCall {
   readonly callId: string;
@@ -22,6 +23,8 @@ export interface StepOutcome {
   readonly textItemId: string | undefined;
   readonly usage: TokenUsage;
   readonly functionCalls: readonly FunctionCall[];
+  /** Every output item of the step, in order, as a stateless turn stores them. */
+  readonly output: readonly ResponseOutputItem[];
 }
 
 /** Assigns stable [n] markers to sources across all steps of one turn. */
@@ -55,6 +58,8 @@ export class ResponseStreamMapper {
   readonly #emit: (event: ProtocolEvent) => void;
   readonly #citations: CitationRegistry;
   readonly #functionCalls: FunctionCall[] = [];
+  /** Finished output items by position, for servers whose terminal event leaves them out. */
+  readonly #done: ResponseOutputItem[] = [];
   readonly #markers: MarkerMerger;
   #answerItemId: string | undefined;
   #textItemId: string | undefined;
@@ -99,6 +104,7 @@ export class ResponseStreamMapper {
         }
         return;
       case 'response.output_item.done':
+        this.#done[event.output_index] = event.item;
         if (event.item.type === 'reasoning') {
           this.#emit({ type: 'reasoning', messageId: this.#messageId, state: 'done' });
         } else if (event.item.type === 'file_search_call') {
@@ -132,6 +138,10 @@ export class ResponseStreamMapper {
               }
             : ZERO_USAGE,
           functionCalls: this.#functionCalls,
+          output:
+            event.response.output?.length > 0
+              ? event.response.output
+              : this.#done.filter((item) => item !== undefined),
         };
         return;
       }

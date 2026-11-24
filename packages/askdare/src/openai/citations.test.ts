@@ -1,12 +1,7 @@
 import type { ResponseFileSearchToolCall } from 'openai/resources/responses/responses';
 import { describe, expect, it } from 'vitest';
-import {
-  addSources,
-  citationSource,
-  type KnowledgeSources,
-  MarkerMerger,
-  mergeRepeatedMarkers,
-} from './citations';
+import { MarkerMerger, mergeRepeatedMarkers } from '../citation-markers';
+import { addSources, citationSource, type KnowledgeSources } from './citations';
 
 type Results = NonNullable<ResponseFileSearchToolCall['results']> | null;
 
