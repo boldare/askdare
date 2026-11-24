@@ -2,6 +2,8 @@
 
 A bot can answer from your own documents. askdare uploads them to an OpenAI vector store, the model searches it with OpenAI file search, and each answer cites its sources as links to your pages.
 
+To keep the documents, their chunks and their embeddings in your own Postgres instead, sync the same folder to your own index: see [Syncing to your own index](#syncing-to-your-own-index).
+
 ## 1. Prepare a folder
 
 Put the documents in one folder, for example `knowledge/`. Supported: `.md`, `.mdx`, `.txt`, `.pdf`, `.docx`, `.pptx`, `.html`, `.htm`, `.json`. Other files and hidden files are skipped.
@@ -61,5 +63,33 @@ Tell the model in `instructions` when to use the documents, for example "Answer 
 
 - File search is billed per call, and the retrieved chunks count as input tokens. Vector store storage is billed per GB per day above the free tier. See OpenAI pricing.
 - The tool name `file_search` is reserved; your own tools cannot use it.
+
+## Syncing to your own index
+
+`kb sync --index <id>` mirrors the same folder, with the same front matter and `askdare.kb.json`, into a knowledge index in your own Postgres (`pgvectorIndex` from `@boldare/askdare-postgres`) instead of a vector store. The documents, chunks and embeddings are stored in your database; OpenAI computes the embeddings, with your key, and stores nothing for the index.
+
+```bash
+npm install @boldare/askdare-postgres
+npx askdare-postgres migrate
+npx @boldare/askdare kb sync knowledge --index support
+```
+
+With, in `.env.local` or the environment:
+
+```bash
+OPENAI_API_KEY=sk-…
+DATABASE_URL=postgres://…
+ASKDARE_EMBEDDING_MODEL=<an OpenAI embedding model>
+ASKDARE_EMBEDDING_DIMENSIONS=1536
+```
+
+- **Formats:** `.md`, `.markdown`, `.mdx`, `.txt`, `.html` and `.htm`. PDFs, Word, PowerPoint and `.json` are skipped with a warning; keep those in a vector store for now.
+- **Incremental:** documents are chunked by section, and only chunks the index doesn't have are embedded. An edited paragraph re-embeds that chunk; a renamed file with a title from front matter or the manifest re-embeds nothing. The report says what was added, changed, removed and unchanged, and how many chunks and tokens were embedded or reused.
+- **The embedding model:** required, with no default. Use the same model and size for the bot's `openaiEmbedder` as for `kb sync`; changing either makes the next sync embed everything again.
+- **Many bots, one database:** each bot has its own index ID, usually the bot's ID.
+- **Database user:** run the first sync of an index as the user that ran `migrate`; it creates the index's vector index.
+- `--dry-run` shows the documents and chunk counts without a database or a key.
+
+The options are in [Command line](cli.md#to-your-own-index).
 
 Try it in the demo site: `pnpm --dir site kb:sync` uploads the sample documents in `site/knowledge/`.

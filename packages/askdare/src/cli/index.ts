@@ -32,7 +32,8 @@ Commands:
     --dir <folder>     Where to put it (default: components/askdare, under src/
                        if the app has one)
 
-  kb sync <folder>   Make an OpenAI vector store mirror a folder of documents.
+  kb sync <folder>   Make an OpenAI vector store, or your own knowledge index
+                     (--index), mirror a folder of documents.
                      See: npx @boldare/askdare kb sync --help
 
   -v, --version      Show the installed version
