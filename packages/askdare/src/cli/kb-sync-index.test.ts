@@ -24,7 +24,6 @@ let out: string[];
 let err: string[];
 let store: ReturnType<typeof memoryKnowledgeStore>;
 let opened: PgvectorIndexOptions[];
-let closed: number;
 
 /** k1's in-memory index in place of the add-on's `pgvectorIndex`, sharing one store across runs. */
 const dependencies = (): KbSyncDependencies => ({
@@ -33,15 +32,11 @@ const dependencies = (): KbSyncDependencies => ({
     return {
       pgvectorIndex: (options: PgvectorIndexOptions): KnowledgeIndex => {
         opened.push(options);
-        const index = memoryKnowledgeIndex({
+        return memoryKnowledgeIndex({
           embedder: options.embedder,
           indexId: options.indexId,
           store,
         });
-        const close = async (): Promise<void> => {
-          closed += 1;
-        };
-        return Object.assign(index, { close });
       },
     };
   },
@@ -86,7 +81,6 @@ beforeEach(async () => {
   vi.spyOn(console, 'error').mockImplementation((line: unknown) => void err.push(String(line)));
   store = memoryKnowledgeStore();
   opened = [];
-  closed = 0;
   await mkdir(docs('guides'), { recursive: true });
   await writeFile(docs('guides', 'pricing.md'), PRICING);
   await writeFile(
@@ -116,7 +110,6 @@ describe('kb sync --index', () => {
         embedder: expect.objectContaining({ id: 'fake:model-a:32', dimensions: 32 }),
       },
     ]);
-    expect(closed).toBe(1);
     expect(out[0]).toBe(
       'Synced to the index "support": 3 added, 0 changed, 0 removed, 0 unchanged.',
     );
@@ -224,19 +217,6 @@ describe('kb sync --index', () => {
     await expect(run()).rejects.toThrow(/bad\.md: url must be an http\(s\) URL/);
     expect(opened).toEqual([]);
   });
-
-  it('closes the index when the sync fails', async () => {
-    const failing: KbSyncDependencies = {
-      ...dependencies(),
-      embedder: () => ({
-        id: 'fake:model-a:32',
-        dimensions: 32,
-        embed: () => Promise.reject(new Error('rate limited')),
-      }),
-    };
-    await expect(kbSync(['kb', '--index', 'support'], failing)).rejects.toThrow('rate limited');
-    expect(closed).toBe(1);
-  });
 });
 
 describe('kb sync --index arguments', () => {
@@ -255,7 +235,7 @@ describe('kb sync --index arguments', () => {
 
   it('rejects an index ID that is not a plain name', async () => {
     await expect(kbSync(['kb', '--index', '../x'], dependencies())).rejects.toThrow(
-      /The index ID must be 1 to 64 letters/,
+      /The index ID must be 1 to 128 letters/,
     );
   });
 

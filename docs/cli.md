@@ -218,8 +218,11 @@ With `--index <id>`, `kb sync` keeps the documents, their chunks and their embed
 
 ```bash
 npm install @boldare/askdare-postgres
+npx askdare-postgres migrate
 npx @boldare/askdare kb sync knowledge --index support --embedding-model <model> --dimensions 1536
 ```
+
+Run `askdare-postgres migrate` first, and run the first sync of an index as the database user that ran it: that sync creates the index's vector index on tables that user owns. Two syncs of one index at the same time run one after the other.
 
 It needs `OPENAI_API_KEY` for the embeddings and `DATABASE_URL` for the database, from the environment or the same env files. The model and the size must be the ones the bot's `openaiEmbedder` uses; setting `ASKDARE_EMBEDDING_MODEL` and `ASKDARE_EMBEDDING_DIMENSIONS` once keeps the two in step. `--store` and `--name` don't go with `--index`.
 

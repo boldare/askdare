@@ -17,13 +17,11 @@ export interface PgvectorIndexOptions {
   /** Connection string; the add-on falls back to `DATABASE_URL`. */
   readonly url?: string;
   readonly embedder: Embedder;
+  /** The add-on's rule: `^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`. */
   readonly indexId: string;
 }
 
 type PgvectorIndexFactory = (options: PgvectorIndexOptions) => KnowledgeIndex;
-
-/** An index that holds connections can end them, so the command can exit. */
-type Closable = { close?: () => Promise<void> | void };
 
 /** How the CLI loads a module; replaced in tests. */
 export type ModuleLoader = (specifier: string) => Promise<unknown>;
@@ -89,12 +87,9 @@ export interface IndexSyncOptions {
 export async function syncKnowledgeIndex(options: IndexSyncOptions): Promise<IndexSyncResult> {
   const scan = await scanKnowledgeDocuments(options.root, options.chunk);
   if (options.dryRun) return { scan, report: undefined };
+  // The add-on's pools let the process exit once idle, so there is nothing to close.
   const index = await options.open();
-  try {
-    return { scan, report: await index.sync(scan.documents) };
-  } finally {
-    await (index as Closable).close?.();
-  }
+  return { scan, report: await index.sync(scan.documents) };
 }
 
 const plural = (count: number, one: string, many = `${one}s`): string =>

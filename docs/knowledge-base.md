@@ -70,6 +70,7 @@ Tell the model in `instructions` when to use the documents, for example "Answer 
 
 ```bash
 npm install @boldare/askdare-postgres
+npx askdare-postgres migrate
 npx @boldare/askdare kb sync knowledge --index support
 ```
 
@@ -86,6 +87,7 @@ ASKDARE_EMBEDDING_DIMENSIONS=1536
 - **Incremental:** documents are chunked by section, and only chunks the index doesn't have are embedded. An edited paragraph re-embeds that chunk; a renamed file with a title from front matter or the manifest re-embeds nothing. The report says what was added, changed, removed and unchanged, and how many chunks and tokens were embedded or reused.
 - **The embedding model:** required, with no default. Use the same model and size for the bot's `openaiEmbedder` as for `kb sync`; changing either makes the next sync embed everything again.
 - **Many bots, one database:** each bot has its own index ID, usually the bot's ID.
+- **Database user:** run the first sync of an index as the user that ran `migrate`; it creates the index's vector index.
 - `--dry-run` shows the documents and chunk counts without a database or a key.
 
 The options are in [Command line](cli.md#to-your-own-index).

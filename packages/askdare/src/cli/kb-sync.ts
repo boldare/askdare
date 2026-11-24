@@ -41,7 +41,8 @@ Needs OPENAI_API_KEY in the environment.
 `;
 
 const STORE_ID = /^vs_[A-Za-z0-9_-]+$/;
-const INDEX_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/;
+/** As `pgvectorIndex` checks it, so a bad ID fails before the folder is read. */
+const INDEX_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 
 /** What `kbSync` reaches outside the process through; replaced in tests. */
 export interface KbSyncDependencies {
@@ -170,7 +171,7 @@ async function kbSyncIndex(
   }
   if (!INDEX_ID.test(indexId)) {
     throw new UsageError(
-      'The index ID must be 1 to 64 letters, digits, ".", "_" or "-", starting with a letter or digit.',
+      'The index ID must be 1 to 128 letters, digits, ".", "_", ":" or "-", starting with a letter or digit.',
     );
   }
   const print = {
