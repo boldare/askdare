@@ -1,0 +1,98 @@
+{
+  "model": "gpt-6-luna",
+  "historyFile": "history-luna-50.json",
+  "date": "2026-11-23",
+  "warmTurn": [
+    {
+      "input": 113476,
+      "cached": 0,
+      "output": 57
+    },
+    {
+      "input": 115306,
+      "cached": 113473,
+      "output": 54
+    }
+  ],
+  "withTools": true,
+  "compact": [
+    {
+      "label": "after-turn-with-tools",
+      "ms": 4000,
+      "input": 115380,
+      "cached": 115231,
+      "cacheWrite": 0,
+      "output": 238,
+      "reasoning": 0,
+      "usd": 0.00129,
+      "items": 52
+    },
+    {
+      "label": "without-tools",
+      "ms": 11601,
+      "input": 115278,
+      "cached": 0,
+      "cacheWrite": 0,
+      "output": 1153,
+      "reasoning": 0,
+      "usd": 0.0121,
+      "items": 52
+    },
+    {
+      "label": "repeat-without-tools",
+      "ms": 14010,
+      "input": 115278,
+      "cached": 115201,
+      "cacheWrite": 0,
+      "output": 1455,
+      "reasoning": 0,
+      "usd": 0.00189,
+      "items": 52
+    }
+  ],
+  "toolsField": "accepted",
+  "afterCompaction": [
+    {
+      "steps": [
+        {
+          "input": 4042,
+          "cached": 1778,
+          "output": 30,
+          "ttftMs": null
+        },
+        {
+          "input": 5857,
+          "cached": 4039,
+          "output": 129,
+          "ttftMs": 1844
+        }
+      ],
+      "searched": 1,
+      "answer": "The help centre says only the Poznań showroom can handle furniture-recycling requests in person, so I can’t confirm that you can drop off the sofa in Kraków. Please contact support@northwind.example t"
+    },
+    {
+      "steps": [
+        {
+          "input": 6005,
+          "cached": 5854,
+          "output": 113,
+          "ttftMs": 1550
+        }
+      ],
+      "searched": 0,
+      "answer": "It’s free up to the 3rd floor, then 39 PLN per extra floor—so the 4th and 5th floors would total 78 PLN. [k6c956ba7c7c5]"
+    }
+  ],
+  "spend": {
+    "usd": 0.0317,
+    "byModel": {
+      "gpt-6-luna": {
+        "input": 590622,
+        "cached": 355576,
+        "cacheWrite": 119527,
+        "output": 3229,
+        "usd": 0.0317
+      }
+    }
+  }
+}
