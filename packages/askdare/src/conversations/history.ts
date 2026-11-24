@@ -105,12 +105,18 @@ function readTurns(
   // Text marked as commentary that no later answer replaced: then it was the answer, written
   // before the reply options.
   let unanswered: HistoryMessage | undefined;
-  const close = (): void => {
+  // Makes that commentary the turn's answer, unsettled like any other, so a note or `checked`
+  // decides whether it shows: a withheld or unchecked answer never does (ADR-0022).
+  const promote = (): void => {
     if (unanswered && turn.answer === undefined) {
       messages.push(unanswered);
       turn.answer = messages.length - 1;
+      unsettled.push(turn.answer);
     }
     unanswered = undefined;
+  };
+  const close = (): void => {
+    promote();
     for (const call of pending) turn.calls.push({ ...call, output: outputs.get(call.callId) });
     pending.length = 0;
     settle(!checked);
@@ -124,6 +130,7 @@ function readTurns(
     }
     const note = storedGuardNote(item);
     if (note) {
+      promote();
       settle(note === 'allowed');
       if (note !== 'allowed') {
         turn.plain = false;
