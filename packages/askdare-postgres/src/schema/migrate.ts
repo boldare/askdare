@@ -11,6 +11,15 @@ export interface AppliedMigration {
   readonly name: string;
 }
 
+/** Where to migrate, and which parts. */
+export type MigrateOptions = PostgresConnectionOptions & {
+  /**
+   * The parts to create or upgrade, such as `['conversations']` for a database without pgvector,
+   * which the `knowledge` part needs. Default: every part.
+   */
+  readonly parts?: readonly string[];
+};
+
 /** What `migrate` did. */
 export interface MigrateReport {
   /** The migrations it ran, in order. Empty when the schema was up to date. */
@@ -39,17 +48,37 @@ const LOCK_TIMEOUT = '60s';
  * ```ts
  * import { migrate } from '@boldare/askdare-postgres';
  * await migrate(); // DATABASE_URL, or { url } or { pool }
+ * await migrate({ parts: ['conversations'] }); // without the knowledge index
  * ```
  */
-export async function migrate(options: PostgresConnectionOptions = {}): Promise<MigrateReport> {
-  if (options.pool) return migrateParts(options.pool, SCHEMA_PARTS);
+export async function migrate(options: MigrateOptions = {}): Promise<MigrateReport> {
+  const parts = selectParts(SCHEMA_PARTS, options.parts);
+  if (options.pool) return migrateParts(options.pool, parts);
   // A pool of its own, ended afterwards, so a script that migrates can exit.
   const pool = createPool(connectionString(options), 1);
   try {
-    return await migrateParts(pool, SCHEMA_PARTS);
+    return await migrateParts(pool, parts);
   } finally {
     await pool.end();
   }
+}
+
+/** The parts named, in the order `migrate` applies them; every part when none are named. */
+export function selectParts(
+  parts: readonly SchemaPart[],
+  names: readonly string[] | undefined,
+): readonly SchemaPart[] {
+  if (names === undefined) return parts;
+  const known = new Set(parts.map((part) => part.name));
+  for (const name of names) {
+    if (!known.has(name)) {
+      throw new Error(
+        `[askdare-postgres] Unknown schema part "${name}"; the parts are ${[...known].join(', ')}.`,
+      );
+    }
+  }
+  if (names.length === 0) throw new Error('[askdare-postgres] Name at least one schema part.');
+  return parts.filter((part) => names.includes(part.name));
 }
 
 /** `migrate` for the given parts; the tests pass their own. */

@@ -93,14 +93,33 @@ describe.skipIf(!TEST_DATABASE_URL)('migrate against Postgres', () => {
     expect(result.rowCount).toBe(1);
   });
 
-  it('creates the schema-version table, and a second run changes nothing', async () => {
+  it('applies every part this package ships, and a second run changes nothing', async () => {
+    const latest = Object.fromEntries(
+      SCHEMA_PARTS.map((part) => [part.name, part.migrations.length]),
+    );
     const first = await migrate({ url: schema.url });
-    expect(first).toEqual({ applied: [], versions: {} });
-    expect(await tables()).toEqual(['askdare_schema_migrations']);
+    expect(first.versions).toEqual(latest);
+    expect(first.applied).toHaveLength(
+      SCHEMA_PARTS.reduce((sum, part) => sum + part.migrations.length, 0),
+    );
+    const created = await tables();
+    expect(created).toContain('askdare_schema_migrations');
+    expect(created.every((table) => table.startsWith('askdare_'))).toBe(true);
 
     const second = await migrate({ url: schema.url });
-    expect(second).toEqual({ applied: [], versions: {} });
-    expect(await tables()).toEqual(['askdare_schema_migrations']);
+    expect(second).toEqual({ applied: [], versions: latest });
+    expect(await tables()).toEqual(created);
+  });
+
+  it('migrates only the parts named', async () => {
+    const report = await migrate({ url: schema.url, parts: ['knowledge'] });
+    expect(Object.keys(report.versions)).toEqual(['knowledge']);
+    await expect(migrate({ url: schema.url, parts: ['nope'] })).rejects.toThrow(
+      'Unknown schema part "nope"',
+    );
+    await expect(migrate({ url: schema.url, parts: [] })).rejects.toThrow(
+      'Name at least one schema part.',
+    );
   });
 
   it('applies every migration in order, once', async () => {

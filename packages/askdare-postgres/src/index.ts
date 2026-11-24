@@ -4,4 +4,13 @@ export type {
   PostgresPoolClient,
   PostgresQueryResult,
 } from './connection';
-export { type AppliedMigration, type MigrateReport, migrate } from './schema/migrate';
+export {
+  type PgvectorIndexOptions,
+  pgvectorIndex,
+} from './knowledge/pgvector-index';
+export {
+  type AppliedMigration,
+  type MigrateOptions,
+  type MigrateReport,
+  migrate,
+} from './schema/migrate';

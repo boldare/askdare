@@ -21,11 +21,27 @@ export interface TestSchema {
   drop(): Promise<void>;
 }
 
+/**
+ * Installs pgvector in public once, as a site's database has it. Otherwise the knowledge part's
+ * `create extension` would put it in the first test schema, and dropping that schema would take it
+ * away from the tests running alongside.
+ */
+async function ensureVector(admin: Pool): Promise<void> {
+  try {
+    await admin.query('create extension if not exists vector schema public');
+  } catch (error) {
+    // Two test files racing to create it: the loser sees a duplicate, and the extension exists.
+    const found = await admin.query("select 1 from pg_extension where extname = 'vector'");
+    if (found.rowCount !== 1) throw error;
+  }
+}
+
 /** Creates an empty schema, so tests can run in parallel and leave nothing behind. */
 export async function createTestSchema(): Promise<TestSchema> {
   if (!TEST_DATABASE_URL) throw new Error('ASKDARE_POSTGRES_TEST_URL is not set.');
   const name = `askdare_test_${randomBytes(6).toString('hex')}`;
   const admin = new Pool({ connectionString: TEST_DATABASE_URL, max: 1 });
+  await ensureVector(admin);
   await admin.query(`create schema ${name}`);
   const url = new URL(TEST_DATABASE_URL);
   // Extensions such as pgvector live in public, so it stays on the path.
