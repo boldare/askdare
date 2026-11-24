@@ -6,6 +6,7 @@ import { type Bot, createBot } from '../bot/define-bot';
 import type { ModelGateway, StepRecord, ToolCallRecord, TurnRequest } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
 import { defineTool, type Tool } from '../tools/define-tool';
+import { isFailedOutput } from '../tools/outputs';
 import { createOpenAIGateway } from './gateway';
 import { testConversations } from './testing/conversations';
 import {
@@ -15,7 +16,6 @@ import {
   sseStream,
   textTurnEvents,
 } from './testing/msw';
-import { isFailedOutput } from './tools';
 
 const server = setupServer();
 let gateway: ModelGateway;

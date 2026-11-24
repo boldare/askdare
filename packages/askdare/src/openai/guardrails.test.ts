@@ -10,8 +10,8 @@ import type { ProtocolEvent } from '../protocol/events';
 import { decodeEvent, SseParser } from '../protocol/sse';
 import { streamTurn } from '../server/stream-turn';
 import { defineTool, readToolReplies, readToolUi } from '../tools/define-tool';
+import { unwrapToolOutput } from '../tools/outputs';
 import { createOpenAIGateway } from './gateway';
-import { unwrapToolOutput } from './guardrails';
 import { testConversations } from './testing/conversations';
 import {
   type FixtureEvent,

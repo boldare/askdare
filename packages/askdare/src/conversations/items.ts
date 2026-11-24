@@ -1,4 +1,4 @@
-import type { StoredItem } from './port';
+import type { StoredItem, StoredPart } from './port';
 
 /** A new item ID, unique enough within a conversation. */
 export function newItemId(): string {
@@ -27,4 +27,20 @@ export function replayWindow<T extends StoredItem>(items: readonly T[], maxItems
     if (item?.type === 'message' && item.role === 'user') break;
   }
   return items.slice(start);
+}
+
+/** The visitor's turn as stored: the page's description, their text and their attached files. */
+export function visitorItem(message: {
+  readonly text: string;
+  readonly pageContext?: string | undefined;
+  readonly attachments?: readonly { readonly fileId: string; readonly kind: 'image' | 'pdf' }[];
+}): StoredItem {
+  const parts: StoredPart[] = [
+    ...(message.pageContext ? [{ type: 'page_context' as const, text: message.pageContext }] : []),
+    ...(message.text ? [{ type: 'text' as const, text: message.text }] : []),
+    ...(message.attachments ?? []).map(
+      ({ fileId, kind }): StoredPart => ({ type: 'file', fileId, kind }),
+    ),
+  ];
+  return { id: newItemId(), type: 'message', role: 'user', parts };
 }

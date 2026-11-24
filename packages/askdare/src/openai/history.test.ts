@@ -3,8 +3,9 @@ import { setupServer } from 'msw/node';
 import type { ConversationItem } from 'openai/resources/conversations/items';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
+import { historyMessage } from '../conversations/history';
 import { defineTool, readToolReplies, readToolUi } from '../tools/define-tool';
-import { toHistoryMessage } from './history';
+import { fromConversationItem } from './items';
 import { testConversations } from './testing/conversations';
 import { OPENAI_TEST_BASE_URL } from './testing/msw';
 
@@ -503,9 +504,9 @@ describe('listMessages', () => {
   });
 });
 
-describe('toHistoryMessage', () => {
+describe('historyMessage of a conversation item', () => {
   it('merges repeated citation markers as the streamed answer did', () => {
-    const message = toHistoryMessage({
+    const item = fromConversationItem({
       id: 'msg_1',
       type: 'message',
       role: 'assistant',
@@ -521,6 +522,7 @@ describe('toHistoryMessage', () => {
         },
       ],
     } as unknown as ConversationItem);
+    const message = item.type === 'message' ? historyMessage(item) : undefined;
     expect(message?.text).toBe('Plans start at 10 EUR. [1] Use grid[2][2].');
     expect(message?.citations).toEqual([{ index: 1, title: 'pricing.md', url: undefined }]);
   });

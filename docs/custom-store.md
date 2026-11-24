@@ -254,7 +254,10 @@ export const { GET, POST, DELETE } = createChatHandler({
 });
 ```
 
-> **Status in this version.** Only provider stores run: `openaiConversations()`, the default. A store that keeps the items itself (an *item store*, such as `memoryConversations()` or your own database) needs stateless turns, which come later in 0.6. Until then `createChatHandler` refuses one when the route loads. The port and its contract suite are published now, so you can build and test a store against them.
+There are two kinds of store:
+
+- A **provider store** keeps the conversation at the model provider, which records the model's items itself. `openaiConversations()` is one.
+- An **item store** keeps every item itself, such as `memoryConversations()` (tests and local development) or your own database. Each turn reads the conversation, replays it to the model with `store: false`, and appends what it produces: the visitor's message before the first model call, then each model call's items together with the outputs of its calls in one `append`, so a crash never leaves a call without its output. Of two turns started on the same conversation at once, one gets a `VersionConflictError` from `append` and ends with "The previous answer in this conversation is still on its way." Nothing of the conversation stays at OpenAI ([Privacy](privacy.md#with-your-own-conversation-store)); requests are larger but cost the same ([Costs](costs.md#long-conversations)).
 
 ### The interface
 
@@ -284,6 +287,8 @@ interface ConversationStore {
 | `diagnose()` | Optional: checks for `askdare doctor`, such as a reachable database with the right schema. |
 
 Items are provider-neutral: `message` (with `text`, `page_context`, `file` and `refusal` parts), `call`, `call_output`, and `native` for provider state that only the same provider reads back, such as encrypted reasoning. Store each item as given and return it unchanged: never rewrite a stored item, and never log its content.
+
+`context`, `append` and `page` throw for a conversation the store doesn't have; any error will do. When one of them fails, the server asks `info(id)` again, and if the conversation is gone (deleted in another tab, or swept during the turn), it answers the visitor as for an unknown conversation and the chat starts afresh. `VersionConflictError` is the one error the server reads by type.
 
 ### Test it
 

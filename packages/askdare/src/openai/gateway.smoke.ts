@@ -13,6 +13,8 @@ import OpenAI, { NotFoundError } from 'openai';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { createBot } from '../bot/define-bot';
+import { itemHistory } from '../conversations/history';
+import { memoryConversations } from '../conversations/memory';
 import { type HistoryReader, historyReader } from '../conversations/provider-history';
 import type { ProtocolEvent } from '../protocol/events';
 import { defineTool } from '../tools/define-tool';
@@ -159,6 +161,70 @@ describe.skipIf(!apiKey || !model)('OpenAI gateway (live)', () => {
       await conversations.delete(conversationId);
     }
   }, 120_000);
+
+  it('runs a stateless conversation of a few turns from the memory store', async () => {
+    // Item store: every request replays the stored items with store:false (ADR-0024).
+    const store = memoryConversations();
+    const gateway = createOpenAIGateway({ apiKey: apiKey ?? '', maxRetries: 1 });
+    const bot = createBot({
+      id: 'smoke',
+      model: model ?? '',
+      instructions:
+        'Answer in one short sentence. Use lookup_order for any order number the visitor gives.',
+      limits: { maxOutputTokens: 512 },
+      tools: [
+        defineTool({
+          name: 'lookup_order',
+          description: 'Looks up an order by its number.',
+          input: z.object({ orderId: z.string() }),
+          execute: ({ orderId }) => ({ orderId, status: 'shipped', carrier: 'DPD' }),
+        }),
+      ],
+    });
+    const conversationId = await store.create({ botId: bot.id, owner: 'visitor:smoke' });
+    const ask = async (text: string) => {
+      const events: ProtocolEvent[] = [];
+      const result = await gateway.runTurn({
+        bot,
+        conversationId,
+        conversations: store,
+        text,
+        context: { locale: 'en' },
+        safetyIdentifier: 'askdare-smoke',
+        visitorId: `v_${'0f'.repeat(16)}`,
+        messageId: 'msg_smoke',
+        signal: AbortSignal.timeout(60_000),
+        emit: (event) => events.push(event),
+      });
+      const answer = events
+        .flatMap((event) => (event.type === 'text.delta' ? [event.delta] : []))
+        .join('');
+      return { result, answer };
+    };
+    const first = await ask('Hi, my name is Ada. Where is my order 4711?');
+    expect(first.result.reason).toBe('completed');
+    expect(first.result.answerItemId).toMatch(/^itm_/);
+    expect(first.answer.toLowerCase()).toContain('dpd');
+    const second = await ask('Thanks. What was my name again?');
+    expect(second.answer.toLowerCase()).toContain('ada');
+    const third = await ask('And which carrier was it?');
+    expect(third.answer.toLowerCase()).toContain('dpd');
+    const { items } = await store.page(conversationId);
+    // Every call is stored with its output, and the turn's items follow its visitor message.
+    const calls = items.filter((item) => item.type === 'call').map((item) => item.callId);
+    const outputs = items.filter((item) => item.type === 'call_output').map((item) => item.callId);
+    expect(calls.length).toBeGreaterThan(0);
+    expect(outputs).toEqual(calls);
+    const history = await itemHistory(store)(conversationId, {});
+    expect(history.map((message) => message.role)).toEqual([
+      'user',
+      'assistant',
+      'user',
+      'assistant',
+      'user',
+      'assistant',
+    ]);
+  }, 180_000);
 
   it.skipIf(!vectorStoreId)(
     'searches the knowledge base on the last step and cites the source page',

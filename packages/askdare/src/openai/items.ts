@@ -74,7 +74,11 @@ export function toResponseInput(item: StoredItem): ResponseInputItem | undefined
   }
 }
 
-function citationsOf(annotations: readonly unknown[], sources: KnowledgeSources): StoredCitation[] {
+/** The sources a text part's annotations cite, each once, as stored with the text. */
+export function citationsOf(
+  annotations: readonly unknown[],
+  sources: KnowledgeSources,
+): StoredCitation[] {
   const citations: StoredCitation[] = [];
   const seen = new Set<string>();
   for (const annotation of annotations) {

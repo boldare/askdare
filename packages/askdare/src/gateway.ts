@@ -66,7 +66,11 @@ export interface TranscriptionResult {
 export interface TurnRequest {
   readonly bot: Bot;
   readonly conversationId: string;
-  /** Where the conversation lives; the turn appends what the server writes itself to it. */
+  /**
+   * Where the conversation lives. A provider store records the model's items itself, and the turn
+   * appends only what the server writes; an item store gets every item and is replayed statelessly
+   * (ADR-0024).
+   */
   readonly conversations: ConversationStore;
   /** May be empty when the message only carries attachments. */
   readonly text: string;
@@ -96,7 +100,10 @@ export interface TurnRequest {
 export interface TurnResult {
   readonly reason: MessageEndReason;
   readonly usage: TokenUsage;
-  /** The provider's ID of the answer visitors see, for rating it; absent if there was none. */
+  /**
+   * The ID of the answer visitors see, for rating it: the stored item's in an item store, the
+   * provider's otherwise. Absent if there was none.
+   */
   readonly answerItemId?: string | undefined;
   /**
    * Options proposed for the visitor's next message (ADR-0015), as the source gave them; the

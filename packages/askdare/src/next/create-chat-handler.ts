@@ -3,7 +3,6 @@ import { after } from 'next/server.js';
 import { isBasePath } from '../base-path';
 import { type BotHandle, botOf } from '../bot/define-bot';
 import type { ConversationStore } from '../conversations/port';
-import { historyReader } from '../conversations/provider-history';
 import { AskdareError, forLog } from '../errors';
 import type { ModelGateway } from '../gateway';
 import {
@@ -192,12 +191,6 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
   const conversations =
     options.conversations ??
     openaiConversations(options.openaiApiKey === undefined ? {} : { apiKey: options.openaiApiKey });
-  // Stores that keep the items themselves need stateless turns, which this version can't run yet.
-  if (!historyReader(conversations)) {
-    throw new TypeError(
-      `[askdare] The conversation store "${conversations.name}" keeps the conversation's items itself, which needs stateless turns: not supported in this version yet. Leave conversations unset to keep them at OpenAI.`,
-    );
-  }
   const trustProxy = options.limits?.trustProxy ?? 'auto';
   const development = process.env['NODE_ENV'] === 'development';
   const onError = guard('onError', options.onError);

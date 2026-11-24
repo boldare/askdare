@@ -2,6 +2,8 @@ import { SignJWT } from 'jose';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { createBot } from '../bot/define-bot';
+import { newItemId, visitorItem } from '../conversations/items';
+import { memoryConversations } from '../conversations/memory';
 import { ownerOf } from '../conversations/owner';
 import type { ConversationOwner } from '../conversations/port';
 import type { HistoryReader } from '../conversations/provider-history';
@@ -1716,5 +1718,96 @@ describe('attachments', () => {
     expect(response.status).toBe(204);
     expect(conversations.deleted).toContain('conv_f');
     expect(deletedFiles).toEqual(['file-f1', 'file-f2']);
+  });
+});
+
+describe('an item store (stateless turns)', () => {
+  const OWNER = `v_${'5e'.repeat(16)}`;
+  const INTRUDER = `v_${'6f'.repeat(16)}`;
+  const reports: ChatFeedbackReport[] = [];
+  const pending: Promise<unknown>[] = [];
+  let items: RequestHandler;
+
+  beforeAll(() => {
+    items = createRequestHandler({
+      bots: [bot],
+      basePath: '/api/chat',
+      assets,
+      conversations: memoryConversations(),
+      // Writes what a stateless turn writes: the visitor's message, then the answer.
+      gateway: () => ({
+        ...gateway,
+        runTurn: async (request) => {
+          const answer = newItemId();
+          await request.conversations.append(request.conversationId, [
+            visitorItem(request),
+            {
+              id: answer,
+              type: 'message',
+              role: 'assistant',
+              parts: [{ type: 'text', text: 'Hello!' }],
+            },
+          ]);
+          return { ...(await gateway.runTurn(request)), answerItemId: answer };
+        },
+      }),
+      tokens: async () => tokens,
+      limits: createLimits({ store: memoryStore() }),
+      clientIp: () => 'test',
+      onError: () => {},
+      onFeedback: (report) => {
+        reports.push(report);
+      },
+      waitUntil: (work) => pending.push(work),
+    });
+  });
+
+  const auth = async (visitorId: string) => ({
+    authorization: `Bearer ${(await tokens.issueAccess('support', visitorId)).token}`,
+  });
+
+  it('shows the history of an owned conversation, each answer rated by its stored ID', async () => {
+    const turn = await events(
+      await items(post('/messages', { botId: 'support', text: 'Hi' }, await auth(OWNER))),
+    );
+    const created = turn.find((event) => event.type === 'conversation.created');
+    const end = turn.find((event) => event.type === 'message.end');
+    if (created?.type !== 'conversation.created' || end?.type !== 'message.end' || !end.feedback) {
+      throw new Error('no conversation or no feedback handle');
+    }
+    const history = await items(
+      post('/history', { botId: 'support', resumeToken: created.resumeToken }, await auth(OWNER)),
+    );
+    const { messages } = (await history.json()) as {
+      messages: { id: string; role: string; text: string; feedback?: { key: string } }[];
+    };
+    expect(messages.map((message) => [message.role, message.text])).toEqual([
+      ['user', 'Hi'],
+      ['assistant', 'Hello!'],
+    ]);
+    expect(messages[1]?.id).toMatch(/^itm_/);
+    expect(messages[1]?.feedback?.key).toBe(end.feedback.key);
+
+    reports.length = 0;
+    const rating = await items(
+      post(
+        '/feedback',
+        { botId: 'support', feedback: end.feedback.handle, rating: 'up' },
+        await auth(OWNER),
+      ),
+    );
+    await Promise.all(pending);
+    expect(rating.status).toBe(204);
+    expect(reports).toMatchObject([{ rating: 'up', itemId: messages[1]?.id }]);
+
+    // Another visitor's session can't read it, even with the handle.
+    const intruder = await items(
+      post(
+        '/history',
+        { botId: 'support', resumeToken: created.resumeToken },
+        await auth(INTRUDER),
+      ),
+    );
+    expect(intruder.status).toBe(404);
   });
 });

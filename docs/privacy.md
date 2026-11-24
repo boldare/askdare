@@ -9,8 +9,8 @@ This page lists what data the chat handles, where it goes and how long it stays,
 | A handle to the current conversation (resume token) | The visitor's browser: `localStorage` of your app's origin, inside the chat's iframe or, for a [chat inside your page](react.md), in the page itself | Until the visitor starts a new conversation; it works for at most 30 days |
 | Which answers the visitor rated 👍 or 👎 | The same `localStorage`, when ratings are on | The latest hundred ratings; never sent anywhere |
 | A session token | The chat's memory (the iframe's, or the page's for a chat inside your page), never stored | 15 minutes |
-| Messages, answers, page context, tool calls and their results | OpenAI, as a conversation in your project | Until deleted |
-| Model responses | OpenAI | OpenAI's retention for stored responses |
+| Messages, answers, page context, tool calls and their results | OpenAI, as a conversation in your project; or your own [conversation store](#with-your-own-conversation-store) | Until deleted |
+| Model responses | OpenAI, unless you use your own conversation store | OpenAI's retention for stored responses |
 | Uploaded images and PDFs | OpenAI, as files in your project | 30 days, or until the conversation is deleted |
 | Dictations | Sent to OpenAI for transcription | askdare keeps no audio |
 | Messages and answers to check, with [`moderation`](guardrails.md#moderation) | Sent to OpenAI's moderation endpoint | OpenAI's retention; askdare keeps no scores |
@@ -128,9 +128,18 @@ Only for a bot with [`moderation`](guardrails.md#moderation): askdare sends the 
 - **Nothing else deletes it.** When the browser's handle expires after 30 days, or the visitor clears the browser, the conversation stays in your project. askdare keeps no list of conversations, and OpenAI's API has no endpoint to list them, so there is no tool to find, export or delete one visitor's conversation. Take this into account in your retention decision ([Going public](going-public.md#6-privacy-and-transparency)).
 - **Who can read it:** whoever uses the same browser can continue an anonymous conversation and see its history while the handle works. On a shared computer, that includes the next person, unless the visitor started a new conversation. A conversation started while signed in is shown only to that user ([Signed-in visitors](identity.md)).
 
+### With your own conversation store
+
+A [conversation store](custom-store.md#conversation-store) that keeps the items itself, such as `@boldare/askdare-postgres` or `memoryConversations()`, changes what stays at OpenAI ([ADR-0024](adr/0024-conversation-store.md)):
+
+- **Conversations live in your store,** with the bot ID and the owner (the visitor ID, or a key of the signed-in user). Every message, answer, tool call and result goes there, and so does the model's encrypted reasoning, which only OpenAI can read. You decide how long they stay, and the store can delete idle ones.
+- **Nothing of the conversation stays at OpenAI.** Each request sends the whole conversation with `store: false`, and OpenAI keeps no conversation and no response. What OpenAI keeps is its abuse monitoring logs of the requests, up to 30 days, as for any API request; see its [data controls](https://developers.openai.com/api/docs/guides/your-data).
+- **Files still go to OpenAI**: attached images and PDFs are uploaded and referenced as above, and deleted with the conversation. The knowledge base stays in your OpenAI vector store.
+- Answers are rated by their ID in your store; the rating handle carries it encrypted, as before.
+
 ### Responses
 
-askdare stores each model response (`store: true`), because a conversation needs it. A stored response includes the instructions it was given. OpenAI's [data controls](https://developers.openai.com/api/docs/guides/your-data) list 30 days by default for this stored state of the Responses API, and up to 30 days for abuse monitoring logs. Check that page for the current terms.
+With the default store, askdare stores each model response (`store: true`), because a conversation needs it. A stored response includes the instructions it was given. OpenAI's [data controls](https://developers.openai.com/api/docs/guides/your-data) list 30 days by default for this stored state of the Responses API, and up to 30 days for abuse monitoring logs. Check that page for the current terms.
 
 ### Uploaded files
 
@@ -146,7 +155,7 @@ The recording goes to OpenAI's transcription API and nowhere else, and askdare s
 
 ### Zero Data Retention
 
-askdare doesn't use Zero Data Retention. OpenAI grants it only after approval, and its data controls page lists the Conversations API as not eligible. If you need zero retention or data residency, you need the planned own-storage add-on.
+OpenAI grants Zero Data Retention only after approval, and its data controls page lists the Conversations API as not eligible, so the default store doesn't work for a ZDR organisation. With your [own conversation store](#with-your-own-conversation-store), turns run statelessly (`store: false`), which ZDR organisations can use, and the conversations stay in a database you choose, in the region you choose. Attached files are still uploaded to OpenAI.
 
 ## At Cloudflare
 

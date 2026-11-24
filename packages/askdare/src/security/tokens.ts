@@ -17,7 +17,11 @@ const VISITOR_ID = /^v_[0-9a-f]{32}$/;
 /** OpenAI's `conv_…`, or another conversation store's own ID, such as a UUID (ADR-0024). */
 const CONVERSATION_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 const FILE_ID = /^file-[A-Za-z0-9_-]{1,128}$/;
-const ITEM_ID = /^msg_[A-Za-z0-9_-]{1,128}$/;
+/**
+ * The ID of an answer a feedback handle names: OpenAI's `msg_…` in its conversations, an item
+ * store's `itm_…` (`newItemId`), which stateless turns write (ADR-0024).
+ */
+export const ANSWER_ITEM_ID: RegExp = /^(?:msg|itm)_[A-Za-z0-9_-]{1,128}$/;
 /** How long after expiry an access token still identifies its visitor for a renewal. */
 const RENEWAL_GRACE_SECONDS = 60 * 60;
 const encoder = new TextEncoder();
@@ -357,7 +361,7 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
           typeof cid !== 'string' ||
           !CONVERSATION_ID.test(cid) ||
           typeof iid !== 'string' ||
-          !ITEM_ID.test(iid) ||
+          !ANSWER_ITEM_ID.test(iid) ||
           (ids !== undefined && typeof ids !== 'string')
         ) {
           throw new AskdareError('not_found');

@@ -16,13 +16,13 @@ import {
   type Tool,
   ToolUiLimitError,
 } from '../tools/define-tool';
+import { FAILURES, wrapToolOutput } from '../tools/outputs';
 import {
   SUGGEST_REPLIES,
   SUGGEST_REPLIES_DESCRIPTION,
   SUGGEST_REPLIES_OUTPUT,
   SUGGEST_REPLIES_PARAMETERS,
 } from '../tools/suggest-replies';
-import { wrapToolOutput } from './guardrails';
 import type { FunctionCall } from './stream-mapper';
 
 /** Larger tool results are replaced by an error so one call can't flood the context. */
@@ -120,25 +120,6 @@ async function withTimeout<T>(
 }
 
 type CallOutcome = ToolCallRecord['outcome'];
-
-/** What the model gets when a call fails after its arguments were valid. */
-const FAILURES = {
-  timeout: { error: 'The tool timed out.' },
-  failed: { error: 'The tool failed.' },
-  tooLarge: { error: 'The tool returned too much data.' },
-} as const;
-
-const FAILED_OUTPUTS: ReadonlySet<string> = new Set(
-  Object.values(FAILURES).map((failure) => JSON.stringify(failure)),
-);
-
-/**
- * Whether a stored output is one askdare wrote for a call that failed while running. Calls with
- * invalid arguments are recognized by their arguments instead (`readToolReplies`).
- */
-export function isFailedOutput(output: string): boolean {
-  return FAILED_OUTPUTS.has(output);
-}
 
 async function invoke(
   tool: Tool | undefined,

@@ -1,5 +1,5 @@
 import { AskdareError } from '../errors';
-import type { ConversationInfo } from './port';
+import { type ConversationInfo, type ConversationStore, VersionConflictError } from './port';
 
 /** An anonymous visitor's owner string, as `ownerOf` writes it. */
 const VISITOR_OWNER = /^visitor:v_[0-9a-f]{32}$/;
@@ -40,4 +40,39 @@ export function conversationGone(cause?: unknown): AskdareError {
     key: 'error.conversationGone',
     ...(cause === undefined ? {} : { cause }),
   });
+}
+
+/**
+ * How a turn ends when another turn wrote to its conversation first (ADR-0024, decision 3): as
+ * when output checks hold the conversation (ADR-0022), the visitor waits and sends again.
+ */
+export function conversationBusy(cause?: unknown): AskdareError {
+  return new AskdareError('rate_limited', {
+    retryAfterMs: 5_000,
+    message: 'The previous answer in this conversation is still on its way. Please wait a moment.',
+    key: 'error.rate_limited',
+    ...(cause === undefined ? {} : { cause }),
+  });
+}
+
+/**
+ * What a store's failure on a conversation means for the visitor. A conversation deleted between
+ * the ownership check and a later read or append (in another tab, or by a sweep) answers as an
+ * unknown one, so the chat resets instead of failing with `internal_error`. Stores signal a missing
+ * conversation each in their own way (ADR-0024 only says they throw), so this asks `info()` again
+ * rather than trusting the error's type. Any other failure is returned as it was.
+ */
+export async function storeFailure(
+  store: ConversationStore,
+  conversationId: string,
+  error: unknown,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  if (error instanceof VersionConflictError) return error;
+  try {
+    if ((await store.info(conversationId, signal)) === undefined) return conversationGone(error);
+  } catch {
+    // The store can't tell either: the original failure says more.
+  }
+  return error;
 }
