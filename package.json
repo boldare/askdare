@@ -29,13 +29,16 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
     "@biomejs/biome": "^2.6.8",
+    "@boldare/askdare-postgres": "workspace:*",
     "@changesets/cli": "^3.0.3",
     "@commitlint/cli": "^21.2.4",
     "@commitlint/config-conventional": "^21.2.4",
     "@playwright/test": "^1.65.1",
     "@types/node": "^22.20.5",
+    "@types/pg": "^8.23.1",
     "lefthook": "^2.2.2",
     "msw": "^3.0.7",
+    "pg": "^8.23.1",
     "typescript": "^7.0.2",
     "vitest": "^5.1.1"
   }
