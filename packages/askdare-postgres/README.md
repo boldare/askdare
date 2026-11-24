@@ -171,7 +171,13 @@ export const knowledge = pgvectorIndex({
 | `indexId` | `default` | Which index this is. One database holds many bots' indexes, each under its own ID: letters, digits, `.`, `_`, `:` and `-`, at most 128 characters. Give every bot its own, such as the bot's ID: two bots on one ID share their documents. |
 | `url`, `pool` | `DATABASE_URL` | As for `migrate`. One pool per connection string is shared with the conversation store. |
 
-**Syncing.** `askdare kb sync` fills the index from your knowledge folder; the library never reads files at runtime. A sync is incremental: an unchanged file is skipped, a changed file re-embeds only its changed chunks, and a renamed file re-embeds nothing. Each document is written in one transaction, so a search never sees half a document. Syncs of one index wait for each other. A different embedder (another model or size) makes the next sync embed everything again; until it has run, searches fail and `diagnose()` says to sync.
+**Syncing.** `askdare kb sync` fills the index from your knowledge folder; the library never reads files at runtime. Pass the bot's index ID and the embedder's model and size; it reads `DATABASE_URL` and `OPENAI_API_KEY`:
+
+```bash
+npx @boldare/askdare kb sync knowledge --index support --embedding-model <embedding model> --dimensions 1536
+```
+
+A sync is incremental: an unchanged file is skipped, a changed file re-embeds only its changed chunks, and a renamed file re-embeds nothing. Each document is written in one transaction, so a search never sees half a document. Syncs of one index wait for each other. A different embedder (another model or size) makes the next sync embed everything again; until it has run, searches fail and `diagnose()` says to sync.
 
 The first sync of an index creates the index's HNSW index (one per index, for its vector size), so it needs the user that owns the tables, the one that migrates. Later syncs only read and write rows.
 
