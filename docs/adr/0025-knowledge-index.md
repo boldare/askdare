@@ -1,8 +1,8 @@
 # ADR-0025: Retrieval we own: the `KnowledgeIndex` port and the `search_knowledge` tool
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-23
-- **Evidence:** spike S8 ([findings](../../spikes/s8-retrieval/FINDINGS.md)); the Claude side of citations from S6a ([findings](../../spikes/s6-claude/FINDINGS.md), Q4); the Open Responses side from S6b ([findings](../../spikes/s6b-open-responses/FINDINGS.md), section 2).
+- **Evidence:** spike S8 ([findings](../../spikes/s8-retrieval/FINDINGS.md)), and its rerun on the shipped code path in task k2 (below); the Claude side of citations from S6a ([findings](../../spikes/s6-claude/FINDINGS.md), Q4); the Open Responses side from S6b ([findings](../../spikes/s6b-open-responses/FINDINGS.md), section 2).
 
 ## Context
 
@@ -46,8 +46,18 @@ Spike S8 built the alternative on Postgres with pgvector and answered the same 2
 - Answers on the own path cost about a twentieth on a small model, since there is no per-search fee and chunks are smaller. Embedding cost is negligible: about $0.016 for a 1,000-page site.
 - Text extraction becomes our job, and PDFs wait on the own path.
 - Each answer that searches costs two model calls (search, then answer). S8 still measured it faster end to end than `file_search`.
-- Not yet tested live: 12-character source IDs instead of S8's `k1`, and citations of a passage from an earlier turn. Task k2 built the rerun on the shipped code path (`spikes/s8-retrieval/k2/eval.test.ts`: S8's 27 questions plus four multi-turn follow-ups, item store, reload check) and covered both cases with recorded-stream tests; the live run, which needs an OpenAI key, is still to be recorded here before this ADR is accepted.
+- 12-character source IDs and citations of an earlier turn's passage were tested by the rerun (see Evidence).
 - Search quality is proven only on 11 documents in one language.
+
+## Evidence
+
+The rerun of S8's evaluation on the code that ships (task k2, 2026-11-24; `spikes/s8-retrieval/k2/eval.test.ts`, results in `results-k2-*.json`):
+
+- **Setup:** `runTurn` of the OpenAI gateway with `knowledge: { index }`, `pgvectorIndex` (hybrid) on S8's Postgres, `openaiEmbedder` with `text-embedding-3-small` at 1536 dimensions, stateless turns from an item store. 12-character source IDs, rewritten into `[n]` by the stream mapper. S8's 27 questions and grading, plus four multi-turn conversations whose last turn should cite passages from earlier turns, and a reload of each.
+- **gpt-6.1-terra: 31 of 31.** **gpt-6-luna: 29 of 31.** On luna, one question missed its document (the desktop-app question searched once and didn't retrieve the FAQ), and the judge counted a correct "no sales phone number" as not declining because it offered the support address.
+- **Source IDs:** no invented or dropped citations in 62 conversations (no `[k…]` left in any answer, no dropped-citation warning).
+- **Earlier turns:** the follow-ups cited passages found in earlier turns without searching again (luna in 2 of 4, terra in all 4), resolved through `passage()`: 10 lookups, none missed. Every reload showed the same markers as the live answer.
+- **Cost and speed:** about 1,100–1,200 input and 80 output tokens per answer, median 4.2 s end to end with a search, on both models.
 
 ## Alternatives considered
 

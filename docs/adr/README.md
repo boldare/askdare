@@ -28,7 +28,7 @@ Short records of decisions that are expensive to reverse. One decision per file,
 | [0022](0022-guardrails-implementation.md) | How guardrails check messages and stream answers | Accepted |
 | [0023](0023-human-check-and-react-budget.md) | The human check as built, and a 33 KB budget for the React entry | Accepted (budget superseded by ADR-0028) |
 | [0024](0024-conversation-store.md) | Conversations stored outside OpenAI: the `ConversationStore` port | Proposed (spike S7) |
-| [0025](0025-knowledge-index.md) | Retrieval we own: the `KnowledgeIndex` port and the `search_knowledge` tool | Proposed (spike S8) |
+| [0025](0025-knowledge-index.md) | Retrieval we own: the `KnowledgeIndex` port and the `search_knowledge` tool | Accepted (spike S8, rerun in k2) |
 | [0026](0026-provider-path.md) | The provider path: one turn loop, provider profiles, then native adapters | Proposed (spikes S6a, S6b) |
 | [0027](0027-stream-resume.md) | Resuming an answer after a dropped connection | Proposed (spike S7) |
 | [0028](0028-react-budget-34-kb.md) | A 34 KB budget for the React entry, for Markdown fixes | Accepted |
