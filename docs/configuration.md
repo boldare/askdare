@@ -219,8 +219,8 @@ Limits bound what visitors can cost ([ADR-0004](adr/0004-threat-model.md)). Ever
 | `messagesPerIpPerMinute` | `30` | Messages per client IP per minute, across visitors | 1–10,000 |
 | `sessionsPerIpPerHour` | `30` | New sessions per client IP per hour. Renewals by returning visitors count separately. | 1–10,000 |
 | `conversationsPerIpPerHour` | `20` | New conversations per client IP per hour | 1–10,000 |
-| `dailyTokens` | `2_000_000` | Input plus output tokens per UTC day, across all visitors | 1,000 or more |
-| `dailyTokensPerIp` | `200_000` | Input plus output tokens per client IP per UTC day | 100 or more |
+| `dailyTokens` | `2_000_000` | Input plus output tokens per UTC day, across all visitors. Input read from the prompt cache counts as a tenth of a token. | 1,000 or more |
+| `dailyTokensPerIp` | `200_000` | Input plus output tokens per client IP per UTC day, counted like `dailyTokens` | 100 or more |
 | `uploadsPerVisitorPerHour` | `20` | File uploads per visitor per hour | 1–1,000 |
 | `uploadsPerIpPerHour` | `60` | File uploads per client IP per hour, across visitors | 1–10,000 |
 | `uploadsPerDay` | `500` | File uploads per UTC day, across all visitors | 1–1,000,000 |
@@ -231,7 +231,7 @@ Limits bound what visitors can cost ([ADR-0004](adr/0004-threat-model.md)). Ever
 What happens at a limit:
 
 - **Rates** answer `rate_limited`, with a `Retry-After` header. So does `maxTurns`, which asks the visitor to start a new conversation.
-- **Token budgets** answer `budget_exceeded` until midnight UTC. Before each model call, askdare reserves an estimate against `dailyTokens`, `dailyTokensPerIp` and the handler's `globalDailyTokens`. The estimate covers the conversation so far, the new message, `maxOutputTokens`, attached files and file search results. A bot with tools reserves the next call before each tool round, and answers without tools when a budget can't hold it. When the turn ends, the real usage replaces the estimate. A turn that fails or is cut off keeps the estimate charged.
+- **Token budgets** answer `budget_exceeded` until midnight UTC. Before each model call, askdare reserves an estimate against `dailyTokens`, `dailyTokensPerIp` and the handler's `globalDailyTokens`. The estimate covers the conversation so far, the new message, `maxOutputTokens`, attached files and file search results. A bot with tools reserves the next call before each tool round, and answers without tools when a budget can't hold it. When the turn ends, the real usage replaces the estimate: input read from the prompt cache counts as a tenth of a token, close to its price, and everything else, cache writes included, as a whole token. The estimate counts the conversation so far as whole tokens, in case the cache has gone cold. A turn that fails or is cut off keeps the estimate charged.
 - **Speech budgets** reserve `voice.maxSeconds` per dictation, then charge the duration OpenAI reports. When one is spent, dictation answers `budget_exceeded` until midnight UTC.
 - **`maxInputChars`** rejects a longer message with `invalid_input`.
 
@@ -298,7 +298,7 @@ A wrong `basePath`, a duplicate bot ID or an empty `bots` list throws a `TypeErr
 | --- | --- | --- | --- |
 | `store` | `RateLimitStore` | in memory, per process | Counter storage for rate limits and budgets. With more than one instance, use a shared store such as `@boldare/askdare-upstash`. See [Custom rate-limit store](custom-store.md). |
 | `trustProxy` | `'auto' \| 'vercel' \| 'heroku' \| number` | `'auto'` | How to read the client IP behind your proxy. |
-| `globalDailyTokens` | `number` | unlimited | Input plus output tokens per UTC day, across all bots of this handler. Reaching it answers `budget_exceeded`. |
+| `globalDailyTokens` | `number` | unlimited | Input plus output tokens per UTC day, across all bots of this handler, counted like `dailyTokens`. Reaching it answers `budget_exceeded`. |
 | `requireSharedStore` | `boolean` | `false` | `true` makes `createChatHandler` throw as the route loads unless `store` is shared (`shared: true`), instead of only warning in production. For example `process.env.NODE_ENV === 'production'`, so development keeps the in-memory store. Note that `next build` loads the route with `NODE_ENV=production`. |
 
 ### `trustProxy`

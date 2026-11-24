@@ -92,7 +92,10 @@ export interface ChatHandlerLimitsOptions {
   readonly store?: RateLimitStore;
   /** How to read the client IP behind your proxy. Default `auto` (Vercel, otherwise one proxy). */
   readonly trustProxy?: TrustProxy;
-  /** Input plus output tokens per UTC day across all bots. Unlimited by default. */
+  /**
+   * Input plus output tokens per UTC day across all bots, with input read from the prompt cache
+   * counted as a tenth of a token. Unlimited by default.
+   */
   readonly globalDailyTokens?: number;
   /**
    * Refuse to start without a shared `store`, instead of warning in production that limits are
