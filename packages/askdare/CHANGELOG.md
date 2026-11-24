@@ -1,5 +1,14 @@
 # @boldare/askdare
 
+## 0.5.2
+
+### Patch Changes
+
+- 1cbfce3: Token budgets now count input read from the prompt cache as a tenth of a token, close to what it costs. Before, `dailyTokens`, `dailyTokensPerIp` and `globalDailyTokens` charged it at full weight, so a long conversation ran out of the default per-IP budget after about 13 turns while costing cents. Everything else (other input, cache writes, output) still counts as whole tokens, and the estimate reserved before each model call is unchanged. `onUsage` still reports the raw token counts from OpenAI.
+  
+  Budgets now last longer for conversations with a warm cache; the money ceiling in the cost guide still holds when you take 10 × the cached-input price into account. Nothing to change unless you sized your budgets for full-weight cached input.
+- 5dbcb19: Answers no longer show the same citation marker twice in a row: `[1] [1]` and `[1][1]` become `[1]`, while streaming and in reloaded history. A Responses-compatible server that leaves out the optional usage details (`input_tokens_details`, `output_tokens_details`) no longer fails the turn; the missing counts are reported as 0.
+
 ## 0.5.1
 
 ### Patch Changes
