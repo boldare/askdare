@@ -4,7 +4,7 @@ import type { PostgresPool } from '../connection';
 import { migrate } from '../index';
 import { createTestSchema, TEST_DATABASE_URL, type TestSchema } from '../testing/database';
 import { migrateParts } from './migrate';
-import { type SchemaPart, validateParts } from './migration';
+import { latestVersion, type SchemaPart, validateParts } from './migration';
 import { SCHEMA_PARTS } from './parts';
 import { schemaStatus } from './status';
 
@@ -93,14 +93,21 @@ describe.skipIf(!TEST_DATABASE_URL)('migrate against Postgres', () => {
     expect(result.rowCount).toBe(1);
   });
 
-  it('creates the schema-version table, and a second run changes nothing', async () => {
+  it("creates every part's schema, and a second run changes nothing", async () => {
+    const latest = Object.fromEntries(SCHEMA_PARTS.map((part) => [part.name, latestVersion(part)]));
     const first = await migrate({ url: schema.url });
-    expect(first).toEqual({ applied: [], versions: {} });
-    expect(await tables()).toEqual(['askdare_schema_migrations']);
+    expect(first.versions).toEqual(latest);
+    expect(first.applied).toEqual(
+      SCHEMA_PARTS.flatMap((part) =>
+        part.migrations.map(({ version, name }) => ({ part: part.name, version, name })),
+      ),
+    );
+    const created = await tables();
+    expect(created).toContain('askdare_schema_migrations');
 
     const second = await migrate({ url: schema.url });
-    expect(second).toEqual({ applied: [], versions: {} });
-    expect(await tables()).toEqual(['askdare_schema_migrations']);
+    expect(second).toEqual({ applied: [], versions: latest });
+    expect(await tables()).toEqual(created);
   });
 
   it('applies every migration in order, once', async () => {
