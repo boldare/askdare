@@ -37,8 +37,13 @@ export interface StreamTurnOptions {
   readonly pseudonym: (value: string) => Promise<string>;
   /** Issues the client-side handle for a new conversation, and a fresh one after each turn. */
   readonly issueResumeToken: (conversationId: string) => Promise<string>;
-  /** Settles the budget after a completed turn, with real usage and its conversation. */
-  readonly settle?: ((usage: TokenUsage, conversationId: string) => void) | undefined;
+  /**
+   * Settles the budget after a completed turn, with real usage, its conversation and the input of
+   * its last model call (the history the next turn replays).
+   */
+  readonly settle?:
+    | ((usage: TokenUsage, conversationId: string, historyTokens: number) => void)
+    | undefined;
   /**
    * Receives the turn's report once the stream has ended, for the `onUsage` hook. Awaited inside
    * the turn's `waitUntil` work; whatever it throws is caught.
@@ -170,6 +175,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
       let steps = 0;
       let model: string | undefined;
       let usage = ZERO_USAGE;
+      let lastInput: number | undefined;
       const tools: ToolCallRecord[] = [];
       let finishReason: MessageEndReason | undefined;
       let outcome: ChatUsageReport['outcome'] = 'completed';
@@ -232,11 +238,12 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
             steps += 1;
             model = step.model ?? model;
             usage = addUsage(usage, step.usage);
+            lastInput = step.usage.inputTokens;
           },
           onToolCall: (call) => tools.push(call),
         });
         finishReason = result.reason;
-        options.settle?.(result.usage, conversationId);
+        options.settle?.(result.usage, conversationId, lastInput ?? result.usage.inputTokens);
         const proposed = result.replies && normalizeReplies(result.replies);
         const released = holding ? await releaseAnswer(conversationId, proposed ?? []) : 'allowed';
         const replies = released === 'allowed' ? proposed : undefined;

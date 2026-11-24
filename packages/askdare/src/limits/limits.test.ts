@@ -224,6 +224,18 @@ describe('budgets', () => {
     expect(await spent()).toBe(140 + 300 + 110);
   });
 
+  it('estimates the next turn from the last model call of a tool-using turn', async () => {
+    const { limits, spent, advance } = setup();
+    const first = await limits.beginTurn(bot, turn('ip', 'v'));
+    // Three calls, each re-reading the growing turn (60, 80, 100): 240 in all, 100 to replay.
+    await first.settle(usage(240, 30), 'conv_1', 100);
+    expect(await spent()).toBe(270);
+    advance(61_000);
+    // Holding the summed 240 would exceed the per-IP 600.
+    await limits.beginTurn(bot, turn('ip', 'v', 'conv_1'));
+    expect(await spent()).toBe(270 + 100 + 110);
+  });
+
   it('applies a global budget across bots', async () => {
     const { limits } = setup(Date.parse('2026-10-29T12:00:00Z'), 150);
     await limits.beginTurn(bot, turn('a', 'v'));

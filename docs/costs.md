@@ -88,7 +88,7 @@ The budgets are checked before each message. A few things let the real number en
 - **A message can use somewhat more than it reserved.** Before each model call, askdare reserves an estimate of that call against every budget:
 
   ```text
-  one call = input tokens of the previous message in this conversation
+  one call = input tokens of the last model call of the previous message
            + characters of the instructions, message and page context / 2
            + maxOutputTokens
            + tokens of the attached files
