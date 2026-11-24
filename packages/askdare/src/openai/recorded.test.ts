@@ -8,6 +8,7 @@ import type { ModelGateway, StepRecord } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
 import { defineTool } from '../tools/define-tool';
 import { createOpenAIGateway } from './gateway';
+import { testConversations } from './testing/conversations';
 import { OPENAI_TEST_BASE_URL, textTurnEvents } from './testing/msw';
 
 /**
@@ -20,6 +21,7 @@ const fixture = (name: string, extension = 'sse'): string =>
 
 const server = setupServer();
 let gateway: ModelGateway;
+const conversations = testConversations();
 beforeAll(() => {
   server.listen({ onUnhandledFrame: 'error' });
   gateway = createOpenAIGateway({
@@ -37,6 +39,7 @@ function request(events: ProtocolEvent[]) {
   return {
     bot,
     conversationId: 'conv_recorded',
+    conversations: conversations.store,
     text: 'replayed',
     context: { locale: 'en' },
     safetyIdentifier: 'a'.repeat(64),
@@ -69,6 +72,7 @@ async function replay(
   const result = await gateway.runTurn({
     bot,
     conversationId: 'conv_recorded',
+    conversations: conversations.store,
     text: 'replayed',
     context: { locale: 'en' },
     safetyIdentifier: 'a'.repeat(64),
@@ -131,7 +135,7 @@ describe('recorded Responses API streams', () => {
           }),
       ),
     );
-    const messages = await gateway.listMessages('conv_recorded');
+    const messages = await conversations.listMessages('conv_recorded');
     // Compaction keeps every earlier message in the conversation, so history still shows them.
     expect(messages.map((message) => message.role)).toEqual([
       'user',

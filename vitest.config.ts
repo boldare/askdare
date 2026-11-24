@@ -7,11 +7,17 @@ const askdareReact = {
   replacement: fileURLToPath(new URL('./packages/askdare/src/react/headless.ts', import.meta.url)),
 };
 
+// The contract suites, as add-ons import them, without building the package first.
+const askdareTesting = {
+  find: /^@boldare\/askdare\/testing$/,
+  replacement: fileURLToPath(new URL('./packages/askdare/src/testing/index.ts', import.meta.url)),
+};
+
 export default defineConfig({
   test: {
     projects: [
       {
-        resolve: { alias: [askdareReact] },
+        resolve: { alias: [askdareReact, askdareTesting] },
         test: {
           name: 'unit',
           include: ['packages/*/src/**/*.test.{ts,tsx}'],

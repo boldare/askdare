@@ -17,6 +17,20 @@ export type {
   GuardVerdict,
   ModerationConfig,
 } from './bot/guardrails';
+export { memoryConversations } from './conversations/memory';
+export type {
+  ConversationContext,
+  ConversationInfo,
+  ConversationOwner,
+  ConversationPage,
+  ConversationStore,
+  ConversationStoreCheck,
+  PositionedItem,
+  StoredCitation,
+  StoredItem,
+  StoredPart,
+} from './conversations/port';
+export { VersionConflictError } from './conversations/port';
 export type { CounterHit, RateLimitStore } from './limits/store';
 export type { ErrorCode } from './protocol/events';
 export { ERROR_CODES } from './protocol/events';

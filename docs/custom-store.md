@@ -1,4 +1,11 @@
-# Custom rate-limit store
+# Custom stores
+
+askdare keeps two kinds of state outside the request, each behind a port you can implement:
+
+- the [rate-limit store](#rate-limit-store) holds the counters behind rate limits and budgets;
+- the [conversation store](#conversation-store) holds the conversations themselves.
+
+## Rate-limit store
 
 Rate limits and budgets are counters, and the counters live in a store. The default store keeps them in the memory of each server process. That works for one instance. With more instances (Vercel, several Heroku dynos, autoscaling), each one counts on its own, so visitors get a multiple of every limit.
 
@@ -6,7 +13,7 @@ Rate limits and budgets are counters, and the counters live in a store. The defa
 
 `RateLimitStore` and `CounterHit` are public API ([ADR-0006](adr/0006-support-matrix-and-versioning.md)). Import them as types from `@boldare/askdare`.
 
-## The interface
+### The interface
 
 ```ts
 interface RateLimitStore {
@@ -22,7 +29,7 @@ interface CounterHit {
 }
 ```
 
-## `hit(key, windowMs, amount)`
+### `hit(key, windowMs, amount)`
 
 Each key is one counter with a fixed window. `hit` adds `amount` to the counter and returns the result.
 
@@ -42,7 +49,7 @@ The result:
 
 askdare uses refunds to give back a reservation. A turn reserves an estimate against each token budget. When the turn ends, askdare adds the difference between the real usage and the estimate, which is often negative. When a reservation would cross a budget, askdare refunds it from every budget it has already charged.
 
-### Rules
+#### Rules
 
 - **Atomic per key.** Concurrent calls for the same key must all count, and each must see its own result. askdare reserves budgets with `hit` and checks the returned count, so a lost update lets concurrent turns overshoot a budget. Use one atomic operation, such as Redis `INCRBY` or an SQL upsert with `RETURNING`.
 - **Keys are independent.** askdare never needs a change across several keys at once.
@@ -52,7 +59,7 @@ askdare uses refunds to give back a reservation. A turn reserves an estimate aga
 - **Fail loudly.** If `hit` throws or rejects, the request fails with `internal_error` (status 500), and `onError` receives it. Never catch an error and return a zero count: that turns every limit off. The default store does the same when it runs out of room: it drops expired and short-lived counters first, and refuses requests rather than forget what a budget has spent.
 - **One round trip.** Each message calls `hit` several times, mostly one after another. Keep each call to one request to your database.
 
-## The `shared` flag
+### The `shared` flag
 
 `shared` says whether every server instance sees the same counters. It doesn't change how limits are enforced. It only changes two warnings:
 
@@ -63,7 +70,7 @@ With `limits: { requireSharedStore: true }`, `createChatHandler` throws instead,
 
 Set `shared: true` only when every instance reaches the same counters, such as a database they all connect to. A store that keeps counters inside the process is `shared: false`, even if you wrote it.
 
-## Example: PostgreSQL
+### Example: PostgreSQL
 
 A sketch with the `pg` client. One table holds every counter:
 
@@ -115,7 +122,7 @@ Expired rows do no harm: the next `hit` restarts them. To keep the table small, 
 DELETE FROM askdare_counters WHERE reset_at < now();
 ```
 
-## Plug it in
+### Plug it in
 
 Pass the store to `createChatHandler` as `limits.store`:
 
@@ -135,9 +142,9 @@ export const { GET, POST, DELETE } = createChatHandler({
 
 One store serves every bot of the handler. If several apps share one database, give each its own key prefix, as `upstashStore({ prefix })` does. [Configuration](configuration.md#handler-limits) lists the other `limits` options.
 
-## Test it
+### Test it
 
-The built-in stores share a contract test, but the package doesn't export it. Copy the cases into your own tests:
+The built-in stores and `@boldare/askdare-upstash` pass one contract suite, `rateLimitStoreContract` from `@boldare/askdare/testing`. It takes your test runner's `describe`, `it` and `expect`, so it works with Vitest or Jest. It covers the first four cases below; write the others yourself:
 
 | Case | Expected |
 | --- | --- |
@@ -149,75 +156,45 @@ The built-in stores share a contract test, but the package doesn't export it. Co
 | Restarts after the window | Once the window has passed, the next `hit` starts again from its `amount`. |
 | Never loses an update | 50 parallel calls of `hit(k, 60_000, 1)` return each count from 1 to 50 exactly once. |
 
-The first four are the contract that `@boldare/askdare-upstash` and the in-memory store pass. The rest are tested on the in-memory store and the limits that use it. With Vitest:
+With Vitest:
 
 ```ts
 // lib/postgres-store.test.ts
 import { randomUUID } from 'node:crypto';
-import type { RateLimitStore } from '@boldare/askdare';
+import { rateLimitStoreContract } from '@boldare/askdare/testing';
 import { describe, expect, it } from 'vitest';
 import { postgresStore } from './postgres-store';
 
-function rateLimitStoreContract(name: string, create: () => RateLimitStore): void {
-  describe(`${name} (RateLimitStore contract)`, () => {
-    // A fresh prefix per run, so counters from earlier runs don't interfere.
-    const run = randomUUID();
-    const key = (id: string): string => `contract:${run}:${id}`;
-
-    it('adds amounts within a window', async () => {
-      const store = create();
-      expect((await store.hit(key('a'), 60_000, 1)).count).toBe(1);
-      expect((await store.hit(key('a'), 60_000, 5)).count).toBe(6);
-    });
-
-    it('reads without changing when the amount is 0', async () => {
-      const store = create();
-      await store.hit(key('b'), 60_000, 2);
-      expect((await store.hit(key('b'), 60_000, 0)).count).toBe(2);
-      expect((await store.hit(key('b'), 60_000, 0)).count).toBe(2);
-    });
-
-    it('keeps keys independent', async () => {
-      const store = create();
-      await store.hit(key('c'), 60_000, 3);
-      expect((await store.hit(key('d'), 60_000, 1)).count).toBe(1);
-    });
-
-    it('reports the time left in the window', async () => {
-      const store = create();
-      const { resetMs } = await store.hit(key('e'), 60_000, 1);
-      expect(resetMs).toBeGreaterThan(0);
-      expect(resetMs).toBeLessThanOrEqual(60_000);
-    });
-
-    it('refunds negative amounts', async () => {
-      const store = create();
-      await store.hit(key('f'), 60_000, 3);
-      expect((await store.hit(key('f'), 60_000, -1)).count).toBe(2);
-    });
-
-    it('starts a new window once the old one has passed', async () => {
-      const store = create();
-      await store.hit(key('g'), 1_000, 3);
-      await new Promise((resolve) => setTimeout(resolve, 1_100));
-      expect((await store.hit(key('g'), 1_000, 1)).count).toBe(1);
-    });
-
-    it('never loses a concurrent update', async () => {
-      const store = create();
-      const hits = await Promise.all(
-        Array.from({ length: 50 }, () => store.hit(key('h'), 60_000, 1)),
-      );
-      expect(hits.map((hit) => hit.count).sort((a, b) => a - b)).toEqual(
-        Array.from({ length: 50 }, (_, index) => index + 1),
-      );
-    });
-  });
-}
-
-rateLimitStoreContract('postgresStore', () => postgresStore());
+rateLimitStoreContract('postgresStore', () => postgresStore(), { describe, it, expect });
 
 describe('postgresStore', () => {
+  // A fresh prefix per run, so counters from earlier runs don't interfere.
+  const run = randomUUID();
+  const key = (id: string): string => `test:${run}:${id}`;
+
+  it('refunds negative amounts', async () => {
+    const store = postgresStore();
+    await store.hit(key('f'), 60_000, 3);
+    expect((await store.hit(key('f'), 60_000, -1)).count).toBe(2);
+  });
+
+  it('starts a new window once the old one has passed', async () => {
+    const store = postgresStore();
+    await store.hit(key('g'), 1_000, 3);
+    await new Promise((resolve) => setTimeout(resolve, 1_100));
+    expect((await store.hit(key('g'), 1_000, 1)).count).toBe(1);
+  });
+
+  it('never loses a concurrent update', async () => {
+    const store = postgresStore();
+    const hits = await Promise.all(
+      Array.from({ length: 50 }, () => store.hit(key('h'), 60_000, 1)),
+    );
+    expect(hits.map((hit) => hit.count).sort((a, b) => a - b)).toEqual(
+      Array.from({ length: 50 }, (_, index) => index + 1),
+    );
+  });
+
   it('is shared across instances', () => {
     expect(postgresStore().shared).toBe(true);
   });
@@ -226,7 +203,7 @@ describe('postgresStore', () => {
 
 Run these tests against a real database. A mock can't show that concurrent updates are atomic.
 
-## The reference implementation
+### The reference implementation
 
 `@boldare/askdare-upstash` stores the counters in Upstash Redis over HTTPS, so it works on Vercel and Heroku alike. Read it before you write your own.
 
@@ -259,3 +236,74 @@ How it meets the rules:
 - It returns the count and the time to live as `resetMs`.
 - It reads the URL and token on first use, not at import, so `next build` doesn't need them. Without them, the first `hit` throws, and the request fails.
 - `shared` is `true`.
+
+## Conversation store
+
+A conversation store keeps the conversations: who owns each one, and its items (messages, tool calls and their outputs). The default, `openaiConversations()`, keeps them at OpenAI in the [Conversations API](https://developers.openai.com/api/docs/guides/conversation-state), with no database of yours ([ADR-0003](adr/0003-conversation-state.md)). The port is described in [ADR-0024](adr/0024-conversation-store.md).
+
+`ConversationStore`, its item types and `VersionConflictError` are exported from `@boldare/askdare`; `openaiConversations` from `@boldare/askdare/next`. Choose the store on the server, in `createChatHandler` ([Configuration](configuration.md#createchathandler)):
+
+```ts
+// app/api/chat/[...path]/route.ts
+import { createChatHandler, openaiConversations } from '@boldare/askdare/next';
+import { bots } from '@/askdare.config';
+
+export const { GET, POST, DELETE } = createChatHandler({
+  bots,
+  conversations: openaiConversations(), // the default
+});
+```
+
+> **Status in this version.** Only provider stores run: `openaiConversations()`, the default. A store that keeps the items itself (an *item store*, such as `memoryConversations()` or your own database) needs stateless turns, which come later in 0.6. Until then `createChatHandler` refuses one when the route loads. The port and its contract suite are published now, so you can build and test a store against them.
+
+### The interface
+
+```ts
+interface ConversationStore {
+  readonly name: string;
+  create(owner: ConversationOwner, signal?: AbortSignal): Promise<string>;
+  info(id: string, signal?: AbortSignal): Promise<ConversationInfo | undefined>;
+  context(id: string, options?: { maxItems?: number; signal?: AbortSignal }): Promise<ConversationContext>;
+  append(id: string, items: readonly StoredItem[], options?: { expect?: number; signal?: AbortSignal }): Promise<number>;
+  page(id: string, options?: { before?: string; limit?: number; signal?: AbortSignal }): Promise<ConversationPage>;
+  delete(id: string, signal?: AbortSignal): Promise<{ readonly fileIds: readonly string[] }>;
+  sweep?(idleSince: number, limit: number): Promise<readonly { id: string; fileIds: readonly string[] }[]>;
+  diagnose?(signal?: AbortSignal): Promise<readonly ConversationStoreCheck[]>;
+}
+```
+
+| Method | What it does |
+| --- | --- |
+| `create(owner)` | Creates an empty conversation for `{ botId, owner }` and returns its ID: letters, digits, `_` and `-`, at most 128 characters, such as a UUID. `owner` is `visitor:<id>` or `user:<hmac>` ([Signed-in visitors](identity.md)); store it as an opaque string. |
+| `info(id)` | The conversation's `botId`, `owner`, times and `version`, or `undefined` when it doesn't exist. The server compares `botId` and `owner` with the visitor's resume token, and answers a mismatch exactly like a conversation that doesn't exist. |
+| `context(id, { maxItems })` | What the next model call reads. An item store returns `{ kind: 'items', items, version }`: the latest `maxItems` items at most, cut forward to a visitor message so a turn is never split. |
+| `append(id, items, { expect })` | Appends the items in order, all or none, and returns the new version: the number of items stored. With `expect`, it throws `VersionConflictError` unless the conversation is still at that version, so of two concurrent turns only one writes. An item ID that is already stored is refused. |
+| `page(id, { before, limit })` | The newest `limit` items before `before`, oldest first, and a `before` for the next older page, absent at the start. `before` is opaque to the caller. |
+| `delete(id)` | Deletes the conversation and returns the file IDs from its visitor messages, so the server deletes the files too. Deleting an unknown conversation is not an error. |
+| `sweep(idleSince, limit)` | Optional: deletes up to `limit` conversations with no append since `idleSince` (epoch milliseconds) and returns them with their file IDs, for retention. |
+| `diagnose()` | Optional: checks for `askdare doctor`, such as a reachable database with the right schema. |
+
+Items are provider-neutral: `message` (with `text`, `page_context`, `file` and `refusal` parts), `call`, `call_output`, and `native` for provider state that only the same provider reads back, such as encrypted reasoning. Store each item as given and return it unchanged: never rewrite a stored item, and never log its content.
+
+### Test it
+
+`conversationStoreContract` from `@boldare/askdare/testing` is the suite `memoryConversations()` and `openaiConversations()` pass. Every conversation a test creates is deleted when it ends, also when it fails:
+
+```ts
+// lib/conversation-store.test.ts
+import { conversationStoreContract } from '@boldare/askdare/testing';
+import { describe, expect, it } from 'vitest';
+import { myConversations } from './conversation-store';
+
+conversationStoreContract('myConversations', () => myConversations(), { describe, it, expect });
+```
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `kind` | `'items'` | `'provider'` for a store whose model provider keeps the items, which skips the version and replay cases. |
+| `pagingItems`, `pageSize` | 250, 100 | The size of the paging test. |
+| `files` | fake IDs | Two real file IDs, for a store that checks them. |
+| `unknownId` | a random UUID | An ID the store never issued. |
+| `timeoutMs` | the runner's | A per-test timeout for a store behind a network. |
+
+Run it against a real database: concurrent appends and sweeps can't be shown with a mock.

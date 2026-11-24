@@ -8,9 +8,9 @@ import type { ModelGateway, TurnRequest } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
 import { defineTool } from '../tools/define-tool';
 import { createOpenAIGateway } from './gateway';
+import { testConversations } from './testing/conversations';
 import {
   type CapturedRequest,
-  conversationsCreateHandler,
   OPENAI_TEST_BASE_URL,
   responsesHandler,
   sseStream,
@@ -19,6 +19,7 @@ import {
 
 const server = setupServer();
 let gateway: ModelGateway;
+const conversations = testConversations();
 beforeAll(() => {
   server.listen({ onUnhandledFrame: 'error' });
   // The SDK keeps a reference to fetch, so create the client after MSW has patched it.
@@ -46,6 +47,7 @@ function turn(overrides: Partial<TurnRequest> = {}): {
   const request: TurnRequest = {
     bot,
     conversationId: 'conv_123',
+    conversations: conversations.store,
     text: 'Hello',
     context: { locale: 'pl' },
     safetyIdentifier: 'hashed-visitor',
@@ -58,93 +60,19 @@ function turn(overrides: Partial<TurnRequest> = {}): {
   return { request, events };
 }
 
-describe('createConversation', () => {
-  it('creates an OpenAI conversation tagged with bot and visitor', async () => {
-    const capture: CapturedRequest = { body: undefined };
-    server.use(conversationsCreateHandler('conv_new', capture));
-    await expect(gateway.createConversation({ botId: 'support', visitorId: 'v1' })).resolves.toBe(
-      'conv_new',
-    );
-    expect(capture.body).toEqual({ metadata: { askdare_bot: 'support', askdare_visitor: 'v1' } });
-  });
-});
-
-describe('deleteConversation', () => {
-  it('treats an already deleted conversation as success', async () => {
+describe('deleteFiles', () => {
+  it('deletes the files, ignoring ones already gone', async () => {
+    const deleted: string[] = [];
     server.use(
-      http.delete(`${OPENAI_TEST_BASE_URL}/conversations/conv_gone`, () =>
-        HttpResponse.json({ error: { message: 'not found' } }, { status: 404 }),
-      ),
-    );
-    await expect(gateway.deleteConversation('conv_gone')).resolves.toBeUndefined();
-  });
-
-  it('also deletes the files the visitor attached, ignoring ones already gone', async () => {
-    const calls: string[] = [];
-    const userMessage = (id: string, content: unknown[]) => ({
-      id,
-      type: 'message',
-      role: 'user',
-      status: 'completed',
-      content,
-    });
-    server.use(
-      http.get(`${OPENAI_TEST_BASE_URL}/conversations/conv_f/items`, () =>
-        HttpResponse.json({
-          object: 'list',
-          data: [
-            userMessage('msg_2', [
-              { type: 'input_text', text: 'And this?' },
-              { type: 'input_file', file_id: 'file-pdf' },
-            ]),
-            {
-              id: 'msg_x',
-              type: 'message',
-              role: 'assistant',
-              status: 'completed',
-              content: [{ type: 'output_text', text: 'ok', annotations: [], logprobs: [] }],
-            },
-            userMessage('msg_1', [
-              { type: 'input_image', file_id: 'file-img', detail: 'auto' },
-              { type: 'input_image', file_id: 'file-img', detail: 'auto' },
-            ]),
-          ],
-          first_id: 'msg_2',
-          last_id: 'msg_1',
-          has_more: false,
-        }),
-      ),
-      http.delete(`${OPENAI_TEST_BASE_URL}/conversations/conv_f`, () => {
-        calls.push('conversation');
-        return HttpResponse.json({ id: 'conv_f', deleted: true, object: 'conversation.deleted' });
-      }),
       http.delete(`${OPENAI_TEST_BASE_URL}/files/:id`, ({ params }) => {
-        calls.push(String(params['id']));
+        deleted.push(String(params['id']));
         return params['id'] === 'file-pdf'
           ? HttpResponse.json({ error: { message: 'gone' } }, { status: 404 })
           : HttpResponse.json({ id: params['id'], deleted: true, object: 'file' });
       }),
     );
-    await gateway.deleteConversation('conv_f', { withFiles: true });
-    expect(calls[0]).toBe('conversation');
-    expect(calls.slice(1).sort()).toEqual(['file-img', 'file-pdf']);
-  });
-});
-
-describe('deleteConversation when listing fails', () => {
-  it('still deletes the conversation and leaves the files to expire', async () => {
-    let deleted = false;
-    server.use(
-      http.get(`${OPENAI_TEST_BASE_URL}/conversations/conv_x/items`, () =>
-        HttpResponse.json({ error: { message: 'boom' } }, { status: 500 }),
-      ),
-      http.delete(`${OPENAI_TEST_BASE_URL}/conversations/conv_x`, () => {
-        deleted = true;
-        return HttpResponse.json({ id: 'conv_x', deleted: true, object: 'conversation.deleted' });
-      }),
-    );
-    await gateway.deleteConversation('conv_x', { withFiles: true });
-    expect(deleted).toBe(true);
+    await expect(gateway.deleteFiles(['file-img', 'file-pdf'])).resolves.toBeUndefined();
+    expect(deleted.sort()).toEqual(['file-img', 'file-pdf']);
   });
 });
 

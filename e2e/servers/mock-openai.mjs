@@ -6,6 +6,8 @@ const PORT = Number(process.env.MOCK_OPENAI_PORT ?? 4010);
 let nextConversation = 1;
 /** Stored items per conversation, oldest first, as the Conversations API keeps them. */
 const conversations = new Map();
+/** Each conversation's metadata (askdare's bot and owner), which the server checks on resume. */
+const metadata = new Map();
 let nextFile = 1;
 /** Uploaded files that still exist, so tests can check they are deleted. */
 const files = new Set();
@@ -13,6 +15,14 @@ const files = new Set();
 const replies = [];
 /** Every model request's instructions and input (tests run in parallel), to see what reached the model. */
 const requests = [];
+
+/** A conversation as `POST /v1/conversations` and `GET /v1/conversations/{id}` answer it. */
+const conversationObject = (id) => ({
+  id,
+  object: 'conversation',
+  created_at: 0,
+  metadata: metadata.get(id) ?? {},
+});
 
 // Same shape as the live API's answer for a deleted conversation (spike S1, E11).
 const notFound = (response, id) =>
@@ -126,7 +136,14 @@ createServer(async (request, response) => {
   if (request.method === 'POST' && pathname === '/v1/conversations') {
     const id = `conv_${nextConversation++}`;
     conversations.set(id, []);
-    return json(response, 200, { id, object: 'conversation', created_at: 0, metadata: {} });
+    metadata.set(id, (await readJson(request)).metadata ?? {});
+    return json(response, 200, conversationObject(id));
+  }
+  const conversationPath = /^\/v1\/conversations\/([^/]+)$/.exec(pathname);
+  if (request.method === 'GET' && conversationPath) {
+    const id = conversationPath[1];
+    if (!conversations.has(id)) return notFound(response, id);
+    return json(response, 200, conversationObject(id));
   }
   // What `askdare doctor` checks: the model exists, and a short response outside a conversation.
   const modelPath = /^\/v1\/models\/([^/]+)$/.exec(pathname);
@@ -297,6 +314,7 @@ createServer(async (request, response) => {
   if (request.method === 'DELETE' && pathname.startsWith('/v1/conversations/')) {
     const id = pathname.split('/').at(-1);
     conversations.delete(id);
+    metadata.delete(id);
     return json(response, 200, { id, deleted: true, object: 'conversation.deleted' });
   }
   json(response, 404, {

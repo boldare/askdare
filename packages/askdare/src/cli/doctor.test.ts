@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createBot } from '../bot/define-bot';
+import { fakeConversations } from '../conversations/testing/fake-store';
 import type { ModelGateway } from '../gateway';
 import { createLimits } from '../limits/limits';
 import { memoryStore } from '../limits/store';
@@ -45,6 +46,7 @@ function app(overrides: Partial<HandlerConfig> = {}) {
     basePath: '/api/chat',
     assets,
     gateway: () => gateway,
+    conversations: fakeConversations(),
     tokens: () => createTokenService({ secret: SECRET }),
     limits: createLimits({ store: memoryStore() }),
     clientIp: () => 'ip',

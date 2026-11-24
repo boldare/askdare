@@ -53,6 +53,16 @@ describe('token service', () => {
     });
   });
 
+  it('carries the ID of any conversation store, such as a UUID (ADR-0024)', async () => {
+    const tokens = await createTokenService({ secret: SECRET });
+    const conversationId = '0b6f4c8e-3d2a-4f1b-9c7e-5a8d2e1f0c3b';
+    const { token } = await tokens.issueResume('support', { visitorId: VISITOR, conversationId });
+    await expect(tokens.verifyResume(token, 'support')).resolves.toEqual({
+      visitorId: VISITOR,
+      conversationId,
+    });
+  });
+
   it('rejects tokens forged with a key of the attacker’s choice, with or without a key ID', async () => {
     const tokens = await createTokenService({ secret: SECRET });
     for (const kid of ['unknown', '', undefined]) {

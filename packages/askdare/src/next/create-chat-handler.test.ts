@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
 import { defineBot } from '../bot/define-bot';
+import { memoryConversations } from '../conversations/memory';
+import { fakeConversations } from '../conversations/testing/fake-store';
 import { AskdareError } from '../errors';
 import type { ModelGateway, TurnRequest } from '../gateway';
 import { memoryStore } from '../limits/store';
@@ -13,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   /** Work handed to Next's `after()`, so a test can wait for the hooks to finish. */
   pending: [] as Promise<unknown>[],
   createOpenAIGateway: vi.fn(),
+  openaiConversations: vi.fn(),
 }));
 
 vi.mock('next/server.js', () => ({
@@ -23,6 +26,7 @@ vi.mock('next/server.js', () => ({
 
 // The narrowest seam: the factory builds the gateway from the API key; the rest is real.
 vi.mock('../openai/gateway', () => ({ createOpenAIGateway: mocks.createOpenAIGateway }));
+vi.mock('../openai/conversations', () => ({ openaiConversations: mocks.openaiConversations }));
 
 const APP = 'https://app.example.com';
 const BASE = `${APP}/api/chat`;
@@ -37,11 +41,9 @@ const turns: TurnRequest[] = [];
 let runTurn: ModelGateway['runTurn'];
 
 const gateway: ModelGateway = {
-  createConversation: async () => 'conv_1',
-  deleteConversation: async () => {},
+  deleteFiles: async () => {},
   transcribe: async () => ({ text: '', seconds: 0 }),
   uploadFile: async () => 'file-1',
-  listMessages: async () => [],
   diagnose: async () => [],
   runTurn: (request) => runTurn(request),
 };
@@ -113,6 +115,8 @@ beforeEach(() => {
   runTurn = completed;
   mocks.createOpenAIGateway.mockReset();
   mocks.createOpenAIGateway.mockReturnValue(gateway);
+  mocks.openaiConversations.mockReset();
+  mocks.openaiConversations.mockImplementation(() => fakeConversations({ id: 'conv_1' }));
   vi.stubEnv('NODE_ENV', 'test');
   vi.stubEnv('CHAT_SECRET', SECRET);
   vi.stubEnv('CHAT_SECRET_PREVIOUS', '');
@@ -293,6 +297,30 @@ describe('secret resolution', () => {
     const rotated = createChatHandler({ bots: [bot] });
     const accepted = await chat(rotated.POST, token);
     expect(accepted.at(-1)).toMatchObject({ type: 'message.end' });
+  });
+
+  it('keeps conversations at OpenAI by default, with the same key', async () => {
+    createChatHandler({ bots: [bot] });
+    expect(mocks.openaiConversations).toHaveBeenLastCalledWith({});
+    createChatHandler({ bots: [bot], openaiApiKey: 'sk-test-option-key' });
+    expect(mocks.openaiConversations).toHaveBeenLastCalledWith({ apiKey: 'sk-test-option-key' });
+  });
+
+  it('stores conversations in the given store', async () => {
+    const conversations = fakeConversations({ id: 'conv_own' });
+    const { POST } = createChatHandler({ bots: [bot], conversations });
+    await chat(POST, await accessToken(POST));
+    expect(conversations.created).toEqual([
+      { botId: 'support', owner: expect.stringMatching(/^visitor:v_/) },
+    ]);
+    expect(turns.at(-1)?.conversationId).toBe('conv_own');
+    expect(mocks.openaiConversations).not.toHaveBeenCalled();
+  });
+
+  it('refuses an item store until stateless turns land', () => {
+    expect(() => createChatHandler({ bots: [bot], conversations: memoryConversations() })).toThrow(
+      /"memory" keeps the conversation's items itself, which needs stateless turns/,
+    );
   });
 
   it('builds the gateway once, from OPENAI_API_KEY', async () => {

@@ -1,7 +1,7 @@
 import type OpenAI from 'openai';
 import type { ConversationItem } from 'openai/resources/conversations/items';
-import type { ResponseInputItem } from 'openai/resources/responses/responses';
 import type { Bot } from '../bot/define-bot';
+import { guardNoteAction } from '../conversations/guard-notes';
 import type { AnswerVerdict, ModerationRequest, ModerationResult } from '../gateway';
 
 /**
@@ -31,43 +31,8 @@ export async function moderate(
 }
 
 /**
- * The fixed developer notes that settle a checked answer. They carry no content: a replacement
- * is stored after its note as an assistant message, so text derived from model output never
- * gains developer authority.
- */
-const NOTES = {
-  allowed: "[askdare:allowed]\nThe site's checks passed your previous answer.",
-  withheld:
-    "[askdare:withheld]\nThe site's content policy withheld your previous answer: the visitor never saw it. Don't repeat it.",
-  replaced:
-    "[askdare:replaced]\nThe site's content policy replaced your previous answer with the assistant message that follows; the visitor saw only that one.",
-} as const satisfies Record<AnswerVerdict['action'], string>;
-
-/** The note a verdict writes, for tests and for reading history. */
-export const guardNote = (action: AnswerVerdict['action']): string => NOTES[action];
-
-/**
- * Appends what the checks decided after the turn's items, so history shows the answer only once
- * it is settled (ADR-0022) and the next model call reads the note too.
- */
-export async function settleAnswer(
-  client: OpenAI,
-  conversationId: string,
-  verdict: AnswerVerdict,
-  signal?: AbortSignal,
-): Promise<void> {
-  const items: ResponseInputItem[] = [{ role: 'developer', content: NOTES[verdict.action] }];
-  if (verdict.action === 'replaced') items.push({ role: 'assistant', content: verdict.text });
-  await client.conversations.items.create(
-    conversationId,
-    { items },
-    signal ? { signal } : undefined,
-  );
-}
-
-/**
- * A note written by `settleAnswer`. Only developer messages count, which only the server writes;
- * neither a visitor nor the model can forge one.
+ * A note written when output checks settled an answer (ADR-0022). Only developer messages count,
+ * which only the server writes; neither a visitor nor the model can forge one.
  */
 export function readGuardNote(item: ConversationItem): AnswerVerdict['action'] | undefined {
   if (item.type !== 'message' || item.role !== 'developer') return undefined;
@@ -75,10 +40,7 @@ export function readGuardNote(item: ConversationItem): AnswerVerdict['action'] |
   for (const part of item.content) {
     if (part.type === 'input_text') text += part.text;
   }
-  for (const action of ['allowed', 'withheld', 'replaced'] as const) {
-    if (text === NOTES[action]) return action;
-  }
-  return undefined;
+  return guardNoteAction(text);
 }
 
 /** The key that wraps a tool's result as untrusted data (`toolResults: 'untrusted'`). */

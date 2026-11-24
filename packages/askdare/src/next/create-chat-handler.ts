@@ -2,6 +2,8 @@
 import { after } from 'next/server.js';
 import { isBasePath } from '../base-path';
 import { type BotHandle, botOf } from '../bot/define-bot';
+import type { ConversationStore } from '../conversations/port';
+import { historyReader } from '../conversations/provider-history';
 import { AskdareError, forLog } from '../errors';
 import type { ModelGateway } from '../gateway';
 import {
@@ -19,6 +21,7 @@ import {
 import { getClientIp, type TrustProxy } from '../limits/client-ip';
 import { createLimits } from '../limits/limits';
 import { memoryStore, type RateLimitStore } from '../limits/store';
+import { openaiConversations } from '../openai/conversations';
 import { createOpenAIGateway } from '../openai/gateway';
 import type { ErrorCode } from '../protocol/events';
 import { createIdentityVerifier, type IdentityVerifier } from '../security/identity';
@@ -46,6 +49,11 @@ export interface ChatHandlerOptions {
    */
   readonly identitySecret?: string;
   readonly limits?: ChatHandlerLimitsOptions;
+  /**
+   * Where conversations are stored (ADR-0024). Default `openaiConversations()`: OpenAI keeps them,
+   * with no database of yours. Chosen on the server only; the widget never picks it.
+   */
+  readonly conversations?: ConversationStore;
   /**
    * Called for every server error (status 500 and up), for an error that ends a streamed answer,
    * and once a day when a bot-wide or the global budget runs out, for your monitoring, such as Sentry.
@@ -178,6 +186,15 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
       '[askdare] Rate limits are kept in memory, per instance. With more than one instance, use a shared store such as @boldare/askdare-upstash.',
     );
   }
+  const conversations =
+    options.conversations ??
+    openaiConversations(options.openaiApiKey === undefined ? {} : { apiKey: options.openaiApiKey });
+  // Stores that keep the items themselves need stateless turns, which this version can't run yet.
+  if (!historyReader(conversations)) {
+    throw new TypeError(
+      `[askdare] The conversation store "${conversations.name}" keeps the conversation's items itself, which needs stateless turns: not supported in this version yet. Leave conversations unset to keep them at OpenAI.`,
+    );
+  }
   const trustProxy = options.limits?.trustProxy ?? 'auto';
   const development = process.env['NODE_ENV'] === 'development';
   const onError = guard('onError', options.onError);
@@ -226,6 +243,7 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
     // In development the chat says what is wrong with the setup; in production, never.
     explain: development ? explain : undefined,
     sharedLimits: store.shared,
+    conversations,
     gateway: () =>
       (gateway ??= createOpenAIGateway({
         apiKey: required(options.openaiApiKey ?? process.env['OPENAI_API_KEY'], 'OPENAI_API_KEY'),

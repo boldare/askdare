@@ -7,6 +7,7 @@ import type { ModelGateway, StepRecord, ToolCallRecord, TurnRequest } from '../g
 import type { ProtocolEvent } from '../protocol/events';
 import { defineTool, type Tool } from '../tools/define-tool';
 import { createOpenAIGateway } from './gateway';
+import { testConversations } from './testing/conversations';
 import {
   type FixtureEvent,
   OPENAI_TEST_BASE_URL,
@@ -18,6 +19,7 @@ import { isFailedOutput } from './tools';
 
 const server = setupServer();
 let gateway: ModelGateway;
+const conversations = testConversations();
 beforeAll(() => {
   server.listen({ onUnhandledFrame: 'error' });
   gateway = createOpenAIGateway({
@@ -94,6 +96,7 @@ async function run(bot: Bot): Promise<{
   const request: TurnRequest = {
     bot,
     conversationId: 'conv_1',
+    conversations: conversations.store,
     text: 'Hi',
     context: { locale: 'pl' },
     safetyIdentifier: 'h'.repeat(64),

@@ -1,5 +1,7 @@
 import type OpenAI from 'openai';
 import type { ResponseInputContent, ResponseInputItem } from 'openai/resources/responses/responses';
+import { newItemId } from '../conversations/items';
+import type { StoredItem } from '../conversations/port';
 import type { TokenUsage, TurnRequest, TurnResult } from '../gateway';
 import type { MessageEndReason } from '../protocol/events';
 import type { ToolUi } from '../protocol/tool-ui';
@@ -63,17 +65,18 @@ function userInput(request: TurnRequest): ResponseInputItem {
  * Stores the answer to a `suggest_replies` call that came after the answer, without another model
  * call (ADR-0015). Best effort: if it fails, the next turn answers the call before it starts.
  */
-async function storeOutputs(
-  client: OpenAI,
-  request: TurnRequest,
-  items: ResponseInputItem[],
-): Promise<void> {
+async function storeOutputs(request: TurnRequest, items: ResponseInputItem[]): Promise<void> {
+  const outputs = items.flatMap((item): StoredItem[] =>
+    item.type === 'function_call_output' &&
+    typeof item.output === 'string' &&
+    typeof item.call_id === 'string'
+      ? [{ id: newItemId(), type: 'call_output', callId: item.call_id, output: item.output }]
+      : [],
+  );
   try {
-    await client.conversations.items.create(
-      request.conversationId,
-      { items },
-      { signal: request.signal },
-    );
+    await request.conversations.append(request.conversationId, outputs, {
+      signal: request.signal,
+    });
   } catch (error) {
     // The answer is complete: only a visitor who left ends the turn here, not the deadline.
     if (request.signal.aborted && !isDeadline(request.signal)) throw error;
@@ -190,7 +193,7 @@ export async function runTurn(client: OpenAI, request: TurnRequest): Promise<Tur
         outcome.answerItemId ??
         (calls.length === 0 && answered.length > 0 ? outcome.textItemId : undefined);
       if (calls.length === 0 && (answered.length === 0 || answerItemId)) {
-        if (answered.length > 0) await storeOutputs(client, request, answered);
+        if (answered.length > 0) await storeOutputs(request, answered);
         const offered = toolReplies ?? replies;
         return {
           reason: endReason(outcome),

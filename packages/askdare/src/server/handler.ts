@@ -9,11 +9,14 @@ import {
 import { isInside } from '../base-path';
 import type { Bot } from '../bot/define-bot';
 import { checksOutput } from '../bot/guardrails';
+import { conversationGone, ownerOf, ownsConversation } from '../conversations/owner';
+import type { ConversationStore } from '../conversations/port';
+import { historyReader } from '../conversations/provider-history';
 import { AskdareError, type AskdareErrorOptions, forLog, toAskdareError } from '../errors';
 import type { ModelGateway, RepliesReader, TurnAttachment, UiReader } from '../gateway';
 import { canonicalLocale } from '../i18n/texts';
 import type { Limits } from '../limits/limits';
-import type { DoctorReport } from '../protocol/doctor';
+import type { DoctorCheck, DoctorReport } from '../protocol/doctor';
 import type { FeedbackHandle } from '../protocol/events';
 import { HUMAN_TOKEN_MAX_LENGTH } from '../security/human-verifier';
 import type { IdentityFailure, IdentityVerifier, VerifiedIdentity } from '../security/identity';
@@ -47,6 +50,8 @@ export interface HandlerConfig {
   readonly assets: EmbedAssets;
   /** Resolved lazily on first use, so importing the route never needs secrets (e.g. during build). */
   readonly gateway: () => ModelGateway;
+  /** Where conversations live (ADR-0024). */
+  readonly conversations: ConversationStore;
   readonly tokens: () => Promise<TokenService>;
   readonly limits: Limits;
   /** Best-effort client IP for rate-limit keys. */
@@ -93,6 +98,10 @@ const TRANSCRIPTION_TIMEOUT_MS = 60_000;
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 /** Bounds a human check with its provider, such as Cloudflare's siteverify. */
 const HUMAN_CHECK_TIMEOUT_MS = 10_000;
+/** Bounds deleting a conversation, which outlives the request that asked for it. */
+const DELETE_TIMEOUT_MS = 60_000;
+/** Bounds the conversation store's own checks in `askdare doctor`. */
+const DOCTOR_STORE_TIMEOUT_MS = 10_000;
 /**
  * How long one passed human check lets a visitor renew sessions (ADR-0023). After it, or for a
  * session that never passed one, the bot asks again.
@@ -683,14 +692,14 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     const tokens = await config.tokens();
     const { visitorId, identity } = keyed(await tokens.verifyAccess(bearerToken(request), bot.id));
     const key = identity ? await keyOf(bot, identity) : undefined;
-    let conversationId: string | undefined;
+    let grant: ResumeGrant | undefined;
     if (body.resumeToken) {
-      const grant = await tokens.verifyResume(body.resumeToken, bot.id);
+      grant = await tokens.verifyResume(body.resumeToken, bot.id);
       if (!sameOwner(grant, visitorId, key)) {
         throw new AskdareError('not_found');
       }
-      conversationId = grant.conversationId;
     }
+    const conversationId = grant?.conversationId;
     const { attachments, attachmentTokens } = await verifyAttachments(
       bot,
       tokens,
@@ -720,8 +729,13 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       inputChars: text.length + bot.instructions(context).length + (pageContext?.length ?? 0),
       attachmentTokens,
     });
+    const resumed = grant;
     const stream = streamTurn({
       gateway,
+      conversations: config.conversations,
+      owner: ownerOf(visitorId, key),
+      // The store's record must agree with the token (ADR-0024): checked when the turn starts.
+      owns: resumed ? (info) => ownsConversation(info, bot.id, resumed) : undefined,
       pseudonym: (value) => tokens.pseudonym(value),
       bot,
       text,
@@ -913,6 +927,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
   ): Promise<{
     bot: Bot;
     conversationId: string;
+    grant: ResumeGrant;
     tokens: TokenService;
     owner: { readonly visitorId: string; readonly key: string | undefined };
   }> => {
@@ -927,20 +942,29 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       throw new AskdareError('not_found');
     }
     await config.limits.checkConversationAccess(bot, visitorId);
-    return { bot, conversationId: grant.conversationId, tokens, owner: { visitorId, key } };
+    return { bot, conversationId: grant.conversationId, grant, tokens, owner: { visitorId, key } };
   };
 
   const readHistory = async (request: Request): Promise<Response> => {
-    const { bot, conversationId, tokens, owner } = await ownedConversation(request);
-    let messages = await config
-      .gateway()
-      .listMessages(
-        conversationId,
-        request.signal,
-        repliesReader(bot),
-        uiReader(bot),
-        checksOutput(bot.guardrails),
-      );
+    const { bot, conversationId, grant, tokens, owner } = await ownedConversation(request);
+    const read = historyReader(config.conversations);
+    if (!read) {
+      throw new AskdareError('bot_unavailable', {
+        cause: `The conversation store "${config.conversations.name}" can't show history yet.`,
+      });
+    }
+    // Side by side: the store's record decides whether the history read is returned at all.
+    const [info, history] = await Promise.all([
+      config.conversations.info(conversationId, request.signal),
+      read(conversationId, {
+        signal: request.signal,
+        replies: repliesReader(bot),
+        ui: uiReader(bot),
+        checked: checksOutput(bot.guardrails),
+      }),
+    ]);
+    if (!ownsConversation(info, bot.id, grant)) throw conversationGone();
+    let messages = history;
     if (feedbackOn(bot)) {
       messages = await Promise.all(
         messages.map(async (message) =>
@@ -990,10 +1014,15 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
   };
 
   const deleteConversation = async (request: Request): Promise<Response> => {
-    const { bot, conversationId } = await ownedConversation(request);
-    await config
-      .gateway()
-      .deleteConversation(conversationId, { withFiles: bot.attachments !== undefined });
+    const { bot, conversationId, grant } = await ownedConversation(request);
+    const { conversations } = config;
+    // Not the request's signal: a visitor who leaves right after asking still gets it deleted.
+    const signal = AbortSignal.timeout(DELETE_TIMEOUT_MS);
+    // Someone else's conversation is answered like one already deleted, and left alone.
+    if (ownsConversation(await conversations.info(conversationId, signal), bot.id, grant)) {
+      const { fileIds } = await conversations.delete(conversationId, signal);
+      if (fileIds.length > 0) await config.gateway().deleteFiles(fileIds);
+    }
     return new Response(null, { status: 204, headers: NO_STORE });
   };
 
@@ -1015,6 +1044,17 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       } catch {
         // Reported per bot below.
       }
+      // The conversation store is shared by every bot, so its checks run once.
+      const storeChecks: readonly DoctorCheck[] = config.conversations.diagnose
+        ? await config.conversations
+            .diagnose(AbortSignal.timeout(DOCTOR_STORE_TIMEOUT_MS))
+            .catch((): DoctorCheck[] => [
+              {
+                status: 'fail',
+                title: `The conversation store "${config.conversations.name}" could not be checked.`,
+              },
+            ])
+        : [];
       const bots: DoctorReport['bots'][number][] = [];
       for (const bot of config.bots) {
         const checks = gateway
@@ -1033,7 +1073,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
             ];
         bots.push({
           id: bot.id,
-          checks,
+          checks: [...checks, ...storeChecks],
           turnTimeoutMs: bot.limits.turnTimeoutMs,
           disclosure: bot.widget.disclosure !== false,
           ...(bot.embedPath === undefined

@@ -2,21 +2,15 @@ import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import type { ModelGateway } from '../gateway';
 import { defineTool, readToolReplies, readToolUi } from '../tools/define-tool';
-import { createOpenAIGateway } from './gateway';
+import { testConversations } from './testing/conversations';
 import { OPENAI_TEST_BASE_URL } from './testing/msw';
 
 const server = setupServer();
-let gateway: ModelGateway;
+const conversations = testConversations();
 let query: URLSearchParams | undefined;
 beforeAll(() => {
   server.listen({ onUnhandledFrame: 'error' });
-  gateway = createOpenAIGateway({
-    apiKey: 'sk-test',
-    baseURL: OPENAI_TEST_BASE_URL,
-    maxRetries: 0,
-  });
 });
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
@@ -106,7 +100,7 @@ describe('listMessages', () => {
         });
       }),
     );
-    const messages = await gateway.listMessages('conv_1');
+    const messages = await conversations.listMessages('conv_1');
     expect(query?.get('order')).toBe('desc');
     expect(query?.getAll('include[]')).toEqual(['file_search_call.results']);
     expect(messages).toEqual([
@@ -152,7 +146,7 @@ describe('listMessages', () => {
         HttpResponse.json({ object: 'list', data: newestFirst, has_more: false }),
       ),
     );
-    const messages = await gateway.listMessages('conv_1');
+    const messages = await conversations.listMessages('conv_1');
     expect(messages.map((message) => message.text)).toEqual([
       'First?',
       'Answer one.',
@@ -219,7 +213,7 @@ describe('listMessages', () => {
         }),
       ),
     );
-    const [message] = await gateway.listMessages('conv_kb');
+    const [message] = await conversations.listMessages('conv_kb');
     expect(message?.citations).toEqual([
       { index: 1, title: 'Pricing', url: 'https://example.com/pricing' },
       { index: 2, title: 'Notes', url: undefined },
@@ -280,7 +274,7 @@ describe('listMessages', () => {
     it("hands the reader only the latest turn's calls, oldest first, with their outputs", async () => {
       serve('conv_r', TURNS);
       const reader = vi.fn(() => [' Book 9:00 ', 'Book 9:00', 'Book 11:00', 'See www.example.com']);
-      const messages = await gateway.listMessages('conv_r', undefined, reader);
+      const messages = await conversations.listMessages('conv_r', undefined, reader);
       expect(reader).toHaveBeenCalledOnce();
       expect(reader).toHaveBeenCalledWith([
         {
@@ -307,18 +301,20 @@ describe('listMessages', () => {
     it('offers nothing once the visitor has replied, without a reader, or when it fails', async () => {
       serve('conv_replied', [message('msg_5', 'user', 'Thanks'), ...TURNS]);
       const reader = vi.fn(() => ['Yes']);
-      const replied = await gateway.listMessages('conv_replied', undefined, reader);
+      const replied = await conversations.listMessages('conv_replied', undefined, reader);
       expect(reader).not.toHaveBeenCalled();
       expect(replied.some((item) => item.replies)).toBe(false);
 
       serve('conv_r', TURNS);
-      expect((await gateway.listMessages('conv_r')).some((item) => item.replies)).toBe(false);
-      const failing = await gateway.listMessages('conv_r', undefined, () => {
+      expect((await conversations.listMessages('conv_r')).some((item) => item.replies)).toBe(false);
+      const failing = await conversations.listMessages('conv_r', undefined, () => {
         throw new Error('bad arguments');
       });
       expect(failing.at(-1)?.text).toBe('Two slots are free.');
       expect(failing.some((item) => item.replies)).toBe(false);
-      const empty = await gateway.listMessages('conv_r', undefined, () => ['https://x.example']);
+      const empty = await conversations.listMessages('conv_r', undefined, () => [
+        'https://x.example',
+      ]);
       expect(empty.some((item) => item.replies)).toBe(false);
     });
 
@@ -346,7 +342,7 @@ describe('listMessages', () => {
       ];
       const latestReplies = async (conversation: string, items: readonly unknown[]) => {
         serve(conversation, items);
-        return (await gateway.listMessages(conversation, undefined, reader)).at(-1)?.replies;
+        return (await conversations.listMessages(conversation, undefined, reader)).at(-1)?.replies;
       };
 
       it("rebuilds the options from the tool's stored output, as the live turn did", async () => {
@@ -440,7 +436,7 @@ describe('listMessages', () => {
 
       it("gives each answer its turn's cards, on the turn's last answer", async () => {
         serve('conv_ui', ITEMS);
-        const messages = await gateway.listMessages('conv_ui', undefined, undefined, reader);
+        const messages = await conversations.listMessages('conv_ui', undefined, undefined, reader);
         expect(messages.map((item) => [item.id, item.ui])).toEqual([
           ['msg_1', undefined],
           ['msg_2a', undefined],
@@ -460,7 +456,12 @@ describe('listMessages', () => {
           ...many,
           message('msg_8', 'user', 'All'),
         ]);
-        const messages = await gateway.listMessages('conv_many', undefined, undefined, reader);
+        const messages = await conversations.listMessages(
+          'conv_many',
+          undefined,
+          undefined,
+          reader,
+        );
         expect(messages.at(-1)?.ui?.map((item) => item.callId)).toEqual([
           'call_fc_5',
           'call_fc_4',
@@ -469,7 +470,7 @@ describe('listMessages', () => {
         ]);
 
         serve('conv_ui', ITEMS);
-        const failing = await gateway.listMessages('conv_ui', undefined, undefined, () => {
+        const failing = await conversations.listMessages('conv_ui', undefined, undefined, () => {
           throw new Error('bad');
         });
         expect(failing.map((item) => item.text)).toHaveLength(5);
@@ -494,6 +495,8 @@ describe('listMessages', () => {
         ),
       ),
     );
-    await expect(gateway.listMessages('conv_gone')).rejects.toMatchObject({ code: 'not_found' });
+    await expect(conversations.listMessages('conv_gone')).rejects.toMatchObject({
+      code: 'not_found',
+    });
   });
 });

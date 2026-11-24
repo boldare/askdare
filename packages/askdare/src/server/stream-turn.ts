@@ -1,5 +1,8 @@
 import type { Bot, BotContext } from '../bot/define-bot';
 import { checksInput, checksOutput } from '../bot/guardrails';
+import { settledAnswerItems } from '../conversations/guard-notes';
+import { conversationGone } from '../conversations/owner';
+import type { ConversationInfo, ConversationStore } from '../conversations/port';
 import { AskdareError, forLog, TurnAbortedError, toAskdareError } from '../errors';
 import type { ModelGateway, TokenUsage, ToolCallRecord, TurnAttachment } from '../gateway';
 import type {
@@ -18,6 +21,15 @@ import type { ChatUsageReport } from './usage-report';
 
 export interface StreamTurnOptions {
   readonly gateway: ModelGateway;
+  /** Where the conversation lives (ADR-0024). */
+  readonly conversations: ConversationStore;
+  /** Who a new conversation belongs to: `visitor:<id>` or `user:<key>` (ADR-0009). */
+  readonly owner: string;
+  /**
+   * Whether a resumed conversation belongs to this bot and session, from what the store says
+   * about it. A conversation that doesn't, or no longer exists, ends the turn with `not_found`.
+   */
+  readonly owns?: ((info: ConversationInfo | undefined) => boolean) | undefined;
   readonly bot: Bot;
   /** Already validated user message; empty when only files are sent. */
   readonly text: string;
@@ -105,7 +117,7 @@ export function hookError(error: unknown): string {
  * still streams. A blocked answer never reaches the client (ADR-0019).
  */
 export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Array> {
-  const { bot, gateway } = options;
+  const { bot, gateway, conversations } = options;
   const generateId = options.generateId ?? defaultId;
   const reportError = options.onError ?? logError;
   let closed = false;
@@ -186,6 +198,10 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
       const run = async (): Promise<void> => {
         // Nothing has been spent upstream yet.
         if (visitorLeft()) return;
+        if (conversationId !== undefined && options.owns) {
+          const info = await conversations.info(conversationId, deadline);
+          if (!options.owns(info)) throw conversationGone();
+        }
         if (conversationId !== undefined && options.lockConversation) {
           release = await options.lockConversation(conversationId);
         }
@@ -195,8 +211,8 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           : options.text;
         if (visitorLeft()) return;
         if (conversationId === undefined) {
-          conversationId = await gateway.createConversation(
-            { botId: bot.id, visitorId: options.visitorId },
+          conversationId = await conversations.create(
+            { botId: bot.id, owner: options.owner },
             deadline,
           );
           // Before its handle leaves the server, so no other turn can reach it first.
@@ -204,7 +220,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           const resumeToken = await options.issueResumeToken(conversationId);
           if (visitorLeft()) {
             // They never received its handle, so nobody could reach or delete it later.
-            await gateway.deleteConversation(conversationId);
+            await conversations.delete(conversationId);
             return;
           }
           emit({ type: 'conversation.created', resumeToken });
@@ -218,6 +234,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         const result = await gateway.runTurn({
           bot,
           conversationId,
+          conversations,
           text,
           attachments: options.attachments ?? [],
           pageContext: options.pageContext,
@@ -274,21 +291,23 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
       ): Promise<'allowed' | 'replaced'> => {
         const answer = held.flatMap((event) => (event.type === 'text.delta' ? [event.delta] : []));
         const outcome = await guardOutput(answer.join(''), replies, guard);
-        const noted = (
-          gateway.settleAnswer?.(
+        const noted = conversations
+          .append(
             id,
-            outcome.action === 'allow'
-              ? { action: 'allowed' }
-              : outcome.action === 'redact'
-                ? { action: 'replaced', text: outcome.text }
-                : { action: 'withheld' },
-            deadline,
-          ) ?? Promise.resolve()
-        ).catch((error: unknown) => {
-          console.error(
-            `[askdare] could not note the checked answer in the conversation, so a reload hides it: ${hookError(error)}`,
-          );
-        });
+            settledAnswerItems(
+              outcome.action === 'allow'
+                ? { action: 'allowed' }
+                : outcome.action === 'redact'
+                  ? { action: 'replaced', text: outcome.text }
+                  : { action: 'withheld' },
+            ),
+            { signal: deadline },
+          )
+          .catch((error: unknown) => {
+            console.error(
+              `[askdare] could not note the checked answer in the conversation, so a reload hides it: ${hookError(error)}`,
+            );
+          });
         if (outcome.action === 'block') {
           await noted;
           throw blockedError(outcome, 'output');

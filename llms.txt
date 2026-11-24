@@ -37,4 +37,4 @@ Set it up with `npx @boldare/askdare init` and verify it with `npx @boldare/askd
 ## Optional
 
 - [Streaming protocol](docs/protocol.md): the SSE events between the server and the chat, endpoints and status codes
-- [Custom rate-limit store](docs/custom-store.md): writing your own store for limits and budgets
+- [Custom stores](docs/custom-store.md): writing your own store for limits and budgets, or for conversations

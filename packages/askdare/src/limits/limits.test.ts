@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { createBot } from '../bot/define-bot';
+import { rateLimitStoreContract } from '../testing/rate-limit-store-contract';
 import { defineTool } from '../tools/define-tool';
 import { getClientIp, normalizeIp } from './client-ip';
 import { createLimits } from './limits';
 import { memoryStore } from './store';
-import { rateLimitStoreContract } from './store-contract';
 
 const bot = createBot({
   id: 'support',
@@ -63,7 +63,7 @@ const turn = (clientIp: string, visitorId: string, conversationId?: string) => (
   inputChars: 20,
 });
 
-rateLimitStoreContract('memoryStore', () => memoryStore());
+rateLimitStoreContract('memoryStore', () => memoryStore(), { describe, it, expect });
 
 describe('memoryStore', () => {
   it('counts within a window, refunds with negative amounts and resets after the window', async () => {
