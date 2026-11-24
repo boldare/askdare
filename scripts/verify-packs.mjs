@@ -213,7 +213,7 @@ let ok = false;
 try {
   // 1. The packages, packed as npm would publish them (workspace: ranges become versions).
   run('npx', ['-y', PNPM, '--filter', './packages/*', 'run', 'build'], repo);
-  for (const name of ['askdare', 'askdare-upstash', 'askdare-otel']) {
+  for (const name of ['askdare', 'askdare-upstash', 'askdare-otel', 'askdare-postgres']) {
     run('npx', ['-y', PNPM, 'pack', '--pack-destination', work], join(repo, 'packages', name));
   }
   const tarballs = readdirSync(work)
@@ -262,7 +262,7 @@ try {
     [
       '--input-type=module',
       '-e',
-      "const { upstashStore } = await import('@boldare/askdare-upstash'); const { otelUsage } = await import('@boldare/askdare-otel'); if (typeof upstashStore !== 'function' || typeof otelUsage !== 'function') process.exit(1);",
+      "const { upstashStore } = await import('@boldare/askdare-upstash'); const { otelUsage } = await import('@boldare/askdare-otel'); const { migrate } = await import('@boldare/askdare-postgres'); if (typeof upstashStore !== 'function' || typeof otelUsage !== 'function' || typeof migrate !== 'function') process.exit(1);",
     ],
     app,
   );

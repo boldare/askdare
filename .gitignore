@@ -34,6 +34,7 @@ packages/askdare/skills/
 next-env.d.ts
 packages/askdare-upstash/LICENSE
 packages/askdare-otel/LICENSE
+packages/askdare-postgres/LICENSE
 
 # local release tarballs (pnpm pack), never committed
 release/

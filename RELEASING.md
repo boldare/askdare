@@ -16,7 +16,7 @@ For maintainers: everything to check before and after a release, in order. Copy 
 ## 2. Documentation
 
 - [ ] `README.md`: the install command fits the release (`@rc` during release candidates, plain once it is `latest`), and the features, documentation list and packages table cover what is new.
-- [ ] Each package's `README.md` (`packages/askdare`, `packages/askdare-upstash`, `packages/askdare-otel`).
+- [ ] Each package's `README.md` (`packages/askdare`, `packages/askdare-upstash`, `packages/askdare-otel`, `packages/askdare-postgres`).
 - [ ] `docs/`: every new feature has a guide or a section, `configuration.md` lists every new option, `cli.md` every command, `styling.md` every new part, `texts.md` every new text key, and `privacy.md` everything new the chat stores or sends.
 - [ ] Nothing describes features of a later version as available, and nothing says "to come".
 - [ ] `llms.txt` and `skills/askdare/SKILL.md` know the new features.

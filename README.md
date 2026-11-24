@@ -104,6 +104,7 @@ Coming from `@boldare/openai-assistant`? It stopped working when OpenAI shut dow
 | [`@boldare/askdare`](packages/askdare) | The library: bots, the chat route, the embeddable chat and the CLI |
 | [`@boldare/askdare-upstash`](packages/askdare-upstash) | Rate limits and budgets shared by every server instance, in Upstash Redis |
 | [`@boldare/askdare-otel`](packages/askdare-otel) | OpenTelemetry spans for every chat turn, following the GenAI conventions |
+| [`@boldare/askdare-postgres`](packages/askdare-postgres) | Conversations and a knowledge index in your own Postgres (in progress for 0.6) |
 
 ---
 
