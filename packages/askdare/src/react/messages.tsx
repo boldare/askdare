@@ -140,7 +140,12 @@ export type LoadEarlierProps = ComponentProps<'button'>;
  * older messages under it; when the conversation's start is reached and it goes away, the oldest
  * message takes focus.
  */
-export function LoadEarlier({ ref, children, ...props }: LoadEarlierProps): ReactElement | null {
+export function LoadEarlier({
+  ref,
+  children,
+  onClick,
+  ...props
+}: LoadEarlierProps): ReactElement | null {
   const earlier = useChatState((state) => state.earlier);
   const { actions } = useStore();
   const t = useTexts();
@@ -168,9 +173,9 @@ export function LoadEarlier({ ref, children, ...props }: LoadEarlierProps): Reac
     const target = own.current;
     if (!shown || !target || typeof IntersectionObserver !== 'function') return;
     let seen = false;
-    const observer = new IntersectionObserver(([entry]) => {
+    const observer = new IntersectionObserver((entries) => {
       // Not on the first look: a chat opens at the latest message, and loads only on scrolling up.
-      if (entry?.isIntersecting && seen) void actions.loadEarlier();
+      if (entries.at(-1)?.isIntersecting && seen) void actions.loadEarlier();
       seen = true;
     });
     observer.observe(target);
@@ -184,7 +189,10 @@ export function LoadEarlier({ ref, children, ...props }: LoadEarlierProps): Reac
       data-ask-part="load-earlier"
       data-loading={busy ? '' : undefined}
       aria-disabled={busy || undefined}
-      onClick={() => void actions.loadEarlier()}
+      onClick={(event) => {
+        onClick?.(event);
+        void actions.loadEarlier();
+      }}
       {...props}
       ref={merged}
     >

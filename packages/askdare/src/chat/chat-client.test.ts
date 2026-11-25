@@ -417,6 +417,19 @@ describe('conversation history', () => {
     expect(bodies).toEqual([{ botId: 'support', resumeToken: 'resume-1', before: 'cursor-1' }]);
   });
 
+  it('throws for an older page of a conversation that is gone, and forgets it', async () => {
+    const storage = memoryStorage();
+    storage.set('askdare:support:resume', 'resume-1');
+    const { fetch } = routedFetch({
+      'POST /session': session,
+      'POST /history': () => Response.json({ error: { code: 'not_found' } }, { status: 404 }),
+    });
+    await expect(client(fetch, storage).loadHistory(undefined, 'c1')).rejects.toMatchObject({
+      cause: 404,
+    });
+    expect(storage.get('askdare:support:resume')).toBeUndefined();
+  });
+
   it('throws with the status when the server refuses the cursor', async () => {
     const storage = memoryStorage();
     storage.set('askdare:support:resume', 'resume-1');

@@ -255,14 +255,19 @@ function Earlier() {
   const { actions } = Chat.useChat();
   if (earlier === 'none') return null;
   return (
-    <button type="button" disabled={earlier === 'loading'} onClick={() => void actions.loadEarlier()}>
+    // aria-disabled, not disabled: a disabled button would drop keyboard focus while it loads.
+    <button
+      type="button"
+      aria-disabled={earlier === 'loading'}
+      onClick={() => void actions.loadEarlier()}
+    >
       Older messages
     </button>
   );
 }
 ```
 
-`Messages` keeps the visitor's place when older messages go in above, whatever control loaded them. If a page fails to load, `state.error` says so and the same page can be tried again. The server's cursor to older pages stays inside the chat; starting over or signing in drops it.
+`Messages` keeps the visitor's place when older messages go in above, whatever control loaded them. If a page fails to load, `state.error` says so and the same page can be tried again; if the conversation is gone, paging stops and the error says so. The server's cursor to older pages stays inside the chat; starting over or signing in drops it.
 
 ### Hooks
 

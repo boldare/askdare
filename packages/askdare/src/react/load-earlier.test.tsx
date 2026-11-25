@@ -180,17 +180,26 @@ describe('LoadEarlier', () => {
     expect(log.scrollTop).toBe(230);
   });
 
-  it('takes its own label, props and ref, and renders nothing on the server', async () => {
-    chat();
+  it('takes its own label, props and click handler, and renders nothing at first', async () => {
+    const server = chat();
+    const clicked = vi.fn();
     const { container } = render(
       <Root config={testConfig()}>
         <Messages>
-          <LoadEarlier className="older">Older</LoadEarlier>
+          <LoadEarlier className="older" onClick={clicked}>
+            Older
+          </LoadEarlier>
         </Messages>
       </Root>,
     );
     expect(container.querySelector('[data-ask-part="load-earlier"]')).toBeNull();
     const button = await screen.findByRole('button', { name: 'Older' });
     expect(button.className).toBe('older');
+    fireEvent.click(button);
+    expect(clicked).toHaveBeenCalledOnce();
+    // Your handler runs, and the page still loads.
+    await waitFor(() =>
+      expect(server.requests.filter((request) => request.path === '/history')).toHaveLength(2),
+    );
   });
 });

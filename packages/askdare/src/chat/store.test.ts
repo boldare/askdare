@@ -667,6 +667,34 @@ describe('earlier messages', () => {
     expect(storage.get('askdare:support:resume')).toBe('resume-1');
   });
 
+  it('says so and stops paging when the conversation is gone', async () => {
+    const { store, storage } = storeWith({
+      historyPage: (before) =>
+        before ? Response.json({ error: { code: 'not_found' } }, { status: 404 }) : pages(before),
+    });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.loadEarlier();
+    expect(store.getSnapshot()).toMatchObject({
+      earlier: 'none',
+      error: 'This conversation is no longer available.',
+    });
+    // The next message starts a new conversation, as after any 404.
+    expect(storage.get('askdare:support:resume')).toBeUndefined();
+  });
+
+  it("keeps an error the visitor hasn't acted on while a page loads", async () => {
+    const { store } = storeWith({
+      historyPage: pages,
+      answer: () => [{ type: 'error', code: 'rate_limited', message: 'Too many messages.' }],
+    });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.send('Question');
+    await store.actions.loadEarlier();
+    expect(store.getSnapshot()).toMatchObject({ earlier: 'more', error: 'Too many messages.' });
+  });
+
   it('drops a page that arrives after a new conversation started', async () => {
     let release = (): void => {};
     const held = new Promise<void>((resolve) => {

@@ -235,8 +235,9 @@ export class ChatClient {
 
   /**
    * Loads a page of the stored conversation: the latest, or with `before` the page before the one
-   * that gave it. Empty when there is none or it is gone. Throws on other failures, with the
-   * status as `cause` (400: the server refused `before`).
+   * that gave it. The latest is empty when there is no conversation or it is gone. Throws on other
+   * failures, with the status as `cause` (400: the server refused `before`; 404 for an older page:
+   * the conversation is gone, and is forgotten).
    */
   async loadHistory(signal?: AbortSignal, before?: string): Promise<HistoryResponse> {
     const resumeToken = this.#options.storage.get(this.#resumeKey());
@@ -248,10 +249,9 @@ export class ChatClient {
       () => json({ botId: this.#options.botId, resumeToken, before }),
       signal,
     );
-    if (response.status === 404) {
-      this.reset();
-      return { messages: [] };
-    }
+    if (response.status === 404) this.reset();
+    // Gone while older messages show: the caller must say so, not show an empty start.
+    if (response.status === 404 && !before) return { messages: [] };
     if (!response.ok) {
       throw new Error(`History request failed with ${response.status}`, {
         cause: response.status,

@@ -638,7 +638,9 @@ export function createChatStore(
       if (!cursor || state.earlier !== 'more') return;
       const controller = new AbortController();
       older = controller;
-      set({ earlier: 'loading', error: undefined });
+      // Only the chat's own earlier failure goes: an error the visitor hasn't acted on stays.
+      if (state.error === t('error.earlier')) set({ error: undefined });
+      set({ earlier: 'loading' });
       let next: Partial<ChatState>;
       let after: string | undefined = cursor;
       try {
@@ -647,9 +649,17 @@ export function createChatStore(
         // Pages are whole turns, so the older one goes above without merging.
         next = { messages: [...page.messages.map(fromHistory), ...state.messages] };
       } catch (error) {
-        // A cursor the server refused (expired, say) can't work again; a reload brings new ones.
-        if (error instanceof Error && error.cause === 400) after = undefined;
-        next = { error: t('error.earlier') };
+        // A refused cursor (expired, say) can't work again, and a gone conversation has no pages.
+        const cause = error instanceof Error ? error.cause : undefined;
+        if (cause === 400 || cause === 404) after = undefined;
+        next = {
+          error:
+            cause === 404
+              ? t('error.conversationGone')
+              : error instanceof SessionRefused
+                ? error.message
+                : t('error.earlier'),
+        };
       }
       // Stopped, or another conversation shows now: nothing of this one goes in.
       if (older !== controller) return;
