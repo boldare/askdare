@@ -1,5 +1,5 @@
 import { createChatHandler } from '@boldare/askdare/next';
-import { upstashStore } from '@boldare/askdare-upstash';
+import { upstashStore, upstashTurnLog } from '@boldare/askdare-upstash';
 import { bots } from '@/askdare.config';
 
 // Must be a literal in this file; keep it above the bots' turn timeout.
@@ -19,4 +19,7 @@ export const { GET, POST, DELETE } = createChatHandler({
     console.log(`[demo] feedback for ${bot}: ${rating ?? 'taken back'}`),
   // All bots of the demo together, per UTC day.
   limits: { globalDailyTokens: 2_000_000, ...(shared ? { store: upstashStore() } : {}) },
+  // A visitor whose connection drops resumes the answer on any instance; without Upstash, only on
+  // the instance that wrote it, else the chat reloads the conversation.
+  ...(shared ? { resume: { log: upstashTurnLog() } } : {}),
 });

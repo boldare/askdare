@@ -16,6 +16,7 @@ This page lists what data the chat handles, where it goes and how long it stays,
 | Messages and answers to check, with [`moderation`](guardrails.md#moderation) | Sent to OpenAI's moderation endpoint | OpenAI's retention; askdare keeps no scores |
 | A human-check token and what Cloudflare's widget collects, with [`security.humanVerifier`](configuration.md#human-check) | Cloudflare | Cloudflare's retention |
 | IP addresses, visitor IDs, conversation IDs | Rate-limit counters, in your server's memory or in Upstash | IP addresses up to 2 days, conversation IDs up to 30 days |
+| The events of answers being written: answer text, sources, cards, reply options | The [turn log](#turn-log), in your server's memory or in Upstash, so a visitor whose connection drops can resume the answer | The bot's turn timeout plus one minute after the answer's last event: three minutes by default |
 | An HMAC of the visitor or user ID (`safety_identifier`) | Sent to OpenAI with every model request | OpenAI's retention |
 | Error reports | Your server log, or your `onError` function | Your hosting's log retention |
 | Turn reports: token counts, timings, tool names, pseudonyms | Your `onUsage` function, if you set one | Wherever you keep them |
@@ -68,7 +69,7 @@ Whether these entries need the visitor's consent under the rules that apply to y
 
 ## On your server
 
-askdare needs no database. Your app keeps only rate-limit counters.
+askdare needs no database. Your app keeps rate-limit counters, and the answers being written for a few minutes in the [turn log](#turn-log).
 
 ### IP addresses
 
@@ -100,6 +101,17 @@ The server gives every new visitor a random ID: `v_` followed by 32 hexadecimal 
 - **When:** after the answer has streamed, so it never delays the chat. Not for messages your checks blocked, or turns that failed before their answer finished.
 - **When it throws:** the chat carries on, and `onError` receives `internal_error` with the name of the error's class only. askdare never logs the transcript or the hook's error message, since a failed database write can quote the values it was given. That turn's transcript is lost.
 - **askdare keeps none of it.** Where you store transcripts, for how long and who reads them is your decision, and your privacy notice must cover it. A visitor who starts a new conversation deletes it from the conversation store, but askdare calls no hook then, so a stored transcript stays until you delete it: set a retention period, and keep transcripts by conversation and visitor so you can find, export or delete one person's on request.
+
+### Turn log
+
+While an answer streams, its events are also written to a turn log, so a visitor whose connection drops (a tunnel, a network switch) can resume the answer where it stopped ([ADR-0027](adr/0027-stream-resume.md)).
+
+- **What it holds:** the events the visitor's chat receives for one answer: the answer's text as it was sent, its sources, the tools' cards and status, the reply options, the answer's rating handle and the conversation's encrypted resume token. Never the visitor's message, the instructions, page context, tool arguments or results. With output checks, an answer is written only once it passed them, as the visitor sees it.
+- **Under what key:** an HMAC of the bot, the conversation and the answer's ID, with a key derived from `CHAT_SECRET`. The log holds no conversation IDs, visitor IDs or IP addresses.
+- **How long:** each answer's events are kept for the bot's turn timeout (`limits.turnTimeoutMs`, two minutes by default) plus one minute, counted again from every batch written, so for at most three minutes after the answer's last event by default. Then they are gone: the finished answer is in the conversation.
+- **Where:** in the server's memory by default (`memoryTurnLog()`), which forgets everything when the process restarts. With `resume: { log: upstashTurnLog() }`, in your Upstash database, where each answer is a Redis stream that expires on its own.
+- **Who can read it:** only through `POST /resume`, by the visitor or signed-in user who owns the conversation, with its resume token.
+- askdare logs nothing about what the turn log holds. A failure is logged by the error's class name only.
 
 ### `safety_identifier`
 
@@ -205,7 +217,7 @@ The note exists for the transparency duty in Article 50 of the EU AI Act: people
 | --- | --- | --- |
 | OpenAI | Always | Everything under [At OpenAI](#at-openai) |
 | Cloudflare | With `security.humanVerifier: turnstile(…)` | The visitor's browser runs the Turnstile widget; your server sends its token. See [At Cloudflare](#at-cloudflare) |
-| Upstash | With `@boldare/askdare-upstash` | Rate-limit counters, whose names hold IP addresses, visitor IDs and conversation IDs |
+| Upstash | With `@boldare/askdare-upstash` | Rate-limit counters, whose names hold IP addresses, visitor IDs and conversation IDs. With `upstashTurnLog()`, the [turn log](#turn-log): the text of answers being written, for a few minutes |
 | Your hosting provider, such as Vercel or Heroku | Always | Every request to the app, with IP addresses, and the server log |
 | Your error monitoring | With `onError` | Error reports, without message contents or API keys |
 | Your metrics or tracing | With `onUsage`, e.g. through `@boldare/askdare-otel` | Turn reports: counters, timings and pseudonyms, without message text |
@@ -238,5 +250,6 @@ There is no previous-secret setting for `IDENTITY_SECRET`. When you change it:
 - [ ] If you collect ratings, say that visitors' comments reach you and how long you keep them.
 - [ ] If you use `onTranscript`, say that you keep copies of conversations, where, for how long, and how visitors ask for theirs to be deleted.
 - [ ] Mention IP addresses in rate limits and their retention.
+- [ ] If the turn log is in Upstash, say that answers are kept there for a few minutes while they are written.
 - [ ] Decide on a retention policy for conversations.
 - [ ] Keep the AI disclosure, and link this notice from it with `privacyUrl`.

@@ -21,6 +21,9 @@ import { normalizeReplies } from '../protocol/replies';
 import { encodeComment, encodeEvent } from '../protocol/sse';
 import { MAX_TOOL_UI } from '../protocol/tool-ui';
 import { PROTOCOL_HEADER, PROTOCOL_VERSION } from '../protocol/version';
+import { turnKey, turnLogTtl } from '../resume/turn-key';
+import type { TurnEventLog } from '../resume/turn-log';
+import { type TurnLogWriter, turnLogWriter } from '../resume/turn-log-writer';
 import { addUsage, ZERO_USAGE } from '../usage';
 import { blockedError, type GuardOptions, guardInput, guardOutput } from './guardrails';
 import type { ChatTranscriptCitation, ChatTranscriptReport } from './transcript-report';
@@ -97,6 +100,12 @@ export interface StreamTurnOptions {
   readonly reserveCompaction?:
     | ((inputTokens: number) => Promise<{ settle(usage: TokenUsage): Promise<void> } | undefined>)
     | undefined;
+  /**
+   * Where the turn's events go, numbered, so a visitor whose connection dropped can resume the
+   * answer with `POST /resume` (ADR-0027). Logged once the conversation is known, under
+   * `turnKey()`; without a log, frames still carry their sequence numbers.
+   */
+  readonly resume?: TurnEventLog | undefined;
   /** Server-side reporting hook. Receives client-safe errors with internals in `cause`. */
   readonly onError?: ((error: AskdareError) => void) | undefined;
   /** Development only: a setup error's description, shown in the chat instead of the generic one. */
@@ -166,6 +175,17 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           closed = true;
         }
       };
+      // Every event is numbered, for the frame's `id:`, and logged once the turn's key is known,
+      // also after the visitor left: a resumed stream continues from the log (ADR-0027).
+      let seq = 0;
+      let logged: TurnLogWriter | undefined;
+      const unlogged: ProtocolEvent[] = [];
+      const record = (event: ProtocolEvent): number => {
+        seq += 1;
+        if (logged) logged.write(event);
+        else if (options.resume) unlogged.push(event);
+        return seq;
+      };
       // What the visitor saw of the answer, for the transcript; kept only when there is a hook.
       const shown: string[] = [];
       const citations: ChatTranscriptCitation[] = [];
@@ -177,7 +197,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
             citations.push({ index, title, ...(url === undefined ? {} : { url }) });
           }
         }
-        write(encodeEvent(event));
+        write(encodeEvent(event, record(event)));
       };
       const holding = checksOutput(bot.guardrails);
       const held: ProtocolEvent[] = [];
@@ -247,6 +267,30 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
       let compactionDue = false;
       let compaction: ChatCompactionReport | undefined;
 
+      /**
+       * Starts logging the turn's events under the answer's key, with those sent so far. Appends
+       * get a signal of their own: the turn's deadline would refuse the `timeout` error that ends
+       * a turn that ran out of time.
+       */
+      const startLog = async (id: string, messageId: string): Promise<void> => {
+        const log = options.resume;
+        if (!log) return;
+        const ttlMs = turnLogTtl(bot.limits.turnTimeoutMs);
+        const key = await turnKey(options.pseudonym, bot.id, id, messageId);
+        logged = turnLogWriter(log, key, {
+          ttlMs,
+          signal: AbortSignal.timeout(ttlMs),
+          onError: (error) => {
+            // The name only: the error may quote what was being written, which is answer text.
+            const message = `The turn log failed, so this answer can't be resumed: ${hookError(error)}.`;
+            if (options.onError) options.onError(new AskdareError('internal_error', { message }));
+            else console.error(`[askdare] ${message}`);
+          },
+        });
+        for (const event of unlogged) logged.write(event);
+        unlogged.length = 0;
+      };
+
       const guard: GuardOptions = {
         bot,
         gateway,
@@ -257,10 +301,14 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
       const run = async (): Promise<void> => {
         // Nothing has been spent upstream yet.
         if (visitorLeft()) return;
+        // Both up front: the answer's ID names the turn in the log from its first event on.
+        const ackId = generateId();
+        const messageId = generateId();
         if (conversationId !== undefined && options.owns) {
           const info = await conversations.info(conversationId, deadline);
           if (!options.owns(info)) throw conversationGone();
         }
+        if (conversationId !== undefined) await startLog(conversationId, messageId);
         if (conversationId !== undefined && options.lockConversation) {
           release = await options.lockConversation(conversationId);
         }
@@ -278,6 +326,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           // Before its handle leaves the server, so no other turn can reach it first.
           if (options.lockConversation) release = await options.lockConversation(conversationId);
           const resumeToken = await options.issueResumeToken(conversationId);
+          await startLog(conversationId, messageId);
           if (visitorLeft()) {
             // They never received its handle, so nobody could reach or delete it later.
             await conversations.delete(conversationId);
@@ -286,9 +335,10 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           emit({ type: 'conversation.created', resumeToken });
         }
         if (visitorLeft()) return;
-        emit({ type: 'user.ack', messageId: generateId() });
-        const messageId = generateId();
+        emit({ type: 'user.ack', messageId: ackId });
         emit({ type: 'message.start', messageId });
+        // From here the client can resume, so the turn is in the log at once, not 100 ms later.
+        void logged?.flush();
         safetyIdentifier = await options.pseudonym(subject);
         ran = true;
         const result = await gateway.runTurn({
@@ -556,9 +606,13 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         })
         .finally(finish)
         .then(async () => {
-          await release?.().catch((error: unknown) => {
-            console.error(`[askdare] could not release the conversation: ${hookError(error)}`);
-          });
+          await Promise.all([
+            // The rest of the turn's events, for a visitor who resumes; never rejects.
+            logged?.flush(),
+            release?.().catch((error: unknown) => {
+              console.error(`[askdare] could not release the conversation: ${hookError(error)}`);
+            }),
+          ]);
         })
         // The usage report waits for the compaction, which it reports; the transcript doesn't.
         .then(() => Promise.all([compact().then(sendReport), sendTranscript()]));

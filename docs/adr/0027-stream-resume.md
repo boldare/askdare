@@ -29,8 +29,24 @@ S7's Postgres prototype worked (400 deltas written one by one in 186 ms, or in 2
    - The turn is found from the conversation in the visitor's resume token, never from the request alone. A turn of another conversation, or one whose events expired, answers `404` with `not_found`; the client then reloads history.
 4. **The client** retries a stream that ends without `message.end` or `error` through `POST /resume` a few times with backoff, then reloads history. Text already shown stays; resumed events continue it without duplicates, since each carries its sequence number.
 5. **Keeping the turn alive:** a turn has to keep running after its response closes. The handler already has a `waitUntil` option. The implementing task verifies this on Vercel (`after()` or `waitUntil`) and on Heroku; a platform where it fails gets no resume, and the docs say so.
+   - **Long-running Node.js (`next start`, as on Heroku):** verified by `e2e/resume.spec.ts` against the production build (r3a): a stream dropped mid-answer resumes with the rest, and the turn finishes upstream.
+   - **Vercel:** not yet verified. The turn's remaining work (the model call, the log's last flush, the hooks) is handed to Next.js `after()`, which on Vercel extends the function within `maxDuration`. Checking it needs a preview deployment with an Upstash database, which needs the maintainer's approval; until then `docs/deployment.md` says it is unchecked.
 6. **Privacy:** the log holds answer text for minutes. The implementations log nothing about the values they hold, and `docs/privacy.md` names the log and its time to live.
-7. **Public surface** (added to ADR-0006 when this is accepted): the `TurnEventLog` port, `memoryTurnLog`, the `resume` option of `createChatHandler`, `upstashTurnLog`, the turn log suite in `@boldare/askdare/testing`, the `id:` field of event frames and `POST /resume`.
+7. **Public surface** (added to ADR-0006 when this is accepted):
+   - `@boldare/askdare`: the `TurnEventLog` port with `TurnEvent`, and `memoryTurnLog` with `MemoryTurnLog` and `MemoryTurnLogOptions`;
+   - `@boldare/askdare/next`: the `resume: { log }` option of `createChatHandler`, typed `ChatHandlerResumeOptions`;
+   - `@boldare/askdare/testing`: `turnEventLogContract` and `TurnEventLogContractOptions`;
+   - `@boldare/askdare-upstash`: `upstashTurnLog` and `UpstashTurnLogOptions`;
+   - the protocol: the `id:` field of event frames and `POST /resume`.
+
+   The batching writer stays internal: only the server writes turns.
+
+### As built (r3a)
+
+- **The turn's key** in the log is an HMAC (the token service's pseudonym key) of the bot, the conversation and the answer's `messageId`. `POST /resume` derives it from the conversation in the verified resume token and the `messageId` in the body, so another conversation's answer can't be named, and a shared log holds no conversation IDs.
+- **Numbering:** every event of `POST /messages` is numbered from 1, frames included when there is no log. Logging starts once the conversation is known, with any events sent before it, and goes on after the visitor left. The log is flushed right after `message.start` (the first moment a client can resume) and at the end of the turn inside `waitUntil`. With output checks, only what was released to the visitor is logged.
+- **Time to live:** the bot's `turnTimeoutMs` plus one minute, refreshed by each batch.
+- **`POST /resume`** checks same origin, the access token, the resume token's owner, the conversation store's owner and its own rate limit (30 per visitor per minute). It reads from the event before `after`, so a client that already saw `message.end` or `error` gets an empty stream at once. It then waits for live events until the answer ends, the events expire (the stream ends, and the next attempt answers `404`), or the bot's turn timeout passes.
 
 ## Consequences
 

@@ -1,26 +1,5 @@
-// ==== embed.d.ts ====
-
-import { f as EmbedChatConfig, i as ToolRenderers } from "./tool-results.js";
-import { ReactElement, ReactNode } from "react";
-interface EmbedRootProps {
-  /** From `getEmbedConfig()` in the page's Server Component. */
-  readonly config: EmbedChatConfig;
-  /** Your components for tools' results, by tool name, as on `Root` (ADR-0017). */
-  readonly toolRenderers?: ToolRenderers | undefined;
-  readonly children?: ReactNode;
-}
-/**
- * `Root` for your own page in the widget's iframe (ADR-0018): the page at a bot's `embedPath`.
- * It connects to the loader on the embedding site exactly as askdare's own iframe does: the
- * visitor's identity, `askdare('configure')`, the events for `askdare('on')`, hiding and closing
- * the panel, and language switches. Put `DefaultChat`, an ejected copy of it or your own markup
- * inside; `DefaultChat` then owns the document and shows a close button. Render one per page.
- */
-export declare function EmbedRoot({ config, toolRenderers, children }: EmbedRootProps): ReactElement;
-export type { EmbedChatConfig, EmbedRootProps };
-
-// ==== events.d.ts ====
-import { x as KnowledgeIndex } from "./store.js";
+// ==== define-bot.d.ts ====
+import { E as KnowledgeIndex } from "./turn-log.js";
 import { z } from "zod";
 /**
  * Every text the widget shows. The keys are public API (ADR-0008): override any of them with
@@ -590,16 +569,32 @@ interface BotHandle {
  * visitor's message.
  */
 declare function defineBot(definition: BotDefinition): BotHandle;
-/** Stable error codes sent to clients. The accompanying message never contains internals. */
-declare const ERROR_CODES: readonly ["invalid_input", "unauthorized", "session_expired", "not_found", "rate_limited", "budget_exceeded", "bot_unavailable", "content_blocked", "timeout", "upstream_error", "internal_error"];
-type ErrorCode = (typeof ERROR_CODES)[number];
-declare const MESSAGE_END_REASONS: readonly ["completed", "max_steps", "max_output_tokens", "timeout", "content_filter", "aborted"];
-type MessageEndReason = (typeof MESSAGE_END_REASONS)[number];
-export { HumanChallenge as A, ColorScheme as C, ThemeTokens as D, PresetName as E, HumanVerifier as M, ThemeVariants as O, defineTool as S, defineTheme as T, GuardrailOptions as _, BotContext as a, ToolContext as b, BotLimits as c, VoiceConfig as d, WidgetConfig as f, GuardVerdict as g, GuardHook as h, AttachmentConfig as i, HumanCheckContext as j, VisitorIdentity as k, BotSecurity as l, GuardContext as m, ErrorCode as n, BotDefinition as o, defineBot as p, MessageEndReason as r, BotHandle as s, ERROR_CODES as t, KnowledgeConfig as u, ModerationConfig as v, ThemeDefinition as w, ToolDefinition as x, Tool as y };
+export { PresetName as C, HumanChallenge as D, VisitorIdentity as E, HumanCheckContext as O, defineTheme as S, ThemeVariants as T, ToolContext as _, BotLimits as a, ColorScheme as b, VoiceConfig as c, GuardContext as d, GuardHook as f, Tool as g, ModerationConfig as h, BotHandle as i, HumanVerifier as k, WidgetConfig as l, GuardrailOptions as m, BotContext as n, BotSecurity as o, GuardVerdict as p, BotDefinition as r, KnowledgeConfig as s, AttachmentConfig as t, defineBot as u, ToolDefinition as v, ThemeTokens as w, ThemeDefinition as x, defineTool as y };
+
+// ==== embed.d.ts ====
+
+import { f as EmbedChatConfig, i as ToolRenderers } from "./tool-results.js";
+import { ReactElement, ReactNode } from "react";
+interface EmbedRootProps {
+  /** From `getEmbedConfig()` in the page's Server Component. */
+  readonly config: EmbedChatConfig;
+  /** Your components for tools' results, by tool name, as on `Root` (ADR-0017). */
+  readonly toolRenderers?: ToolRenderers | undefined;
+  readonly children?: ReactNode;
+}
+/**
+ * `Root` for your own page in the widget's iframe (ADR-0018): the page at a bot's `embedPath`.
+ * It connects to the loader on the embedding site exactly as askdare's own iframe does: the
+ * visitor's identity, `askdare('configure')`, the events for `askdare('on')`, hiding and closing
+ * the panel, and language switches. Put `DefaultChat`, an ejected copy of it or your own markup
+ * inside; `DefaultChat` then owns the document and shows a close button. Render one per page.
+ */
+export declare function EmbedRoot({ config, toolRenderers, children }: EmbedRootProps): ReactElement;
+export type { EmbedChatConfig, EmbedRootProps };
 
 // ==== index.d.ts ====
-import { A as HumanChallenge, C as ColorScheme, D as ThemeTokens, E as PresetName, M as HumanVerifier, O as ThemeVariants, S as defineTool, T as defineTheme, _ as GuardrailOptions, a as BotContext, b as ToolContext, c as BotLimits, d as VoiceConfig, f as WidgetConfig, g as GuardVerdict, h as GuardHook, i as AttachmentConfig, j as HumanCheckContext, k as VisitorIdentity, l as BotSecurity, m as GuardContext, n as ErrorCode, o as BotDefinition, p as defineBot, s as BotHandle, t as ERROR_CODES, u as KnowledgeConfig, v as ModerationConfig, w as ThemeDefinition, x as ToolDefinition, y as Tool } from "./events.js";
-import { C as SearchOptions, S as Passage, _ as KnowledgeCallOptions, a as ConversationInfo, b as KnowledgeDocument, c as ConversationStore, d as StoredCitation, f as StoredItem, g as Embeddings, h as Embedder, i as ConversationContext, l as ConversationStoreCheck, m as VersionConflictError, n as RateLimitStore, o as ConversationOwner, p as StoredPart, r as CompactionModel, s as ConversationPage, t as CounterHit, u as PositionedItem, v as KnowledgeCheck, w as SyncReport, x as KnowledgeIndex, y as KnowledgeChunk } from "./store.js";
+import { C as PresetName, D as HumanChallenge, E as VisitorIdentity, O as HumanCheckContext, S as defineTheme, T as ThemeVariants, _ as ToolContext, a as BotLimits, b as ColorScheme, c as VoiceConfig, d as GuardContext, f as GuardHook, g as Tool, h as ModerationConfig, i as BotHandle, k as HumanVerifier, l as WidgetConfig, m as GuardrailOptions, n as BotContext, o as BotSecurity, p as GuardVerdict, r as BotDefinition, s as KnowledgeConfig, t as AttachmentConfig, u as defineBot, v as ToolDefinition, w as ThemeTokens, x as ThemeDefinition, y as defineTool } from "./define-bot.js";
+import { C as KnowledgeCheck, D as Passage, E as KnowledgeIndex, O as SearchOptions, S as KnowledgeCallOptions, T as KnowledgeDocument, _ as StoredItem, b as Embedder, c as CompactionModel, d as ConversationOwner, f as ConversationPage, g as StoredCitation, h as PositionedItem, i as ErrorCode, k as SyncReport, l as ConversationContext, m as ConversationStoreCheck, n as TurnEventLog, o as CounterHit, p as ConversationStore, r as ERROR_CODES, s as RateLimitStore, t as TurnEvent, u as ConversationInfo, v as StoredPart, w as KnowledgeChunk, x as Embeddings, y as VersionConflictError } from "./turn-log.js";
 /**
  * Conversations in this process's memory, for tests and local development. Every instance has its
  * own, and a restart forgets them, so production warns. It is an item store: turns replay its
@@ -646,6 +641,30 @@ export declare function openaiEmbedder(options: OpenAIEmbedderOptions): Embedder
  * Bumped on any breaking change to event names or payloads (ADR-0006).
  */
 export declare const PROTOCOL_VERSION: 1;
+interface MemoryTurnLogOptions {
+  /** Clock in ms, for tests. */
+  readonly now?: () => number;
+  /** Upper bound on turns held, running or recently finished. Default 1 000. */
+  readonly maxTurns?: number;
+  /** Upper bound on events held across all turns. Default 100 000. */
+  readonly maxEvents?: number;
+  /** Upper bound on one turn's events; a longer turn can no longer be resumed. Default 5 000. */
+  readonly maxEventsPerTurn?: number;
+}
+/** The in-process log, with what it holds (for tests and diagnostics). */
+interface MemoryTurnLog extends TurnEventLog {
+  /** Turns held, including those that grew past `maxEventsPerTurn`. */
+  readonly turns: number;
+  /** Events held across all turns. */
+  readonly events: number;
+}
+/**
+ * Per-process turn events (ADR-0027), the default log. A reconnect resumes only when it reaches
+ * the same instance. Bounded in time (each turn's time to live, with expired turns dropped every
+ * minute), in turns and in events: when full, it drops the turns written least recently, whose
+ * visitors then reload history instead of resuming.
+ */
+export declare function memoryTurnLog(options?: MemoryTurnLogOptions): MemoryTurnLog;
 interface TurnstileOptions {
   /** The widget's site key from the Cloudflare dashboard. Public: browsers receive it. */
   readonly siteKey: string;
@@ -672,11 +691,11 @@ interface TurnstileOptions {
  * ```
  */
 export declare function turnstile(options: TurnstileOptions): HumanVerifier;
-export { type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type CompactionModel, type ConversationContext, type ConversationInfo, type ConversationOwner, type ConversationPage, type ConversationStore, type ConversationStoreCheck, type CounterHit, ERROR_CODES, type Embedder, type Embeddings, type ErrorCode, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type HumanChallenge, type HumanCheckContext, type HumanVerifier, type KnowledgeCallOptions, type KnowledgeCheck, type KnowledgeChunk, type KnowledgeConfig, type KnowledgeDocument, type KnowledgeIndex, type ModerationConfig, type OpenAIEmbedderOptions, type Passage, type PositionedItem, type PresetName, type RateLimitStore, type SearchOptions, type StoredCitation, type StoredItem, type StoredPart, type SyncReport, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type TurnstileOptions, VersionConflictError, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
+export { type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type CompactionModel, type ConversationContext, type ConversationInfo, type ConversationOwner, type ConversationPage, type ConversationStore, type ConversationStoreCheck, type CounterHit, ERROR_CODES, type Embedder, type Embeddings, type ErrorCode, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type HumanChallenge, type HumanCheckContext, type HumanVerifier, type KnowledgeCallOptions, type KnowledgeCheck, type KnowledgeChunk, type KnowledgeConfig, type KnowledgeDocument, type KnowledgeIndex, type MemoryTurnLog, type MemoryTurnLogOptions, type ModerationConfig, type OpenAIEmbedderOptions, type Passage, type PositionedItem, type PresetName, type RateLimitStore, type SearchOptions, type StoredCitation, type StoredItem, type StoredPart, type SyncReport, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type TurnEvent, type TurnEventLog, type TurnstileOptions, VersionConflictError, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
 
 // ==== next.d.ts ====
-import { E as PresetName, O as ThemeVariants, k as VisitorIdentity, n as ErrorCode, r as MessageEndReason, s as BotHandle } from "./events.js";
-import { c as ConversationStore, n as RateLimitStore } from "./store.js";
+import { C as PresetName, E as VisitorIdentity, T as ThemeVariants, i as BotHandle } from "./define-bot.js";
+import { a as MessageEndReason, i as ErrorCode, n as TurnEventLog, p as ConversationStore, s as RateLimitStore } from "./turn-log.js";
 /** What a visitor may attach, as the bot allows it. */
 interface ChatAttachments {
   readonly images: boolean;
@@ -945,6 +964,11 @@ interface ChatHandlerOptions {
    */
   readonly conversations?: ConversationStore;
   /**
+   * Resuming an answer after a dropped connection (ADR-0027): each turn writes its events to a
+   * log for a few minutes, and a client that lost its stream continues it from there.
+   */
+  readonly resume?: ChatHandlerResumeOptions;
+  /**
    * Called for every server error (status 500 and up), for an error that ends a streamed answer,
    * once a day when a bot-wide or the global budget runs out, and when `onTranscript` throws, for
    * your monitoring, such as Sentry. Defaults to one `console.error` line with a pointer to the
@@ -1008,6 +1032,15 @@ interface ChatHandlerLimitsOptions {
    * keeps the in-memory store. Default `false`.
    */
   readonly requireSharedStore?: boolean;
+}
+interface ChatHandlerResumeOptions {
+  /**
+   * Where turns keep their events, for the turn timeout plus a minute after the last one. Defaults
+   * to `memoryTurnLog()`, per instance: a reconnect that reaches another instance reloads the
+   * history instead. With several instances, use a shared log such as `upstashTurnLog()` from
+   * `@boldare/askdare-upstash`.
+   */
+  readonly log?: TurnEventLog;
 }
 type RouteHandler = (request: Request) => Promise<Response>;
 interface ChatHandlers {
@@ -1095,7 +1128,7 @@ export declare function embedPageHeaders(options: {
   readonly bots: readonly BotHandle[];
   readonly bot: string;
 }): EmbedPageHeader[];
-export type { ChatAttachments, ChatCompactionReport, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlers, ChatHumanCheck, ChatStyles, ChatTokenUsage, ChatToolCallReport, ChatTranscriptCitation, ChatTranscriptReport, ChatUsageReport, ChatWidget, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, OpenAIConversationsOptions, RouteHandler, TrustProxy };
+export type { ChatAttachments, ChatCompactionReport, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlerResumeOptions, ChatHandlers, ChatHumanCheck, ChatStyles, ChatTokenUsage, ChatToolCallReport, ChatTranscriptCitation, ChatTranscriptReport, ChatUsageReport, ChatWidget, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, OpenAIConversationsOptions, RouteHandler, TrustProxy };
 
 // ==== react.d.ts ====
 
@@ -1622,7 +1655,284 @@ interface RootProps {
 export declare function Root({ config, identity, context, greeting, starters, onEvent, toolRenderers, children }: RootProps): ReactElement;
 export { type AttachButtonProps, type Chat, type ChatActions, type ChatAttachments, type ChatBot, type ChatConfig, type ChatEvent, type ChatEventListener, type ChatEventType, type ChatHumanCheck, type ChatMessage, type ChatPhase, type ChatState, type ChatStyles, type ChatWidget, type Citation, type CitationsProps, type ComposerProps, type DefaultChatComponents, type DefaultChatProps, type DictateButtonProps, type Dictation, type DisclosureProps, type ErrorMessageProps, type FeedbackButtonProps, type FilesProps, type Frame, type HumanCheckProps, type InputProps, Link, type LinkProps, type MarkdownProps, type MessageFilesProps, type MessageListProps, type MessageProps, type MessageTextProps, type MessagesProps, type PanelProps, type PendingFile, type QuickRepliesProps, type Rating, type RecorderProps, type RootProps, type SendProps, type SentFile, type StatusProps, type ThemeProps, type ToolRendererProps, type ToolRenderers, ToolResults, type ToolResultsProps, type ToolUi, type Translate };
 
-// ==== store.d.ts ====
+// ==== testing.d.ts ====
+import { E as KnowledgeIndex, T as KnowledgeDocument, b as Embedder, n as TurnEventLog, p as ConversationStore, s as RateLimitStore } from "./turn-log.js";
+/**
+ * The parts of a test runner the contract suites use. Vitest's and Jest's `describe`, `it` and
+ * `expect` fit, so `@boldare/askdare/testing` depends on no runner.
+ */
+interface ContractRunner {
+  readonly describe: (name: string, body: () => void) => void;
+  readonly it: (name: string, body: () => Promise<void>, timeout?: number) => void;
+  readonly expect: ContractExpect;
+}
+/** The assertions the contract suites make. */
+type ContractExpect = (actual: unknown) => {
+  toBe(expected: unknown): void;
+  toEqual(expected: unknown): void;
+  toBeInstanceOf(expected: abstract new (...args: never[]) => unknown): void;
+  toHaveLength(length: number): void;
+  toBeGreaterThan(expected: number): void;
+};
+interface KnowledgeIndexContractOptions extends ContractRunner {
+  /** Of the fake embedder; set it for an index with fixed dimensions. Default 64. */
+  readonly dimensions?: number | undefined;
+}
+/**
+ * Opens the index `indexId` with `embedder`. Two calls with the same index ID must see the same
+ * data, as two server instances on one database do. Each test uses fresh index IDs and clears them.
+ */
+type OpenKnowledgeIndex = (options: {
+  readonly indexId: string;
+  readonly embedder: Embedder;
+}) => KnowledgeIndex | Promise<KnowledgeIndex>;
+/**
+ * Behaviour every `KnowledgeIndex` must have (ADR-0025), with a deterministic fake embedder. Used
+ * by the in-memory index and by adapters such as `pgvectorIndex`, so they stay interchangeable.
+ * Runner-agnostic: pass your test runner's `describe`, `it` and `expect`:
+ *
+ * ```ts
+ * import { knowledgeIndexContract } from '@boldare/askdare/testing';
+ * import { describe, expect, it } from 'vitest';
+ *
+ * knowledgeIndexContract('my index', ({ indexId, embedder }) => myIndex({ indexId, embedder }), {
+ *   describe,
+ *   it,
+ *   expect,
+ * });
+ * ```
+ */
+export declare function knowledgeIndexContract(name: string, openIndex: OpenKnowledgeIndex, options: KnowledgeIndexContractOptions): void;
+interface ChunkOptions {
+  readonly maxTokens?: number;
+}
+interface KnowledgeDocumentInput {
+  /** POSIX path relative to the knowledge folder. */
+  readonly path: string;
+  /** SHA-256 (hex) of the file's bytes. */
+  readonly sha256: string;
+  readonly title: string;
+  readonly url: string | undefined;
+  /** Extracted text (`extractKnowledgeText`). */
+  readonly text: string;
+}
+/** Chunks an extracted document and gives every chunk its hash and source ID. */
+export declare function knowledgeDocument(input: KnowledgeDocumentInput, options?: ChunkOptions): KnowledgeDocument;
+interface FakeEmbedderOptions {
+  /** Default 64; set it to the column size of an index with fixed dimensions. */
+  readonly dimensions?: number;
+  /** Default `fake:bag-of-words:<dimensions>`; change it to test an embedder switch. */
+  readonly id?: string;
+}
+/**
+ * A deterministic, offline embedder for tests and the contract suite: a hashed bag of words,
+ * normalized, so texts sharing words are close. One token per word. Honors the abort signal.
+ */
+export declare function fakeEmbedder(options?: FakeEmbedderOptions): Embedder;
+interface ConversationStoreContractOptions extends ContractRunner {
+  /**
+   * `items` (default) for stores that keep the items themselves and replay them; `provider` for
+   * stores whose model provider keeps them (OpenAI Conversations), which have no versions.
+   */
+  readonly kind?: "items" | "provider" | undefined;
+  /** Items written for the paging test. Default 250; smaller for stores with network costs. */
+  readonly pagingItems?: number | undefined;
+  /** Page size in the paging test. Default 100. */
+  readonly pageSize?: number | undefined;
+  /** Two real file IDs, for stores that check them on append (OpenAI refuses unknown ones). */
+  readonly files?: (() => Promise<readonly [string, string]>) | undefined;
+  /** An ID the store has never issued. Default: a random UUID, or `conv_does_not_exist` for `provider`. */
+  readonly unknownId?: string | undefined;
+  /** Per-test timeout in milliseconds, for stores behind a network. Default: the runner's. */
+  readonly timeoutMs?: number | undefined;
+}
+/**
+ * The behaviour every `ConversationStore` must have (ADR-0024). Run it from your store's tests with
+ * your runner's `describe`, `it` and `expect`:
+ *
+ * ```ts
+ * import { conversationStoreContract } from '@boldare/askdare/testing';
+ * import { describe, expect, it } from 'vitest';
+ *
+ * conversationStoreContract('my store', () => myStore(), { describe, it, expect });
+ * ```
+ *
+ * Every conversation a test creates is deleted when it ends, also when it fails.
+ */
+export declare function conversationStoreContract(name: string, createStore: () => ConversationStore, options: ConversationStoreContractOptions): void;
+interface TurnEventLogContractOptions {
+  /** The time to live in the expiry tests. Default 1 000 ms; Redis needs whole milliseconds. */
+  readonly ttlMs?: number;
+  /**
+   * Lets at least `ms` pass for the log. Default: real time. A log with a test clock advances it
+   * instead.
+   */
+  readonly elapse?: (ms: number) => Promise<void>;
+}
+/**
+ * Behaviour every `TurnEventLog` must have, for the in-memory log and for add-ons (for example
+ * `@boldare/askdare-upstash`), so they stay interchangeable. Each test uses turns of its own with a
+ * short time to live, so whatever it writes expires soon, also after a failure.
+ */
+export declare function turnEventLogContract(name: string, create: () => TurnEventLog, { describe, it, expect }: ContractRunner, options?: TurnEventLogContractOptions): void;
+/**
+ * The behaviour every `RateLimitStore` must have, so the in-memory store and add-ons such as
+ * `@boldare/askdare-upstash` stay interchangeable. Run it with your runner's `describe`, `it` and
+ * `expect`:
+ *
+ * ```ts
+ * import { rateLimitStoreContract } from '@boldare/askdare/testing';
+ * import { describe, expect, it } from 'vitest';
+ *
+ * rateLimitStoreContract('my store', () => myStore(), { describe, it, expect });
+ * ```
+ */
+export declare function rateLimitStoreContract(name: string, create: () => RateLimitStore, runner: ContractRunner): void;
+export type { ContractExpect, ContractRunner, ConversationStoreContractOptions, FakeEmbedderOptions, KnowledgeDocumentInput, KnowledgeIndexContractOptions, OpenKnowledgeIndex, TurnEventLogContractOptions };
+
+// ==== tool-results.d.ts ====
+
+import { ComponentProps, ComponentType, ReactElement } from "react";
+declare const PRESET_NAMES: readonly ["halo", "aura", "sage", "care"];
+type PresetName = (typeof PRESET_NAMES)[number];
+/** Component variants a preset picks; each becomes a `data-ask-*` attribute on the document. */
+interface ThemeVariants {
+  readonly avatar: "orb" | "icon" | "initials" | "none";
+  readonly welcome: "hero" | "persona" | "intro";
+  readonly launcher: "orb" | "circle" | "pill";
+  readonly bubbles: "filled" | "plain";
+  readonly surface: "solid" | "glass";
+  readonly density: "comfortable" | "compact";
+  readonly composer: "outline" | "gradient";
+  /** Where the latest answer's options show: under it, or in one row above the message field. */
+  readonly replies: "answer" | "composer";
+}
+/** What a visitor may attach, as the bot allows it. */
+interface ChatAttachments {
+  readonly images: boolean;
+  readonly pdf: boolean;
+  readonly maxBytes: number;
+  readonly maxPerMessage: number;
+  readonly maxPdfPages: number;
+}
+/** A bot's public widget settings, in the visitor's language. */
+interface ChatWidget {
+  readonly title: string;
+  readonly subtitle: string;
+  readonly greeting: string;
+  readonly placeholder: string;
+  /** The language this visitor sees. */
+  readonly locale: string;
+  readonly starters: readonly string[];
+  readonly avatar: string | undefined;
+  readonly launcherLabel: string;
+  readonly disclosure: false | {
+    readonly privacyUrl: string | undefined;
+  };
+  readonly preset: PresetName;
+  readonly variants: ThemeVariants;
+  /** `auto` follows the visitor's system setting. */
+  readonly colorScheme: "auto" | "light" | "dark";
+  /** Every text in the visitor's language, overrides applied; plural keys included. */
+  readonly texts: Readonly<Record<string, string>>;
+}
+/** Stylesheets of a chat inside a page, served by the chat route (ADR-0011). */
+interface ChatStyles {
+  /** The bot's tokens for both color schemes, then its own `widget.css`. */
+  readonly theme: string;
+  /** The default look; only `DefaultChat` loads it. */
+  readonly skin: string;
+  /** `@font-face` rules of the built-in themes; browsers fetch only the fonts in use. */
+  readonly fonts: string;
+}
+/** What the browser needs to run one bot's chat. Public: it never holds secrets (ADR-0008). */
+interface ChatConfig {
+  readonly protocolVersion: number;
+  /** Path of the chat route, such as `/api/chat`. Same origin only (ADR-0011). */
+  readonly basePath: string;
+  readonly botId: string;
+  readonly widget: ChatWidget;
+  /** Whether the bot accepts a description of the page it is on. */
+  readonly pageContext: boolean;
+  /** Whether the bot lets visitors rate answers. Answers carry a handle when the route takes ratings. */
+  readonly feedback: boolean;
+  /** Absent when attachments are off. */
+  readonly attachments?: ChatAttachments;
+  /** Absent when voice input is off. The model stays on the server. */
+  readonly voice?: {
+    readonly maxSeconds: number;
+  };
+  /** From `getChatConfig`, for a chat inside a page. The iframe links its own stylesheets. */
+  readonly styles?: ChatStyles;
+  /**
+   * Absent unless the bot has `security.humanVerifier`: the challenge the chat shows before a new
+   * session starts, rendered by `HumanCheck`.
+   */
+  readonly humanCheck?: ChatHumanCheck;
+}
+/** A human check the chat must pass before it connects; public, the site key only. */
+interface ChatHumanCheck {
+  readonly provider: "turnstile";
+  readonly siteKey: string;
+}
+/** What `EmbedRoot` from `@boldare/askdare/embed` needs; `getEmbedConfig` builds it (ADR-0018). */
+interface EmbedChatConfig extends ChatConfig {
+  /** Origins whose pages may hand the chat its connection to the loader (ADR-0005). */
+  readonly allowedOrigins: readonly string[];
+  /** `inline` inside an element of the host page, `floating` in the widget's panel. */
+  readonly mode: "floating" | "inline";
+}
+/**
+ * What a tool's `ui` returns, read from its type (`typeof myTool`) with `import type`, so no server
+ * code reaches the page. Structural, so the page needs only the tool's type.
+ */
+type ToolData<T> = T extends {
+  readonly ui?: ((output: never) => infer Ui) | undefined;
+} ? Exclude<Ui, null | undefined> : never;
+/** Any tool: without a type argument, a component gets `data: unknown` and any name. */
+interface AnyTool {
+  readonly name: string;
+  readonly ui?: ((output: never) => unknown) | undefined;
+}
+/** What a component registered for a tool gets (ADR-0017). */
+interface ToolRendererProps<T extends {
+  readonly name: string;
+} = AnyTool> {
+  /** What the tool's `ui` picked from its result: plain JSON. Render it as text, never as HTML. */
+  readonly data: ToolData<T>;
+  /** The tool's name. */
+  readonly name: T["name"];
+  /** The call, stable for the answer. */
+  readonly callId: string;
+}
+/**
+ * Components by tool name for `Root`'s `toolRenderers`. Without a type argument, any component per
+ * name; with your tools, each component checked against its tool's payload:
+ * `{ find_slots: SlotList } satisfies ToolRenderers<[typeof findSlots]>`.
+ */
+type ToolRenderers<Tools extends readonly {
+  readonly name: string;
+}[] = never> = [Tools] extends [never] ? Readonly<Record<string, ComponentType<ToolRendererProps<never>>>> : { readonly [T in Tools[number] as T["name"]]?: ComponentType<ToolRendererProps<T>>; };
+type ToolResultsProps = ComponentProps<"div">;
+/**
+ * The current message's tool payloads (ADR-0017), each drawn by the component registered for its
+ * tool in `Root`'s `toolRenderers`, in call order: a group (`tool-results`) of cards
+ * (`tool-result`, with `data-ask-tool`). A payload without a component shows nothing, and when
+ * `toolRenderers` is set the console says so once per tool. Use it inside `MessageList`.
+ */
+declare function ToolResults(props: ToolResultsProps): ReactElement | null;
+type LinkProps = Omit<ComponentProps<"a">, "href" | "target" | "rel"> & {
+  readonly href: string;
+};
+/**
+ * A link for a URL from a tool's payload: only `https:`, `http:` and `mailto:`, opened in a new
+ * tab, as links in answers are. Any other URL (`javascript:`, `data:`, a relative path) renders
+ * the text alone.
+ */
+declare function Link({ href, children, ...props }: LinkProps): ReactElement;
+export { ToolResults as a, ChatConfig as c, ChatWidget as d, EmbedChatConfig as f, ToolRenderers as i, ChatHumanCheck as l, ThemeVariants as m, LinkProps as n, ToolResultsProps as o, PresetName as p, ToolRendererProps as r, ChatAttachments as s, Link as t, ChatStyles as u };
+
+// ==== turn-log.d.ts ====
 /**
  * The retrieval port of ADR-0025: what a bot's own knowledge index is, with no OpenAI or database
  * types. Every model path and every adapter (in-memory, pgvector, community ones) speaks only these.
@@ -1938,266 +2248,135 @@ interface RateLimitStore {
   /** True for stores that are shared across server instances. */
   readonly shared: boolean;
 }
-export { SearchOptions as C, Passage as S, KnowledgeCallOptions as _, ConversationInfo as a, KnowledgeDocument as b, ConversationStore as c, StoredCitation as d, StoredItem as f, Embeddings as g, Embedder as h, ConversationContext as i, ConversationStoreCheck as l, VersionConflictError as m, RateLimitStore as n, ConversationOwner as o, StoredPart as p, CompactionModel as r, ConversationPage as s, CounterHit as t, PositionedItem as u, KnowledgeCheck as v, SyncReport as w, KnowledgeIndex as x, KnowledgeChunk as y };
-
-// ==== testing.d.ts ====
-import { b as KnowledgeDocument, c as ConversationStore, h as Embedder, n as RateLimitStore, x as KnowledgeIndex } from "./store.js";
-/**
- * The parts of a test runner the contract suites use. Vitest's and Jest's `describe`, `it` and
- * `expect` fit, so `@boldare/askdare/testing` depends on no runner.
- */
-interface ContractRunner {
-  readonly describe: (name: string, body: () => void) => void;
-  readonly it: (name: string, body: () => Promise<void>, timeout?: number) => void;
-  readonly expect: ContractExpect;
+/** Stable error codes sent to clients. The accompanying message never contains internals. */
+declare const ERROR_CODES: readonly ["invalid_input", "unauthorized", "session_expired", "not_found", "rate_limited", "budget_exceeded", "bot_unavailable", "content_blocked", "timeout", "upstream_error", "internal_error"];
+type ErrorCode = (typeof ERROR_CODES)[number];
+declare const MESSAGE_END_REASONS: readonly ["completed", "max_steps", "max_output_tokens", "timeout", "content_filter", "aborted"];
+type MessageEndReason = (typeof MESSAGE_END_REASONS)[number];
+interface ConversationCreatedEvent {
+  readonly type: "conversation.created";
+  /** Signed handle that lets this visitor resume the conversation. Never a raw OpenAI ID. */
+  readonly resumeToken: string;
 }
-/** The assertions the contract suites make. */
-type ContractExpect = (actual: unknown) => {
-  toBe(expected: unknown): void;
-  toEqual(expected: unknown): void;
-  toBeInstanceOf(expected: abstract new (...args: never[]) => unknown): void;
-  toHaveLength(length: number): void;
-  toBeGreaterThan(expected: number): void;
-};
-interface KnowledgeIndexContractOptions extends ContractRunner {
-  /** Of the fake embedder; set it for an index with fixed dimensions. Default 64. */
-  readonly dimensions?: number | undefined;
+interface UserAckEvent {
+  readonly type: "user.ack";
+  readonly messageId: string;
 }
-/**
- * Opens the index `indexId` with `embedder`. Two calls with the same index ID must see the same
- * data, as two server instances on one database do. Each test uses fresh index IDs and clears them.
- */
-type OpenKnowledgeIndex = (options: {
-  readonly indexId: string;
-  readonly embedder: Embedder;
-}) => KnowledgeIndex | Promise<KnowledgeIndex>;
-/**
- * Behaviour every `KnowledgeIndex` must have (ADR-0025), with a deterministic fake embedder. Used
- * by the in-memory index and by adapters such as `pgvectorIndex`, so they stay interchangeable.
- * Runner-agnostic: pass your test runner's `describe`, `it` and `expect`:
- *
- * ```ts
- * import { knowledgeIndexContract } from '@boldare/askdare/testing';
- * import { describe, expect, it } from 'vitest';
- *
- * knowledgeIndexContract('my index', ({ indexId, embedder }) => myIndex({ indexId, embedder }), {
- *   describe,
- *   it,
- *   expect,
- * });
- * ```
- */
-export declare function knowledgeIndexContract(name: string, openIndex: OpenKnowledgeIndex, options: KnowledgeIndexContractOptions): void;
-interface ChunkOptions {
-  readonly maxTokens?: number;
+interface MessageStartEvent {
+  readonly type: "message.start";
+  readonly messageId: string;
 }
-interface KnowledgeDocumentInput {
-  /** POSIX path relative to the knowledge folder. */
-  readonly path: string;
-  /** SHA-256 (hex) of the file's bytes. */
-  readonly sha256: string;
+interface ReasoningEvent {
+  readonly type: "reasoning";
+  readonly messageId: string;
+  readonly state: "started" | "done";
+}
+interface TextDeltaEvent {
+  readonly type: "text.delta";
+  readonly messageId: string;
+  readonly delta: string;
+}
+interface CitationEvent {
+  readonly type: "citation";
+  readonly messageId: string;
+  /** 1-based marker shown in the text as [n]. */
+  readonly index: number;
   readonly title: string;
-  readonly url: string | undefined;
-  /** Extracted text (`extractKnowledgeText`). */
-  readonly text: string;
+  readonly url?: string | undefined;
 }
-/** Chunks an extracted document and gives every chunk its hash and source ID. */
-export declare function knowledgeDocument(input: KnowledgeDocumentInput, options?: ChunkOptions): KnowledgeDocument;
-interface FakeEmbedderOptions {
-  /** Default 64; set it to the column size of an index with fixed dimensions. */
-  readonly dimensions?: number;
-  /** Default `fake:bag-of-words:<dimensions>`; change it to test an embedder switch. */
-  readonly id?: string;
-}
-/**
- * A deterministic, offline embedder for tests and the contract suite: a hashed bag of words,
- * normalized, so texts sharing words are close. One token per word. Honors the abort signal.
- */
-export declare function fakeEmbedder(options?: FakeEmbedderOptions): Embedder;
-interface ConversationStoreContractOptions extends ContractRunner {
-  /**
-   * `items` (default) for stores that keep the items themselves and replay them; `provider` for
-   * stores whose model provider keeps them (OpenAI Conversations), which have no versions.
-   */
-  readonly kind?: "items" | "provider" | undefined;
-  /** Items written for the paging test. Default 250; smaller for stores with network costs. */
-  readonly pagingItems?: number | undefined;
-  /** Page size in the paging test. Default 100. */
-  readonly pageSize?: number | undefined;
-  /** Two real file IDs, for stores that check them on append (OpenAI refuses unknown ones). */
-  readonly files?: (() => Promise<readonly [string, string]>) | undefined;
-  /** An ID the store has never issued. Default: a random UUID, or `conv_does_not_exist` for `provider`. */
-  readonly unknownId?: string | undefined;
-  /** Per-test timeout in milliseconds, for stores behind a network. Default: the runner's. */
-  readonly timeoutMs?: number | undefined;
-}
-/**
- * The behaviour every `ConversationStore` must have (ADR-0024). Run it from your store's tests with
- * your runner's `describe`, `it` and `expect`:
- *
- * ```ts
- * import { conversationStoreContract } from '@boldare/askdare/testing';
- * import { describe, expect, it } from 'vitest';
- *
- * conversationStoreContract('my store', () => myStore(), { describe, it, expect });
- * ```
- *
- * Every conversation a test creates is deleted when it ends, also when it fails.
- */
-export declare function conversationStoreContract(name: string, createStore: () => ConversationStore, options: ConversationStoreContractOptions): void;
-/**
- * The behaviour every `RateLimitStore` must have, so the in-memory store and add-ons such as
- * `@boldare/askdare-upstash` stay interchangeable. Run it with your runner's `describe`, `it` and
- * `expect`:
- *
- * ```ts
- * import { rateLimitStoreContract } from '@boldare/askdare/testing';
- * import { describe, expect, it } from 'vitest';
- *
- * rateLimitStoreContract('my store', () => myStore(), { describe, it, expect });
- * ```
- */
-export declare function rateLimitStoreContract(name: string, create: () => RateLimitStore, runner: ContractRunner): void;
-export type { ContractExpect, ContractRunner, ConversationStoreContractOptions, FakeEmbedderOptions, KnowledgeDocumentInput, KnowledgeIndexContractOptions, OpenKnowledgeIndex };
-
-// ==== tool-results.d.ts ====
-
-import { ComponentProps, ComponentType, ReactElement } from "react";
-declare const PRESET_NAMES: readonly ["halo", "aura", "sage", "care"];
-type PresetName = (typeof PRESET_NAMES)[number];
-/** Component variants a preset picks; each becomes a `data-ask-*` attribute on the document. */
-interface ThemeVariants {
-  readonly avatar: "orb" | "icon" | "initials" | "none";
-  readonly welcome: "hero" | "persona" | "intro";
-  readonly launcher: "orb" | "circle" | "pill";
-  readonly bubbles: "filled" | "plain";
-  readonly surface: "solid" | "glass";
-  readonly density: "comfortable" | "compact";
-  readonly composer: "outline" | "gradient";
-  /** Where the latest answer's options show: under it, or in one row above the message field. */
-  readonly replies: "answer" | "composer";
-}
-/** What a visitor may attach, as the bot allows it. */
-interface ChatAttachments {
-  readonly images: boolean;
-  readonly pdf: boolean;
-  readonly maxBytes: number;
-  readonly maxPerMessage: number;
-  readonly maxPdfPages: number;
-}
-/** A bot's public widget settings, in the visitor's language. */
-interface ChatWidget {
-  readonly title: string;
-  readonly subtitle: string;
-  readonly greeting: string;
-  readonly placeholder: string;
-  /** The language this visitor sees. */
-  readonly locale: string;
-  readonly starters: readonly string[];
-  readonly avatar: string | undefined;
-  readonly launcherLabel: string;
-  readonly disclosure: false | {
-    readonly privacyUrl: string | undefined;
-  };
-  readonly preset: PresetName;
-  readonly variants: ThemeVariants;
-  /** `auto` follows the visitor's system setting. */
-  readonly colorScheme: "auto" | "light" | "dark";
-  /** Every text in the visitor's language, overrides applied; plural keys included. */
-  readonly texts: Readonly<Record<string, string>>;
-}
-/** Stylesheets of a chat inside a page, served by the chat route (ADR-0011). */
-interface ChatStyles {
-  /** The bot's tokens for both color schemes, then its own `widget.css`. */
-  readonly theme: string;
-  /** The default look; only `DefaultChat` loads it. */
-  readonly skin: string;
-  /** `@font-face` rules of the built-in themes; browsers fetch only the fonts in use. */
-  readonly fonts: string;
-}
-/** What the browser needs to run one bot's chat. Public: it never holds secrets (ADR-0008). */
-interface ChatConfig {
-  readonly protocolVersion: number;
-  /** Path of the chat route, such as `/api/chat`. Same origin only (ADR-0011). */
-  readonly basePath: string;
-  readonly botId: string;
-  readonly widget: ChatWidget;
-  /** Whether the bot accepts a description of the page it is on. */
-  readonly pageContext: boolean;
-  /** Whether the bot lets visitors rate answers. Answers carry a handle when the route takes ratings. */
-  readonly feedback: boolean;
-  /** Absent when attachments are off. */
-  readonly attachments?: ChatAttachments;
-  /** Absent when voice input is off. The model stays on the server. */
-  readonly voice?: {
-    readonly maxSeconds: number;
-  };
-  /** From `getChatConfig`, for a chat inside a page. The iframe links its own stylesheets. */
-  readonly styles?: ChatStyles;
-  /**
-   * Absent unless the bot has `security.humanVerifier`: the challenge the chat shows before a new
-   * session starts, rendered by `HumanCheck`.
-   */
-  readonly humanCheck?: ChatHumanCheck;
-}
-/** A human check the chat must pass before it connects; public, the site key only. */
-interface ChatHumanCheck {
-  readonly provider: "turnstile";
-  readonly siteKey: string;
-}
-/** What `EmbedRoot` from `@boldare/askdare/embed` needs; `getEmbedConfig` builds it (ADR-0018). */
-interface EmbedChatConfig extends ChatConfig {
-  /** Origins whose pages may hand the chat its connection to the loader (ADR-0005). */
-  readonly allowedOrigins: readonly string[];
-  /** `inline` inside an element of the host page, `floating` in the widget's panel. */
-  readonly mode: "floating" | "inline";
-}
-/**
- * What a tool's `ui` returns, read from its type (`typeof myTool`) with `import type`, so no server
- * code reaches the page. Structural, so the page needs only the tool's type.
- */
-type ToolData<T> = T extends {
-  readonly ui?: ((output: never) => infer Ui) | undefined;
-} ? Exclude<Ui, null | undefined> : never;
-/** Any tool: without a type argument, a component gets `data: unknown` and any name. */
-interface AnyTool {
-  readonly name: string;
-  readonly ui?: ((output: never) => unknown) | undefined;
-}
-/** What a component registered for a tool gets (ADR-0017). */
-interface ToolRendererProps<T extends {
-  readonly name: string;
-} = AnyTool> {
-  /** What the tool's `ui` picked from its result: plain JSON. Render it as text, never as HTML. */
-  readonly data: ToolData<T>;
-  /** The tool's name. */
-  readonly name: T["name"];
-  /** The call, stable for the answer. */
+interface ToolStatusEvent {
+  readonly type: "tool.status";
+  readonly messageId: string;
   readonly callId: string;
+  readonly name: string;
+  readonly state: "running" | "done" | "error";
 }
 /**
- * Components by tool name for `Root`'s `toolRenderers`. Without a type argument, any component per
- * name; with your tools, each component checked against its tool's payload:
- * `{ find_slots: SlotList } satisfies ToolRenderers<[typeof findSlots]>`.
+ * A tool's result as the visitor may see it, for a component the site registered (ADR-0017). Sent
+ * right after the call's `tool.status` `done`, never for a failed call, at most four per answer.
+ * `data` is plain JSON of at most 8 KB, as the tool's `ui` function returned it.
  */
-type ToolRenderers<Tools extends readonly {
+interface ToolUiEvent {
+  readonly type: "tool.ui";
+  readonly messageId: string;
+  readonly callId: string;
   readonly name: string;
-}[] = never> = [Tools] extends [never] ? Readonly<Record<string, ComponentType<ToolRendererProps<never>>>> : { readonly [T in Tools[number] as T["name"]]?: ComponentType<ToolRendererProps<T>>; };
-type ToolResultsProps = ComponentProps<"div">;
+  readonly data: unknown;
+}
 /**
- * The current message's tool payloads (ADR-0017), each drawn by the component registered for its
- * tool in `Root`'s `toolRenderers`, in call order: a group (`tool-results`) of cards
- * (`tool-result`, with `data-ask-tool`). A payload without a component shows nothing, and when
- * `toolRenderers` is set the console says so once per tool. Use it inside `MessageList`.
+ * Options the visitor can click under this answer instead of typing (ADR-0015). Sent at most
+ * once, before `message.end`: one to four distinct, trimmed, one-line texts of up to 80
+ * characters, without links. A client shows them as plain text, never as Markdown.
  */
-declare function ToolResults(props: ToolResultsProps): ReactElement | null;
-type LinkProps = Omit<ComponentProps<"a">, "href" | "target" | "rel"> & {
-  readonly href: string;
-};
+interface RepliesEvent {
+  readonly type: "replies";
+  readonly messageId: string;
+  readonly items: readonly string[];
+}
+/** What the client needs to rate one answer (ADR-0012). */
+interface FeedbackHandle {
+  /** Opaque; sent back to `POST /feedback`. */
+  readonly handle: string;
+  /** Stable for the answer across reloads, so the client can remember its rating. Hex. */
+  readonly key: string;
+}
+interface MessageEndEvent {
+  readonly type: "message.end";
+  readonly messageId: string;
+  readonly reason: MessageEndReason;
+  /**
+   * A fresh handle for a resumed conversation, so an active conversation stays reachable for 30
+   * days after its last message rather than its first.
+   */
+  readonly resumeToken?: string | undefined;
+  /** Present when visitors may rate this bot's answers. */
+  readonly feedback?: FeedbackHandle | undefined;
+}
+interface ErrorEvent {
+  readonly type: "error";
+  readonly code: ErrorCode;
+  /** English fallback. */
+  readonly message: string;
+  readonly retryAfterMs?: number | undefined;
+  /** Dictionary key for the visitor's language, with its placeholders. */
+  readonly key?: string | undefined;
+  readonly params?: Readonly<Record<string, string | number>> | undefined;
+}
+type ProtocolEvent = ConversationCreatedEvent | UserAckEvent | MessageStartEvent | ReasoningEvent | TextDeltaEvent | CitationEvent | ToolStatusEvent | ToolUiEvent | RepliesEvent | MessageEndEvent | ErrorEvent;
+/** A protocol event of a running turn, with its place in the turn. */
+interface TurnEvent {
+  /** 1-based and increasing within a turn; the SSE `id:` of the event's frame. */
+  readonly seq: number;
+  /** A protocol event, never a raw provider event (ADR-0002). */
+  readonly event: ProtocolEvent;
+}
 /**
- * A link for a URL from a tool's payload: only `https:`, `http:` and `mailto:`, opened in a new
- * tab, as links in answers are. Any other URL (`javascript:`, `data:`, a relative path) renders
- * the text alone.
+ * Short-lived storage for the protocol events of running turns, so a visitor whose connection
+ * dropped can resume the answer (ADR-0027). A turn's events are kept for the time to live given on
+ * its last append, then they are gone. The in-memory default works for a single instance;
+ * deployments on several instances need a shared log such as `@boldare/askdare-upstash`.
+ *
+ * Implementations log nothing about the events they hold: they contain answer text.
  */
-declare function Link({ href, children, ...props }: LinkProps): ReactElement;
-export { ToolResults as a, ChatConfig as c, ChatWidget as d, EmbedChatConfig as f, ToolRenderers as i, ChatHumanCheck as l, ThemeVariants as m, LinkProps as n, ToolResultsProps as o, PresetName as p, ToolRendererProps as r, ChatAttachments as s, Link as t, ChatStyles as u };
+interface TurnEventLog {
+  /**
+   * Appends `events` to the turn and keeps the turn for `ttlMs` from now. Sequence numbers must
+   * increase and come after the turn's last one; otherwise the append throws. Appending to a turn
+   * starts it.
+   */
+  append(turnId: string, events: readonly TurnEvent[], ttlMs: number, signal?: AbortSignal): Promise<void>;
+  /**
+   * The turn's events after `afterSeq`, in order (`0` for all of them). `undefined` when the turn
+   * is unknown, has expired or can no longer be resumed: the client then reloads history.
+   */
+  read(turnId: string, afterSeq: number, signal?: AbortSignal): Promise<readonly TurnEvent[] | undefined>;
+  /**
+   * Like `read`, but when no event after `afterSeq` exists yet, waits up to `timeoutMs` for an
+   * append and answers with what it brought. An empty array means the wait timed out or `signal`
+   * was aborted. `undefined` as for `read`.
+   */
+  wait(turnId: string, afterSeq: number, timeoutMs: number, signal?: AbortSignal): Promise<readonly TurnEvent[] | undefined>;
+  /** True for logs that are shared across server instances. */
+  readonly shared: boolean;
+}
+export { KnowledgeCheck as C, Passage as D, KnowledgeIndex as E, SearchOptions as O, KnowledgeCallOptions as S, KnowledgeDocument as T, StoredItem as _, MessageEndReason as a, Embedder as b, CompactionModel as c, ConversationOwner as d, ConversationPage as f, StoredCitation as g, PositionedItem as h, ErrorCode as i, SyncReport as k, ConversationContext as l, ConversationStoreCheck as m, TurnEventLog as n, CounterHit as o, ConversationStore as p, ERROR_CODES as r, RateLimitStore as s, TurnEvent as t, ConversationInfo as u, StoredPart as v, KnowledgeChunk as w, Embeddings as x, VersionConflictError as y };

@@ -41,9 +41,11 @@ function decodeAll(chunks: readonly string[]): ProtocolEvent[] {
   });
 }
 
-const stream = [encodeComment('ok'), ...SAMPLE_EVENTS.map(encodeEvent), encodeComment('ping')].join(
-  '',
-);
+const stream = [
+  encodeComment('ok'),
+  ...SAMPLE_EVENTS.map((event, index) => encodeEvent(event, index + 1)),
+  encodeComment('ping'),
+].join('');
 
 describe('SSE encoding and decoding', () => {
   it('has a sample for every protocol event type', () => {
@@ -83,6 +85,26 @@ describe('SSE encoding and decoding', () => {
 
   it('joins multi-line data with newlines', () => {
     expect(parseAll(['event: x\ndata: a\ndata: b\n\n'])).toEqual([{ event: 'x', data: 'a\nb' }]);
+  });
+
+  it('frames an event with its sequence number as the SSE id', () => {
+    const event = SAMPLE_EVENTS[1] as ProtocolEvent;
+    expect(encodeEvent(event, 7)).toBe(`id: 7\n${encodeEvent(event)}`);
+  });
+
+  it('reports each event’s id, kept across events as WHATWG’s lastEventId', () => {
+    expect(parseAll([stream]).map((raw) => raw.id)).toEqual(
+      SAMPLE_EVENTS.map((_, index) => String(index + 1)),
+    );
+    expect(parseAll(['id: 3\nevent: x\ndata: a\n\nevent: y\ndata: b\n\n'])).toEqual([
+      { event: 'x', data: 'a', id: '3' },
+      { event: 'y', data: 'b', id: '3' },
+    ]);
+    // An id with NULL is ignored; an empty one resets it.
+    expect(parseAll(['id: 1\0\nevent: x\ndata: a\n\nid\nevent: y\ndata: b\n\n'])).toEqual([
+      { event: 'x', data: 'a' },
+      { event: 'y', data: 'b' },
+    ]);
   });
 
   it('strips a leading byte order mark', () => {
