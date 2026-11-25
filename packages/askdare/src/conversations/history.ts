@@ -18,8 +18,9 @@ import type { HistoryPosition, HistoryReader, HistoryRequest } from './provider-
 export const HISTORY_ITEMS = 100;
 
 /**
- * Store pages one history page reads at most. A turn longer than this (hundreds of tool calls) is
- * shown split rather than read without end; `maxSteps` keeps real turns far below it.
+ * Store pages one history page reads at most. A turn longer than this (about 800 items, hundreds
+ * of tool calls) is shown split rather than read without end: the newer page then starts inside
+ * it. `maxSteps` keeps real turns far below it. docs/protocol.md names the exception.
  */
 const MAX_READS = 8;
 

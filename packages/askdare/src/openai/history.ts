@@ -1,6 +1,11 @@
 import type OpenAI from 'openai';
 import type { ConversationItem } from 'openai/resources/conversations/items';
-import { historyFromItems, pageOfTurns, type RawPage } from '../conversations/history';
+import {
+  HISTORY_ITEMS,
+  historyFromItems,
+  pageOfTurns,
+  type RawPage,
+} from '../conversations/history';
 import type { HistoryPage, HistoryRequest } from '../conversations/provider-history';
 import { citedSourceIds } from '../knowledge/markers';
 import { PassageLookup } from '../knowledge/passages';
@@ -8,7 +13,7 @@ import type { KnowledgeIndex } from '../knowledge/port';
 import { addSources, type KnowledgeSources } from './citations';
 import { fromConversationItem } from './items';
 
-/** Distinct passages one history read looks up: about two per answer of a full page. */
+/** Distinct passages looked up per store page of history: about two per answer. */
 const HISTORY_LOOKUPS = 200;
 
 /**
@@ -28,7 +33,11 @@ async function citedPassages(
       if (part.type === 'output_text') for (const id of citedSourceIds(part.text)) ids.add(id);
     }
   }
-  const passages = new PassageLookup(index, HISTORY_LOOKUPS);
+  // A page extended back to its oldest turn may span several store pages.
+  const passages = new PassageLookup(
+    index,
+    HISTORY_LOOKUPS * Math.max(1, Math.ceil(items.length / HISTORY_ITEMS)),
+  );
   if (ids.size > 0) await passages.resolve([...ids], signal);
   return passages;
 }
@@ -64,8 +73,12 @@ export async function listHistory(
         signal ? { signal } : undefined,
       );
       const oldest = page.data.at(-1);
-      const more = page.has_more && oldest && 'id' in oldest && typeof oldest.id === 'string';
-      return { items: page.data.toReversed(), before: more ? oldest.id : undefined };
+      const id = oldest && 'id' in oldest && typeof oldest.id === 'string' ? oldest.id : undefined;
+      if (page.has_more && id === undefined) {
+        // An item without an ID can't be a cursor: older pages can't be read past it.
+        console.error('[askdare] history paging stopped at an item without an ID.');
+      }
+      return { items: page.data.toReversed(), before: page.has_more ? id : undefined };
     },
     startsTurn,
     before,
