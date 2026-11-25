@@ -797,8 +797,17 @@ export function createChatStore(
 
     identify(token) {
       identities = identities.then(async () => {
+        // A turn sent while the session changes already goes out as the next person.
+        const previous = turn;
         // Signed in, out or as someone else: show that person's conversation, if any.
         if (!(await client.identify(token))) return;
+        // An answer still streaming belongs to the previous person's conversation, where the
+        // server finishes it: it stops here, as when the chat stops, and is never resumed.
+        if (previous && turn === previous) {
+          endTurn?.('stopped');
+          previous.abort();
+          turn = undefined;
+        }
         loaded = false;
         forgetEarlier();
         set({ messages: [], earlier: 'none', error: undefined, commenting: undefined });
