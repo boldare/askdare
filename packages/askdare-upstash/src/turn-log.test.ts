@@ -1,6 +1,6 @@
+import type { TurnEvent } from '@boldare/askdare';
+import { turnEventLogContract } from '@boldare/askdare/testing';
 import { describe, expect, it, vi } from 'vitest';
-// The suite isn't in @boldare/askdare/testing yet: it is exported with the `resume` option.
-import { turnEventLogContract } from '../../askdare/src/resume/turn-log-contract';
 import type { RedisEval } from './index';
 import { APPEND_SCRIPT, READ_SCRIPT, upstashTurnLog } from './turn-log';
 
@@ -81,7 +81,7 @@ turnEventLogContract(
   },
 );
 
-const delta = (seq: number) => ({
+const delta = (seq: number): TurnEvent => ({
   seq,
   event: { type: 'text.delta', messageId: 'msg_1', delta: `word${seq} ` },
 });

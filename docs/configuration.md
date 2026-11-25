@@ -243,6 +243,7 @@ A few limits are fixed:
 | --- | --- |
 | Session renewals by a returning visitor | 12 per visitor per hour |
 | History reads and deletions | 20 per visitor per minute |
+| Resumed answers (`POST /resume`) | 30 per visitor per minute |
 | Dictations transcribing at once | 2 per client IP and 10 per bot |
 | `npx @boldare/askdare doctor` runs | 3 per minute for the whole app |
 
@@ -296,7 +297,7 @@ The text defaults come from the built-in dictionary of the configured language. 
 
 ## `createChatHandler`
 
-`createChatHandler(options: ChatHandlerOptions): ChatHandlers` returns `GET`, `POST` and `DELETE` for the catch-all route. Its types are exported from `@boldare/askdare/next`: `ChatHandlerOptions`, `ChatHandlerLimitsOptions`, `ChatErrorReport`, `ChatUsageReport`, `ChatTokenUsage`, `ChatToolCallReport`, `ChatFeedbackReport`, `ChatTranscriptReport`, `ChatTranscriptCitation`, `TrustProxy`, `ChatHandlers` and `RouteHandler`. `openaiConversations` and `OpenAIConversationsOptions` come from there too.
+`createChatHandler(options: ChatHandlerOptions): ChatHandlers` returns `GET`, `POST` and `DELETE` for the catch-all route. Its types are exported from `@boldare/askdare/next`: `ChatHandlerOptions`, `ChatHandlerLimitsOptions`, `ChatHandlerResumeOptions`, `ChatErrorReport`, `ChatUsageReport`, `ChatTokenUsage`, `ChatToolCallReport`, `ChatFeedbackReport`, `ChatTranscriptReport`, `ChatTranscriptCitation`, `TrustProxy`, `ChatHandlers` and `RouteHandler`. `openaiConversations` and `OpenAIConversationsOptions` come from there too.
 
 | Option | Type | Default | Notes |
 | --- | --- | --- | --- |
@@ -308,6 +309,7 @@ The text defaults come from the built-in dictionary of the configured language. 
 | `identitySecret` | `string` | `process.env.IDENTITY_SECRET` | Checks identity tokens from your site's backend. Same rule as `secret`, and it must differ from it. Without one, identity is off. See [Signed-in visitors](identity.md). |
 | `limits` | `ChatHandlerLimitsOptions` | see [Handler limits](#handler-limits) | The counter store, the client IP and a budget across bots. |
 | `conversations` | `ConversationStore` | `openaiConversations()` | Where conversations are stored. The default keeps them at OpenAI, with the handler's `openaiApiKey`; `openaiConversations({ apiKey })` takes its own key. A store that keeps the items itself, such as `memoryConversations()` or `@boldare/askdare-postgres`, runs each turn statelessly (`store: false`). See [Custom stores](custom-store.md#conversation-store). |
+| `resume` | `ChatHandlerResumeOptions` | in memory, per process | Where answers being written are kept for a few minutes, so a visitor whose connection drops can resume one. See [`resume`](#resume). |
 | `onError` | `(report: ChatErrorReport) => void \| Promise<void>` | one `console.error` line | Your error reporting. See [`onError`](#onerror). |
 | `onUsage` | `(report: ChatUsageReport) => void \| Promise<void>` | none | Each turn's tokens, timings and tool calls, for cost tracking and tracing. See [`onUsage`](#onusage). |
 | `onFeedback` | `(report: ChatFeedbackReport) => void \| Promise<void>` | none | Visitors' ratings of answers. Without it, answers can't be rated. See [`onFeedback`](#onfeedback). |
@@ -326,6 +328,28 @@ A wrong `basePath`, a duplicate bot ID, an empty `bots` list or an unsupported c
 | `trustProxy` | `'auto' \| 'vercel' \| 'heroku' \| number` | `'auto'` | How to read the client IP behind your proxy. |
 | `globalDailyTokens` | `number` | unlimited | Input plus output tokens per UTC day, across all bots of this handler, counted like `dailyTokens`. Reaching it answers `budget_exceeded`. |
 | `requireSharedStore` | `boolean` | `false` | `true` makes `createChatHandler` throw as the route loads unless `store` is shared (`shared: true`), instead of only warning in production. For example `process.env.NODE_ENV === 'production'`, so development keeps the in-memory store. Note that `next build` loads the route with `NODE_ENV=production`. |
+
+### `resume`
+
+When a visitor's connection drops in the middle of an answer, the answer goes on being written on the server, and the chat can pick it up where it stopped instead of losing it ([ADR-0027](adr/0027-stream-resume.md)). For that, every answer's events also go to a turn log while it streams.
+
+```ts
+import { upstashTurnLog } from '@boldare/askdare-upstash';
+
+export const { GET, POST, DELETE } = createChatHandler({
+  bots,
+  resume: { log: upstashTurnLog() },
+});
+```
+
+| Option | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `log` | `TurnEventLog` | `memoryTurnLog()` | Where answers' events are kept. The default keeps them in the server's memory, so an answer resumes only when the reconnect reaches the same instance; otherwise the chat reloads the conversation, as it does without resume. With several instances, use `upstashTurnLog()` from `@boldare/askdare-upstash`, or your own log (see [Custom stores](custom-store.md#turn-event-log)). |
+
+- **How long:** each answer's events are kept for the bot's `turnTimeoutMs` plus one minute after its last event, then they are gone. See [Privacy](privacy.md#turn-log).
+- **What it costs:** a few writes per answer, batched every 100 ms or 20 events, never one per word.
+- **Where it works:** the answer has to keep running after its response closed. askdare keeps it alive with Next.js `after()`, so this works where a turn already outlives a visitor who leaves. See [Deployment](deployment.md#resuming-answers).
+- `memoryTurnLog()` and the `TurnEventLog` type come from `@boldare/askdare`; `turnEventLogContract` from `@boldare/askdare/testing` checks your own log.
 
 ### `trustProxy`
 
@@ -543,8 +567,8 @@ The library doesn't read these. `npx @boldare/askdare init`, the starter and the
 
 | Variable | Notes |
 | --- | --- |
-| `UPSTASH_REDIS_REST_URL` | Default for the `url` option of `upstashStore()`. |
-| `UPSTASH_REDIS_REST_TOKEN` | Default for the `token` option of `upstashStore()`. |
+| `UPSTASH_REDIS_REST_URL` | Default for the `url` option of `upstashStore()` and `upstashTurnLog()`. |
+| `UPSTASH_REDIS_REST_TOKEN` | Default for the `token` option of `upstashStore()` and `upstashTurnLog()`. |
 | `KV_REST_API_URL` | Used when `UPSTASH_REDIS_REST_URL` isn't set. |
 | `KV_REST_API_TOKEN` | Used when `UPSTASH_REDIS_REST_TOKEN` isn't set. |
 

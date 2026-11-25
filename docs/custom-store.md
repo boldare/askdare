@@ -1,9 +1,10 @@
 # Custom stores
 
-askdare keeps two kinds of state outside the request, each behind a port you can implement:
+askdare keeps three kinds of state outside the request, each behind a port you can implement:
 
 - the [rate-limit store](#rate-limit-store) holds the counters behind rate limits and budgets;
-- the [conversation store](#conversation-store) holds the conversations themselves.
+- the [conversation store](#conversation-store) holds the conversations themselves;
+- the [turn event log](#turn-event-log) holds the events of answers being written, for a few minutes, so a visitor whose connection drops can resume one.
 
 ## Rate-limit store
 
@@ -317,3 +318,52 @@ conversationStoreContract('myConversations', () => myConversations(), { describe
 | `timeoutMs` | the runner's | A per-test timeout for a store behind a network. |
 
 Run it against a real database: concurrent appends and sweeps can't be shown with a mock.
+
+## Turn event log
+
+While an answer streams, its protocol events also go to a turn log, numbered, so a client whose connection dropped can resume the answer with `POST /resume` ([ADR-0027](adr/0027-stream-resume.md), [Protocol](protocol.md#resuming-an-answer)). The default, `memoryTurnLog()`, keeps them in the server's memory; `upstashTurnLog()` from `@boldare/askdare-upstash` shares them between instances. `TurnEventLog`, `TurnEvent` and `memoryTurnLog` are exported from `@boldare/askdare`. Choose the log in `createChatHandler`, with `resume: { log }` ([Configuration](configuration.md#resume)).
+
+### The interface
+
+```ts
+import type { TurnEvent, TurnEventLog } from '@boldare/askdare';
+
+interface TurnEventLog {
+  append(turnId: string, events: readonly TurnEvent[], ttlMs: number, signal?: AbortSignal): Promise<void>;
+  read(turnId: string, afterSeq: number, signal?: AbortSignal): Promise<readonly TurnEvent[] | undefined>;
+  wait(
+    turnId: string,
+    afterSeq: number,
+    timeoutMs: number,
+    signal?: AbortSignal,
+  ): Promise<readonly TurnEvent[] | undefined>;
+  readonly shared: boolean;
+}
+```
+
+| Method | What it must do |
+| --- | --- |
+| `append` | Adds a batch to the turn, starting it if it is new, and keeps the turn for `ttlMs` from now. The `seq` of each event must be greater than the turn's last one; otherwise throw and keep what the turn had. One call per batch: askdare batches every 100 ms or 20 events, and right away for the answer's end. |
+| `read` | The turn's events with `seq` greater than `afterSeq`, in order; `[]` when there are none yet; `undefined` when the turn is unknown, expired, or lost events (a gap would corrupt the resumed answer). |
+| `wait` | Like `read`, but when nothing comes after `afterSeq` yet, waits up to `timeoutMs` for an append and answers with what it brought; `[]` after the timeout or when `signal` aborts. Polling is fine, as `upstashTurnLog()` does every 150 ms. |
+| `shared` | `true` when every server instance sees the same turns. |
+
+The turn ID is an HMAC, never a conversation ID. The events hold answer text, so log nothing about them, not even in an error's message, and let them expire: askdare passes the bot's turn timeout plus one minute as `ttlMs` ([Privacy](privacy.md#turn-log)). `signal` may be ignored by `append` and `read`.
+
+### Test it
+
+`turnEventLogContract` from `@boldare/askdare/testing` is the suite `memoryTurnLog()` and `upstashTurnLog()` pass. Each test uses turns of its own with a short time to live, so what it writes soon expires:
+
+```ts
+// lib/turn-log.test.ts
+import { turnEventLogContract } from '@boldare/askdare/testing';
+import { describe, expect, it } from 'vitest';
+import { myTurnLog } from './turn-log';
+
+turnEventLogContract('myTurnLog', () => myTurnLog(), { describe, it, expect });
+```
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `ttlMs` | 1,000 | The time to live in the expiry tests. |
+| `elapse` | real time | Lets time pass for the log, for a log with a test clock. |

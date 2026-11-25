@@ -2,7 +2,7 @@
 
 This is askdare's accessibility conformance statement. It says what the widget and its default look aim for, how that was checked, and what is known not to work yet. Why askdare cares, and what the European Accessibility Act asks of your site, is in [Compliance](compliance.md#5-accessibility).
 
-**Last reviewed: 2026-11-21**, against the 0.5 development line (after 0.4.0). The statement is updated whenever the chat's markup changes.
+**Last reviewed: 2026-11-25**, against the 0.6 development line. The statement is updated whenever the chat's markup changes.
 
 ## Status
 
@@ -44,6 +44,7 @@ What it doesn't cover, so it is yours to check:
 - **Behaviour tests:**
   - a finished answer is announced once, as rendered text, and not while it streams;
   - a restored conversation is not read out;
+  - loading earlier messages keeps the visitor's place, is announced, and keeps focus on the button or gives it to the oldest message;
   - no control is covered by the rest of the chat when it has focus (2.4.11);
   - focus doesn't go behind a full-screen chat (2.4.11);
   - Escape closes the chat and returns focus to what opened it.
@@ -63,6 +64,7 @@ The WCAG 2.2 criteria that automated tools can't decide were reviewed by hand on
 ## How the chat works with assistive technology
 
 - **The conversation** is a `log`, but not a live region: text that grows inside a message is read in fragments or not at all, so the chat doesn't rely on it. When an answer finishes, its rendered text is announced **once** through a separate, visually hidden `status` region. Answers restored after a reload are not read out.
+- **Long conversations** load older messages a page at a time, from a "Show earlier messages" button at the top of the conversation, which also loads when the visitor scrolls up to it. The messages go in above without moving what the visitor was reading, and the hidden `status` region says "Earlier messages loaded." From the keyboard, focus stays on the button, in view, with the older messages under it; once the start of the conversation is reached and the button goes away, focus moves to the oldest message.
 - **What the assistant is doing** (loading, thinking, searching, using a tool) is a polite `status`. **Errors** are an `alert`.
 - **The panel** is a labelled `region`, or `main` when the chat is the whole page. The launcher says whether the chat is open (`aria-expanded`), and its name starts with its visible label.
 - **Keyboard:** everything works with the keyboard. Enter sends and Shift+Enter starts a new line. Escape dismisses the "Start over" question if it is open, else cancels a dictation, else closes the chat. Closing returns focus to whatever opened the chat. "Start over" asks in a dialog, and focus comes back to its button.
@@ -74,7 +76,7 @@ The WCAG 2.2 criteria that automated tools can't decide were reviewed by hand on
 - **Screen readers aren't tested by hand.** Problems found with VoiceOver, NVDA or TalkBack are fixed as bugs; please report them.
 - **On a wide screen, the open chat floats over your page.** It is a non-modal dialog in a corner. If a visitor tabs out of it into your page, the element that gets focus may sit behind the chat (2.4.11). Escape closes it while focus is in the chat, and the launcher closes it from the page. A chat that fills the screen doesn't have this problem, since focus stays in it.
 - **The launcher can cover your page's content.** It is fixed to a corner of the window, so an element of your page that scrolls under it can be partly hidden when it gets focus. Leave room for it at the bottom of your page, or move it with `::part(launcher)` ([Styling](styling.md)).
-- **The finished answer is announced in full.** A long answer is long to listen to; a screen reader's own "stop speaking" key interrupts it. Its copy stays in the hidden region until the next answer, so reading the whole page in order meets the latest answer twice.
+- **The finished answer is announced in full.** A long answer is long to listen to; a screen reader's own "stop speaking" key interrupts it. Its copy stays in the hidden region until the next answer or until earlier messages load, so reading the whole page in order meets the latest answer twice.
 - **Answers in another language** than the chat's are not marked with their own `lang`, so a screen reader may read them with the wrong voice (3.1.2).
 - **Dictation needs a microphone.** Typing always works instead.
 

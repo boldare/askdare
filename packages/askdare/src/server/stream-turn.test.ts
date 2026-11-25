@@ -5,6 +5,9 @@ import { AskdareError } from '../errors';
 import type { ModelGateway, TurnRequest, TurnResult } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
 import { decodeEvent, SseParser } from '../protocol/sse';
+import { memoryTurnLog } from '../resume/memory-turn-log';
+import { turnKey } from '../resume/turn-key';
+import type { TurnEventLog } from '../resume/turn-log';
 import { STREAM_HEADERS, type StreamTurnOptions, streamTurn } from './stream-turn';
 import type { ChatTranscriptReport } from './transcript-report';
 import type { ChatUsageReport } from './usage-report';
@@ -662,6 +665,142 @@ describe('streamTurn', () => {
         ['[askdare] The onTranscript hook failed: TypeError.'],
       ]);
       consoleError.mockRestore();
+    });
+  });
+
+  describe('turn log (ADR-0027)', () => {
+    const answering = fakeGateway(async (request) => {
+      request.emit({ type: 'text.delta', messageId: request.messageId, delta: 'Hi' });
+      request.emit({ type: 'text.delta', messageId: request.messageId, delta: ' there' });
+      return COMPLETED;
+    });
+    const keyOf = (messageId: string, conversationId = 'conv_new'): Promise<string> =>
+      turnKey(async (value) => `hmac(${value})`, bot.id, conversationId, messageId);
+
+    /** Runs a turn to the end of its `waitUntil` work, so every batch is in the log. */
+    const logged = async (
+      overrides: Partial<StreamTurnOptions>,
+    ): Promise<{ raw: string; events: ProtocolEvent[] }> => {
+      let work: Promise<unknown> | undefined;
+      const result = await collect(
+        streamTurn(
+          options({
+            gateway: answering,
+            ...overrides,
+            waitUntil: (promise) => {
+              work = promise;
+            },
+          }),
+        ),
+      );
+      await work;
+      return result;
+    };
+
+    it('logs every event under the answer’s key, numbered as its frame', async () => {
+      const log = memoryTurnLog();
+      const { raw, events } = await logged({ resume: log });
+      expect(raw).toContain('id: 1\nevent: conversation.created\n');
+      expect(raw).toContain('id: 6\nevent: message.end\n');
+      const entries = await log.read(await keyOf('id_2'), 0);
+      expect(entries).toEqual(events.map((event, index) => ({ seq: index + 1, event })));
+    });
+
+    it('logs a resumed conversation’s turn from its first event', async () => {
+      const log = memoryTurnLog();
+      const conversations = fakeConversations();
+      conversations.own('conv_old', { botId: bot.id, owner: 'visitor:visitor-1' });
+      const { events } = await logged({
+        resume: log,
+        conversations,
+        conversationId: 'conv_old',
+        owns: () => true,
+      });
+      expect(events[0]).toEqual({ type: 'user.ack', messageId: 'id_1' });
+      const entries = await log.read(await keyOf('id_2', 'conv_old'), 0);
+      expect(entries?.map(({ event }) => event)).toEqual(events);
+    });
+
+    it('keeps logging after the visitor left, to the end of the answer', async () => {
+      const log = memoryTurnLog();
+      const visitor = new AbortController();
+      const gateway = fakeGateway(async (request) => {
+        request.emit({ type: 'text.delta', messageId: request.messageId, delta: 'Hi' });
+        visitor.abort();
+        await sleep(20);
+        request.emit({ type: 'text.delta', messageId: request.messageId, delta: ' there' });
+        return COMPLETED;
+      });
+      let work: Promise<unknown> | undefined;
+      const stream = streamTurn(
+        options({
+          gateway,
+          resume: log,
+          signal: visitor.signal,
+          waitUntil: (promise) => {
+            work = promise;
+          },
+        }),
+      );
+      const reader = stream.getReader();
+      await reader.read();
+      await reader.cancel();
+      await work;
+      const entries = await log.read(await keyOf('id_2'), 0);
+      expect(entries?.map(({ event }) => event.type)).toEqual([
+        'conversation.created',
+        'user.ack',
+        'message.start',
+        'text.delta',
+        'text.delta',
+        'message.end',
+      ]);
+    });
+
+    it('logs the error that ends a turn out of time', async () => {
+      const log = memoryTurnLog();
+      const gateway = fakeGateway(
+        (request) =>
+          new Promise((_, reject) => {
+            request.signal.addEventListener('abort', () => reject(request.signal.reason));
+          }),
+      );
+      const slowBot: Bot = { ...bot, limits: { ...bot.limits, turnTimeoutMs: 30 } };
+      await logged({ resume: log, gateway, bot: slowBot });
+      const entries = await log.read(await keyOf('id_2'), 0);
+      expect(entries?.at(-1)?.event).toMatchObject({ type: 'error', code: 'timeout' });
+    });
+
+    it('goes on when the log fails, reporting the error by its name only', async () => {
+      const failing: TurnEventLog = {
+        shared: true,
+        append: async () => {
+          throw new Error('could not store "Hi there"');
+        },
+        read: async () => undefined,
+        wait: async () => undefined,
+      };
+      const onError = vi.fn();
+      const { events } = await logged({ resume: failing, onError });
+      expect(events.at(-1)).toMatchObject({ type: 'message.end', reason: 'completed' });
+      expect(onError).toHaveBeenCalledOnce();
+      const [error] = onError.mock.calls[0] as [AskdareError];
+      expect(error.code).toBe('internal_error');
+      expect(error.message).toBe("The turn log failed, so this answer can't be resumed: Error.");
+      expect(error.cause).toBe(undefined);
+    });
+
+    it('doesn’t log a turn refused before its conversation exists', async () => {
+      const log = memoryTurnLog();
+      const conversations = fakeConversations();
+      const { events } = await logged({
+        resume: log,
+        conversations,
+        conversationId: 'conv_foreign',
+        owns: () => false,
+      });
+      expect(events).toEqual([expect.objectContaining({ type: 'error', code: 'not_found' })]);
+      expect(log.turns).toBe(0);
     });
   });
 

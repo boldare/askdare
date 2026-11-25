@@ -11,8 +11,16 @@ export interface TurnLogWriterOptions {
   /** Bounds every append, usually the turn's deadline. */
   readonly signal?: AbortSignal;
   /**
-   * Called once when an append fails. The writer then stops logging the turn, which can no longer
-   * be resumed, while the turn itself goes on. The error must not be logged with event contents.
+   * How many times a failed append is tried again, the same batch in order, before the writer gives
+   * up. Default 2, so a passing network error doesn't leave the log short of the answer's end.
+   */
+  readonly retries?: number;
+  /** The pause before the first retry, doubled for each further one. Default 200 ms. */
+  readonly retryDelayMs?: number;
+  /**
+   * Called once when an append fails for good. The writer then stops logging the turn, which can
+   * no longer be resumed to its end, while the turn itself goes on. The error must not be logged
+   * with event contents.
    */
   readonly onError?: (error: unknown) => void;
 }
@@ -40,6 +48,11 @@ export function turnLogWriter(
   const { ttlMs, signal, onError } = options;
   const maxEvents = options.maxEvents ?? 20;
   const maxDelayMs = options.maxDelayMs ?? 100;
+  const retries = options.retries ?? 2;
+  const retryDelayMs = options.retryDelayMs ?? 200;
+  if (!Number.isInteger(retries) || retries < 0) {
+    throw new RangeError('[askdare] turnLogWriter: retries must be a whole number.');
+  }
   if (!Number.isInteger(maxEvents) || maxEvents < 1) {
     throw new RangeError('[askdare] turnLogWriter: maxEvents must be a positive integer.');
   }
@@ -60,12 +73,21 @@ export function turnLogWriter(
       while (buffer.length > 0 && !failed) {
         const batch = buffer;
         buffer = [];
-        try {
-          await log.append(turnId, batch, ttlMs, signal);
-        } catch (error) {
-          failed = true;
-          buffer = [];
-          onError?.(error);
+        for (let attempt = 0; ; attempt += 1) {
+          try {
+            await log.append(turnId, batch, ttlMs, signal);
+            break;
+          } catch (error) {
+            // Events written meanwhile wait in `buffer`, so batches stay in order.
+            if (attempt < retries && !signal?.aborted) {
+              await new Promise((resolve) => setTimeout(resolve, retryDelayMs * 2 ** attempt));
+              continue;
+            }
+            failed = true;
+            buffer = [];
+            onError?.(error);
+            break;
+          }
         }
       }
     } finally {

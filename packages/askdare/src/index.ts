@@ -51,6 +51,9 @@ export { openaiEmbedder } from './openai/embedder';
 export type { ErrorCode } from './protocol/events';
 export { ERROR_CODES } from './protocol/events';
 export { PROTOCOL_VERSION } from './protocol/version';
+export type { MemoryTurnLog, MemoryTurnLogOptions } from './resume/memory-turn-log';
+export { memoryTurnLog } from './resume/memory-turn-log';
+export type { TurnEvent, TurnEventLog } from './resume/turn-log';
 export type {
   HumanChallenge,
   HumanCheckContext,

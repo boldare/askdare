@@ -1,5 +1,5 @@
 import type { ErrorCode, ProtocolEvent } from '../protocol/events';
-import type { HistoryMessage } from '../protocol/history';
+import type { HistoryResponse } from '../protocol/history';
 import { decodeEvent, SseParser } from '../protocol/sse';
 import { parseHistory } from '../protocol/validate';
 import { PROTOCOL_HEADER, PROTOCOL_VERSION } from '../protocol/version';
@@ -233,22 +233,31 @@ export class ChatClient {
     return this.#options.storage.get(this.#resumeKey()) !== undefined;
   }
 
-  /** Loads the visible part of the stored conversation; empty when there is none or it is gone. */
-  async loadHistory(signal?: AbortSignal): Promise<readonly HistoryMessage[]> {
+  /**
+   * Loads a page of the stored conversation: the latest, or with `before` the page before the one
+   * that gave it. The latest is empty when there is no conversation or it is gone. Throws on other
+   * failures, with the status as `cause` (400: the server refused `before`; 404 for an older page:
+   * the conversation is gone, and is forgotten).
+   */
+  async loadHistory(signal?: AbortSignal, before?: string): Promise<HistoryResponse> {
     const resumeToken = this.#options.storage.get(this.#resumeKey());
-    if (!resumeToken) return [];
+    if (!resumeToken) return { messages: [] };
     const response = await this.#authorized(
       'POST',
       '/history',
-      () => json({ botId: this.#options.botId, resumeToken }),
+      // JSON leaves `before` out when it is undefined: the latest page.
+      () => json({ botId: this.#options.botId, resumeToken, before }),
       signal,
     );
-    if (response.status === 404) {
-      this.reset();
-      return [];
+    if (response.status === 404) this.reset();
+    // Gone while older messages show: the caller must say so, not show an empty start.
+    if (response.status === 404 && !before) return { messages: [] };
+    if (!response.ok) {
+      throw new Error(`History request failed with ${response.status}`, {
+        cause: response.status,
+      });
     }
-    if (!response.ok) throw new Error(`History request failed with ${response.status}`);
-    return parseHistory(await response.json())?.messages ?? [];
+    return parseHistory(await response.json()) ?? { messages: [] };
   }
 
   /** Deletes the conversation on the server (best effort) and forgets it in this browser. */
