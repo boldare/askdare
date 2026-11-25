@@ -2,7 +2,7 @@
 
 This is askdare's accessibility conformance statement. It says what the widget and its default look aim for, how that was checked, and what is known not to work yet. Why askdare cares, and what the European Accessibility Act asks of your site, is in [Compliance](compliance.md#5-accessibility).
 
-**Last reviewed: 2026-11-25**, against the 0.6 development line. The statement is updated whenever the chat's markup changes.
+**Last reviewed: 2026-11-25**, against 0.6. The statement is updated whenever the chat's markup changes.
 
 ## Status
 

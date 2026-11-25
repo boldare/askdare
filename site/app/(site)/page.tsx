@@ -77,8 +77,8 @@ const FEATURES = [
     more: 'Going public',
   },
   {
-    title: 'No database',
-    text: 'Conversations live in OpenAI. Deploy to Vercel or Heroku with two environment variables.',
+    title: 'No database required',
+    text: 'Conversations live in OpenAI by default. Deploy to Vercel or Heroku with two environment variables.',
     href: '/docs/deployment',
     more: 'Deployment',
   },
@@ -87,40 +87,40 @@ const FEATURES = [
 /** What the latest release added. Update it with each minor release. */
 const NEW = [
   {
-    title: 'Guardrails',
-    text: 'Opt-in OpenAI moderation of messages and answers, and your own rules to block or redact them. A blocked answer never reaches the browser.',
-    href: '/docs/guardrails',
-    more: 'Guardrails',
+    title: 'Conversations in your Postgres',
+    text: 'Keep conversations in your own database with @boldare/askdare-postgres. OpenAI still processes every request and keeps attachments, but no conversation.',
+    href: '/docs/own-your-data',
+    more: 'Own your data',
   },
   {
-    title: 'A human check',
-    text: 'Ask visitors to pass Cloudflare Turnstile before a chat starts, and refuse to run without shared rate limits.',
-    href: '/docs/configuration#human-check',
-    more: 'The human check',
+    title: 'Knowledge in pgvector',
+    text: 'Sync the same folder to your own index with kb sync --index. Answers cite their sources as before, without a per-search fee.',
+    href: '/docs/knowledge-base#your-own-index',
+    more: 'Your own index',
   },
   {
-    title: 'Seven languages',
-    text: 'Czech, German, Spanish, French and Italian join English and Polish, built in. Your own texts still win.',
-    href: '/docs/texts',
-    more: 'Texts',
+    title: 'Answers that survive a dropped connection',
+    text: 'The network drops mid-answer and the chat picks it up where it stopped, on one server or, through Upstash, on many.',
+    href: '/docs/configuration#resume',
+    more: 'Resuming answers',
   },
   {
-    title: 'WCAG 2.2 AA',
-    text: 'Screen readers hear each finished answer once, and a full-screen chat keeps the focus. With a dated conformance statement.',
-    href: '/docs/accessibility',
-    more: 'Accessibility',
+    title: 'The whole history',
+    text: 'Older messages load page by page as the visitor scrolls up, however long the conversation is.',
+    href: '/docs/react#long-conversations',
+    more: 'Long conversations',
   },
   {
-    title: 'The AI notice everywhere',
-    text: 'The Disclosure primitive brings the AI Act notice to your own markup, and doctor lists bots that turn it off.',
-    href: '/docs/compliance',
-    more: 'Compliance',
+    title: 'Compaction',
+    text: 'Long conversations in your own store are summarized in the background, so the turns after them cost less.',
+    href: '/docs/configuration#compaction',
+    more: 'Compaction',
   },
   {
-    title: 'Ready for 1.0',
-    text: 'doctor warns before a model shuts down, long answers stream smoothly, error logs carry no visitor text, and Node.js 26 is supported.',
-    href: 'https://github.com/boldare/askdare/blob/main/packages/askdare/CHANGELOG.md',
-    more: 'Changelog',
+    title: 'Your own transcripts',
+    text: 'onTranscript hands each finished turn to your code, for support or an admin view of your own. askdare keeps none of it.',
+    href: '/docs/configuration#ontranscript',
+    more: 'Transcripts',
   },
 ] as const;
 
@@ -260,7 +260,7 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
 
         <section id="new" className="section features" aria-labelledby="new-title">
           <h2 id="new-title">
-            <span>New in 0.5:</span> <strong>compliance-ready</strong>
+            <span>New in 0.6:</span> <strong>own your data</strong>
           </h2>
           <ul className="features-list">
             {NEW.map((feature) => (

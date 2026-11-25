@@ -1,15 +1,15 @@
 # askdare
 
-> `@boldare/askdare` adds an AI chatbot to any website. A Next.js 16 app (App Router, Node.js runtime) serves the chat from one catch-all route; other sites embed it with one `<script>` tag. Built on the official `openai` SDK (Responses and Conversations APIs); no database.
+> `@boldare/askdare` adds an AI chatbot to any website. A Next.js 16 app (App Router, Node.js runtime) serves the chat from one catch-all route; other sites embed it with one `<script>` tag. Built on the official `openai` SDK (Responses and Conversations APIs); no database required, or conversations and knowledge in your own Postgres.
 
-Set it up with `npx @boldare/askdare init` and verify it with `npx @boldare/askdare doctor`. The public API is `defineBot` (which returns a `BotHandle`), `defineTool`, `defineTheme`, `turnstile` and `ERROR_CODES` from `@boldare/askdare`; `createChatHandler` (with `onError`, `onUsage` and `onFeedback`) and `getChatConfig` from `@boldare/askdare/next`; `Root`, `DefaultChat`, the hooks and the primitives (including `Disclosure` and `HumanCheck`) from `@boldare/askdare/react`; the CLI commands (`init`, `doctor`, `kb sync`, `add ui`); `upstashStore` from `@boldare/askdare-upstash` and `otelUsage` from `@boldare/askdare-otel`; the `data-*` attributes of the script tag, `askdare(…)` on the page, the `--ask-*` CSS tokens, the `data-ask-part` names and the text keys. Everything else is internal.
+Set it up with `npx @boldare/askdare init` and verify it with `npx @boldare/askdare doctor`. The public API is `defineBot` (which returns a `BotHandle`), `defineTool`, `defineTheme`, `turnstile` and `ERROR_CODES` from `@boldare/askdare`; `memoryConversations`, `memoryTurnLog` and `openaiEmbedder` from `@boldare/askdare`; `createChatHandler` (with `onError`, `onUsage`, `onFeedback`, `onTranscript`, `conversations` and `resume`) and `getChatConfig` from `@boldare/askdare/next`; `Root`, `DefaultChat`, the hooks and the primitives (including `Disclosure`, `HumanCheck` and `LoadEarlier`) from `@boldare/askdare/react`; the CLI commands (`init`, `doctor`, `kb sync` with `--index`, `add ui`); `postgresConversations`, `pgvectorIndex` and the `askdare-postgres migrate` command from `@boldare/askdare-postgres`; `upstashStore` and `upstashTurnLog` from `@boldare/askdare-upstash` and `otelUsage` from `@boldare/askdare-otel`; the `data-*` attributes of the script tag, `askdare(…)` on the page, the `--ask-*` CSS tokens, the `data-ask-part` names and the text keys. Everything else is internal.
 
 ## Docs
 
 - [Getting started](docs/getting-started.md): install, `init`, `.env.local`, `doctor`, embedding on other sites
-- [Configuration](docs/configuration.md): every `defineBot` and `createChatHandler` option, limits with defaults, the human check (`security.humanVerifier: turnstile({ siteKey })`, `TURNSTILE_SECRET_KEY`), `limits.requireSharedStore`, environment variables
+- [Configuration](docs/configuration.md): every `defineBot` and `createChatHandler` option, limits with defaults, the human check (`security.humanVerifier: turnstile({ siteKey })`, `TURNSTILE_SECRET_KEY`), `limits.requireSharedStore`, `limits.compactAt` (compaction), `conversations`, `resume`, `onTranscript`, environment variables
 - [Embedding](docs/embedding.md): the script tag and its `data-*` attributes, several bots, the host page's CSP, your own page in the widget's iframe (`embedPath`, `EmbedRoot`, `embedPageHeaders`), staging and production
-- [CLI](docs/cli.md): `init`, `doctor` (including model shutdown dates and bots with the AI notice off), `kb sync`, `add ui` and `usage`, with every flag
+- [CLI](docs/cli.md): `init`, `doctor` (including model shutdown dates, bots with the AI notice off, and your own store and index), `kb sync` (to a vector store or, with `--index`, your own index), `add ui` and `usage`, with every flag
 - [Troubleshooting](docs/troubleshooting.md): symptoms, causes and fixes, by error code (`ERROR_CODES`)
 - [Tools](docs/tools.md): `defineTool`, Zod schemas, what a tool may trust, and `ui`: what the visitor sees of a result as a card
 - [Reply options](docs/reply-options.md): clickable answers under the latest reply, suggested by the model (`widget.replies: 'suggest'`) or defined by a tool (`defineTool({ replies })`), limits, placement, cost
@@ -18,18 +18,18 @@ Set it up with `npx @boldare/askdare init` and verify it with `npx @boldare/askd
 - [Attachments](docs/attachments.md): images and PDFs from visitors
 - [Voice input](docs/voice-input.md): dictation and its limits
 - [Styling](docs/styling.md): texts, languages, AI disclosure, custom CSS and the `data-ask-part` names, `askdare('open' | 'configure')`, inline mode
-- [React](docs/react.md): the chat inside a page of your own app with `@boldare/askdare/react`: `getChatConfig`, `Root`, `DefaultChat`, hooks and primitives, tool cards (`toolRenderers`, `ToolResults`, `Link`), the AI notice in your own markup (`Disclosure`), the human check (`HumanCheck`), CSS resets, CSP, `add ui`
+- [React](docs/react.md): the chat inside a page of your own app with `@boldare/askdare/react`: `getChatConfig`, `Root`, `DefaultChat`, hooks and primitives, older messages in pages (`LoadEarlier`, `loadEarlier()`), tool cards (`toolRenderers`, `ToolResults`, `Link`), the AI notice in your own markup (`Disclosure`), the human check (`HumanCheck`), CSS resets, CSP, `add ui`
 - [Texts](docs/texts.md): every text key with its default in each built-in language (en, cs, de, es, fr, it, pl), plurals, adding a language, switching the chat's language on the page (`askdare('configure', { locale })`, `data-follow-lang`)
 - [Themes](docs/themes.md): Halo, Aura, Sage and Care, tokens and variants
-- [Deployment](docs/deployment.md): Vercel, Heroku, proxies, shared limits
+- [Deployment](docs/deployment.md): Vercel, Heroku, proxies, shared limits, resuming answers
 - [Own your data](docs/own-your-data.md): moving a bot to your own Postgres: `postgresConversations`, `pgvectorIndex` with `kb sync --index`, `migrate`, `doctor`, resume with `upstashTurnLog`, `limits.compactAt`, `onTranscript`, sweeping old conversations, what stays at OpenAI (ZDR, data residency), costs
 - [Going public](docs/going-public.md): OpenAI project, secrets, limits, privacy checklist
 - [Guardrails](docs/guardrails.md): opt-in OpenAI moderation (`moderation`), your own `onInput` and `onOutput` rules to allow, block or redact, answers held back while they are checked, `toolResults: 'untrusted'`
-- [Costs](docs/costs.md): the worst case under the default limits, and how to keep it bounded
+- [Costs](docs/costs.md): the worst case under the default limits, how to keep it bounded, long conversations and compaction
 - [Observability](docs/observability.md): `onUsage` and `onError`, cost per turn, OpenTelemetry spans with `@boldare/askdare-otel`
 - [Chat events](docs/events.md): what the chat reports to the page, for analytics
 - [Answer ratings](docs/feedback.md): 👍/👎 with an optional comment, `onFeedback`, what the report holds
-- [Privacy](docs/privacy.md): what is stored where and sent to whom (OpenAI, its moderation endpoint, Cloudflare for the human check), for your privacy policy
+- [Privacy](docs/privacy.md): what is stored where and sent to whom (OpenAI, its moderation endpoint, Cloudflare for the human check, your own conversation store, the turn log, transcripts), for your privacy policy
 - [Compliance](docs/compliance.md): AI Act disclosure (`widget.disclosure`, the `Disclosure` primitive), GDPR (DPA, retention, deletion), data residency, the resume token in inline mode, hosts other than Vercel and Heroku, no Edge runtime
 - [Accessibility](docs/accessibility.md): the WCAG 2.2 AA conformance statement: scope, how it is tested, finished answers announced to screen readers, focus kept in a full-screen chat, known limitations
 - [Support](docs/support.md): Node.js (22, 24 and 26), Next.js, React, zod and TypeScript versions, browsers, sizes
@@ -37,5 +37,5 @@ Set it up with `npx @boldare/askdare init` and verify it with `npx @boldare/askd
 
 ## Optional
 
-- [Streaming protocol](docs/protocol.md): the SSE events between the server and the chat, endpoints and status codes
-- [Custom stores](docs/custom-store.md): writing your own store for limits and budgets, or for conversations
+- [Streaming protocol](docs/protocol.md): the SSE events between the server and the chat, endpoints, history pages (`before`), resuming an answer (`POST /resume`) and status codes
+- [Custom stores](docs/custom-store.md): writing your own store for limits and budgets, for conversations (`ConversationStore`), or a turn event log (`TurnEventLog`), with the contract suites from `@boldare/askdare/testing`

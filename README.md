@@ -2,7 +2,7 @@
 
 <p align="center">
   An AI chatbot for any website, served by your Next.js app on the official OpenAI SDK.<br>
-  One route, one script tag, no database.
+  One route, one script tag, no database required.
 </p>
 
 <p align="center">
@@ -65,16 +65,16 @@ Or [try it first, in five minutes](#your-chatbot-in-five-minutes), without your 
 
 [![What it does: answers from your documents with citations, your own tools, images and PDFs, voice input, secure by default, the chat inside your own page with React, thumbs-up and thumbs-down ratings of answers, observability with OpenTelemetry, and chat events for analytics. Also clickable answers suggested by the model, reply options from your tools, switching the chat's language from the page, a one-click deploy, tool cards drawn by your own React components, your own page inside the widget, and texts per language. New in 0.5: guardrails with OpenAI moderation and your own rules, a human check with Cloudflare Turnstile, seven built-in languages, and WCAG 2.2 AA. No database.](.github/assets/askdare-features.png)](https://askdare.vercel.app/#features)
 
-[Knowledge base](docs/knowledge-base.md) · [Tools](docs/tools.md) · [Tool cards](docs/react.md#tool-cards) · [Reply options](docs/reply-options.md) · [Attachments](docs/attachments.md) · [Voice input](docs/voice-input.md) · [The chat inside your page (React)](docs/react.md) · [Your own page in the widget](docs/embedding.md#your-own-page-in-the-iframe) · [Answer ratings](docs/feedback.md) · [Observability](docs/observability.md) · [Chat events](docs/events.md) · [Guardrails](docs/guardrails.md) · [Human check](docs/configuration.md#human-check) · [Accessibility](docs/accessibility.md) · [Security](THREAT_MODEL.md)
+[Knowledge base](docs/knowledge-base.md) · [Tools](docs/tools.md) · [Tool cards](docs/react.md#tool-cards) · [Reply options](docs/reply-options.md) · [Attachments](docs/attachments.md) · [Voice input](docs/voice-input.md) · [The chat inside your page (React)](docs/react.md) · [Your own page in the widget](docs/embedding.md#your-own-page-in-the-iframe) · [Answer ratings](docs/feedback.md) · [Observability](docs/observability.md) · [Chat events](docs/events.md) · [Guardrails](docs/guardrails.md) · [Human check](docs/configuration.md#human-check) · [Accessibility](docs/accessibility.md) · [Own your data](docs/own-your-data.md) · [Security](THREAT_MODEL.md)
 
-**New in 0.5:**
+**New in 0.6, own your data:**
 
-- **Guardrails**, all opt-in: OpenAI moderation of messages and answers, your own `onInput` and `onOutput` rules to block or redact, and tool results marked as untrusted. See [Guardrails](docs/guardrails.md).
-- **Bot protection**: an optional human check with Cloudflare Turnstile (`security.humanVerifier`), and `limits.requireSharedStore` to refuse a deployment without shared limits. See [Configuration](docs/configuration.md#human-check).
-- **Seven languages built in**: Czech, German, Spanish, French and Italian join English and Polish. See [Texts](docs/texts.md).
-- **WCAG 2.2 AA**: finished answers are read out once, a full-screen chat keeps the focus, and a dated [accessibility statement](docs/accessibility.md).
-- **Compliance**: the `Disclosure` primitive for the AI notice in your own markup, and a [guide](docs/compliance.md) to what the AI Act, the GDPR and the European Accessibility Act ask of a website chatbot.
-- **Also**: `doctor` warns about model shutdown dates, smoother streaming of long answers, error logs without visitor text, and a clear error when a conversation outgrows the model's context. `defineBot` returns a `BotHandle`, `ERROR_CODES` is exported, and Node.js 26 is supported. See the [changelog](packages/askdare/CHANGELOG.md).
+- **Conversations in your own Postgres**: `postgresConversations()` from the new [`@boldare/askdare-postgres`](packages/askdare-postgres), with `migrate` for the tables and a sweep for your retention. Turns go to OpenAI with `store: false`: it still processes every request, but keeps no conversation. See [Own your data](docs/own-your-data.md).
+- **Knowledge in pgvector**: `pgvectorIndex` with `askdare kb sync --index`, searched by the built-in `search_knowledge` tool, with the same cited sources and no per-search fee. See [Knowledge base](docs/knowledge-base.md#your-own-index).
+- **Answers that survive a dropped connection**: the chat picks an answer up where it stopped, from memory on one server or from Upstash on several (`upstashTurnLog()`). See [Configuration](docs/configuration.md#resume).
+- **The whole history**: older messages load in pages as the visitor scrolls up (`LoadEarlier`). See [React](docs/react.md#long-conversations).
+- **Compaction and transcripts**: opt-in `limits.compactAt` keeps long conversations in your store affordable, and `onTranscript` hands each finished turn to your code. See [Configuration](docs/configuration.md#compaction).
+- **Still at OpenAI**: OpenAI processes every model request, and attachments stay in OpenAI Files. See [What stays at OpenAI](docs/own-your-data.md#what-stays-at-openai) and the [changelog](packages/askdare/CHANGELOG.md).
 
 
 ## Themes
@@ -102,9 +102,9 @@ Coming from `@boldare/openai-assistant`? It stopped working when OpenAI shut dow
 | Package | What it is |
 | --- | --- |
 | [`@boldare/askdare`](packages/askdare) | The library: bots, the chat route, the embeddable chat and the CLI |
-| [`@boldare/askdare-upstash`](packages/askdare-upstash) | Rate limits and budgets shared by every server instance, in Upstash Redis |
+| [`@boldare/askdare-upstash`](packages/askdare-upstash) | Rate limits, budgets and answer resume shared by every server instance, in Upstash Redis |
 | [`@boldare/askdare-otel`](packages/askdare-otel) | OpenTelemetry spans for every chat turn, following the GenAI conventions |
-| [`@boldare/askdare-postgres`](packages/askdare-postgres) | Conversations and a knowledge index in your own Postgres (in progress for 0.6) |
+| [`@boldare/askdare-postgres`](packages/askdare-postgres) | Conversations and a pgvector knowledge index in your own Postgres |
 
 ---
 
