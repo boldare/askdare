@@ -1,4 +1,4 @@
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Locator, type Page, test } from '@playwright/test';
 
 // Resuming an answer whose stream dropped (ADR-0027), on the production build under `next start`:
 // the turn has to outlive its response, as on Heroku or any long-running Node.js server. The first
@@ -151,9 +151,9 @@ async function dropFirstAnswer(page: Page): Promise<void> {
   });
 }
 
-/** The mock's whole answer to `text`, each word once. */
-const said = (text: string): RegExp =>
-  new RegExp(`^You said: ${text.replace(/[[\]]/g, '\\$&')} \\(in conv_\\d+\\)$`);
+/** The answer's text without the conversation the mock names at its end. */
+const answerText = async (bubble: Locator): Promise<string | undefined> =>
+  (await bubble.textContent())?.replace(/ \(in conv_\d+\)$/, '');
 
 /** The paths of the chat's API requests, in order. */
 function requests(page: Page): string[] {
@@ -190,7 +190,7 @@ for (const [where, url, scope] of [
     const answer = chat.locator('[data-ask-part="message"][data-role="assistant"]').last();
     await expect(answer).toHaveAttribute('data-status', 'done', { timeout: 15_000 });
     // Every word once: the resumed events continue the text that was shown.
-    await expect(answer.locator('[data-ask-part="bubble"]')).toHaveText(said(text));
+    expect(await answerText(answer.locator('[data-ask-part="bubble"]'))).toBe(`You said: ${text}`);
     await expect(chat.locator('[data-ask-part="error"]')).toHaveCount(0);
     await expect(chat.locator('[data-ask-part="status"]')).toHaveCount(0);
     expect(sent.filter((path) => path === '/resume')).toHaveLength(1);
@@ -220,7 +220,7 @@ test('takes a dropped answer from the history when it can no longer be resumed',
 
   const answer = page.locator('[data-ask-part="message"][data-role="assistant"]').last();
   await expect(answer).toHaveAttribute('data-status', 'done', { timeout: 15_000 });
-  await expect(answer.locator('[data-ask-part="bubble"]')).toHaveText(said(text));
+  expect(await answerText(answer.locator('[data-ask-part="bubble"]'))).toBe(`You said: ${text}`);
   await expect(page.locator('[data-ask-part="error"]')).toHaveCount(0);
   expect(sent.slice(-2)).toEqual(['/resume', '/history']);
   // The visitor's message stays where it was, once.

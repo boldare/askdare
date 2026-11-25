@@ -8,6 +8,6 @@ When a visitor's connection drops in the middle of an answer, the chat now carri
 - **When it can't be resumed** (the server no longer has the answer's events, as with the default in-memory log on another instance, or the attempts ran out), the chat reloads the latest page of the conversation and shows the finished answer from there. Older pages already shown stay. Only when the answer isn't stored yet does the chat show "Connection problem. Please try again." as before.
 - **Headless:** `state.activity` is `status.reconnecting` while an answer resumes. `message.received` fires once per answer, as `completed` when it was resumed or taken from the history.
 - **New text:** `status.reconnecting`, in every built-in language.
-- **Smaller headless bundle:** a page that uses `Root` and `useChat` without `Markdown` no longer bundles the Markdown renderer (about 1.2 KB gzipped less).
+- **Smaller React bundles:** a page that uses `Root` and `useChat` without `Markdown` no longer bundles the Markdown renderer (about 1.2 KB gzipped less), and `@boldare/askdare/react` no longer ships the parts of marked it never used, only its lexer (about 3 KB gzipped less). Answers render as before.
 
 Resuming across instances needs a shared turn log, such as `upstashTurnLog()`. See [Configuration: `resume`](https://github.com/boldare/askdare/blob/main/docs/configuration.md#resume) and [Troubleshooting](https://github.com/boldare/askdare/blob/main/docs/troubleshooting.md#the-chat-reconnects-in-the-middle-of-an-answer).
