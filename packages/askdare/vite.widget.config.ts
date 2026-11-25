@@ -1,10 +1,13 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
+import { markedLexerOnly } from './scripts/marked-lexer-only.ts';
 
 // The iframe app. Written with React's API and built with Preact, which is a tenth of the size:
 // the app runs alone in its iframe, so nothing else on the page depends on React. Inlined into the
 // package by scripts/inline-assets.mjs.
 export default defineConfig({
+  // Only marked's Lexer is used, as in the React build (scripts/marked-lexer-only.ts).
+  plugins: [markedLexerOnly],
   define: { 'process.env.NODE_ENV': JSON.stringify('production') },
   resolve: {
     alias: [
