@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { fakeEmbedder } from '../knowledge/fake-embedder';
 import { memoryKnowledgeIndex } from '../knowledge/memory-index';
 import { defineTool } from '../tools/define-tool';
-import { type BotDefinition, createBot, widgetTexts } from './define-bot';
+import { type BotDefinition, compactionWarnings, createBot, widgetTexts } from './define-bot';
 
 describe('createBot', () => {
   it('applies default limits and normalizes instructions to a function', () => {
@@ -26,6 +26,7 @@ describe('createBot', () => {
       transcriptionsPerVisitorPerHour: 30,
       voiceSecondsPerDay: 3_600,
       voiceSecondsPerIpPerDay: 600,
+      compactAt: undefined,
     });
     expect(bot.voice).toBeUndefined();
     expect(bot.instructions({ locale: 'en' })).toBe('Be helpful.');
@@ -151,6 +152,26 @@ describe('createBot', () => {
     expect(() => createBot({ id: 'a', model: 'm', instructions: 'x', tools: [tool] })).toThrow(
       /reserved name search_knowledge/,
     );
+  });
+
+  it('compacts from 20,000 to 272,000 tokens, and only when asked (ADR-0029)', () => {
+    const base = { id: 'a', model: 'm', instructions: 'x' };
+    expect(createBot({ ...base, limits: { compactAt: 20_000 } }).limits.compactAt).toBe(20_000);
+    expect(createBot({ ...base, limits: { compactAt: 272_000 } }).limits.compactAt).toBe(272_000);
+    for (const compactAt of [19_999, 272_001, 50_000.5]) {
+      expect(() => createBot({ ...base, limits: { compactAt } })).toThrow(/compactAt/);
+    }
+  });
+
+  it('warns at startup when compactAt meets a store that keeps no items', () => {
+    const bots = [
+      createBot({ id: 'a', model: 'm', instructions: 'x', limits: { compactAt: 40_000 } }),
+      createBot({ id: 'b', model: 'm', instructions: 'x' }),
+    ];
+    expect(compactionWarnings(bots, false)).toEqual([]);
+    const warnings = compactionWarnings(bots, true);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatch(/Bot "a" sets limits\.compactAt/);
   });
 
   it('is frozen', () => {

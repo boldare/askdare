@@ -111,6 +111,46 @@ export interface TurnResult {
    * server cleans them up before sending.
    */
   readonly replies?: readonly string[] | undefined;
+  /**
+   * The conversation's version after the turn's last append, in an item store; absent when the
+   * provider keeps the conversation. A compaction after the turn expects it (ADR-0029).
+   */
+  readonly version?: number | undefined;
+  /**
+   * True when the conversation stopped compacting, because the floor a compaction left was too
+   * high (ADR-0029, decision 7): no compaction is reserved or attempted after the turn.
+   */
+  readonly compactionStopped?: boolean | undefined;
+}
+
+/** Compacts a conversation in an item store after a turn (ADR-0029). */
+export interface CompactionRequest {
+  readonly bot: Bot;
+  readonly conversationId: string;
+  readonly conversations: ConversationStore;
+  /** The turn's context, for the bot's instructions: the same prompt prefix, so the cache holds. */
+  readonly context: BotContext;
+  /** The turn's `safety_identifier`. */
+  readonly safetyIdentifier: string;
+  /**
+   * The conversation's version after the turn. When anything was written since, nothing is
+   * compacted, and the compaction item is appended only at this version.
+   */
+  readonly version: number;
+  readonly signal: AbortSignal;
+}
+
+export interface CompactionResult {
+  /**
+   * - `compacted`: the compaction item was stored, and the next turn replays from it;
+   * - `conflict`: the conversation changed first, so nothing was stored; the next turn may try again;
+   * - `skipped`: no request was made: the store keeps no items, or the conversation stopped
+   *   compacting (ADR-0029, decision 7);
+   * - `failed`: the model returned no compaction item.
+   */
+  readonly outcome: 'compacted' | 'conflict' | 'skipped' | 'failed';
+  /** What the compaction request used; zero when none was made. */
+  readonly usage: TokenUsage;
 }
 
 /**
@@ -181,6 +221,11 @@ export interface ModelGateway {
   /** Turns recorded speech into text. Nothing is stored. */
   transcribe(request: TranscriptionRequest): Promise<TranscriptionResult>;
   runTurn(request: TurnRequest): Promise<TurnResult>;
+  /**
+   * Summarises a conversation in an item store into one compaction item, after a turn and off the
+   * visitor's path (ADR-0029). Absent: conversations are never compacted.
+   */
+  compact?(request: CompactionRequest): Promise<CompactionResult>;
   /** Classifies texts for `moderation` (ADR-0019). Absent: moderation is unavailable and skipped. */
   moderate?(request: ModerationRequest): Promise<ModerationResult>;
   /** Small live requests that show whether the key, model and stores work (`askdare doctor`). */

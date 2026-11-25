@@ -768,6 +768,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
         ? (id, itemId) => feedbackHandle(tokens, bot, { visitorId, key }, id, itemId)
         : undefined,
       reserveCall: () => reservation.extend(),
+      reserveCompaction: (inputTokens) => reservation.compaction(inputTokens),
       lockConversation: checksOutput(bot.guardrails)
         ? (id) => config.limits.lockConversation(bot, id)
         : undefined,

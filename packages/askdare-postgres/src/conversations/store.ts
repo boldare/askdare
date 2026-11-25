@@ -61,6 +61,16 @@ left join lateral (
 where c.id = $1
 order by i.seq`;
 
+/**
+ * Leaves out the items before the latest compaction item of the model in `$3` (provider) and `$4`
+ * (family), for `selectItems`. Without a model, nothing.
+ */
+const FROM_COMPACTION = `and seq >= coalesce((
+    select max(seq) from ${ITEMS_TABLE}
+    where conversation_id = c.id and type = 'native'
+      and item->>'kind' = 'compaction' and item->>'provider' = $3 and item->>'family' = $4
+  ), 0)`;
+
 interface ItemRow {
   readonly version: number;
   /** Null for a conversation with no items (the left join found none). */
@@ -227,15 +237,28 @@ export function postgresConversations(
         requested === undefined || !Number.isFinite(requested)
           ? null
           : Math.max(0, Math.floor(requested));
+      const model = options?.model;
       // One statement, so the items and the version come from the same snapshot.
-      const rows = await queryRows<ItemRow>(db(), selectItems(''), [id, maxItems]);
+      const rows = await queryRows<ItemRow>(db(), selectItems(FROM_COMPACTION), [
+        id,
+        maxItems,
+        model?.provider ?? null,
+        model?.family ?? null,
+      ]);
       const found = positioned(rows);
       if (!found) throw unknownConversation();
       const { version, items } = found;
       // A window that doesn't reach the first item starts at the next visitor message, so a call
-      // is never replayed without the turn around it.
+      // is never replayed without the turn around it. A compaction item follows a whole turn, so
+      // the window may start there (ADR-0029).
       const first = items[0];
-      if (first && first.seq > 1) {
+      const compacted =
+        model !== undefined &&
+        first?.type === 'native' &&
+        first.kind === 'compaction' &&
+        first.provider === model.provider &&
+        first.family === model.family;
+      if (first && first.seq > 1 && !compacted) {
         const start = items.findIndex((item) => item.type === 'message' && item.role === 'user');
         return { kind: 'items', items: start < 0 ? [] : items.slice(start), version };
       }

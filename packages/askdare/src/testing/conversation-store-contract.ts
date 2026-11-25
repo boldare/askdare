@@ -68,6 +68,15 @@ const comparable = (item: StoredItem): Record<string, unknown> => {
   };
   return rest;
 };
+/** A compaction item (ADR-0029) of a model in the `contract` provider's `family`. */
+const compaction = (family: string): StoredItem => ({
+  id: itemId(),
+  type: 'native',
+  provider: 'contract',
+  family,
+  kind: 'compaction',
+  data: { type: 'compaction', encrypted_content: `summary-${counter}` },
+});
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 const failure = async (work: Promise<unknown>): Promise<unknown> => {
   try {
@@ -227,6 +236,51 @@ export function conversationStoreContract(
           if (item.type === 'call_output') expect(calls.has(item.callId)).toBe(true);
         }
       }
+    });
+
+    test('starts the replay window at the latest compaction item of the model', async (store, create) => {
+      const id = await create();
+      const first = compaction('one');
+      const latest = compaction('one');
+      const written = [...turn(1), first, ...turn(2), latest, ...turn(3)];
+      await store.append(id, written);
+      const model = { provider: 'contract', family: 'one' };
+      const context = await store.context(id, { model });
+      if (context.kind !== 'items') throw new Error('An item store returned a provider context.');
+      expect(context.items.map(comparable)).toEqual(written.slice(9).map(comparable));
+      expect(context.items[0]?.id).toBe(latest.id);
+      expect(first.id === latest.id).toBe(false);
+      expect(context.version).toBe(written.length);
+      // A cut later than the compaction item wins: the window never grows past maxItems.
+      const cut = await store.context(id, { model, maxItems: 4 });
+      expect(cut.kind === 'items' ? cut.items.map(comparable) : []).toEqual(
+        written.slice(10).map(comparable),
+      );
+    });
+
+    test('replays everything to another model, and without one', async (store, create) => {
+      const id = await create();
+      const written = [...turn(1), compaction('one'), ...turn(2)];
+      await store.append(id, written);
+      for (const model of [
+        { provider: 'contract', family: 'two' },
+        { provider: 'other', family: 'one' },
+        undefined,
+      ]) {
+        const context = await store.context(id, model ? { model } : {});
+        expect(context.kind === 'items' ? context.items.map(comparable) : []).toEqual(
+          written.map(comparable),
+        );
+      }
+    });
+
+    test('keeps compaction items in pages, with their kind', async (store, create) => {
+      const id = await create();
+      const written = [...turn(1), compaction('one'), ...turn(2)];
+      await store.append(id, written);
+      expect((await store.page(id, { limit: 100 })).items.map(comparable)).toEqual(
+        written.map(comparable),
+      );
     });
 
     test('refuses an append when another turn wrote first, and writes nothing', async (store, create) => {

@@ -72,7 +72,21 @@ export interface BotLimits {
   readonly voiceSecondsPerDay?: number;
   /** Seconds of speech transcribed per client IP per UTC day. Default 600. */
   readonly voiceSecondsPerIpPerDay?: number;
+  /**
+   * Compacts a conversation once a model call of a turn reads this many input tokens: after the
+   * turn, in the background, OpenAI summarises it into one opaque item, and the next turns replay
+   * from there (ADR-0029). Between 20 000 and 272 000. Off by default.
+   *
+   * Only with a conversation store that keeps the items, such as `@boldare/askdare-postgres`;
+   * `openaiConversations()` never compacts.
+   */
+  readonly compactAt?: number;
 }
+
+/** The bot's limits with their defaults; `compactAt` stays unset unless the bot sets it. */
+export type ResolvedLimits = Required<Omit<BotLimits, 'compactAt'>> & {
+  readonly compactAt: number | undefined;
+};
 
 export interface BotSecurity {
   /**
@@ -297,7 +311,7 @@ export interface Bot extends BotHandle {
   readonly [BOT]: true;
   readonly model: string;
   readonly instructions: (context: BotContext) => string;
-  readonly limits: Required<BotLimits>;
+  readonly limits: ResolvedLimits;
   readonly tools: readonly Tool[];
   readonly pageContext: boolean;
   readonly knowledge: ResolvedKnowledge | undefined;
@@ -311,7 +325,7 @@ export interface Bot extends BotHandle {
   readonly guardrails: Guardrails;
 }
 
-const DEFAULT_LIMITS: Required<BotLimits> = {
+const DEFAULT_LIMITS: ResolvedLimits = {
   maxOutputTokens: 1024,
   maxInputChars: 4000,
   maxSteps: 5,
@@ -329,7 +343,14 @@ const DEFAULT_LIMITS: Required<BotLimits> = {
   transcriptionsPerVisitorPerHour: 30,
   voiceSecondsPerDay: 3_600,
   voiceSecondsPerIpPerDay: 600,
+  compactAt: undefined,
 };
+
+/**
+ * The bounds of `limits.compactAt`. Below the lower one, the floor a compaction leaves soon reaches
+ * it again; the upper one is where OpenAI's long-context price starts (ADR-0029).
+ */
+const COMPACT_AT = { min: 20_000, max: 272_000 } as const;
 
 /** An https URL or a path on your app (no protocol-relative URLs). */
 const LINK = /^(https:\/\/[^\s"'<>\\]{1,500}|\/(?![/\\])[^\s"'<>\\]{0,500})$/;
@@ -439,6 +460,7 @@ const definitionSchema = z.object({
       transcriptionsPerVisitorPerHour: z.number().int().min(1).max(1_000).optional(),
       voiceSecondsPerDay: z.number().int().min(60).optional(),
       voiceSecondsPerIpPerDay: z.number().int().min(60).optional(),
+      compactAt: z.number().int().min(COMPACT_AT.min).max(COMPACT_AT.max).optional(),
     })
     .optional(),
   tools: z
@@ -578,6 +600,20 @@ function resolveKnowledge(knowledge: KnowledgeConfig | undefined): ResolvedKnowl
   return knowledge.index
     ? Object.freeze({ vectorStoreId: undefined, index: knowledge.index, maxResults })
     : Object.freeze({ vectorStoreId: knowledge.vectorStoreId, index: undefined, maxResults });
+}
+
+/**
+ * What to tell the operator at startup about compaction: `limits.compactAt` does nothing when the
+ * provider keeps the conversations (`openaiConversations()`), which never compact (ADR-0029).
+ */
+export function compactionWarnings(bots: readonly Bot[], providerStore: boolean): string[] {
+  if (!providerStore) return [];
+  return bots
+    .filter((bot) => bot.limits.compactAt !== undefined)
+    .map(
+      (bot) =>
+        `Bot "${bot.id}" sets limits.compactAt, but its conversations are kept at OpenAI, which askdare never compacts. Use a store that keeps the items, such as @boldare/askdare-postgres, or remove the option.`,
+    );
 }
 
 /**

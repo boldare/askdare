@@ -19,6 +19,7 @@ export type {
 } from './bot/guardrails';
 export { memoryConversations } from './conversations/memory';
 export type {
+  CompactionModel,
   ConversationContext,
   ConversationInfo,
   ConversationOwner,

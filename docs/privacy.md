@@ -147,6 +147,7 @@ A [conversation store](custom-store.md#conversation-store) that keeps the items 
 - **Nothing of the conversation stays at OpenAI.** Each request sends the whole conversation with `store: false`, and OpenAI keeps no conversation and no response. What OpenAI keeps is its abuse monitoring logs of the requests, up to 30 days, as for any API request; see its [data controls](https://developers.openai.com/api/docs/guides/your-data).
 - **Files still go to OpenAI**: attached images and PDFs are uploaded and referenced as above, and deleted with the conversation. The knowledge base stays in your OpenAI vector store.
 - Answers are rated by their ID in your store; the rating handle carries it encrypted, as before.
+- **Compaction** (`limits.compactAt`, [ADR-0029](adr/0029-compaction-for-item-stores.md)) sends the conversation to OpenAI once more after a turn, also with `store: false`, and stores the summary it returns in your store, with the conversation. The summary is encrypted, only OpenAI can read it, and it is deleted with the conversation like everything else. It may still carry what the conversation held, including an answer your output checks withheld. Nothing stored before it is changed or removed.
 
 ### Responses
 

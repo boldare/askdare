@@ -1,5 +1,5 @@
 import { AskdareError } from '../errors';
-import { attachedFiles, replayWindow } from './items';
+import { attachedFiles, contextWindow } from './items';
 import {
   type ConversationInfo,
   type ConversationStore,
@@ -54,8 +54,10 @@ export function memoryConversations(): ConversationStore {
 
     async context(id, options) {
       const { info, items } = entry(id);
-      const window =
-        options?.maxItems === undefined ? items : replayWindow(items, options.maxItems);
+      const window = contextWindow(items, {
+        maxItems: options?.maxItems,
+        model: options?.model,
+      });
       return { kind: 'items', items: copy(window), version: info.version };
     },
 

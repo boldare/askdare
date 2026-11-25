@@ -22,6 +22,26 @@ export interface ChatToolCallReport {
 }
 
 /**
+ * The compaction after a turn (ADR-0029), when one was due: the turn's last model call read at
+ * least `limits.compactAt` input tokens in a conversation store that keeps the items. Its usage is
+ * apart from the turn's own.
+ */
+export interface ChatCompactionReport {
+  /**
+   * - `compacted`: the summary was stored, and the next turns replay from it;
+   * - `conflict`: the visitor wrote again before it was stored, so it was dropped; a later turn
+   *   compacts again;
+   * - `skipped`: no request was made: a budget couldn't cover it, or the conversation stopped
+   *   compacting because each summary left too large a floor;
+   * - `failed`: the request failed or returned no summary; a later turn tries again.
+   */
+  readonly outcome: 'compacted' | 'conflict' | 'skipped' | 'failed';
+  /** What the compaction request used, as OpenAI reported it; zero when none finished. */
+  readonly usage: ChatTokenUsage;
+  readonly durationMs: number;
+}
+
+/**
  * One chat turn, as `onUsage` receives it (ADR-0012). It carries counters, timings and
  * pseudonyms only: never message text, tool arguments or results, IP addresses or raw IDs.
  */
@@ -50,4 +70,9 @@ export interface ChatUsageReport {
   /** Model calls in the turn: one, plus one after each round of tool calls. */
   readonly steps: number;
   readonly tools: readonly ChatToolCallReport[];
+  /**
+   * The compaction after the turn, when one was due (`limits.compactAt`). The report then comes
+   * once it has ended, up to a minute and a half after the turn.
+   */
+  readonly compaction?: ChatCompactionReport | undefined;
 }

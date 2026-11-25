@@ -227,6 +227,7 @@ Limits bound what visitors can cost ([ADR-0004](adr/0004-threat-model.md)). Ever
 | `transcriptionsPerVisitorPerHour` | `30` | Dictations per visitor per hour | 1–1,000 |
 | `voiceSecondsPerDay` | `3600` | Seconds of speech transcribed per UTC day, across all visitors | 60 or more |
 | `voiceSecondsPerIpPerDay` | `600` | Seconds of speech transcribed per client IP per UTC day | 60 or more |
+| `compactAt` | unset | Input tokens of a turn's last model call at which askdare compacts the conversation after the turn. Only with a store that keeps the items; see [Compaction](#compaction). | 20,000–272,000 |
 
 What happens at a limit:
 
@@ -234,6 +235,7 @@ What happens at a limit:
 - **Token budgets** answer `budget_exceeded` until midnight UTC. Before each model call, askdare reserves an estimate against `dailyTokens`, `dailyTokensPerIp` and the handler's `globalDailyTokens`. The estimate covers the conversation so far, the new message, `maxOutputTokens`, attached files and file search results. A bot with tools reserves the next call before each tool round, and answers without tools when a budget can't hold it. When the turn ends, the real usage replaces the estimate: input read from the prompt cache counts as a tenth of a token, close to its price, and everything else, cache writes included, as a whole token. The estimate counts the conversation so far as whole tokens, in case the cache has gone cold. A turn that fails or is cut off keeps the estimate charged.
 - **Speech budgets** reserve `voice.maxSeconds` per dictation, then charge the duration OpenAI reports. When one is spent, dictation answers `budget_exceeded` until midnight UTC.
 - **`maxInputChars`** rejects a longer message with `invalid_input`.
+- **`compactAt`** reserves the compaction's estimate against the same token budgets after the turn, and skips the compaction when they can't hold it.
 
 A few limits are fixed:
 
@@ -245,6 +247,28 @@ A few limits are fixed:
 | `npx @boldare/askdare doctor` runs | 3 per minute for the whole app |
 
 Per-IP limits depend on reading the client IP correctly. See [`trustProxy`](#trustproxy).
+
+#### Compaction
+
+A conversation in a store that keeps the items, such as `@boldare/askdare-postgres`, is replayed in full on every model call. That costs more the longer it gets, and every token counts against the budgets. With `limits.compactAt` set, askdare compacts it once a turn's last model call reads that many input tokens ([ADR-0029](adr/0029-compaction-for-item-stores.md)):
+
+```ts
+defineBot({
+  id: 'support',
+  model: process.env.ASKDARE_MODEL!,
+  instructions: '…',
+  limits: { compactAt: 40_000 },
+});
+```
+
+- **After the turn, in the background.** Once the answer has streamed and the conversation is free, askdare sends OpenAI one request with the conversation and a `compaction_trigger`. It uses the bot's model, instructions and tools, so it reads the prompt cache the turn just wrote. The visitor never waits for it: it takes a few seconds to about 15. It needs the platform to keep work alive after a response (`after()` on Vercel, which `createChatHandler` uses). If it can't, nothing breaks; the conversation is just not compacted.
+- **What is stored.** OpenAI returns one compaction item: an encrypted summary of the conversation that only OpenAI can read. askdare appends it to the conversation and changes nothing else, so history, paging and deletion work as before. The next turns replay from that item instead of from the start.
+- **Opaque, and its quality is OpenAI's.** askdare can't read or test the summary. In spike S9 the visitor's facts and the `[id]` citations of earlier answers survived five compactions in a row, but nuance may not. If the visitor writes again before the compaction is stored, it is dropped, and a later turn compacts again.
+- **A floor that rises.** Each summary covers the one before it, so the conversation's floor grows a little with each compaction. When the first model call after a compaction already reads more than half of `compactAt`, that conversation stops compacting and replays in full from there.
+- **Another model family** (for example after you change `model` from one GPT generation to the next) can't read the summary, so it replays the full conversation.
+- **Not with `openaiConversations()`**, the default store: OpenAI keeps those conversations, and askdare never compacts them (spikes S5 and S5b). `createChatHandler` warns at startup when a bot sets `compactAt` with it.
+
+What it saves and costs is in [Costs](costs.md#long-conversations-and-compaction). The compaction's usage reaches `onUsage` as its own entry, apart from the turn's.
 
 ### Widget
 
@@ -376,6 +400,7 @@ It may be async. askdare calls it after the stream has closed, so it never delay
 | `usage` | `ChatTokenUsage` | `inputTokens`, `cachedInputTokens`, `cacheWriteTokens`, `outputTokens` and `reasoningTokens`, summed over the turn's model calls. Cached and cache-write tokens are part of the input; reasoning tokens are part of the output. |
 | `steps` | `number` | Model calls in the turn: one, plus one after each round of tool calls. |
 | `tools` | `ChatToolCallReport[]` | One per function call: `name`, `startedAt`, `durationMs` and `outcome` (`ok`, `error` or `timeout`). |
+| `compaction` | `ChatCompactionReport \| undefined` | Only when the turn made a [compaction](#compaction) due: its `usage` (as above, apart from the turn's), `durationMs`, and `outcome`: `compacted`; `conflict` (the visitor wrote again first, so it was dropped); `skipped` (a budget couldn't hold it, or the conversation stopped compacting); or `failed`. The report then comes once the compaction has ended. |
 
 The pseudonyms change when `CHAT_SECRET` rotates. A turn that fails mid-stream reports the usage askdare saw, which can be less than what OpenAI bills; [Costs](costs.md) explains the difference.
 

@@ -533,3 +533,38 @@ describe('lockConversation', () => {
     await again();
   });
 });
+
+describe('compaction budget (ADR-0029)', () => {
+  const big = createBot({
+    id: 'support',
+    model: 'm',
+    instructions: 'x',
+    limits: { maxOutputTokens: 100, dailyTokens: 100_000, dailyTokensPerIp: 10_000 },
+  });
+
+  it('holds the cached window and about 2,000 output tokens, never the 20,000 maximum', async () => {
+    const { limits, spent } = setup();
+    const reservation = await limits.beginTurn(big, turn('ip-a', 'va'));
+    await reservation.settle(usage(100, 10), 'conv_1');
+    expect(await spent()).toBe(110);
+    const held = await reservation.compaction(30_000);
+    expect(await spent()).toBe(110 + 3_000 + 2_000);
+    await held?.settle({
+      inputTokens: 30_000,
+      cachedInputTokens: 29_000,
+      cacheWriteTokens: 0,
+      outputTokens: 900,
+      reasoningTokens: 0,
+    });
+    // 1,000 uncached + 2,900 cached at a tenth + 900 output.
+    expect(await spent()).toBe(110 + 1_000 + 2_900 + 900);
+  });
+
+  it("refuses a compaction the budget can't cover, and holds nothing for it", async () => {
+    const { limits, spent } = setup();
+    const reservation = await limits.beginTurn(big, turn('ip-b', 'vb'));
+    await reservation.settle(usage(100, 10), 'conv_2');
+    expect(await reservation.compaction(100_000)).toBe(undefined);
+    expect(await spent()).toBe(110);
+  });
+});

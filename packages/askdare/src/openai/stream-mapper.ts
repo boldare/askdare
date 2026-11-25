@@ -1,4 +1,8 @@
-import type { ResponseOutputItem, ResponseStreamEvent } from 'openai/resources/responses/responses';
+import type {
+  ResponseOutputItem,
+  ResponseStreamEvent,
+  ResponseUsage,
+} from 'openai/resources/responses/responses';
 import { MarkerMerger } from '../citation-markers';
 import { AskdareError } from '../errors';
 import type { TokenUsage } from '../gateway';
@@ -55,6 +59,22 @@ export class CitationRegistry {
   has(index: number): boolean {
     return Number.isInteger(index) && index >= 1 && index <= this.#indices.size;
   }
+}
+
+/**
+ * A response's usage as askdare counts it; zero when it reports none. Optional chains: servers other
+ * than OpenAI may leave the details out (spike S6b).
+ */
+export function tokenUsage(usage: ResponseUsage | null | undefined): TokenUsage {
+  return usage
+    ? {
+        inputTokens: usage.input_tokens,
+        cachedInputTokens: usage.input_tokens_details?.cached_tokens ?? 0,
+        cacheWriteTokens: usage.input_tokens_details?.cache_write_tokens ?? 0,
+        outputTokens: usage.output_tokens,
+        reasoningTokens: usage.output_tokens_details?.reasoning_tokens ?? 0,
+      }
+    : ZERO_USAGE;
 }
 
 /**
@@ -172,7 +192,6 @@ export class ResponseStreamMapper {
     event: Extract<ResponseStreamEvent, { type: 'response.completed' | 'response.incomplete' }>,
   ): void {
     this.#emitText(this.#markers.flush());
-    // Optional chains: servers other than OpenAI may leave the details out (spike S6b).
     const usage = event.response.usage;
     this.#outcome = {
       status: event.type === 'response.completed' ? 'completed' : 'incomplete',
@@ -180,15 +199,7 @@ export class ResponseStreamMapper {
       model: event.response.model || undefined,
       answerItemId: this.#answerItemId,
       textItemId: this.#textItemId,
-      usage: usage
-        ? {
-            inputTokens: usage.input_tokens,
-            cachedInputTokens: usage.input_tokens_details?.cached_tokens ?? 0,
-            cacheWriteTokens: usage.input_tokens_details?.cache_write_tokens ?? 0,
-            outputTokens: usage.output_tokens,
-            reasoningTokens: usage.output_tokens_details?.reasoning_tokens ?? 0,
-          }
-        : ZERO_USAGE,
+      usage: tokenUsage(usage),
       functionCalls: this.#functionCalls,
       output:
         event.response.output?.length > 0

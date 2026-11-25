@@ -1,6 +1,6 @@
 # ADR-0003: Conversation state without a database
 
-- **Status:** Accepted on 2026-10-29 after spike S1 ([findings](../../spikes/s1-openai/FINDINGS.md)).
+- **Status:** Accepted on 2026-10-29 after spike S1 ([findings](../../spikes/s1-openai/FINDINGS.md)). The S5b decision below still holds for `openaiConversations()`: those conversations never compact. Conversations in a store that keeps the items compact with `limits.compactAt` ([ADR-0029](0029-compaction-for-item-stores.md), accepted 2026-11-24).
 - **Date:** 2026-10-29
 
 ## Context

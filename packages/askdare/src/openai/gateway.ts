@@ -2,6 +2,7 @@ import { BadRequestError, toFile } from 'openai';
 import type { ModelGateway } from '../gateway';
 import { deleteFiles, FILE_TTL_SECONDS } from './attachments';
 import { createOpenAIClient, type OpenAIClientOptions } from './client';
+import { compactConversation } from './compaction';
 import { diagnoseBot } from './diagnose';
 import { fromOpenAIError } from './errors';
 import { moderate } from './guardrails';
@@ -61,6 +62,8 @@ export function createOpenAIGateway(options: OpenAIGatewayOptions): ModelGateway
     },
 
     runTurn: (request) => runTurn(client, request),
+
+    compact: (request) => compactConversation(client, request),
 
     diagnose: (request) => diagnoseBot(client, request),
 

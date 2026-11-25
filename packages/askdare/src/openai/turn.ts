@@ -1,6 +1,12 @@
 import type OpenAI from 'openai';
 import type { ResponseInputItem } from 'openai/resources/responses/responses';
-import { newItemId, visitorItem } from '../conversations/items';
+import {
+  compactionStopNote,
+  compactionStopped,
+  firstAfterCompaction,
+  floorTooHigh,
+} from '../conversations/compaction';
+import { contextWindow, newItemId, visitorItem } from '../conversations/items';
 import { conversationBusy, storeFailure } from '../conversations/owner';
 import {
   type ConversationContext,
@@ -16,7 +22,13 @@ import { addUsage, ZERO_USAGE } from '../usage';
 import { fromOpenAIError } from './errors';
 import { guardedInstructions } from './guardrails';
 import { toResponseInput } from './items';
-import { fromResponseOutput, modelFamily, replayInput } from './replay';
+import {
+  compactionModel,
+  fromResponseOutput,
+  modelFamily,
+  promptCacheKey,
+  replayInput,
+} from './replay';
 import {
   CitationRegistry,
   type FunctionCall,
@@ -86,6 +98,13 @@ class Replay {
   readonly #family: string;
   readonly #history: ResponseInputItem[];
   #version: number;
+  /**
+   * Set while the first step after a compaction is still to be stored, when the bot compacts: its
+   * input is the conversation's new floor (ADR-0029, decision 7).
+   */
+  #floorAt: number | undefined;
+  /** Whether the conversation stopped compacting (ADR-0029, decision 7). */
+  #stopped = false;
 
   private constructor(request: TurnRequest, history: ResponseInputItem[], version: number) {
     this.#request = request;
@@ -103,10 +122,21 @@ class Replay {
     context: Extract<ConversationContext, { kind: 'items' }>,
   ): Promise<Replay> {
     const replay = new Replay(request, [], context.version);
+    const model = compactionModel(request.bot.model);
+    // The store starts at the latest compaction item; this cut is for one that ignores `model`.
+    const items = contextWindow(context.items, { model });
+    const { compactAt } = request.bot.limits;
+    if (compactAt !== undefined && firstAfterCompaction(items, model)) replay.#floorAt = compactAt;
+    replay.#stopped = compactionStopped(items);
     const visitor = visitorItem(request);
     await replay.#append([visitor]);
-    replay.#history.push(...replayInput([...context.items, visitor], replay.#family));
+    replay.#history.push(...replayInput([...items, visitor], replay.#family));
     return replay;
+  }
+
+  /** What the turn's result says about the store: its version, and whether it stopped compacting. */
+  get state(): Pick<TurnResult, 'version' | 'compactionStopped'> {
+    return { version: this.#version, ...(this.#stopped ? { compactionStopped: true } : {}) };
   }
 
   /** The input of the next model call: the whole conversation so far. */
@@ -134,6 +164,13 @@ class Replay {
       if ('id' in output && typeof output.id === 'string') ids.set(output.id, item.id);
     }
     items.push(...storedOutputs(outputs));
+    const compactAt = this.#floorAt;
+    this.#floorAt = undefined;
+    if (compactAt !== undefined && floorTooHigh(outcome.usage.inputTokens, compactAt)) {
+      // Compacting again would soon run every turn; this conversation replays in full from here.
+      items.push(compactionStopNote(outcome.usage.inputTokens, compactAt));
+      this.#stopped = true;
+    }
     await this.#append(items);
     this.#history.push(...replayInput(items, this.#family));
     // A server whose streamed IDs differ from its final ones: the answer is the last message.
@@ -193,7 +230,7 @@ async function runStep(
       stream: true,
       max_output_tokens: bot.limits.maxOutputTokens,
       safety_identifier: request.safetyIdentifier,
-      prompt_cache_key: `askdare:${bot.id}`,
+      prompt_cache_key: promptCacheKey(bot),
       ...(tools.length > 0 ? { tools, tool_choice: choice, parallel_tool_calls: true } : {}),
       // Search results carry the titles and URLs that file citations link to.
       ...(bot.knowledge?.vectorStoreId ? { include: ['file_search_call.results' as const] } : {}),
@@ -258,7 +295,10 @@ async function turn(
   };
   try {
     const context = await request.conversations
-      .context(request.conversationId, { signal: request.signal })
+      .context(request.conversationId, {
+        model: compactionModel(bot.model),
+        signal: request.signal,
+      })
       .catch(async (error: unknown) => {
         throw await storeFailure(
           request.conversations,
@@ -340,6 +380,7 @@ async function turn(
           ...(rated ? { answerItemId: rated } : {}),
           // A tool's own options win over the model's suggestion (ADR-0015).
           ...(offered ? { replies: offered } : {}),
+          ...replay?.state,
         };
       }
       const outputs = [
@@ -362,7 +403,7 @@ async function turn(
         input = outputs;
       }
     }
-    return { reason: 'max_steps', usage };
+    return { reason: 'max_steps', usage, ...replay?.state };
   } catch (error) {
     throw fromOpenAIError(error, isDeadline(request.signal));
   }
