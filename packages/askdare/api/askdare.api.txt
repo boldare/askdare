@@ -1566,7 +1566,7 @@ type LoadEarlierProps = ComponentProps<"button">;
  * older messages under it; when the conversation's start is reached and it goes away, the oldest
  * message takes focus.
  */
-export declare function LoadEarlier({ ref, children, ...props }: LoadEarlierProps): ReactElement | null;
+export declare function LoadEarlier({ ref, children, onClick, ...props }: LoadEarlierProps): ReactElement | null;
 type MessageProps = ComponentProps<"div">;
 /**
  * One message, with `data-role` and `data-status`. The message primitives read only their own
