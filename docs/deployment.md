@@ -96,6 +96,27 @@ Requests to Vercel functions can be at most 4.5 MB, so keep `attachments.maxByte
 
 Heroku closes a request that sends nothing for 30 seconds at first, and 55 seconds after that. askdare sends the first byte at once and a heartbeat every 15 seconds, so slow answers survive.
 
+## Resuming answers
+
+When a visitor's connection drops in the middle of an answer, the chat can pick the answer up where it stopped ([Configuration](configuration.md#resume)). Two things make that work:
+
+- **The answer keeps running after its response closed.** askdare hands the rest of each turn to Next.js `after()`.
+  - On **Heroku** and other long-running Node.js servers (`next start`), the process simply goes on. askdare's end-to-end tests check this against the production build.
+  - On **Vercel**, `after()` extends the function until the turn's work is done, within the route's `maxDuration`. Not yet checked on a deployment ([ADR-0027](adr/0027-stream-resume.md)).
+- **The reconnect finds the answer's events.** The default log is per instance. With one Heroku dyno, that is enough. With several dynos, or on Vercel, use the Upstash database you already have for the limits:
+
+  ```ts
+  import { upstashStore, upstashTurnLog } from '@boldare/askdare-upstash';
+
+  export const { GET, POST, DELETE } = createChatHandler({
+    bots,
+    limits: { store: upstashStore() },
+    resume: { log: upstashTurnLog() },
+  });
+  ```
+
+Where neither holds, a dropped answer is shown once it is finished, when the chat reloads the conversation, as before.
+
 ## Behind another proxy or CDN
 
 - Don't buffer `text/event-stream` responses; askdare sends `X-Accel-Buffering: no` for nginx.

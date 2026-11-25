@@ -24,6 +24,7 @@ export type {
   ChatErrorReport,
   ChatHandlerLimitsOptions,
   ChatHandlerOptions,
+  ChatHandlerResumeOptions,
   ChatHandlers,
   RouteHandler,
 } from './create-chat-handler';

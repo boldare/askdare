@@ -100,6 +100,11 @@ export interface Limits {
   lockConversation(bot: Bot, conversationId: string): Promise<() => Promise<void>>;
   /** History reads and deletions: no tokens, but they still cost upstream calls. */
   checkConversationAccess(bot: Bot, visitorId: string): Promise<void>;
+  /**
+   * Resumed answers (`POST /resume`): no tokens, but each holds a connection and reads the turn
+   * log until the answer ends. A client retries a dropped stream a few times, then reloads.
+   */
+  checkResume(bot: Bot, visitorId: string): Promise<void>;
   /** Ratings of answers, which each reach the app's `onFeedback`. */
   checkFeedback(bot: Bot, visitorId: string): Promise<void>;
   /** File uploads: no tokens until sent (then reserved with the turn), but they use storage. */
@@ -225,6 +230,11 @@ export function createLimits(options: LimitsOptions): Limits {
     async checkConversationAccess(bot, visitorId) {
       assertEnabled();
       await enforce(`ask:r:${bot.id}:${visitorId}`, MINUTE, 20);
+    },
+
+    async checkResume(bot, visitorId) {
+      assertEnabled();
+      await enforce(`ask:rs:${bot.id}:${visitorId}`, MINUTE, 30);
     },
 
     async checkFeedback(bot, visitorId) {

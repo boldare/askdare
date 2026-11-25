@@ -20,6 +20,8 @@ import type { Limits } from '../limits/limits';
 import type { DoctorCheck, DoctorReport } from '../protocol/doctor';
 import type { FeedbackHandle } from '../protocol/events';
 import { HISTORY_CURSOR_MAX } from '../protocol/history';
+import { turnKey } from '../resume/turn-key';
+import type { TurnEventLog } from '../resume/turn-log';
 import { HUMAN_TOKEN_MAX_LENGTH } from '../security/human-verifier';
 import type { IdentityFailure, IdentityVerifier, VerifiedIdentity } from '../security/identity';
 import {
@@ -47,6 +49,7 @@ import {
 import type { ChatFeedbackReport } from './feedback-report';
 import { loaderWithLook } from './launcher';
 import { publicConfig } from './public-config';
+import { resumeStream } from './resume-stream';
 import { hookError, STREAM_HEADERS, streamTurn } from './stream-turn';
 import type { ChatTranscriptReport } from './transcript-report';
 import type { ChatUsageReport } from './usage-report';
@@ -96,6 +99,11 @@ export interface HandlerConfig {
   readonly sharedLimits?: boolean | undefined;
   /** Keeps a turn running after its response ends, e.g. Next.js `after`; see `streamTurn`. */
   readonly waitUntil?: ((work: Promise<unknown>) => void) | undefined;
+  /**
+   * Where turns log their events for `POST /resume` (ADR-0027). Without one, every resume answers
+   * `404` and clients reload history.
+   */
+  readonly resume?: TurnEventLog | undefined;
 }
 
 export type RequestHandler = (request: Request) => Promise<Response>;
@@ -150,6 +158,13 @@ const conversationBody = z.object({
 const historyBody = conversationBody.extend({
   /** The `before` of the previous answer, for the next older page; the latest page when absent. */
   before: z.string().min(1).max(HISTORY_CURSOR_MAX).optional(),
+});
+
+const resumeBody = conversationBody.extend({
+  /** The answer's ID, from its `message.start`. */
+  messageId: z.string().min(1).max(128),
+  /** The sequence number (the SSE `id:`) of the last event the client received; 0 for none. */
+  after: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
 });
 
 const messageBody = z.object({
@@ -782,6 +797,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       explain: config.explain,
       heartbeatIntervalMs: config.heartbeatIntervalMs,
       waitUntil: config.waitUntil,
+      resume: config.resume,
     });
     return new Response(stream, { headers: STREAM_HEADERS });
   };
@@ -940,10 +956,15 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     }
   };
 
-  /** Authenticates the visitor and proves they own the conversation behind the resume token. */
+  /**
+   * Authenticates the visitor and proves they own the conversation behind the resume token, then
+   * applies the endpoint's rate limit (history reads and deletions by default).
+   */
   const ownedConversation = async <Body extends z.infer<typeof conversationBody>>(
     request: Request,
     schema: z.ZodType<Body>,
+    limit: (bot: Bot, visitorId: string) => Promise<void> = (bot, visitorId) =>
+      config.limits.checkConversationAccess(bot, visitorId),
   ): Promise<{
     body: Body;
     bot: Bot;
@@ -962,7 +983,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     if (!sameOwner(grant, visitorId, key)) {
       throw new AskdareError('not_found');
     }
-    await config.limits.checkConversationAccess(bot, visitorId);
+    await limit(bot, visitorId);
     return {
       body,
       bot,
@@ -1023,6 +1044,53 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       history.next &&
       (await tokens.issueHistoryCursor(bot.id, { conversationId, ...history.next })).token;
     return jsonResponse(next ? { messages, before: next } : { messages });
+  };
+
+  /**
+   * The rest of an answer whose stream dropped (ADR-0027): the events after `after`, then the live
+   * ones. The turn is found from the conversation in the resume token, never from the request
+   * alone, so a visitor reaches only their own answers. An unknown, expired or foreign turn, and a
+   * conversation the store no longer has for them, all answer `404` alike: the client reloads
+   * history.
+   */
+  const resumeAnswer = async (request: Request): Promise<Response> => {
+    const { body, bot, conversationId, grant, tokens } = await ownedConversation(
+      request,
+      resumeBody,
+      (owner, visitorId) => config.limits.checkResume(owner, visitorId),
+    );
+    const log = config.resume;
+    if (!log) throw new AskdareError('not_found');
+    const turnId = await turnKey(
+      (value) => tokens.pseudonym(value),
+      bot.id,
+      conversationId,
+      body.messageId,
+    );
+    // From the event the client saw last, to tell whether it already had the end.
+    const [info, known] = await Promise.all([
+      config.conversations.info(conversationId, request.signal),
+      log.read(turnId, Math.max(0, body.after - 1), request.signal).catch((error: unknown) => {
+        // The name only: a log's error may quote what it holds, which is answer text.
+        throw new AskdareError('internal_error', {
+          message: 'The turn log could not be read.',
+          cause: hookError(error),
+        });
+      }),
+    ]);
+    if (!ownsConversation(info, bot.id, grant) || known === undefined) {
+      throw new AskdareError('not_found');
+    }
+    const stream = resumeStream({
+      log,
+      turnId,
+      after: body.after,
+      known,
+      maxDurationMs: bot.limits.turnTimeoutMs,
+      signal: request.signal,
+      heartbeatIntervalMs: config.heartbeatIntervalMs,
+    });
+    return new Response(stream, { headers: STREAM_HEADERS });
   };
 
   /**
@@ -1166,6 +1234,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       if (path === '/session') return createSession(request);
       if (path === '/messages') return sendMessage(request);
       if (path === '/history') return readHistory(request);
+      if (path === '/resume') return resumeAnswer(request);
       if (path === '/feedback') return submitFeedback(request);
       if (path === '/attachments') return uploadAttachment(request);
       if (path === '/transcriptions') return transcribe(request);

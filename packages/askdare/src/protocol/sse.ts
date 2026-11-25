@@ -5,6 +5,12 @@ import { parseEvent } from './validate';
 export interface RawSseEvent {
   readonly event: string;
   readonly data: string;
+  /**
+   * The stream's last event ID when this event was dispatched (WHATWG `lastEventId`): on askdare's
+   * streams, the event's sequence number in its turn, for `POST /resume`. Absent until the stream
+   * sends an `id:` field.
+   */
+  readonly id?: string;
 }
 
 export type DecodeResult =
@@ -15,9 +21,13 @@ export type DecodeResult =
       readonly type: string;
     };
 
-/** Frames a protocol event for the wire. JSON never contains raw newlines, so one data line suffices. */
-export function encodeEvent(event: ProtocolEvent): string {
-  return `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
+/**
+ * Frames a protocol event for the wire. JSON never contains raw newlines, so one data line
+ * suffices. `id` is the event's sequence number in its turn (ADR-0027), sent as the SSE `id:`.
+ */
+export function encodeEvent(event: ProtocolEvent, id?: number): string {
+  const field = id === undefined ? '' : `id: ${id}\n`;
+  return `${field}event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
 }
 
 /** Frames an SSE comment, used for the first byte and heartbeats. Clients ignore it. */
@@ -50,8 +60,9 @@ export function decodeEvent(raw: RawSseEvent): DecodeResult {
 
 /**
  * Incremental parser for `text/event-stream`, following the WHATWG framing rules: any line ending
- * (CRLF, LF, CR), comments, multi-line `data`, and dispatch on a blank line. Fields other than
- * `event` and `data` are ignored. An unterminated event at end of stream is discarded.
+ * (CRLF, LF, CR), comments, multi-line `data`, `id` (kept across events, and ignored when it
+ * contains NULL), and dispatch on a blank line. Other fields are ignored. An unterminated event at
+ * end of stream is discarded.
  */
 export class SseParser {
   #buffer = '';
@@ -59,6 +70,7 @@ export class SseParser {
   #started = false;
   #eventType = '';
   #dataLines: string[] = [];
+  #lastEventId = '';
 
   /** Feeds a decoded text chunk and returns the events completed by it. */
   push(chunk: string): RawSseEvent[] {
@@ -98,6 +110,7 @@ export class SseParser {
     if (value.startsWith(' ')) value = value.slice(1);
     if (field === 'event') this.#eventType = value;
     else if (field === 'data') this.#dataLines.push(value);
+    else if (field === 'id' && !value.includes('\0')) this.#lastEventId = value;
     return undefined;
   }
 
@@ -106,6 +119,7 @@ export class SseParser {
     const event: RawSseEvent = {
       event: this.#eventType === '' ? 'message' : this.#eventType,
       data: this.#dataLines.join('\n'),
+      ...(this.#lastEventId === '' ? {} : { id: this.#lastEventId }),
     };
     this.#eventType = '';
     this.#dataLines = [];

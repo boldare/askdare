@@ -7,6 +7,7 @@ import type { ModelGateway, TurnRequest } from '../gateway';
 import { memoryStore } from '../limits/store';
 import type { ProtocolEvent } from '../protocol/events';
 import { decodeEvent, SseParser } from '../protocol/sse';
+import { memoryTurnLog } from '../resume/memory-turn-log';
 import { TROUBLESHOOTING } from '../server/explain';
 import type { ChatErrorReport } from './create-chat-handler';
 import { createChatHandler } from './create-chat-handler';
@@ -244,6 +245,48 @@ describe('limits.requireSharedStore', () => {
       createChatHandler({ bots: [bot], limits: { requireSharedStore: false } }),
     ).not.toThrow();
     expect(warnLog).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('resume', () => {
+  const resume = async (
+    handle: (request: Request) => Promise<Response>,
+    token: string,
+    seen: readonly ProtocolEvent[],
+  ): Promise<Response> => {
+    const created = seen.find((event) => event.type === 'conversation.created');
+    const started = seen.find((event) => event.type === 'message.start');
+    return handle(
+      post(
+        '/resume',
+        {
+          botId: 'support',
+          resumeToken: created?.type === 'conversation.created' ? created.resumeToken : '',
+          messageId: started?.type === 'message.start' ? started.messageId : '',
+          after: 0,
+        },
+        { authorization: `Bearer ${token}` },
+      ),
+    );
+  };
+
+  it('keeps turns in memory by default, so an answer can be resumed', async () => {
+    const { POST } = createChatHandler({ bots: [bot] });
+    const token = await accessToken(POST);
+    const seen = await chat(POST, token);
+    await settle();
+    const response = await resume(POST, token, seen);
+    expect(response.status).toBe(200);
+    expect(await events(response)).toEqual(seen);
+  });
+
+  it('writes turns to the log it is given', async () => {
+    const log = memoryTurnLog();
+    const { POST } = createChatHandler({ bots: [bot], resume: { log } });
+    const seen = await chat(POST, await accessToken(POST));
+    await settle();
+    expect(log.turns).toBe(1);
+    expect(log.events).toBe(seen.length);
   });
 });
 

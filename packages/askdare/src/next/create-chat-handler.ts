@@ -24,6 +24,8 @@ import { memoryStore, type RateLimitStore } from '../limits/store';
 import { openaiConversations } from '../openai/conversations';
 import { createOpenAIGateway } from '../openai/gateway';
 import type { ErrorCode } from '../protocol/events';
+import { memoryTurnLog } from '../resume/memory-turn-log';
+import type { TurnEventLog } from '../resume/turn-log';
 import { createIdentityVerifier, type IdentityVerifier } from '../security/identity';
 import { createTokenService, type TokenService } from '../security/tokens';
 import { explain, TROUBLESHOOTING } from '../server/explain';
@@ -55,6 +57,11 @@ export interface ChatHandlerOptions {
    * with no database of yours. Chosen on the server only; the widget never picks it.
    */
   readonly conversations?: ConversationStore;
+  /**
+   * Resuming an answer after a dropped connection (ADR-0027): each turn writes its events to a
+   * log for a few minutes, and a client that lost its stream continues it from there.
+   */
+  readonly resume?: ChatHandlerResumeOptions;
   /**
    * Called for every server error (status 500 and up), for an error that ends a streamed answer,
    * once a day when a bot-wide or the global budget runs out, and when `onTranscript` throws, for
@@ -121,6 +128,16 @@ export interface ChatHandlerLimitsOptions {
    * keeps the in-memory store. Default `false`.
    */
   readonly requireSharedStore?: boolean;
+}
+
+export interface ChatHandlerResumeOptions {
+  /**
+   * Where turns keep their events, for the turn timeout plus a minute after the last one. Defaults
+   * to `memoryTurnLog()`, per instance: a reconnect that reaches another instance reloads the
+   * history instead. With several instances, use a shared log such as `upstashTurnLog()` from
+   * `@boldare/askdare-upstash`.
+   */
+  readonly log?: TurnEventLog;
 }
 
 export type RouteHandler = (request: Request) => Promise<Response>;
@@ -199,6 +216,7 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
       '[askdare] Rate limits are kept in memory, per instance. With more than one instance, use a shared store such as @boldare/askdare-upstash.',
     );
   }
+  const turnLog = options.resume?.log ?? memoryTurnLog();
   const conversations =
     options.conversations ??
     openaiConversations(options.openaiApiKey === undefined ? {} : { apiKey: options.openaiApiKey });
@@ -257,6 +275,7 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
     explain: development ? explain : undefined,
     sharedLimits: store.shared,
     conversations,
+    resume: turnLog,
     gateway: () =>
       (gateway ??= createOpenAIGateway({
         apiKey: required(options.openaiApiKey ?? process.env['OPENAI_API_KEY'], 'OPENAI_API_KEY'),

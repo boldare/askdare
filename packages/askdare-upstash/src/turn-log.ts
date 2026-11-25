@@ -1,38 +1,6 @@
+import type { TurnEvent, TurnEventLog } from '@boldare/askdare';
 import { Redis } from '@upstash/redis';
 import type { RedisEval } from './index';
-
-// The shape of `TurnEventLog` in @boldare/askdare, which doesn't export it yet (it lands with the
-// `resume` option). Kept structural and generic over the event, which this log only stores as JSON,
-// so the log fits wherever a `TurnEventLog` is expected. Replace with the import once it exists.
-
-/** An event of a running turn, with its place in the turn. */
-export interface UpstashTurnEvent<TEvent> {
-  /** 1-based and increasing within a turn. */
-  readonly seq: number;
-  readonly event: TEvent;
-}
-
-/** The turn event log of `@boldare/askdare` (ADR-0027), kept in Upstash Redis. */
-export interface UpstashTurnLog<TEvent> {
-  append(
-    turnId: string,
-    events: readonly UpstashTurnEvent<TEvent>[],
-    ttlMs: number,
-    signal?: AbortSignal,
-  ): Promise<void>;
-  read(
-    turnId: string,
-    afterSeq: number,
-    signal?: AbortSignal,
-  ): Promise<readonly UpstashTurnEvent<TEvent>[] | undefined>;
-  wait(
-    turnId: string,
-    afterSeq: number,
-    timeoutMs: number,
-    signal?: AbortSignal,
-  ): Promise<readonly UpstashTurnEvent<TEvent>[] | undefined>;
-  readonly shared: true;
-}
 
 export interface UpstashTurnLogOptions {
   /** An existing client. Otherwise one is created from `url` and `token`. */
@@ -99,14 +67,15 @@ const sleep = (ms: number, signal: AbortSignal | undefined): Promise<void> =>
  * answer, so such a turn can no longer be resumed. `@upstash/redis` parses JSON values in replies
  * by default, so an event arrives either as its JSON text or already parsed.
  */
-function decode<TEvent>(entries: StreamEntry[]): UpstashTurnEvent<TEvent>[] | undefined {
-  const events: UpstashTurnEvent<TEvent>[] = [];
+function decode(entries: StreamEntry[]): TurnEvent[] | undefined {
+  const events: TurnEvent[] = [];
   for (const [id, fields] of entries) {
     const seq = Number.parseInt(String(id), 10);
     const value = fields[1];
     if (!Number.isInteger(seq) || value === undefined || value === null) return undefined;
     try {
-      const event = (typeof value === 'string' ? JSON.parse(value) : value) as TEvent;
+      // Written by this log from the server's own events; read back as they were stored.
+      const event = (typeof value === 'string' ? JSON.parse(value) : value) as TurnEvent['event'];
       events.push({ seq, event });
     } catch {
       return undefined;
@@ -125,9 +94,7 @@ function decode<TEvent>(entries: StreamEntry[]): UpstashTurnEvent<TEvent>[] | un
  * createChatHandler({ bots, resume: { log: upstashTurnLog() } });
  * ```
  */
-export function upstashTurnLog<TEvent = unknown>(
-  options: UpstashTurnLogOptions = {},
-): UpstashTurnLog<TEvent> {
+export function upstashTurnLog(options: UpstashTurnLogOptions = {}): TurnEventLog {
   const prefix = options.prefix ?? 'askdare:';
   const pollMs = options.pollMs ?? 150;
   if (!Number.isFinite(pollMs) || pollMs < 1) {
@@ -151,10 +118,7 @@ export function upstashTurnLog<TEvent = unknown>(
   };
   const key = (turnId: string): string => `${prefix}turn:${turnId}`;
 
-  const read = async (
-    turnId: string,
-    afterSeq: number,
-  ): Promise<UpstashTurnEvent<TEvent>[] | undefined> => {
+  const read = async (turnId: string, afterSeq: number): Promise<TurnEvent[] | undefined> => {
     if (!Number.isFinite(afterSeq)) {
       throw new RangeError('[askdare-upstash] upstashTurnLog: afterSeq must be a number.');
     }
@@ -165,7 +129,7 @@ export function upstashTurnLog<TEvent = unknown>(
       [key(turnId)],
       [from],
     );
-    return Array.isArray(reply) ? decode<TEvent>(reply) : undefined;
+    return Array.isArray(reply) ? decode(reply) : undefined;
   };
 
   return {
