@@ -1,6 +1,6 @@
 # Deployment
 
-askdare runs wherever Next.js runs on Node.js. It needs no database: conversations live in OpenAI, and your app only stores signed tokens in the visitor's browser. These are the steps for Vercel and Heroku. Before the chat is public, also work through the [going-public checklist](going-public.md).
+askdare runs wherever Next.js runs on Node.js. It needs no database: conversations live in OpenAI, and your app only stores signed tokens in the visitor's browser. To keep conversations and knowledge in your own Postgres instead, see [Own your data](own-your-data.md), which adds its variables and the `migrate` step. These are the steps for Vercel and Heroku. Before the chat is public, also work through the [going-public checklist](going-public.md).
 
 ## What every deployment needs
 

@@ -116,7 +116,9 @@ Without `--env-file`, `doctor` reads the environment the way `next dev` does: va
 | Model | The bot's model is available to the OpenAI project. A key that may not look up models gives a warning instead. So does a model OpenAI has announced a shutdown for: the warning gives the date from the OpenAI API and links to the [deprecations page](https://developers.openai.com/api/docs/deprecations), which names the replacement. | List models: Read |
 | Responses | The key can create a 16-token response with the bot's model. | Responses API: Write |
 | Conversations | The key can create and delete a conversation. | Write access to conversations |
-| Knowledge base | Only with `knowledge`: the vector store exists in the project and hasn't expired. A store without searchable documents, or with documents still indexing or failed, gives a warning. | Vector Stores: Read |
+| Knowledge base | Only with `knowledge.vectorStoreId`: the vector store exists in the project and hasn't expired. A store without searchable documents, or with documents still indexing or failed, gives a warning. | Vector Stores: Read |
+| Knowledge index | Only with `knowledge.index`: the index's own checks, such as `pgvectorIndex`'s: the database answers, pgvector and the schema are there, the index was synced, and with the bot's embedder. | |
+| Conversation store | Only with a store that checks itself, such as `postgresConversations()`: the database answers and its schema is current. | |
 | Voice input | Only with `voice`: the transcription model is available, and the key can transcribe one second of silence. A transcription model with an announced shutdown gives a warning with the date, like the bot's model. | Model capabilities: Request |
 | Attachments | Only with `attachments`: the key can upload and delete a small file. | Files: Write |
 | Headers | `widget.js?bot=<id>` answers with JavaScript, and the chat page answers without a redirect, without `X-Frame-Options` and with exactly one `frame-ancestors`. It lists the sites that may embed the chat, and warns when something sets cookies. | |

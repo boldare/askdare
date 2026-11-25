@@ -9,8 +9,8 @@ Legal texts and OpenAI's terms were checked on 2026-11-21 against the sources at
 | Topic | What askdare does | What you decide |
 | --- | --- | --- |
 | [Telling visitors they talk to an AI](#1-telling-visitors-they-talk-to-an-ai) (AI Act, art. 50(1)) | A note under the message field, on by default | Keep it, word it, or turn it off when your page already says so |
-| [Personal data](#2-personal-data-gdpr) (GDPR) | Stores nothing on your server but rate-limit counters; sends a pseudonym, not an identity, to OpenAI; lets visitors delete their conversation | Your privacy notice, the DPA with OpenAI, a retention policy for conversations |
-| [Data residency](#3-data-residency) | Uses OpenAI's global endpoints | Whether OpenAI's regional options are enough, or you wait for own storage (0.6) |
+| [Personal data](#2-personal-data-gdpr) (GDPR) | By default, stores nothing on your server but rate-limit counters; sends a pseudonym, not an identity, to OpenAI; lets visitors delete their conversation; with [your own store](own-your-data.md), sweeps old conversations | Your privacy notice, the DPA with OpenAI, a retention policy for conversations |
+| [Data residency](#3-data-residency) | Uses OpenAI's global endpoints; can keep conversations and knowledge in your own database | Where your database runs, and whether OpenAI's processing of requests is acceptable |
 | [The conversation handle in the browser](#4-the-conversation-handle-in-the-browser) | Keeps it in the widget's iframe | Whether to show the chat inside your own pages |
 | [Accessibility](#5-accessibility) (European Accessibility Act) | Targets WCAG 2.2 AA | Your site's own conformance |
 | [Moderation and guardrails](#6-moderation-and-guardrails) | Opt-in OpenAI moderation, hooks to block or redact messages and answers, untrusted tool results | Which of them your bot needs, and what blocked visitors see |
@@ -56,15 +56,15 @@ Storage limitation (Article 5(1)(e)) means keeping data no longer than you need 
 
 | What | Kept | How it ends |
 | --- | --- | --- |
-| Conversations (messages, answers, page context, tool calls and results) | Until deleted | The visitor's "Start a new conversation", which deletes it at OpenAI. Nothing else deletes it |
-| Stored model responses | 30 days by default, according to OpenAI | OpenAI deletes them |
+| Conversations (messages, answers, page context, tool calls and results) | Until deleted | The visitor's "Start a new conversation", which deletes it. At OpenAI, nothing else deletes it; in [your own store](own-your-data.md#8-sweep-old-conversations), a scheduled sweep does |
+| Stored model responses | 30 days by default, according to OpenAI; none with your own store | OpenAI deletes them |
 | Abuse-monitoring logs at OpenAI | Up to 30 days, longer where the law requires it | OpenAI deletes them |
 | Uploaded images and PDFs | 30 days | They expire, or are deleted with their conversation |
 | Rate-limit counters with IP addresses | Up to 2 days | They expire |
 
 - **Conversations outlive the browser's handle.** When the handle expires after 30 days, or the visitor clears the browser, the conversation stays in your OpenAI project. askdare keeps no list of conversations, and OpenAI's API can't list them, so askdare has no tool to find or delete one person's conversation later (right to erasure, Article 17). Decide how you will answer such a request, and say in your notice how visitors delete a conversation themselves.
-- **Zero Data Retention isn't available.** OpenAI lists the Conversations API as not eligible, and askdare needs it ([ADR-0003](adr/0003-conversation-state.md)).
-- Own storage, planned for 0.6, will let you keep conversations in your database and set their retention yourself.
+- **Zero Data Retention needs your own store.** OpenAI lists the Conversations API, the default store, as not eligible ([ADR-0003](adr/0003-conversation-state.md)).
+- **With your own store** (`@boldare/askdare-postgres`), conversations sit in your database: you set their retention, and a scheduled sweep deletes old ones. The store keeps a random visitor ID or a keyed hash of the user as the owner, so to find a signed-in user's conversations later, record `identity` and `conversationId` from [`onTranscript`](configuration.md#ontranscript). Turns run with `store: false`, so a ZDR project can use askdare. [Own your data](own-your-data.md) walks through it.
 
 ### `safety_identifier`
 
@@ -87,9 +87,9 @@ OpenAI offers [data residency](https://developers.openai.com/api/docs/guides/dat
 - Models released on or after 5 March 2026 cost 10% more on data residency endpoints.
 - It covers Customer Content at rest for the endpoints OpenAI lists, and processing where the region supports it. System data, such as account and usage data, may still be stored and processed elsewhere.
 
-**What that means for askdare.** askdare stores conversations with OpenAI's Conversations API (`/v1/conversations`), and OpenAI's list of endpoints eligible for data residency doesn't include it. A residency project therefore doesn't keep askdare's conversations in your region. askdare also uses OpenAI's global endpoint and isn't tested against regional ones.
+**What that means for askdare.** By default, askdare stores conversations with OpenAI's Conversations API (`/v1/conversations`), and OpenAI's list of endpoints eligible for data residency doesn't include it. A residency project therefore doesn't keep askdare's conversations in your region. askdare also uses OpenAI's global endpoint and isn't tested against regional ones.
 
-If you need conversations stored in a given region, wait for own storage in 0.6: conversations kept in your own database, with only model requests going to OpenAI. The [roadmap](https://github.com/boldare/askdare/blob/main/ROADMAP.md) has the details.
+If you need conversations stored in a given region, keep them in your own database, in that region, with `@boldare/askdare-postgres`, and the knowledge base with them. OpenAI then keeps no conversation and no response; it still receives the model requests, embeddings, dictations and moderation checks, and stores attached files until they expire. See [Own your data](own-your-data.md#what-stays-at-openai).
 
 ## 4. The conversation handle in the browser
 

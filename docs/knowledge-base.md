@@ -116,7 +116,7 @@ defineBot({
 });
 ```
 
-A bot has either `vectorStoreId` or `index`, not both. `maxResults` (1–50, default 5) is how many passages the model reads per search.
+A bot has either `vectorStoreId` or `index`, not both. `maxResults` (1–50, default 5) is how many passages the model reads per search. `openaiEmbedder` throws when the model or size is missing, so set `ASKDARE_EMBEDDING_MODEL` and `ASKDARE_EMBEDDING_DIMENSIONS` wherever the app builds or runs, as you do `ASKDARE_MODEL`. [Own your data](own-your-data.md) walks through the whole move, with conversations.
 
 - **The tool.** The bot gets a built-in `search_knowledge` tool with one argument, the query, which the model writes. It may search again within the bot's `limits.maxSteps`; on the last step it must answer. The widget shows "Searching…" as for file search.
 - **Citations.** Results reach the model with source IDs such as `k0123456789ab`, and askdare tells it to cite them in square brackets. While the answer streams, askdare turns them into the same numbered markers and source links that file search answers have. IDs stay the same across turns, so the model can cite a passage it found earlier in the conversation. An ID that resolves to nothing, because the model made it up or a later sync removed the passage, is dropped from the answer.

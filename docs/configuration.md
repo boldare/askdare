@@ -109,10 +109,11 @@ Put no secrets in instructions. Assume visitors can make the model reveal them.
 
 | Field | Type | Default | Rules |
 | --- | --- | --- | --- |
-| `vectorStoreId` | `string` | required | A vector store ID: `vs_` followed by letters, digits, `_` or `-`. Usually `process.env.KB_VECTOR_STORE_ID`. |
+| `vectorStoreId` | `string` | one of the two | A vector store ID: `vs_` followed by letters, digits, `_` or `-`. Usually `process.env.KB_VECTOR_STORE_ID`. The model searches it with OpenAI's file search. |
+| `index` | `KnowledgeIndex` | one of the two | Your own index, such as `pgvectorIndex({ embedder, indexId })` from `@boldare/askdare-postgres`. The model searches it with the built-in `search_knowledge` tool. |
 | `maxResults` | `number` | `5` | Whole number, 1–50. Chunks the model reads per search. More costs more input tokens. |
 
-Fill the store with `npx @boldare/askdare kb sync`. See [Knowledge base](knowledge-base.md).
+A bot has `vectorStoreId` or `index`, not both. Fill either with `npx @boldare/askdare kb sync` (`--index <id>` for your own). See [Knowledge base](knowledge-base.md) and [Own your data](own-your-data.md).
 
 ### Attachments
 

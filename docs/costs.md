@@ -205,6 +205,7 @@ The extra call counts against `maxSteps` and the budgets like a tool round: askd
 
 - `knowledge.maxResults` (default 5) is how many chunks the model reads per search. askdare reserves 800 tokens per chunk, 4,000 per message by default.
 - Each file search call has its own fee, and the vector store is billed for storage per GB per day above a free allowance. Neither is in askdare's budgets. askdare doesn't limit how many searches the model makes per message; the token budget limits them indirectly, because every search adds input tokens.
+- With [your own index](knowledge-base.md#your-own-index) there is no per-search fee and no vector store storage: each search is one embedding request for the query and one database query, and an answer that searches takes two model calls. [Own your data](own-your-data.md#costs-and-latency) has the measurements.
 - See [Knowledge base](knowledge-base.md).
 
 ## Attachments
