@@ -352,7 +352,8 @@ export function postgresConversations(
       });
     },
 
-    async sweep(idleSince, limit) {
+    async sweep(idleSince, limit, signal) {
+      signal?.throwIfAborted();
       if (!Number.isFinite(idleSince) || Math.abs(idleSince) > MAX_DATE_MS) {
         throw new Error('[askdare-postgres] sweep needs idleSince in epoch milliseconds.');
       }

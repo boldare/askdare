@@ -199,6 +199,37 @@ describe('createChatStore', () => {
     expect(store.getSnapshot().messages).toHaveLength(1);
   });
 
+  it('stops an answer still streaming when the identity changes', async () => {
+    const storage = memoryStorage();
+    storage.set('askdare:support:resume:user-b', 'resume-b');
+    // The answer has begun, and its end never comes.
+    const server = fakeServer({
+      holdAnswer: true,
+      answer: (text) => echo(text).slice(0, 3),
+      identityKey: (token) => (token === 'b.b.b' ? 'user-b' : 'user-a'),
+      history: [
+        { id: 'msg_b', role: 'assistant', text: "B's answer", citations: [], attachments: 0 },
+      ],
+    });
+    const events: ChatEvent[] = [];
+    const store = createChatStore(testConfig(), { client: testClient(server, storage) });
+    store.onEvent((event) => events.push(event));
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    const sending = store.actions.send('Anonymous question');
+    await until(store, (state) => state.messages.at(-1)?.status === 'streaming');
+
+    store.identify('b.b.b');
+    await sending;
+    await until(store, (state) => state.messages[0]?.id === 'msg_b');
+    expect(store.getSnapshot()).toMatchObject({ busy: false, activity: null, error: undefined });
+    expect(store.getSnapshot().messages.map((message) => message.id)).toEqual(['msg_b']);
+    expect(events.filter((event) => event.type === 'message.received')).toMatchObject([
+      { outcome: 'stopped' },
+    ]);
+    expect(server.requests.filter((request) => request.path === '/resume')).toEqual([]);
+  });
+
   it('is idempotent across start() and stop(), as Strict Mode runs effects twice', async () => {
     const storage = memoryStorage();
     storage.set('askdare:support:resume', 'resume-1');

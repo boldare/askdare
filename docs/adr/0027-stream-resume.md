@@ -1,8 +1,8 @@
 # ADR-0027: Resuming an answer after a dropped connection
 
-- **Status:** Proposed
+- **Status:** Accepted on 2026-11-25 (task z1), as built by r1, r2, r3a and r3b (below). Decision 5's check on Vercel is still open: it needs a preview deployment, and is a step before 0.6 is released.
 - **Date:** 2026-11-23
-- **Evidence:** spike S7, question 6 and probe p5 ([findings](../../spikes/s7-store/FINDINGS.md)).
+- **Evidence:** spike S7, question 6 and probe p5 ([findings](../../spikes/s7-store/FINDINGS.md)); the tasks' tests (below).
 
 ## Context
 
@@ -35,7 +35,7 @@ S7's Postgres prototype worked (400 deltas written one by one in 186 ms, or in 2
 7. **Public surface** (added to ADR-0006 when this is accepted):
    - `@boldare/askdare`: the `TurnEventLog` port with `TurnEvent`, and `memoryTurnLog` with `MemoryTurnLog` and `MemoryTurnLogOptions`;
    - `@boldare/askdare/next`: the `resume: { log }` option of `createChatHandler`, typed `ChatHandlerResumeOptions`;
-   - `@boldare/askdare/testing`: `turnEventLogContract` and `TurnEventLogContractOptions`;
+   - `@boldare/askdare/testing`: `turnEventLogContract` and `TurnEventLogContractOptions` (called as `(name, create, { describe, it, expect, ttlMs?, elapse? })` since z1, like the other suites);
    - `@boldare/askdare-upstash`: `upstashTurnLog` and `UpstashTurnLogOptions`;
    - the protocol: the `id:` field of event frames and `POST /resume`.
 
@@ -60,6 +60,12 @@ S7's Postgres prototype worked (400 deltas written one by one in 186 ms, or in 2
   - the React build cutting the bundled marked down to its classes (`scripts/marked-lexer-only.ts`): we use only `Lexer`, but marked's default instance and `marked()` kept its Parser and Renderer in the entry (about −3.1 KB). `src/marked-lexer-only.test.ts` checks that the cut Lexer reads markdown exactly as marked's.
 - **Measuring:** `react-size.mjs` gzips with Node's zlib. Official Node builds (CI) bundle zlib 1.3.1; a Node linked against an older system zlib (1.2.12) measured this entry 112 B smaller from the same bytes. CI's figure is the one that counts.
 - **Checked by** unit tests of the client and the store, and `e2e/resume.spec.ts`: the widget and the chat inside a page finish an answer whose stream was cut mid-answer, and take it from the history when `/resume` answers `404`.
+
+### Evidence
+
+- `turnEventLogContract` passes for `memoryTurnLog()` and, against a fake Redis that runs the same two scripts, for `upstashTurnLog()` (r1, r2). Against a real Upstash database it runs only with `ASKDARE_TEST_UPSTASH=1`, which no 0.6 task ran: the Lua scripts and the 250 ms wake-up figure are unchecked against real Redis.
+- `e2e/resume.spec.ts` against the production build (`next start`): the protocol driven with `fetch` (r3a), then the widget and the chat inside a page finishing an answer whose stream was cut mid-answer, and taking it from the history when `/resume` answers `404` (r3b, 20 of 20 with `--repeat-each 5`).
+- Not checked: resume on Vercel with `upstashTurnLog()` (decision 5).
 
 ## Consequences
 

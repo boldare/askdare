@@ -287,7 +287,7 @@ interface ConversationStore {
 | `append(id, items, { expect })` | Appends the items in order, all or none, and returns the new version: the number of items stored. With `expect`, it throws `VersionConflictError` unless the conversation is still at that version, so of two concurrent turns only one writes. An item ID that is already stored is refused. |
 | `page(id, { before, limit })` | The newest `limit` items before `before`, oldest first, and a `before` for the next older page, absent at the start. `before` is opaque to the caller, at most 1,024 characters. The same `before` and `limit` must return the same items, and a `limit` up to 200 must be honoured: `POST /history` pages through a conversation by whole turns and reads a page again to continue inside it. |
 | `delete(id)` | Deletes the conversation and returns the file IDs from its visitor messages, so the server deletes the files too. Deleting an unknown conversation is not an error. |
-| `sweep(idleSince, limit)` | Optional: deletes up to `limit` conversations with no append since `idleSince` (epoch milliseconds) and returns them with their file IDs, for retention. |
+| `sweep(idleSince, limit, signal?)` | Optional: deletes up to `limit` conversations with no append since `idleSince` (epoch milliseconds) and returns them with their file IDs, for retention. An aborted `signal` stops it before it deletes more. |
 | `diagnose()` | Optional: checks for `askdare doctor`, such as a reachable database with the right schema. |
 
 Items are provider-neutral: `message` (with `text`, `page_context`, `file` and `refusal` parts), `call`, `call_output`, and `native` for provider state that only the same provider reads back, such as encrypted reasoning. Store each item as given and return it unchanged: never rewrite a stored item, and never log its content.
@@ -362,6 +362,8 @@ import { myTurnLog } from './turn-log';
 
 turnEventLogContract('myTurnLog', () => myTurnLog(), { describe, it, expect });
 ```
+
+Its options go in the same object, next to `describe`, `it` and `expect`:
 
 | Option | Default | Meaning |
 | --- | --- | --- |

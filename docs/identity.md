@@ -65,7 +65,7 @@ Any language with a JWT library works the same way.
 <script src="https://app.example.com/api/chat/widget.js?bot=support" async></script>
 ```
 
-- On sign-out, call `askdare('identify', null)`. Anything that isn't a token, `undefined` included, signs out too. Single-page apps call `identify` whenever the user changes; repeating the same token costs nothing.
+- On sign-out, call `askdare('identify', null)`. Anything that isn't a token, `undefined` included, signs out too. Single-page apps call `identify` whenever the user changes; repeating the same token costs nothing. When the user changes, the chat shows the new user's conversation; an answer still streaming stops in the chat, and the server finishes it in the previous user's conversation.
 - The chat sends the token with every session request, about every 15 minutes, and the server checks it each time. The identity ends with the token's `exp`; after that the chat continues anonymously until the page calls `identify` with a fresh token. Long-lived pages should do that before `exp`.
 - A token that fails the check leaves the chat anonymous. The browser console says why: `signature`, `expired`, `audience`, `lifetime`, `claims`, `too_large`, `malformed`, or `disabled` when the app has no `IDENTITY_SECRET`.
 

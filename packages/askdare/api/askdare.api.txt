@@ -819,9 +819,12 @@ interface ChatFeedbackReport {
   readonly visitor: string;
   /** The signed-in user, verified (ADR-0009); absent for anonymous visitors. */
   readonly identity?: VisitorIdentity | undefined;
-  /** The OpenAI conversation, for your own review of it. Never sent to the browser. */
+  /** The conversation in your conversation store, for your review. Never sent to the browser. */
   readonly conversationId: string;
-  /** The OpenAI ID of the rated answer within the conversation. */
+  /**
+   * The rated answer's ID within the conversation: OpenAI's `msg_…` ID with
+   * `openaiConversations()`, the store's `itm_…` ID with a store that keeps the items.
+   */
   readonly itemId: string;
 }
 /** One source of an answer, as the visitor saw it under the answer. */
@@ -1761,7 +1764,8 @@ interface FakeEmbedderOptions {
  * normalized, so texts sharing words are close. One token per word. Honors the abort signal.
  */
 export declare function fakeEmbedder(options?: FakeEmbedderOptions): Embedder;
-interface TurnEventLogContractOptions {
+/** Your test runner's `describe`, `it` and `expect`, and the suite's options. */
+interface TurnEventLogContractOptions extends ContractRunner {
   /** The time to live in the expiry tests. Default 1 000 ms; Redis needs whole milliseconds. */
   readonly ttlMs?: number;
   /**
@@ -1773,9 +1777,10 @@ interface TurnEventLogContractOptions {
 /**
  * Behaviour every `TurnEventLog` must have, for the in-memory log and for add-ons (for example
  * `@boldare/askdare-upstash`), so they stay interchangeable. Each test uses turns of its own with a
- * short time to live, so whatever it writes expires soon, also after a failure.
+ * short time to live, so whatever it writes expires soon, also after a failure. Runner-agnostic,
+ * as the other suites: pass your runner's `describe`, `it` and `expect` with the options.
  */
-export declare function turnEventLogContract(name: string, create: () => TurnEventLog, { describe, it, expect }: ContractRunner, options?: TurnEventLogContractOptions): void;
+export declare function turnEventLogContract(name: string, create: () => TurnEventLog, options: TurnEventLogContractOptions): void;
 interface ConversationStoreContractOptions extends ContractRunner {
   /**
    * `items` (default) for stores that keep the items themselves and replay them; `provider` for
@@ -2250,9 +2255,9 @@ interface ConversationStore {
   /**
    * Retention: deletes up to `limit` conversations with no append since `idleSince` (epoch
    * milliseconds) and returns them, so the caller deletes their files too. Absent on stores that
-   * can't list their conversations (OpenAI).
+   * can't list their conversations (OpenAI). An aborted `signal` stops it before it deletes more.
    */
-  sweep?(idleSince: number, limit: number): Promise<readonly {
+  sweep?(idleSince: number, limit: number, signal?: AbortSignal): Promise<readonly {
     readonly id: string;
     readonly fileIds: readonly string[];
   }[]>;

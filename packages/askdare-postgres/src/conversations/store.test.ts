@@ -290,6 +290,7 @@ describe.skipIf(!TEST_DATABASE_URL)('postgresConversations against Postgres', ()
     const signal = AbortSignal.abort();
     await expect(store().create(OWNER, signal)).rejects.toThrow();
     await expect(store().context(crypto.randomUUID(), { signal })).rejects.toThrow();
+    await expect(store().sweep(Date.now(), 10, signal)).rejects.toThrow();
   });
 
   describe('diagnose', () => {

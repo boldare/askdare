@@ -23,20 +23,20 @@ askdare is the website chatbot a team owns in code: self-hosted in their Next.js
 
 ## 0.6: own your data
 
-The foundation that admin, handoff, data residency and other providers all need: conversations and knowledge stored outside OpenAI. Spikes S6a, S6b, S7 and S8 ran first; their findings are in [ADR-0024](docs/adr/0024-conversation-store.md) to [ADR-0027](docs/adr/0027-stream-resume.md) (Proposed), and the work is in [`tasks/`](tasks/README.md) as `0.6-*.md`.
+The foundation that admin, handoff, data residency and other providers all need: conversations and knowledge stored outside OpenAI. Spikes S6a, S6b, S7 and S8 ran first; their findings are in [ADR-0024](docs/adr/0024-conversation-store.md) to [ADR-0027](docs/adr/0027-stream-resume.md), accepted with the work that built them; [ADR-0006](docs/adr/0006-support-matrix-and-versioning.md) lists the public surface.
 - **A `ConversationStore` port** (ADR-0024): OpenAI Conversations stays the default, with no database; `memoryConversations()` for tests; a Postgres add-on, `@boldare/askdare-postgres`. With a store of your own, turns replay the history with `store: false`, so nothing stays at OpenAI: zero-data-retention and EU-resident setups work. Ownership is checked against the store, old conversations can be swept, and the `onTranscript` hook (ADR-0016) lands too.
 - **A retrieval port** (ADR-0025): OpenAI vector stores stay the default; pgvector in the same add-on, behind a `search_knowledge` tool that works on every model path, with citations on today's protocol. `askdare kb sync` syncs the same folder to either. Markdown, MDX, text and HTML on the own path; PDFs later.
 - **Both are split out of `ModelGateway`** (ADR-0026), so a second provider (0.9) only has to run turns. No new provider in 0.6.
 - **History beyond the latest 100 items,** paged by turn.
 - **Resuming an answer after a dropped connection** (ADR-0027): a separate `TurnEventLog` port, in memory by default and on Upstash for sites with several instances.
-- **Compaction for conversations in your own store** ([ADR-0029](docs/adr/0029-compaction-for-item-stores.md), Proposed): opt-in `limits.compactAt`. Once a turn gets that large, askdare compacts the conversation in the background, so the following turns replay a few thousand tokens. Spike S9 measured 27–56 % lower cost over a 50-turn conversation, with facts and citations kept. The OpenAI Conversations default gets no compaction.
+- **Compaction for conversations in your own store** ([ADR-0029](docs/adr/0029-compaction-for-item-stores.md)): opt-in `limits.compactAt`. Once a turn gets that large, askdare compacts the conversation in the background, so the following turns replay a few thousand tokens. Spike S9 measured 27–56 % lower cost over a 50-turn conversation, with facts and citations kept. The OpenAI Conversations default gets no compaction.
 
 ## 0.7: support-grade
 
 The features buyers compare against Intercom Fin and Chatbase.
 - **Handoff to a human:** a `handoff` tool, a "connecting you" state in the chat, and an `onHandoff` hook. Email and webhook first.
 - **Forms in the chat:** leads into `onLead`, with validated fields, built on reply options and tool cards.
-- **Admin** (ADR-0016): stage 1, the console with no database, then stage 2, `@boldare/askdare-admin` on the 0.6 store, with transcripts, ratings, unanswered questions, cost per conversation and resolution rate.
+- **Admin** (ADR-0016): stage 1, the console with no database, then stage 2, `@boldare/askdare-admin` on the 0.6 store, with transcripts, ratings, unanswered questions, cost per conversation and resolution rate. Deleting a conversation, by the visitor or a sweep, then deletes its transcripts and ratings too; 0.6 calls no hook on delete.
 - **Proactive greeting and an unread badge.** The loader is at 5,016 of its 5,120 bytes (gzipped), so this starts by making it smaller or moving logic into the iframe.
 
 ## 0.8: quality and reach

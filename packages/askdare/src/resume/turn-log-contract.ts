@@ -1,7 +1,8 @@
 import type { ContractRunner } from '../testing/runner';
 import type { TurnEvent, TurnEventLog } from './turn-log';
 
-export interface TurnEventLogContractOptions {
+/** Your test runner's `describe`, `it` and `expect`, and the suite's options. */
+export interface TurnEventLogContractOptions extends ContractRunner {
   /** The time to live in the expiry tests. Default 1 000 ms; Redis needs whole milliseconds. */
   readonly ttlMs?: number;
   /**
@@ -30,14 +31,15 @@ const seqs = (events: readonly TurnEvent[] | undefined): readonly number[] | und
 /**
  * Behaviour every `TurnEventLog` must have, for the in-memory log and for add-ons (for example
  * `@boldare/askdare-upstash`), so they stay interchangeable. Each test uses turns of its own with a
- * short time to live, so whatever it writes expires soon, also after a failure.
+ * short time to live, so whatever it writes expires soon, also after a failure. Runner-agnostic,
+ * as the other suites: pass your runner's `describe`, `it` and `expect` with the options.
  */
 export function turnEventLogContract(
   name: string,
   create: () => TurnEventLog,
-  { describe, it, expect }: ContractRunner,
-  options: TurnEventLogContractOptions = {},
+  options: TurnEventLogContractOptions,
 ): void {
+  const { describe, it, expect } = options;
   const ttlMs = options.ttlMs ?? 1_000;
   const elapse = options.elapse ?? sleep;
   const turn = (): string => `contract:${crypto.randomUUID()}`;
