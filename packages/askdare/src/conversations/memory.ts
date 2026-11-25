@@ -102,7 +102,8 @@ export function memoryConversations(): ConversationStore {
       return { fileIds: found ? attachedFiles(found.items) : [] };
     },
 
-    async sweep(idleSince, limit) {
+    async sweep(idleSince, limit, signal) {
+      signal?.throwIfAborted();
       const deleted: { id: string; fileIds: readonly string[] }[] = [];
       for (const [id, found] of conversations) {
         if (deleted.length >= limit) break;

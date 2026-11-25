@@ -213,11 +213,12 @@ export interface ConversationStore {
   /**
    * Retention: deletes up to `limit` conversations with no append since `idleSince` (epoch
    * milliseconds) and returns them, so the caller deletes their files too. Absent on stores that
-   * can't list their conversations (OpenAI).
+   * can't list their conversations (OpenAI). An aborted `signal` stops it before it deletes more.
    */
   sweep?(
     idleSince: number,
     limit: number,
+    signal?: AbortSignal,
   ): Promise<readonly { readonly id: string; readonly fileIds: readonly string[] }[]>;
   /** Small live checks for `askdare doctor`, such as a reachable database with the right schema. */
   diagnose?(signal?: AbortSignal): Promise<readonly ConversationStoreCheck[]>;

@@ -20,4 +20,11 @@ describe('memoryConversations', () => {
       vi.unstubAllEnvs();
     }
   });
+
+  it('sweeps nothing once the signal is aborted', async () => {
+    const store = memoryConversations();
+    const id = await store.create({ botId: 'support', owner: 'visitor:v1' });
+    await expect(store.sweep?.(Date.now() + 1, 10, AbortSignal.abort())).rejects.toThrow();
+    expect(await store.info(id)).toBeDefined();
+  });
 });

@@ -73,8 +73,10 @@ let clock = 0;
 turnEventLogContract(
   'upstashTurnLog',
   () => upstashTurnLog({ redis: fakeRedis(() => clock), pollMs: 20 }),
-  { describe, it, expect },
   {
+    describe,
+    it,
+    expect,
     elapse: async (ms) => {
       clock += ms;
     },

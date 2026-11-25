@@ -4,16 +4,14 @@ import type { TurnEvent } from './turn-log';
 import { turnEventLogContract } from './turn-log-contract';
 
 let clock = 0;
-turnEventLogContract(
-  'memoryTurnLog',
-  () => memoryTurnLog({ now: () => clock }),
-  { describe, it, expect },
-  {
-    elapse: async (ms) => {
-      clock += ms;
-    },
+turnEventLogContract('memoryTurnLog', () => memoryTurnLog({ now: () => clock }), {
+  describe,
+  it,
+  expect,
+  elapse: async (ms) => {
+    clock += ms;
   },
-);
+});
 
 const deltas = (from: number, to: number): TurnEvent[] =>
   Array.from({ length: to - from + 1 }, (_, i) => ({
