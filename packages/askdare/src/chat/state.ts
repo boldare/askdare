@@ -60,11 +60,20 @@ export type ChatPhase = 'starting' | 'loading' | 'ready';
 
 export type Dictation = 'idle' | 'recording' | 'transcribing';
 
+/**
+ * Whether the stored conversation has older messages than those shown: `more` (load them with
+ * `actions.loadEarlier()`), `loading` while they load, or `none` (the start is shown, or there is
+ * no stored conversation).
+ */
+export type Earlier = 'none' | 'more' | 'loading';
+
 export interface ChatState {
   readonly phase: ChatPhase;
   /** A turn, or deleting the conversation, is under way. */
   readonly busy: boolean;
   readonly messages: readonly ChatMessage[];
+  /** Older messages of the stored conversation, loaded a page at a time from the newest. */
+  readonly earlier: Earlier;
   readonly draft: string;
   readonly error: string | undefined;
   /** What the assistant is doing while no text streams, such as searching documents. */

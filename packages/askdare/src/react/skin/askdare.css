@@ -329,6 +329,34 @@
     scrollbar-color: color-mix(in srgb, var(--ask-color-text) 18%, transparent) transparent;
   }
 
+  /* Above the oldest message shown, while the conversation has older ones. */
+  [data-ask-part="load-earlier"]:where([data-ask-skin] *) {
+    flex: none;
+    align-self: center;
+    min-height: 24px;
+    padding: calc(var(--ask-space) * 0.5) calc(var(--ask-space) * 1.5);
+    border: 1px solid var(--ask-color-border);
+    border-radius: 999px;
+    background: var(--ask-color-background);
+    color: var(--ask-color-muted);
+    font: inherit;
+    font-size: 0.82rem;
+    line-height: 1.3;
+    cursor: pointer;
+    transition:
+      border-color 150ms var(--ask-ease),
+      color 150ms var(--ask-ease);
+  }
+
+  [data-ask-part="load-earlier"]:hover:where([data-ask-skin] *) {
+    border-color: var(--ask-color-accent);
+    color: var(--ask-color-text);
+  }
+
+  [data-ask-part="load-earlier"][data-loading]:where([data-ask-skin] *) {
+    cursor: progress;
+  }
+
   [data-ask-part="status"]:where([data-ask-skin] *) {
     display: flex;
     align-items: center;

@@ -1,12 +1,14 @@
 import type { ThemeVariants } from '../theme/presets';
 import type { ChatConfig } from './config';
 import { translator } from './reducer';
-import type { ChatMessage, ChatState, PendingFile, Rating } from './state';
+import type { ChatMessage, ChatState, Earlier, PendingFile, Rating } from './state';
 import { type ChatActions, type ChatStore, focusRequests } from './store';
 
 /** A frozen state for the gallery: design review and visual tests, never a live chat. */
 export interface Fixture {
   readonly messages: readonly ChatMessage[];
+  /** Older messages the conversation has, above those shown. */
+  readonly earlier?: Earlier;
   readonly pending?: readonly PendingFile[];
   readonly draft?: string;
   readonly busy?: boolean;
@@ -32,6 +34,7 @@ export function createFixtureStore(botConfig: ChatConfig, fixture: Fixture): Cha
     phase: 'ready',
     busy: fixture.busy ?? false,
     messages: fixture.messages,
+    earlier: fixture.earlier ?? 'none',
     draft: fixture.draft ?? '',
     error: fixture.error,
     activity: fixture.activity ?? null,
@@ -60,6 +63,7 @@ export function createFixtureStore(botConfig: ChatConfig, fixture: Fixture): Cha
     finishDictation: nothing,
     cancelDictation: () => {},
     newConversation: nothing,
+    loadEarlier: nothing,
     rate: nothing,
     dismissComment: () => set({ commenting: undefined }),
     // The field takes focus as in a live chat, so the gallery shows the same state.

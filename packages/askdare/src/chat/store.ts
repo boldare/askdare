@@ -34,6 +34,11 @@ export interface ChatActions {
   /** Deletes the conversation and starts with an empty chat. */
   newConversation(): Promise<void>;
   /**
+   * Loads the page of older messages before those shown, while `state.earlier` is `more`, and
+   * puts it above them.
+   */
+  loadEarlier(): Promise<void>;
+  /**
    * Rates an answer by its message id: 👍, 👎, or null to take the rating back. After 👎 the chat
    * asks what went wrong (`state.commenting`); pass the answer as `comment` with the same rating.
    */
@@ -216,6 +221,7 @@ export function createChatStore(
     phase: 'starting',
     busy: false,
     messages: [],
+    earlier: 'none',
     draft: '',
     error: undefined,
     activity: null,
@@ -256,6 +262,16 @@ export function createChatStore(
   let loaded = false;
   let identities = Promise.resolve();
   let history: AbortController | undefined;
+  /** Loads the page of older messages, while `state.earlier` is `loading`. */
+  let older: AbortController | undefined;
+  /** The server's cursor to the page before the oldest shown; opaque, never in the state. */
+  let before: string | undefined;
+  /** Another conversation shows: its older pages are not this one's. */
+  const forgetEarlier = (): void => {
+    older?.abort();
+    older = undefined;
+    before = undefined;
+  };
   /** The turn being answered, aborted when the chat stops. */
   let turn: AbortController | undefined;
   /** Reports how the turn being answered ended; stop() calls it before anyone stops listening. */
@@ -302,10 +318,11 @@ export function createChatStore(
     set({ phase: 'loading' });
     client
       .loadHistory(controller.signal)
-      .then((messages) => {
+      .then((page) => {
         if (controller.signal.aborted) return;
         loaded = true;
-        set({ messages: messages.map(fromHistory) });
+        before = page.before;
+        set({ messages: page.messages.map(fromHistory), earlier: before ? 'more' : 'none' });
       })
       .catch((error: unknown) => {
         // A refused session says why (explained in development); anything else is generic.
@@ -557,7 +574,15 @@ export function createChatStore(
       revokePreviews(state.messages.flatMap((message) => message.files ?? []));
       cancelUploads(uploads.keys());
       revokePreviews(state.files);
-      set({ files: [], messages: [], error: undefined, busy: false, commenting: undefined });
+      forgetEarlier();
+      set({
+        files: [],
+        messages: [],
+        earlier: 'none',
+        error: undefined,
+        busy: false,
+        commenting: undefined,
+      });
       events.emit({ type: 'conversation.reset', bot });
       focus('input');
     },
@@ -606,6 +631,31 @@ export function createChatStore(
       } else if (commented && state.commenting === messageId) {
         set({ commenting: undefined });
       }
+    },
+
+    async loadEarlier() {
+      const cursor = before;
+      if (!cursor || state.earlier !== 'more') return;
+      const controller = new AbortController();
+      older = controller;
+      set({ earlier: 'loading', error: undefined });
+      let next: Partial<ChatState>;
+      let after: string | undefined = cursor;
+      try {
+        const page = await client.loadHistory(controller.signal, cursor);
+        after = page.before;
+        // Pages are whole turns, so the older one goes above without merging.
+        next = { messages: [...page.messages.map(fromHistory), ...state.messages] };
+      } catch (error) {
+        // A cursor the server refused (expired, say) can't work again; a reload brings new ones.
+        if (error instanceof Error && error.cause === 400) after = undefined;
+        next = { error: t('error.earlier') };
+      }
+      // Stopped, or another conversation shows now: nothing of this one goes in.
+      if (older !== controller) return;
+      older = undefined;
+      before = after;
+      set({ ...next, earlier: after ? 'more' : 'none' });
     },
 
     dismissComment() {
@@ -676,6 +726,10 @@ export function createChatStore(
       document.removeEventListener('visibilitychange', onVisibility);
       history?.abort();
       history = undefined;
+      // The cursor stays: the same page can load after start().
+      older?.abort();
+      older = undefined;
+      if (state.earlier === 'loading') set({ earlier: 'more' });
       endTurn?.('stopped');
       turn?.abort();
       turn = undefined;
@@ -694,7 +748,8 @@ export function createChatStore(
         // Signed in, out or as someone else: show that person's conversation, if any.
         if (!(await client.identify(token))) return;
         loaded = false;
-        set({ messages: [], error: undefined, commenting: undefined });
+        forgetEarlier();
+        set({ messages: [], earlier: 'none', error: undefined, commenting: undefined });
         if (identityReady && run) loadHistory();
       });
     },

@@ -4,12 +4,20 @@ import {
   type ReactNode,
   type Ref,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react';
 import type { ChatMessage, PendingFile, SentFile } from '../chat/state';
 import { pluralText } from '../i18n/format';
-import { MessageProvider, useChatConfig, useChatState, useMessage, useTexts } from './context';
+import {
+  MessageProvider,
+  useChatConfig,
+  useChatState,
+  useMessage,
+  useStore,
+  useTexts,
+} from './context';
 import { Markdown, safeUrl } from './markdown';
 import { useMergedRef } from './refs';
 
@@ -34,18 +42,38 @@ const hidden = {
 } as const;
 
 /**
- * The conversation, following the latest message as it streams. Holds the welcome, the
- * `MessageList` and the `Status`. It is a log but not a live region: text growing inside a node is
- * read in fragments or not at all, so a finished answer is announced once, through a status region
- * next to it.
+ * The conversation, following the latest message as it streams. Holds the welcome, `LoadEarlier`,
+ * the `MessageList` and the `Status`. It is a log but not a live region: text growing inside a node
+ * is read in fragments or not at all, so a finished answer is announced once, through a status
+ * region next to it. Older messages loaded above keep the visitor's place, and are announced there.
  */
 export function Messages({ ref, ...props }: MessagesProps): ReactElement {
   const own = useRef<HTMLDivElement>(null);
   const streaming = useRef<string>(undefined);
   const [finished, setFinished] = useState('');
+  const t = useTexts();
   const loading = useChatState((state) => state.phase === 'loading');
   const latest = useChatState((state) => state.messages.at(-1));
   const commenting = useChatState((state) => state.commenting);
+  const first = useChatState((state) => state.messages[0]?.id);
+  const loadingEarlier = useChatState((state) => state.earlier === 'loading');
+  const shown = useRef(first);
+  const log = own.current;
+  // How far from the bottom the visitor reads, before older messages go in above.
+  const fromBottom = first !== shown.current && log ? log.scrollHeight - log.scrollTop : 0;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the oldest message changes
+  useLayoutEffect(() => {
+    const previous = shown.current;
+    shown.current = first;
+    // Only when messages went in above others, not when a conversation loads or starts.
+    if (!log || !previous || !first) return;
+    log.scrollTop = log.scrollHeight - fromBottom;
+    setFinished(t('history.loaded'));
+  }, [first]);
+  // Cleared while they load, so the same words are announced again for the next page.
+  useEffect(() => {
+    if (loadingEarlier) setFinished('');
+  }, [loadingEarlier]);
   // Follow the conversation: each streamed delta of the latest message, what its end adds (such as
   // the rating buttons), and the question after a 👎.
   // biome-ignore lint/correctness/useExhaustiveDependencies: commenting changes what is below the latest message
@@ -100,6 +128,68 @@ export function MessageList({ children }: MessageListProps): ReactElement {
         </MessageProvider>
       ))}
     </>
+  );
+}
+
+export type LoadEarlierProps = ComponentProps<'button'>;
+
+/**
+ * Loads the conversation's older messages, a page at a time: a button for the top of `Messages`,
+ * shown while there are any (`state.earlier`). It also loads them when the visitor scrolls up to
+ * it. While they load it keeps focus, with `data-loading`. Focus stays on it, in view, with the
+ * older messages under it; when the conversation's start is reached and it goes away, the oldest
+ * message takes focus.
+ */
+export function LoadEarlier({ ref, children, ...props }: LoadEarlierProps): ReactElement | null {
+  const earlier = useChatState((state) => state.earlier);
+  const { actions } = useStore();
+  const t = useTexts();
+  const own = useRef<HTMLButtonElement>(null);
+  const merged = useMergedRef(own, ref);
+  const shown = earlier !== 'none';
+  const button = own.current;
+  // Read before the update: a button that goes away can't say whether it had focus.
+  const focused =
+    button?.ownerDocument.activeElement === button ? button?.closest('[role="log"]') : null;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when a page loaded
+  useLayoutEffect(() => {
+    if (!focused) return;
+    // After Messages kept the visitor's place, which a keyboard visitor has here instead.
+    queueMicrotask(() => {
+      const first = focused.querySelector<HTMLElement>('[data-ask-part="message"]');
+      if (own.current) own.current.scrollIntoView({ block: 'nearest' });
+      else if (first) {
+        first.tabIndex = -1;
+        first.focus();
+      }
+    });
+  }, [earlier]);
+  useEffect(() => {
+    const target = own.current;
+    if (!shown || !target || typeof IntersectionObserver !== 'function') return;
+    let seen = false;
+    const observer = new IntersectionObserver(([entry]) => {
+      // Not on the first look: a chat opens at the latest message, and loads only on scrolling up.
+      if (entry?.isIntersecting && seen) void actions.loadEarlier();
+      seen = true;
+    });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [shown, actions]);
+  if (!shown) return null;
+  const busy = earlier === 'loading';
+  return (
+    <button
+      type="button"
+      data-ask-part="load-earlier"
+      data-loading={busy ? '' : undefined}
+      aria-disabled={busy || undefined}
+      onClick={() => void actions.loadEarlier()}
+      {...props}
+      ref={merged}
+    >
+      {children ?? t(busy ? 'history.loading' : 'history.earlier')}
+    </button>
   );
 }
 

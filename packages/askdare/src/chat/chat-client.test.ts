@@ -371,7 +371,7 @@ describe('conversation history', () => {
 
   it('loads nothing when this browser has no conversation', async () => {
     const { fetch, calls } = routedFetch({});
-    expect(await client(fetch).loadHistory()).toEqual([]);
+    expect(await client(fetch).loadHistory()).toEqual({ messages: [] });
     expect(calls).toEqual([]);
   });
 
@@ -394,7 +394,41 @@ describe('conversation history', () => {
       },
     });
     const history = await client(fetch, storage).loadHistory();
-    expect(history.map((message) => message.text)).toEqual(['Hi', 'Hello']);
+    expect(history.messages.map((message) => message.text)).toEqual(['Hi', 'Hello']);
+    expect(history.before).toBeUndefined();
+  });
+
+  it('pages back with the cursor of the page before', async () => {
+    const storage = memoryStorage();
+    storage.set('askdare:support:resume', 'resume-1');
+    const bodies: unknown[] = [];
+    const { fetch } = routedFetch({
+      'POST /session': session,
+      'POST /history': (init) => {
+        bodies.push(JSON.parse(String(init?.body)));
+        return Response.json({
+          messages: [{ id: 'a', role: 'user', text: 'Older', citations: [], attachments: 0 }],
+          before: 'cursor-2',
+        });
+      },
+    });
+    const page = await client(fetch, storage).loadHistory(undefined, 'cursor-1');
+    expect(page).toMatchObject({ before: 'cursor-2', messages: [{ text: 'Older' }] });
+    expect(bodies).toEqual([{ botId: 'support', resumeToken: 'resume-1', before: 'cursor-1' }]);
+  });
+
+  it('throws with the status when the server refuses the cursor', async () => {
+    const storage = memoryStorage();
+    storage.set('askdare:support:resume', 'resume-1');
+    const { fetch } = routedFetch({
+      'POST /session': session,
+      'POST /history': () =>
+        Response.json({ error: { code: 'invalid_input', key: 'error.history' } }, { status: 400 }),
+    });
+    const loading = client(fetch, storage).loadHistory(undefined, 'expired');
+    await expect(loading).rejects.toMatchObject({ cause: 400 });
+    // A refused cursor says nothing about the conversation: it stays.
+    expect(storage.get('askdare:support:resume')).toBe('resume-1');
   });
 
   it('forgets a conversation the server no longer has', async () => {
@@ -404,7 +438,7 @@ describe('conversation history', () => {
       'POST /session': session,
       'POST /history': () => Response.json({ error: { code: 'not_found' } }, { status: 404 }),
     });
-    expect(await client(fetch, storage).loadHistory()).toEqual([]);
+    expect(await client(fetch, storage).loadHistory()).toEqual({ messages: [] });
     expect(storage.get('askdare:support:resume')).toBeUndefined();
   });
 
