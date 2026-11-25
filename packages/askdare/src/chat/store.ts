@@ -1,4 +1,5 @@
 import type { TextKey } from '../i18n/texts';
+import type { ErrorCode } from '../protocol/events';
 import { ChatClient, SessionRefused } from './chat-client';
 import type { ChatConfig } from './config';
 import { type ChatEvent, type ChatEventListener, eventListeners } from './events';
@@ -339,6 +340,36 @@ export function createChatStore(
       });
   };
 
+  /**
+   * After an answer was lost on the way: puts the latest turn in as the history has it, once its
+   * answer is there. Only what follows the visitor's last message changes, so older pages and the
+   * oldest message shown stay. The history's turn must be this one, not the one before: it starts
+   * with the visitor's message, and its answer isn't the one shown before it.
+   */
+  const recover = async (signal: AbortSignal): Promise<boolean> => {
+    try {
+      const page = (await client.loadHistory(signal)).messages;
+      const { messages } = state;
+      const after = (list: readonly { readonly role: string }[]): number =>
+        list.findLastIndex((message) => message.role === 'user') + 1;
+      const mine = after(messages);
+      const theirs = after(page);
+      const answer = page.at(-1);
+      if (
+        signal.aborted ||
+        page[theirs - 1]?.text !== messages[mine - 1]?.text ||
+        answer?.role !== 'assistant' ||
+        answer.text === messages[mine - 2]?.text
+      ) {
+        return false;
+      }
+      set({ messages: [...messages.slice(0, mine), ...page.slice(theirs).map(fromHistory)] });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const onVisibility = (): void => {
     // Never keep the microphone on in a chat the visitor can't see.
     if (document.visibilityState === 'hidden') discardRecording();
@@ -460,22 +491,26 @@ export function createChatStore(
         });
       };
       endTurn = end;
-      await client.send(
+      const fail = (problem: { readonly code: ErrorCode; readonly message: string }): void => {
+        failed = true;
+        events.emit({ type: 'error', bot, code: problem.code });
+        set({ error: problem.message, messages: failStreaming(state.messages) });
+      };
+      const lost = await client.send(
         { text, attachments: handles, context },
         (event) => {
           const next = activityFor(event, t);
           if (next !== undefined) set({ activity: next });
           if (event.type === 'message.start') answer = event.messageId;
-          if (event.type === 'error') {
-            failed = true;
-            events.emit({ type: 'error', bot, code: event.code });
-            set({ error: event.message, messages: failStreaming(state.messages) });
-            return;
-          }
-          set({ messages: applyEvent(state.messages, event) });
+          if (event.type === 'error') fail(event);
+          else set({ messages: applyEvent(state.messages, event) });
         },
         controller.signal,
+        // Quietly, in the status: the next text of the resumed answer replaces it.
+        () => set({ activity: t('status.reconnecting') }),
       );
+      // The answer couldn't be resumed: the history has it once it is done.
+      if (lost && !(await recover(controller.signal)) && !controller.signal.aborted) fail(lost);
       if (turn === controller) turn = undefined;
       end(failed ? 'failed' : controller.signal.aborted ? 'stopped' : 'completed');
       if (controller.signal.aborted) {

@@ -24,6 +24,7 @@ declare const EN: {
   readonly "status.thinking": "Thinking…";
   readonly "status.searching": "Searching documents…";
   readonly "status.tool": "Using {name}…";
+  readonly "status.reconnecting": "Reconnecting…";
   readonly "status.typing": "The assistant is typing";
   readonly "message.sources": "Sources";
   readonly "message.replies": "Suggested replies";
@@ -1347,6 +1348,7 @@ declare const EN: {
   readonly "status.thinking": "Thinking…";
   readonly "status.searching": "Searching documents…";
   readonly "status.tool": "Using {name}…";
+  readonly "status.reconnecting": "Reconnecting…";
   readonly "status.typing": "The assistant is typing";
   readonly "message.sources": "Sources";
   readonly "message.replies": "Suggested replies";

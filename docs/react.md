@@ -283,7 +283,7 @@ function Earlier() {
 | `messages` | Each with `id`, `role`, `text`, `status` (`'streaming'`, `'done'`, `'error'`), `citations`, `files`, `feedback` and `replies` (the options the answer offers, plain text). |
 | `earlier` | Older messages of a stored conversation: `'more'` (load them with `loadEarlier()`), `'loading'`, or `'none'` once the start shows, or without a stored conversation. |
 | `draft`, `files` | The message field's text and the files picked for the next message. |
-| `error`, `activity` | The latest problem, and what the assistant is doing before it writes. |
+| `error`, `activity` | The latest problem, and what the assistant is doing before it writes, or "Reconnecting…" (`status.reconnecting`) while an answer whose connection dropped resumes. |
 | `dictation`, `elapsed`, `canDictate` | The dictation: `'idle'`, `'recording'` or `'transcribing'`, its seconds, and whether this browser can record. |
 | `ratings`, `commenting` | The visitor's ratings by `message.feedback.key`, and the answer the chat asks about after a 👎. |
 

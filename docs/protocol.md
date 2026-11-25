@@ -59,6 +59,13 @@ A visitor's connection can drop in the middle of an answer: a train tunnel, a ph
 - **Where it works.** The answer resumes when the reconnect reaches a server that has its events: with the default in-memory log, the same instance; with a shared log such as `upstashTurnLog()`, any. See [Configuration](configuration.md#resume).
 - **Rate limit.** 30 resumes per visitor per minute, then `429` with `rate_limited`.
 
+What askdare's own chat does, in the widget, inside a page and with the headless API:
+
+- **When.** A stream of `POST /messages` or `POST /resume` that ends without `message.end` or `error`: the connection dropped, it failed, or the watchdog gave up. A turn the chat stopped itself (the chat unmounted, or switched languages) is not resumed.
+- **How often.** After half a second, then 2 and 8 seconds: three attempts in a row that bring nothing new, at most ten for one answer, so a connection that keeps dropping stays well under the rate limit. Meanwhile the chat's status says "Reconnecting…" (`status.reconnecting`), which screen readers hear politely.
+- **Duplicates.** Events whose `id` is not above the last one received are ignored, so text already shown is never shown twice.
+- **Giving up.** On any answer other than `200` (`404`, `429` or another), after the attempts, or without a `messageId`, it loads the latest page of the history. When the history's last turn is the visitor's message with an answer after it, that answer replaces the one shown; otherwise the chat shows the connection problem, and the answer shows on the next load.
+
 Older clients ignore the `id:` field, and the endpoint is new, so resuming is additive in protocol version 1.
 
 ## Transport
@@ -234,6 +241,7 @@ The widget compares the header with the version it was built with. On a mismatch
 - **Tolerate the unknown.** Ignore unknown event types and unknown fields. Newer servers may add them within the same protocol version.
 - **Check the version.** Compare `x-askdare-protocol` with the version the client supports. On a mismatch, show a "please reload" state.
 - **Run a watchdog.** If no bytes (events or comments) arrive for 45 s, abort, then [resume the answer](#resuming-an-answer) or re-fetch the conversation history.
+- **Resume, don't retry.** A stream that drops mid-answer is resumed with `POST /resume`, never sent again with `POST /messages`, which would start a second turn.
 - **Render text safely.** Treat `text.delta` content as untrusted markdown and sanitize it before rendering.
 
 ## Versioning

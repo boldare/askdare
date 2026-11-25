@@ -1,11 +1,12 @@
 // A chat route in memory for tests of the store and the React layer: no network, no OpenAI.
-import { textsFor } from '../../i18n/texts';
+import { type TextKey, textsFor } from '../../i18n/texts';
 import type { ProtocolEvent } from '../../protocol/events';
 import type { HistoryMessage, HistoryResponse } from '../../protocol/history';
 import { encodeComment, encodeEvent } from '../../protocol/sse';
 import { PRESETS } from '../../theme/presets';
 import { ChatClient } from '../chat-client';
 import type { ChatConfig } from '../config';
+import { translator } from '../reducer';
 import { memoryStorage, type SafeStorage } from '../storage';
 
 export interface FakeRequest {
@@ -34,6 +35,11 @@ export interface FakeServerOptions {
   readonly refuseFeedback?: boolean;
   /** Decides each rating, in the order they arrive: true accepts it, false refuses it. */
   readonly feedback?: (body: Record<string, unknown>) => Promise<boolean>;
+  /**
+   * Answers `/resume`: the events after `after`, numbered on from it, or a `Response` as it is.
+   * Without it, `/resume` answers 404.
+   */
+  readonly resume?: (body: Record<string, unknown>) => readonly ProtocolEvent[] | Response;
   /** Streams the answer's events but ends the stream only on `release()`. */
   readonly holdAnswer?: boolean;
   /** Answers `GET /config/<bot>` with an error, as an unreachable route would. */
@@ -117,13 +123,23 @@ export function fakeServer(options: FakeServerOptions = {}): FakeServer {
           return page instanceof Response ? page : Response.json(page);
         }
         return Response.json({ messages: options.history ?? [] });
-      case '/messages': {
-        const events = (options.answer ?? echo)(String(body['text']));
+      case '/messages':
+      case '/resume': {
+        const resumed = path === '/resume';
+        const events = resumed
+          ? (options.resume?.(body) ??
+            Response.json({ error: { code: 'not_found', message: 'Not found.' } }, { status: 404 }))
+          : (options.answer ?? echo)(String(body['text']));
+        if (events instanceof Response) return events;
+        // Numbered as in the turn: a resume goes on after the last event the client had.
+        const first = resumed ? Number(body['after']) + 1 : 1;
         const stream = new ReadableStream<Uint8Array>({
           start(controller) {
             controller.enqueue(encoder.encode(encodeComment('ok')));
-            for (const event of events) controller.enqueue(encoder.encode(encodeEvent(event)));
-            if (options.holdAnswer) void held.then(() => controller.close());
+            events.forEach((event, index) => {
+              controller.enqueue(encoder.encode(encodeEvent(event, first + index)));
+            });
+            if (options.holdAnswer && !resumed) void held.then(() => controller.close());
             else controller.close();
           },
         });
@@ -184,11 +200,16 @@ export function testConfig(change: Partial<ChatConfig> = {}): ChatConfig {
 }
 
 export function testClient(server: FakeServer, storage: SafeStorage = memoryStorage()): ChatClient {
+  // As the store's own client: the bot's dictionary, with every key.
+  const texts = textsFor('en');
+  const t = translator(texts);
   return new ChatClient({
     basePath: '/api/chat',
     botId: 'support',
     locale: 'en',
     storage,
     fetch: server.fetch,
+    translate: (key, params) =>
+      texts[key as TextKey] === undefined ? undefined : t(key as TextKey, params),
   });
 }

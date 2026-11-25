@@ -23,6 +23,7 @@ export const CS: Dictionary = {
   'status.thinking': 'Přemýšlím…',
   'status.searching': 'Prohledávám dokumenty…',
   'status.tool': 'Používám {name}…',
+  'status.reconnecting': 'Znovu se připojuji…',
   'status.typing': 'Asistent píše',
   'message.sources': 'Zdroje',
   'message.replies': 'Navrhované odpovědi',
