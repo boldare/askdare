@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { createFixtureStore } from '../chat/fixture-store';
 import { testConfig } from '../chat/testing/fake-server';
 import { ChatProvider } from './context';
-import { Composer, Input, Link, MessageList, Messages, ToolResults } from './headless';
+import { Composer, Input, Link, LoadEarlier, MessageList, Messages, ToolResults } from './headless';
 import { DefaultPanel } from './skin';
 import { ToolRenderersProvider } from './tool-results';
 
@@ -34,6 +34,28 @@ describe('primitives under Preact', () => {
     await settled();
     expect(log.current?.getAttribute('data-ask-part')).toBe('messages');
     expect(field.current?.value).toBe('Hi');
+  });
+
+  it('show LoadEarlier while the conversation has older messages, with its ref', async () => {
+    const button = createRef<HTMLButtonElement>();
+    const container = document.createElement('div');
+    const message = { citations: [], attachments: 0, status: 'done' } as const;
+    createRoot(container).render(
+      <ChatProvider
+        store={createFixtureStore(testConfig(), {
+          messages: [{ ...message, id: 'm1', role: 'user', text: 'Hi' }],
+          earlier: 'loading',
+        })}
+      >
+        <Messages>
+          <LoadEarlier ref={button} />
+        </Messages>
+      </ChatProvider>,
+    );
+    await settled();
+    expect(button.current?.getAttribute('data-ask-part')).toBe('load-earlier');
+    expect(button.current?.textContent).toBe('Loading earlier messages…');
+    expect(button.current?.getAttribute('aria-disabled')).toBe('true');
   });
 
   it('render the default look', async () => {

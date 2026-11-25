@@ -65,6 +65,36 @@ const suggests = (body, text) =>
 const callsClock = (body, text) =>
   text.includes('[card]') && Boolean(body.tools?.some((tool) => tool.name === 'get_current_time'));
 
+/**
+ * Earlier turns for a conversation whose first message has "[long]": enough stored items for
+ * POST /history to answer in pages (about 100 items each), oldest first.
+ */
+const LONG_TURNS = 60;
+const earlierTurns = () =>
+  Array.from({ length: LONG_TURNS }, (_, index) => [
+    {
+      id: `seed_q${index + 1}`,
+      type: 'message',
+      role: 'user',
+      status: 'completed',
+      content: [{ type: 'input_text', text: `Earlier question ${index + 1}` }],
+    },
+    {
+      id: `seed_a${index + 1}`,
+      type: 'message',
+      role: 'assistant',
+      status: 'completed',
+      content: [
+        {
+          type: 'output_text',
+          text: `Earlier answer ${index + 1}`,
+          annotations: [],
+          logprobs: [],
+        },
+      ],
+    },
+  ]).flat();
+
 /** A function call no output answers yet, which the live API refuses to continue (spike S1). */
 const danglingCall = (items, input) => {
   const answered = new Set(
@@ -263,6 +293,7 @@ createServer(async (request, response) => {
       )?.text ?? '';
     const attached = parts.filter((part) => part.file_id).length;
     const reply = `You said: ${userText} (in ${body.conversation})${attached ? ` [${attached} files]` : ''}`;
+    if (userText.includes('[long]') && items.length === 0) items.push(...earlierTurns());
     items.push({
       id: `msg_${items.length}`,
       type: 'message',
@@ -326,14 +357,19 @@ createServer(async (request, response) => {
   if (request.method === 'GET' && itemsPath) {
     const items = conversations.get(itemsPath[1]);
     if (!items) return notFound(response, itemsPath[1]);
-    const order = new URL(request.url ?? '/', 'http://mock').searchParams.get('order') ?? 'desc';
-    const data = order === 'asc' ? items : [...items].reverse();
+    // Pages as the live API does: `after` is the last item of the page before, in `order`.
+    const params = new URL(request.url ?? '/', 'http://mock').searchParams;
+    const ordered = params.get('order') === 'asc' ? items : [...items].reverse();
+    const after = params.get('after');
+    const start = after ? ordered.findIndex((item) => item.id === after) + 1 : 0;
+    const limit = Number(params.get('limit') ?? ordered.length);
+    const data = ordered.slice(start, start + limit);
     return json(response, 200, {
       object: 'list',
       data,
       first_id: data[0]?.id ?? null,
       last_id: data.at(-1)?.id ?? null,
-      has_more: false,
+      has_more: start + limit < ordered.length,
     });
   }
   if (request.method === 'POST' && pathname === '/v1/audio/transcriptions') {

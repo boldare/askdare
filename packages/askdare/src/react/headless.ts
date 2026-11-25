@@ -10,6 +10,7 @@ export type {
   ChatState,
   Citation,
   Dictation,
+  Earlier,
   PendingFile,
   Rating,
   SentFile,
@@ -45,13 +46,22 @@ export type { MarkdownProps } from './markdown';
 export { Markdown } from './markdown';
 export type {
   CitationsProps,
+  LoadEarlierProps,
   MessageFilesProps,
   MessageListProps,
   MessageProps,
   MessagesProps,
   MessageTextProps,
 } from './messages';
-export { Citations, Message, MessageFiles, MessageList, Messages, MessageText } from './messages';
+export {
+  Citations,
+  LoadEarlier,
+  Message,
+  MessageFiles,
+  MessageList,
+  Messages,
+  MessageText,
+} from './messages';
 export type { ErrorMessageProps, StatusProps } from './notices';
 export { ErrorMessage, Status } from './notices';
 export type { PanelProps } from './panel';

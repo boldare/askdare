@@ -1,7 +1,7 @@
 // A chat route in memory for tests of the store and the React layer: no network, no OpenAI.
 import { textsFor } from '../../i18n/texts';
 import type { ProtocolEvent } from '../../protocol/events';
-import type { HistoryMessage } from '../../protocol/history';
+import type { HistoryMessage, HistoryResponse } from '../../protocol/history';
 import { encodeComment, encodeEvent } from '../../protocol/sse';
 import { PRESETS } from '../../theme/presets';
 import { ChatClient } from '../chat-client';
@@ -18,6 +18,14 @@ export interface FakeServerOptions {
   /** Events streamed back for each message; by default an echo of the text. */
   readonly answer?: (text: string) => readonly ProtocolEvent[];
   readonly history?: readonly HistoryMessage[];
+  /**
+   * Answers `/history` by its `before` (undefined: the latest page) and resume token instead of
+   * `history`; a `Response` goes back as it is, such as a refused cursor.
+   */
+  readonly historyPage?: (
+    before: string | undefined,
+    resumeToken: unknown,
+  ) => HistoryResponse | Response | Promise<HistoryResponse | Response>;
   /** Holds every `/history` response until `release()`. */
   readonly holdHistory?: boolean;
   readonly transcript?: string;
@@ -103,6 +111,11 @@ export function fakeServer(options: FakeServerOptions = {}): FakeServer {
       case '/history':
         if (options.holdHistory) await held;
         if (init?.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+        if (options.historyPage) {
+          const before = typeof body['before'] === 'string' ? body['before'] : undefined;
+          const page = await options.historyPage(before, body['resumeToken']);
+          return page instanceof Response ? page : Response.json(page);
+        }
         return Response.json({ messages: options.history ?? [] });
       case '/messages': {
         const events = (options.answer ?? echo)(String(body['text']));
