@@ -229,7 +229,7 @@ create index on chat_transcripts (conversation_id);
 create index on chat_transcripts (created_at);
 ```
 
-One pool for the app, passed to the store too, so each instance keeps one set of connections:
+One pool for the app, passed to the store and the index too, so each instance keeps one set of connections:
 
 ```bash
 npm install pg
@@ -241,6 +241,8 @@ npm install -D @types/pg
 import pg from 'pg';
 
 export const db = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+// Without a listener, an idle connection that drops (a restart, a proxy timeout) crashes the process.
+db.on('error', (error) => console.error(`Postgres pool: ${error.name}`));
 ```
 
 ```ts
@@ -258,6 +260,8 @@ export const { GET, POST, DELETE } = createChatHandler({
   },
 });
 ```
+
+In `askdare.config.ts`, pass the same pool to the index: `pgvectorIndex({ embedder, indexId: 'support', pool: db })`.
 
 A transcript is personal data, as the conversation is. askdare calls no hook when a conversation is deleted, by the visitor or by a sweep, so give transcripts a retention of their own: the [next step](#8-sweep-old-conversations) deletes both.
 
@@ -293,7 +297,8 @@ export async function GET(request: Request): Promise<Response> {
     await Promise.allSettled(fileIds.map((fileId) => openai.files.delete(fileId)));
     if (deleted.length < BATCH) break;
   }
-  // Transcripts by age, so those of conversations the visitor deleted go too.
+  // Transcripts by age, so those of conversations the visitor deleted go too. (Conversations go by
+  // idle time: a conversation still in use keeps its turns, but its older transcripts go.)
   await db.query('delete from chat_transcripts where created_at < $1', [new Date(idleSince)]);
   return Response.json({ swept });
 }
@@ -354,7 +359,7 @@ With both moves, OpenAI still processes every model request, and keeps less:
 | Attachments (`/v1/files`), for bots with `attachments` | The files, until they expire after 30 days or the conversation is deleted | Not eligible |
 | `doctor` runs | One test conversation per bot, deleted at once | Not eligible |
 
-From OpenAI's [data controls](https://developers.openai.com/api/docs/guides/your-data), checked on 2026-11-25; check them again before you rely on them.
+From OpenAI's [data controls](https://developers.openai.com/api/docs/guides/your-data), checked on 2026-11-25; check them again before you rely on them. The same page names two more retentions, also under ZDR: the prompt cache keeps encrypted state on OpenAI's machines for up to 24 hours, and image and file inputs that its classifier flags as child sexual abuse material are kept for review.
 
 - **Zero Data Retention.** OpenAI grants it per organisation or project after approval. With your own store and index, a ZDR project can run the bot, with two exceptions: attachments are stored as files (leave `attachments` off if they must not be), and `doctor` makes one short-lived conversation per run.
 - **Data residency.** Conversations, knowledge and transcripts sit in your database, in its region, and the turn log in your Upstash database's region. Model requests still go to OpenAI's global endpoint: askdare isn't tested against OpenAI's regional endpoints ([Compliance](compliance.md#3-data-residency)).
@@ -369,7 +374,7 @@ Measured in askdare's spikes and checks, on 2026-11 models:
 | A 20-turn conversation (spike S7) | 0.0138 USD | 0.0135 USD: the replay is 96.9 % cached input |
 | Time per turn (S7) | | About 1 s faster to finish; store reads and writes add about 40 ms per turn |
 | Request size at turn 20 (S7) | Small: OpenAI reads its own copy | 32 KB, 22 KB of it the model's encrypted reasoning |
-| An answer from the knowledge base, small model (spike S8) | 0.00276 USD, plus the file search fee per call | 0.00013 USD, no per-search fee |
+| An answer from the knowledge base, small model (spike S8) | 0.00276 USD, 90 % of it the file search fee | 0.00013 USD: no per-search fee, and smaller chunks |
 | Answering with a search (S8) | | 1.4–1.9 times faster than `file_search`; a median 4.2 s end to end on the shipped code, with about 160 ms for the search itself |
 | A 50-turn conversation, `gpt-6-luna` (spike S9) | Not compacted | 0.071 USD, or 0.031 USD with `compactAt: 20_000` |
 

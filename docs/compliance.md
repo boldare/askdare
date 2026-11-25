@@ -64,7 +64,7 @@ Storage limitation (Article 5(1)(e)) means keeping data no longer than you need 
 
 - **Conversations outlive the browser's handle.** When the handle expires after 30 days, or the visitor clears the browser, the conversation stays in your OpenAI project. askdare keeps no list of conversations, and OpenAI's API can't list them, so askdare has no tool to find or delete one person's conversation later (right to erasure, Article 17). Decide how you will answer such a request, and say in your notice how visitors delete a conversation themselves.
 - **Zero Data Retention needs your own store.** OpenAI lists the Conversations API, the default store, as not eligible ([ADR-0003](adr/0003-conversation-state.md)).
-- **With your own store** (`@boldare/askdare-postgres`), conversations sit in your database: you set their retention, a scheduled sweep deletes old ones, and you can find one person's by querying it. Turns run with `store: false`, so a ZDR project can use askdare. [Own your data](own-your-data.md) walks through it.
+- **With your own store** (`@boldare/askdare-postgres`), conversations sit in your database: you set their retention, and a scheduled sweep deletes old ones. The store keeps a random visitor ID or a keyed hash of the user as the owner, so to find a signed-in user's conversations later, record `identity` and `conversationId` from [`onTranscript`](configuration.md#ontranscript). Turns run with `store: false`, so a ZDR project can use askdare. [Own your data](own-your-data.md) walks through it.
 
 ### `safety_identifier`
 
@@ -89,7 +89,7 @@ OpenAI offers [data residency](https://developers.openai.com/api/docs/guides/dat
 
 **What that means for askdare.** By default, askdare stores conversations with OpenAI's Conversations API (`/v1/conversations`), and OpenAI's list of endpoints eligible for data residency doesn't include it. A residency project therefore doesn't keep askdare's conversations in your region. askdare also uses OpenAI's global endpoint and isn't tested against regional ones.
 
-If you need conversations stored in a given region, keep them in your own database, in that region, with `@boldare/askdare-postgres`, and the knowledge base with them: only model requests then go to OpenAI, which keeps no conversation and no response. See [Own your data](own-your-data.md#what-stays-at-openai).
+If you need conversations stored in a given region, keep them in your own database, in that region, with `@boldare/askdare-postgres`, and the knowledge base with them. OpenAI then keeps no conversation and no response; it still receives the model requests, embeddings, dictations and moderation checks, and stores attached files until they expire. See [Own your data](own-your-data.md#what-stays-at-openai).
 
 ## 4. The conversation handle in the browser
 
