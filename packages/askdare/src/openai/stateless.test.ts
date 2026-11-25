@@ -284,7 +284,7 @@ describe('stateless turns from an item store', () => {
         ],
       },
     ]);
-    const history = await itemHistory(where.store)(where.conversationId, {});
+    const { messages: history } = await itemHistory(where.store)(where.conversationId, {});
     expect(history[0]).toMatchObject({ role: 'user', text: 'What is this?', attachments: 2 });
     expect(await where.store.delete(where.conversationId)).toEqual({
       fileIds: ['file-img', 'file-pdf'],
@@ -322,7 +322,7 @@ describe('stateless turns from an item store', () => {
       ['message'],
       ['message', 'call', 'call_output'],
     ]);
-    const history = await itemHistory(where.store)(where.conversationId, {
+    const { messages: history } = await itemHistory(where.store)(where.conversationId, {
       replies: readSuggestedReplies,
     });
     expect(history.at(-1)).toMatchObject({ role: 'assistant', replies: ['Basic', 'Pro'] });
@@ -335,7 +335,7 @@ describe('stateless turns from an item store', () => {
     const bot = makeBot({ tools: [weather] });
     await turn(where, { bot }).result;
 
-    const history = await itemHistory(where.store)(where.conversationId, {
+    const { messages: history } = await itemHistory(where.store)(where.conversationId, {
       ui: (calls) => readToolUi(bot.tools, calls),
     });
     expect(history.map((message) => message.role)).toEqual(['user', 'assistant']);
@@ -356,7 +356,7 @@ describe('stateless turns from an item store', () => {
       type: 'text',
       citations: [{ title: 'askdare-handbook.md' }],
     });
-    const history = await itemHistory(where.store)(where.conversationId, {});
+    const { messages: history } = await itemHistory(where.store)(where.conversationId, {});
     expect(history[1]?.citations).toEqual([
       { index: 1, title: 'askdare-handbook.md', url: undefined },
     ]);
@@ -544,7 +544,9 @@ describe('stateless turns from an item store', () => {
         'developer',
       ]);
       expect(issued).toEqual([items[1]?.id]);
-      const history = await itemHistory(where.store)(where.conversationId, { checked: true });
+      const { messages: history } = await itemHistory(where.store)(where.conversationId, {
+        checked: true,
+      });
       expect(history.map((message) => message.text)).toEqual(['Hi', 'Fine answer.']);
     });
 
@@ -562,7 +564,9 @@ describe('stateless turns from an item store', () => {
         'developer',
         'assistant',
       ]);
-      const history = await itemHistory(where.store)(where.conversationId, { checked: true });
+      const { messages: history } = await itemHistory(where.store)(where.conversationId, {
+        checked: true,
+      });
       expect(history.map((message) => message.text)).toEqual(['Hi', 'Replaced.']);
     });
 
@@ -570,7 +574,9 @@ describe('stateless turns from an item store', () => {
       const where = await newConversation();
       serve(textTurnEvents(['Unchecked.']));
       await turn(where).result;
-      const history = await itemHistory(where.store)(where.conversationId, { checked: true });
+      const { messages: history } = await itemHistory(where.store)(where.conversationId, {
+        checked: true,
+      });
       expect(history.map((message) => message.text)).toEqual(['Hi']);
     });
   });

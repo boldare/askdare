@@ -12,13 +12,14 @@ import { checksOutput } from '../bot/guardrails';
 import { itemHistory } from '../conversations/history';
 import { conversationGone, ownerOf, ownsConversation } from '../conversations/owner';
 import type { ConversationStore } from '../conversations/port';
-import { historyReader } from '../conversations/provider-history';
+import { type HistoryPosition, historyReader } from '../conversations/provider-history';
 import { AskdareError, type AskdareErrorOptions, forLog, toAskdareError } from '../errors';
 import type { ModelGateway, RepliesReader, TurnAttachment, UiReader } from '../gateway';
 import { canonicalLocale } from '../i18n/texts';
 import type { Limits } from '../limits/limits';
 import type { DoctorCheck, DoctorReport } from '../protocol/doctor';
 import type { FeedbackHandle } from '../protocol/events';
+import { HISTORY_CURSOR_MAX } from '../protocol/history';
 import { HUMAN_TOKEN_MAX_LENGTH } from '../security/human-verifier';
 import type { IdentityFailure, IdentityVerifier, VerifiedIdentity } from '../security/identity';
 import {
@@ -144,6 +145,11 @@ const feedbackBody = z.object({
 const conversationBody = z.object({
   botId: z.string().max(64),
   resumeToken: z.string().min(1).max(4096),
+});
+
+const historyBody = conversationBody.extend({
+  /** The `before` of the previous answer, for the next older page; the latest page when absent. */
+  before: z.string().min(1).max(HISTORY_CURSOR_MAX).optional(),
 });
 
 const messageBody = z.object({
@@ -935,9 +941,11 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
   };
 
   /** Authenticates the visitor and proves they own the conversation behind the resume token. */
-  const ownedConversation = async (
+  const ownedConversation = async <Body extends z.infer<typeof conversationBody>>(
     request: Request,
+    schema: z.ZodType<Body>,
   ): Promise<{
+    body: Body;
     bot: Bot;
     conversationId: string;
     grant: ResumeGrant;
@@ -945,7 +953,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     owner: { readonly visitorId: string; readonly key: string | undefined };
   }> => {
     assertSameOrigin(request);
-    const body = await readJson(request, conversationBody);
+    const body = await readJson(request, schema);
     const bot = findBot(body.botId);
     const tokens = await config.tokens();
     const { visitorId, identity } = keyed(await tokens.verifyAccess(bearerToken(request), bot.id));
@@ -955,11 +963,34 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       throw new AskdareError('not_found');
     }
     await config.limits.checkConversationAccess(bot, visitorId);
-    return { bot, conversationId: grant.conversationId, grant, tokens, owner: { visitorId, key } };
+    return {
+      body,
+      bot,
+      conversationId: grant.conversationId,
+      grant,
+      tokens,
+      owner: { visitorId, key },
+    };
   };
 
   const readHistory = async (request: Request): Promise<Response> => {
-    const { bot, conversationId, grant, tokens, owner } = await ownedConversation(request);
+    const { body, bot, conversationId, grant, tokens, owner } = await ownedConversation(
+      request,
+      historyBody,
+    );
+    // The cursor names a place in this conversation only: one from another conversation, even
+    // the same visitor's, is refused before anything is read.
+    let before: HistoryPosition | undefined;
+    if (body.before !== undefined) {
+      const cursor = await tokens.verifyHistoryCursor(body.before, bot.id);
+      if (cursor.conversationId !== conversationId) {
+        throw new AskdareError('invalid_input', {
+          message: 'The history cursor is invalid. Load the history again.',
+          key: 'error.history',
+        });
+      }
+      before = { before: cursor.before, skip: cursor.skip };
+    }
     // A provider store reads its own items; an item store's are read as stored.
     const read = historyReader(config.conversations) ?? itemHistory(config.conversations);
     // Side by side: the store's record decides whether the history read is returned at all.
@@ -967,6 +998,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       config.conversations.info(conversationId, request.signal),
       read(conversationId, {
         signal: request.signal,
+        before,
         replies: repliesReader(bot),
         ui: uiReader(bot),
         checked: checksOutput(bot.guardrails),
@@ -974,7 +1006,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       }),
     ]);
     if (!ownsConversation(info, bot.id, grant)) throw conversationGone();
-    let messages = history;
+    let messages = history.messages;
     if (feedbackOn(bot)) {
       messages = await Promise.all(
         messages.map(async (message) =>
@@ -987,7 +1019,10 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
         ),
       );
     }
-    return jsonResponse({ messages });
+    const next =
+      history.next &&
+      (await tokens.issueHistoryCursor(bot.id, { conversationId, ...history.next })).token;
+    return jsonResponse(next ? { messages, before: next } : { messages });
   };
 
   /**
@@ -1024,7 +1059,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
   };
 
   const deleteConversation = async (request: Request): Promise<Response> => {
-    const { bot, conversationId, grant } = await ownedConversation(request);
+    const { bot, conversationId, grant } = await ownedConversation(request, conversationBody);
     const { conversations } = config;
     // Not the request's signal: a visitor who leaves right after asking still gets it deleted.
     const signal = AbortSignal.timeout(DELETE_TIMEOUT_MS);

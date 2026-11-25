@@ -23,6 +23,19 @@ export interface HistoryCitation {
   readonly url?: string | undefined;
 }
 
+/** The longest `before` cursor, in the response and in the request. */
+export const HISTORY_CURSOR_MAX = 4096;
+
+/**
+ * One page of whole turns (ADR-0024, decision 7): the latest without `before` in the request,
+ * then each older one in turn.
+ */
 export interface HistoryResponse {
+  /** Oldest first. A turn (a visitor message and the answers to it) is never split across pages. */
   readonly messages: readonly HistoryMessage[];
+  /**
+   * Send as `before` to read the next older page. Opaque, and valid only for this conversation.
+   * Absent on the oldest page.
+   */
+  readonly before?: string | undefined;
 }

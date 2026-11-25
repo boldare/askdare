@@ -153,7 +153,9 @@ describe.skipIf(!apiKey || !model)('OpenAI gateway (live)', () => {
       );
       expect(first.result.reason).toBe('completed');
       expect(first.result.answerItemId).toBeDefined();
-      const history = await readMessages(conversationId, { replies: readSuggestedReplies });
+      const { messages: history } = await readMessages(conversationId, {
+        replies: readSuggestedReplies,
+      });
       expect(history.at(-1)?.role).toBe('assistant');
       expect(history.at(-1)?.text).not.toBe('');
       // The call was answered: the next turn doesn't need a repair.
@@ -217,7 +219,7 @@ describe.skipIf(!apiKey || !model)('OpenAI gateway (live)', () => {
     const outputs = items.filter((item) => item.type === 'call_output').map((item) => item.callId);
     expect(calls.length).toBeGreaterThan(0);
     expect(outputs).toEqual(calls);
-    const history = await itemHistory(store)(conversationId, {});
+    const { messages: history } = await itemHistory(store)(conversationId, {});
     expect(history.map((message) => message.role)).toEqual([
       'user',
       'assistant',
@@ -393,7 +395,7 @@ describe.skipIf(!apiKey || !model)('OpenAI gateway (live)', () => {
         expect(events).toContainEqual(
           expect.objectContaining({ type: 'citation', url: 'https://example.com/pricing' }),
         );
-        const history = await readMessages(conversationId, {});
+        const { messages: history } = await readMessages(conversationId, {});
         expect(history.at(-1)?.citations).toContainEqual(
           expect.objectContaining({ url: 'https://example.com/pricing' }),
         );
@@ -448,7 +450,7 @@ describe.skipIf(!apiKey || !model)('OpenAI gateway (live)', () => {
         .toLowerCase();
       expect(text).toContain('red');
       expect(text).toContain('pelican');
-      const history = await readMessages(conversationId, {});
+      const { messages: history } = await readMessages(conversationId, {});
       expect(history[0]).toMatchObject({ role: 'user', attachments: 2 });
     } finally {
       await gateway.deleteFiles((await conversations.delete(conversationId)).fileIds);

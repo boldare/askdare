@@ -41,7 +41,7 @@ export function testConversations(): TestConversations {
   return {
     store,
     listMessages: (conversationId, signal, replies, ui, checked) =>
-      read(conversationId, { signal, replies, ui, checked }),
+      read(conversationId, { signal, replies, ui, checked }).then((page) => page.messages),
     async settle(conversationId, verdict) {
       await store.append(conversationId, settledAnswerItems(verdict));
     },

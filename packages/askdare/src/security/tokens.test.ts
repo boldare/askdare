@@ -247,6 +247,54 @@ describe('feedback handles', () => {
   });
 });
 
+describe('history cursors (ADR-0024, decision 7)', () => {
+  const grant = { conversationId: 'conv_Abc123', before: 'msg_Def456', skip: 12 } as const;
+  const invalid = { code: 'invalid_input', status: 400 };
+
+  it("round-trips the store's position and keeps it opaque", async () => {
+    const tokens = await createTokenService({ secret: SECRET });
+    const { token } = await tokens.issueHistoryCursor('support', grant);
+    expect(token).not.toContain('Abc123');
+    expect(token).not.toContain('Def456');
+    await expect(tokens.verifyHistoryCursor(token, 'support')).resolves.toEqual(grant);
+  });
+
+  it('rejects forged cursors, raw store cursors, other token types, other bots and expired ones', async () => {
+    let clock = 1_000_000;
+    const tokens = await createTokenService({ secret: SECRET, now: () => clock });
+    await expect(tokens.verifyHistoryCursor('msg_Def456', 'support')).rejects.toMatchObject(
+      invalid,
+    );
+    const forged = await forge('askdare-history+jwt', undefined, { bfr: 'msg_Def456' });
+    await expect(tokens.verifyHistoryCursor(forged, 'support')).rejects.toMatchObject(invalid);
+    const resume = await tokens.issueResume('support', {
+      visitorId: VISITOR,
+      conversationId: 'conv_Abc123',
+    });
+    await expect(tokens.verifyHistoryCursor(resume.token, 'support')).rejects.toMatchObject(
+      invalid,
+    );
+    const { token } = await tokens.issueHistoryCursor('support', grant);
+    await expect(tokens.verifyResume(token, 'support')).rejects.toMatchObject({
+      code: 'not_found',
+    });
+    await expect(tokens.verifyHistoryCursor(token, 'sales')).rejects.toMatchObject(invalid);
+    for (const odd of [
+      { ...grant, skip: -1 },
+      { ...grant, skip: 1.5 },
+      { ...grant, before: '' },
+      { ...grant, conversationId: '../conv' },
+    ]) {
+      const other = await tokens.issueHistoryCursor('support', odd);
+      await expect(tokens.verifyHistoryCursor(other.token, 'support')).rejects.toMatchObject(
+        invalid,
+      );
+    }
+    clock += 30 * 24 * 60 * 60 + 1;
+    await expect(tokens.verifyHistoryCursor(token, 'support')).rejects.toMatchObject(invalid);
+  });
+});
+
 describe('newVisitorId', () => {
   it('produces unique, unguessable identifiers in the accepted format', () => {
     const ids = new Set(Array.from({ length: 100 }, newVisitorId));
