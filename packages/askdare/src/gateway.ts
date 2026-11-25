@@ -116,6 +116,11 @@ export interface TurnResult {
    * provider keeps the conversation. A compaction after the turn expects it (ADR-0029).
    */
   readonly version?: number | undefined;
+  /**
+   * True when the conversation stopped compacting, because the floor a compaction left was too
+   * high (ADR-0029, decision 7): no compaction is reserved or attempted after the turn.
+   */
+  readonly compactionStopped?: boolean | undefined;
 }
 
 /** Compacts a conversation in an item store after a turn (ADR-0029). */

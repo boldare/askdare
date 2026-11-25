@@ -8,6 +8,7 @@ import { compactionStopNote } from '../conversations/compaction';
 import { historyFromItems } from '../conversations/history';
 import { memoryConversations } from '../conversations/memory';
 import type { ConversationStore, StoredItem } from '../conversations/port';
+import { AskdareError } from '../errors';
 import type { CompactionRequest, ModelGateway, TurnRequest } from '../gateway';
 import { defineTool } from '../tools/define-tool';
 import { COMPACTION_MAX_OUTPUT_TOKENS } from './compaction';
@@ -364,6 +365,25 @@ describe('compaction (ADR-0029)', () => {
     expect(await stored(where)).toHaveLength(2);
   });
 
+  it('rejects with what OpenAI said redacted, as a turn does', async () => {
+    const where = await conversation([user('first'), assistant('one')]);
+    const quoted = 'my private question about my medical history and nothing else at all';
+    server.use(
+      http.post(`${OPENAI_TEST_BASE_URL}/responses`, () =>
+        HttpResponse.json(
+          { error: { message: `Invalid input: '${quoted}'`, type: 'invalid_request_error' } },
+          { status: 400 },
+        ),
+      ),
+    );
+    const error = await compact(where, where.version).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(AskdareError);
+    const cause = (error as AskdareError).cause;
+    expect(cause).toBeInstanceOf(Error);
+    expect((cause as Error).message).not.toContain('medical history');
+    expect(await stored(where)).toHaveLength(2);
+  });
+
   it('skips a conversation the provider keeps', async () => {
     if (!gateway.compact) throw new Error('The OpenAI gateway compacts.');
     const store = memoryConversations();
@@ -395,6 +415,7 @@ describe('compaction (ADR-0029)', () => {
         data: { compaction: 'stopped', inputTokens: 10_001, compactAt: 20_000 },
       });
       expect(result.version).toBe(items.length);
+      expect(result.compactionStopped).toBe(true);
 
       // The note is never sent to the model, nor shown.
       serve(textTurnEvents(['Three.']));

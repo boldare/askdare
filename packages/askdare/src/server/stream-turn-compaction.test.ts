@@ -131,6 +131,34 @@ describe('compaction after a turn', () => {
     expect(report?.usage.inputTokens).toBe(25_000);
   });
 
+  it('reports the turn’s duration without the compaction after it', async () => {
+    const gateway = gatewayFor({
+      compact: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 120));
+        return COMPACTED;
+      },
+    });
+    const report = await run(gateway);
+    expect(report?.compaction?.durationMs).toBeGreaterThanOrEqual(100);
+    expect(report?.durationMs).toBeLessThan(100);
+  });
+
+  it('neither reserves nor compacts once the conversation stopped compacting', async () => {
+    const gateway = gatewayFor({});
+    const runTurn = gateway.runTurn;
+    const reserveCompaction = vi.fn(async () => ({ settle: async () => {} }));
+    const report = await run(
+      {
+        ...gateway,
+        runTurn: async (request) => ({ ...(await runTurn(request)), compactionStopped: true }),
+      },
+      { reserveCompaction },
+    );
+    expect(reserveCompaction).not.toHaveBeenCalled();
+    expect(gateway.compactions).toHaveLength(0);
+    expect(report?.compaction).toBe(undefined);
+  });
+
   it('compares the last call only, not the turn’s sum', async () => {
     const gateway = gatewayFor({ steps: [15_000, 19_999] });
     const report = await run(gateway);

@@ -202,6 +202,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         else emit(event);
       };
       const finish = (): void => {
+        endedAt ??= Date.now();
         clearInterval(heartbeat);
         if (closed) return;
         closed = true;
@@ -222,6 +223,8 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
 
       // What the turn did, for its report.
       const startedAt = Date.now();
+      // When the stream closed: the report's duration leaves out the compaction after it.
+      let endedAt: number | undefined;
       let conversationId = options.conversationId;
       let ran = false;
       let steps = 0;
@@ -321,6 +324,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         compactionDue =
           compactAt !== undefined &&
           version !== undefined &&
+          result.compactionStopped !== true &&
           lastInput !== undefined &&
           lastInput >= compactAt;
         const replies = released === 'allowed' ? proposed : undefined;
@@ -452,7 +456,8 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           reportError(
             new AskdareError('internal_error', {
               message: 'The conversation could not be compacted; a later turn tries again.',
-              cause: error,
+              // The gateway's own error keeps what the provider said, redacted, as its cause.
+              cause: error instanceof AskdareError ? (error.cause ?? error) : error,
             }),
           );
         } finally {
@@ -476,7 +481,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
               : undefined,
             visitor: await options.pseudonym(subject),
             startedAt,
-            durationMs: Date.now() - startedAt,
+            durationMs: (endedAt ?? Date.now()) - startedAt,
             outcome,
             ...(finishReason ? { finishReason } : {}),
             ...(errorCode ? { errorCode } : {}),

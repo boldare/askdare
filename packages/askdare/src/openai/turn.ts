@@ -2,6 +2,7 @@ import type OpenAI from 'openai';
 import type { ResponseInputItem } from 'openai/resources/responses/responses';
 import {
   compactionStopNote,
+  compactionStopped,
   firstAfterCompaction,
   floorTooHigh,
 } from '../conversations/compaction';
@@ -102,6 +103,8 @@ class Replay {
    * input is the conversation's new floor (ADR-0029, decision 7).
    */
   #floorAt: number | undefined;
+  /** Whether the conversation stopped compacting (ADR-0029, decision 7). */
+  #stopped = false;
 
   private constructor(request: TurnRequest, history: ResponseInputItem[], version: number) {
     this.#request = request;
@@ -124,15 +127,16 @@ class Replay {
     const items = contextWindow(context.items, { model });
     const { compactAt } = request.bot.limits;
     if (compactAt !== undefined && firstAfterCompaction(items, model)) replay.#floorAt = compactAt;
+    replay.#stopped = compactionStopped(items);
     const visitor = visitorItem(request);
     await replay.#append([visitor]);
     replay.#history.push(...replayInput([...items, visitor], replay.#family));
     return replay;
   }
 
-  /** The conversation's version after the last append of this turn. */
-  get version(): number {
-    return this.#version;
+  /** What the turn's result says about the store: its version, and whether it stopped compacting. */
+  get state(): Pick<TurnResult, 'version' | 'compactionStopped'> {
+    return { version: this.#version, ...(this.#stopped ? { compactionStopped: true } : {}) };
   }
 
   /** The input of the next model call: the whole conversation so far. */
@@ -165,6 +169,7 @@ class Replay {
     if (compactAt !== undefined && floorTooHigh(outcome.usage.inputTokens, compactAt)) {
       // Compacting again would soon run every turn; this conversation replays in full from here.
       items.push(compactionStopNote(outcome.usage.inputTokens, compactAt));
+      this.#stopped = true;
     }
     await this.#append(items);
     this.#history.push(...replayInput(items, this.#family));
@@ -375,7 +380,7 @@ async function turn(
           ...(rated ? { answerItemId: rated } : {}),
           // A tool's own options win over the model's suggestion (ADR-0015).
           ...(offered ? { replies: offered } : {}),
-          ...(replay ? { version: replay.version } : {}),
+          ...replay?.state,
         };
       }
       const outputs = [
@@ -398,7 +403,7 @@ async function turn(
         input = outputs;
       }
     }
-    return { reason: 'max_steps', usage, ...(replay ? { version: replay.version } : {}) };
+    return { reason: 'max_steps', usage, ...replay?.state };
   } catch (error) {
     throw fromOpenAIError(error, isDeadline(request.signal));
   }
