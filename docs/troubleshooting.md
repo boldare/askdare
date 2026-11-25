@@ -332,7 +332,7 @@ On Heroku, use `--keepAliveTimeout 95000` in the `Procfile` ([Deployment](deploy
 
 1. It asks `POST /api/chat/resume` for the rest, after half a second, then 2 and 8 seconds while nothing new comes, and at most ten times for one answer.
 2. When the server no longer has the answer's events (`404`), the attempts run out, or resumes hit their rate limit (`429`), it reloads the conversation and shows the answer from there, once it is finished.
-3. Only when the answer isn't in the conversation yet does it show the connection problem. The answer shows the next time the chat loads.
+3. Only when the answer isn't in the conversation yet does it show the connection problem. The answer shows the next time the chat loads. The chat also shows it when the stored answer is word for word the one before it, because it can't tell that from a conversation that doesn't have the new answer yet.
 
 **Fix:** if answers are often taken from the conversation instead of resumed, the reconnect doesn't find the answer's events. With several instances, or on Vercel, use `upstashTurnLog()` from `@boldare/askdare-upstash` ([Configuration: `resume`](configuration.md#resume)), and make sure the turn outlives its response on your host ([Deployment: Resuming answers](deployment.md#resuming-answers)). If the connection drops at the same point every time, look for a proxy timeout, as under [Answers are cut off or time out](#answers-are-cut-off-or-time-out).
 

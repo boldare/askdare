@@ -605,8 +605,9 @@ describe('a dropped answer', () => {
     expect(store.getSnapshot()).toMatchObject({ busy: false, activity: null, error: undefined });
     // The visitor's own message stays as it was shown; the answer is the history's.
     expect(shown(store.getSnapshot())).toEqual([
+      // Under the id it streamed with, so it is the same element and is announced once done.
       { id: 'local_1', role: 'user', text: 'Hi', status: 'done' },
-      { id: 'h2', role: 'assistant', text: 'The whole answer.', status: 'done' },
+      { id: 'msg_1', role: 'assistant', text: 'The whole answer.', status: 'done' },
     ]);
     expect(received.at(-1)).toMatchObject({ type: 'message.received', outcome: 'completed' });
   });
@@ -644,7 +645,7 @@ describe('a dropped answer', () => {
       'm3',
       'm4',
       'local_1',
-      'm6',
+      'msg_1',
     ]);
     expect(store.getSnapshot()).toMatchObject({ earlier: 'none', error: undefined });
   });

@@ -363,7 +363,14 @@ export function createChatStore(
       ) {
         return false;
       }
-      set({ messages: [...messages.slice(0, mine), ...page.slice(theirs).map(fromHistory)] });
+      set({
+        messages: [
+          ...messages.slice(0, mine),
+          ...page.slice(theirs, -1).map(fromHistory),
+          // Under the id it streamed with: the same element, announced once done, found by `end`.
+          { ...fromHistory(answer), id: messages[mine]?.id ?? answer.id },
+        ],
+      });
       return true;
     } catch {
       return false;
