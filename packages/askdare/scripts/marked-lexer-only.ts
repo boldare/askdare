@@ -11,6 +11,9 @@
 // shape, the build fails here instead of silently shipping all of marked again.
 const MARKED = /[\\/]node_modules[\\/]marked[\\/]lib[\\/]marked\.esm\.js$/;
 
+/** Escapes every regular-expression metacharacter, so a minified name is matched literally. */
+const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 /** Rewrites marked's ESM build so that only its classes and defaults are left. */
 export function lexerOnlyMarked(code: string): string {
   const exports = code.lastIndexOf('export{');
@@ -27,14 +30,14 @@ export function lexerOnlyMarked(code: string): string {
   );
   const marked = names.get('Marked');
   const instance = marked
-    ? new RegExp(`var [\\w$]+=new ${marked.replace(/\$/g, '\\$')};`).exec(code)
+    ? new RegExp(`var [\\w$]+=new ${escapeRegExp(marked)};`).exec(code)
     : null;
   if (!instance) throw new Error('marked-lexer-only: no `new Marked()` instance found');
   const kept = code.slice(0, instance.index);
-  const declared = (local: string): boolean =>
-    new RegExp(
-      `(?:var|let|const|function|class)\\s+${local.replace(/\$/g, '\\$')}\\b|[,{]${local.replace(/\$/g, '\\$')}=`,
-    ).test(kept);
+  const declared = (local: string): boolean => {
+    const name = escapeRegExp(local);
+    return new RegExp(`(?:var|let|const|function|class)\\s+${name}\\b|[,{]${name}=`).test(kept);
+  };
   const list = [...names].filter(([, local]) => declared(local));
   if (!list.some(([exported]) => exported === 'Lexer')) {
     throw new Error('marked-lexer-only: Lexer is not declared before the cut');
