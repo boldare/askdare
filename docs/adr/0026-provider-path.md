@@ -1,6 +1,6 @@
 # ADR-0026: The provider path: one turn loop, provider profiles, then native adapters
 
-- **Status:** Proposed
+- **Status:** Accepted on 2026-11-25 (task z1). Decision 1 is built (see "As built in 0.6"); decisions 2 to 7 are the plan for 0.9 and later, and their details are checked again when built.
 - **Date:** 2026-11-23
 - **Extends:** [ADR-0002](0002-openai-only-no-leaked-types.md). The official `openai` SDK, the Responses wire format, `src/openai/` as the only module that imports `openai`, and no foreign types in the public API all stay. ADR-0002's "OpenAI only" becomes "OpenAI by default, other providers through profiles", from 0.9.
 - **Amends, for Claude only:** [ADR-0015](0015-reply-options.md) variant A (decision 6).
@@ -45,6 +45,12 @@ Both spikes need what 0.6 builds anyway: conversation state outside the provider
    - Zod re-validation of tool arguments stays mandatory: OpenRouter accepted `strict` schemas OpenAI rejects and didn't enforce them.
    - Output sanitising strips `【…】`-style tool-output markers before rendering.
    - Usage reads optional fields defensively (`input_tokens_details`, cache writes), and a provider's charged `usage.cost`, when present, is passed to `onStep` as an optional field.
+
+## As built in 0.6
+
+- **The gateway is split** (tasks 1, 2 and k2): conversations live behind `ConversationStore` ([ADR-0024](0024-conversation-store.md)), retrieval on an own index behind `KnowledgeIndex` and the `search_knowledge` function tool ([ADR-0025](0025-knowledge-index.md)), and the turn loop runs statelessly from an item store. `ModelGateway` keeps file uploads and deletes, transcription, turns, compaction, moderation and `diagnose`, and stays internal.
+- **The OpenAI-named fields are not renamed yet.** `safetyIdentifier`, `vectorStoreId` and the meaning of `answerItemId` are still on the internal `ModelGateway` types: no 0.6 task needed to change them, and renaming them costs nothing while the port is internal. They are renamed in the review that makes the port public (decision 5).
+- **Shared guards** (decision 7) that 0.6 already has: Zod re-validation of tool arguments, and usage read defensively (missing cache details count as 0). Stripping `【…】` markers and `usage.cost` come with the first profile that needs them.
 
 ## Consequences
 
