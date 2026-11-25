@@ -58,6 +58,27 @@ The features buyers compare against Intercom Fin and Chatbase.
 
 API freeze, a support policy and a migration guide from 0.x. We cut 1.0 once two or three teams have run 0.7 or later in production and two minors have shipped without breaking the API.
 
+## Known gaps
+
+What 0.6 leaves open, found by its tasks and reviews. Each line names where it goes; a release that takes one moves it into its own section.
+
+**Data that still reaches or stays at OpenAI** ([own your data](docs/own-your-data.md#what-stays-at-openai)):
+- **Attachments** are stored in OpenAI Files until they expire (30 days) or the conversation is deleted, and Files isn't eligible for Zero Data Retention. This is the one exception to "nothing kept at OpenAI" with your own store and ZDR. Next step: a file store port with an S3-compatible add-on, so attachments are sent inline and kept in your own bucket. Later, after 0.7.
+- **Regional endpoints.** Model requests go to OpenAI's global endpoint; askdare isn't tested against the EU or other regional endpoints. Test it and document the base URL. 0.6.x, as a doc and a contract run.
+- **No model request without OpenAI** until another provider path exists. 0.9 ([ADR-0026](docs/adr/0026-provider-path.md)).
+
+**Privacy and security** (low-confidence notes from the `release/0.6` security review, worth a closer look):
+- **Transcripts outlive a deleted conversation:** deleting one calls no hook, so a transcript an app keeps through `onTranscript` stays until the app sweeps it. 0.7, with the admin store ([ADR-0016](docs/adr/0016-admin.md)); an `onConversationDeleted` hook is the fallback if that slips.
+- **The resume log can replay an anonymous resume token** to the same browser when the visitor signs in during an answer. 0.6.x.
+- **A replaced answer can be rated after a reload,** though not while it streams. 0.6.x.
+
+**Smaller items:**
+- "Reconnecting…" can stay visible after a successful resume until the next text or status event. 0.6.x, once the React entry has room.
+- `doctor`'s check of the OpenAI store ignores its 10-second limit. 0.6.x.
+- The compaction lookup in Postgres has no index; fine at today's conversation sizes. Add one before conversations grow to thousands of items.
+- A message sent at the moment a compaction is stored gets a "please wait" error (documented in [ADR-0029](docs/adr/0029-compaction-for-item-stores.md)). Later.
+- No sweep helper in core: a site's cron route deletes files with the `openai` SDK itself ([own your data](docs/own-your-data.md)). 0.7, with the admin store.
+
 ## Later
 
 Ordered when a release is planned:
