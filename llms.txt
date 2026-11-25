@@ -22,6 +22,7 @@ Set it up with `npx @boldare/askdare init` and verify it with `npx @boldare/askd
 - [Texts](docs/texts.md): every text key with its default in each built-in language (en, cs, de, es, fr, it, pl), plurals, adding a language, switching the chat's language on the page (`askdare('configure', { locale })`, `data-follow-lang`)
 - [Themes](docs/themes.md): Halo, Aura, Sage and Care, tokens and variants
 - [Deployment](docs/deployment.md): Vercel, Heroku, proxies, shared limits
+- [Own your data](docs/own-your-data.md): moving a bot to your own Postgres: `postgresConversations`, `pgvectorIndex` with `kb sync --index`, `migrate`, `doctor`, resume with `upstashTurnLog`, `limits.compactAt`, `onTranscript`, sweeping old conversations, what stays at OpenAI (ZDR, data residency), costs
 - [Going public](docs/going-public.md): OpenAI project, secrets, limits, privacy checklist
 - [Guardrails](docs/guardrails.md): opt-in OpenAI moderation (`moderation`), your own `onInput` and `onOutput` rules to allow, block or redact, answers held back while they are checked, `toolResults: 'untrusted'`
 - [Costs](docs/costs.md): the worst case under the default limits, and how to keep it bounded

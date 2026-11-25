@@ -157,7 +157,8 @@ A [conversation store](custom-store.md#conversation-store) that keeps the items 
 
 - **Conversations live in your store,** with the bot ID and the owner (the visitor ID, or a key of the signed-in user). Every message, answer, tool call and result goes there, and so does the model's encrypted reasoning, which only OpenAI can read. You decide how long they stay, and the store can delete idle ones.
 - **Nothing of the conversation stays at OpenAI.** Each request sends the whole conversation with `store: false`, and OpenAI keeps no conversation and no response. What OpenAI keeps is its abuse monitoring logs of the requests, up to 30 days, as for any API request; see its [data controls](https://developers.openai.com/api/docs/guides/your-data).
-- **Files still go to OpenAI**: attached images and PDFs are uploaded and referenced as above, and deleted with the conversation. The knowledge base stays in your OpenAI vector store.
+- **Files still go to OpenAI**: attached images and PDFs are uploaded and referenced as above, and deleted with the conversation. The knowledge base stays in your OpenAI vector store, unless you move it to [your own index](knowledge-base.md#your-own-index) too.
+- **Old conversations are swept** when you call the store's `sweep` from a scheduled job ([Own your data](own-your-data.md#8-sweep-old-conversations)). A sweep calls no hook, so transcripts you keep need a retention of their own.
 - Answers are rated by their ID in your store; the rating handle carries it encrypted, as before.
 - **Compaction** (`limits.compactAt`, [ADR-0029](adr/0029-compaction-for-item-stores.md)) sends the conversation to OpenAI once more after a turn, also with `store: false`, and stores the summary it returns in your store, with the conversation. The summary is encrypted, only OpenAI can read it, and it is deleted with the conversation like everything else. It may still carry what the conversation held, including an answer your output checks withheld. Nothing stored before it is changed or removed.
 
@@ -251,5 +252,5 @@ There is no previous-secret setting for `IDENTITY_SECRET`. When you change it:
 - [ ] If you use `onTranscript`, say that you keep copies of conversations, where, for how long, and how visitors ask for theirs to be deleted.
 - [ ] Mention IP addresses in rate limits and their retention.
 - [ ] If the turn log is in Upstash, say that answers are kept there for a few minutes while they are written.
-- [ ] Decide on a retention policy for conversations.
+- [ ] Decide on a retention policy for conversations. With your own store, name its database host as a processor, and sweep conversations older than the policy allows.
 - [ ] Keep the AI disclosure, and link this notice from it with `privacyUrl`.

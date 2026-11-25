@@ -4,7 +4,7 @@ Keep [`@boldare/askdare`](https://www.npmjs.com/package/@boldare/askdare)'s data
 
 **[askdare website and docs](https://askdare.vercel.app)** · [GitHub](https://github.com/boldare/askdare/tree/main/packages/askdare-postgres)
 
-> **Work in progress.** The conversation store and the pgvector knowledge index are here. `@boldare/askdare` exports the knowledge port that bots use the index through in a later release of askdare 0.6.
+[Own your data](https://askdare.vercel.app/docs/own-your-data) walks through moving a bot to this add-on, end to end, and what that changes for privacy and cost.
 
 ## Install
 
