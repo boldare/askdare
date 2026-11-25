@@ -1729,6 +1729,21 @@ interface FakeEmbedderOptions {
  * normalized, so texts sharing words are close. One token per word. Honors the abort signal.
  */
 export declare function fakeEmbedder(options?: FakeEmbedderOptions): Embedder;
+interface TurnEventLogContractOptions {
+  /** The time to live in the expiry tests. Default 1 000 ms; Redis needs whole milliseconds. */
+  readonly ttlMs?: number;
+  /**
+   * Lets at least `ms` pass for the log. Default: real time. A log with a test clock advances it
+   * instead.
+   */
+  readonly elapse?: (ms: number) => Promise<void>;
+}
+/**
+ * Behaviour every `TurnEventLog` must have, for the in-memory log and for add-ons (for example
+ * `@boldare/askdare-upstash`), so they stay interchangeable. Each test uses turns of its own with a
+ * short time to live, so whatever it writes expires soon, also after a failure.
+ */
+export declare function turnEventLogContract(name: string, create: () => TurnEventLog, { describe, it, expect }: ContractRunner, options?: TurnEventLogContractOptions): void;
 interface ConversationStoreContractOptions extends ContractRunner {
   /**
    * `items` (default) for stores that keep the items themselves and replay them; `provider` for
@@ -1760,21 +1775,6 @@ interface ConversationStoreContractOptions extends ContractRunner {
  * Every conversation a test creates is deleted when it ends, also when it fails.
  */
 export declare function conversationStoreContract(name: string, createStore: () => ConversationStore, options: ConversationStoreContractOptions): void;
-interface TurnEventLogContractOptions {
-  /** The time to live in the expiry tests. Default 1 000 ms; Redis needs whole milliseconds. */
-  readonly ttlMs?: number;
-  /**
-   * Lets at least `ms` pass for the log. Default: real time. A log with a test clock advances it
-   * instead.
-   */
-  readonly elapse?: (ms: number) => Promise<void>;
-}
-/**
- * Behaviour every `TurnEventLog` must have, for the in-memory log and for add-ons (for example
- * `@boldare/askdare-upstash`), so they stay interchangeable. Each test uses turns of its own with a
- * short time to live, so whatever it writes expires soon, also after a failure.
- */
-export declare function turnEventLogContract(name: string, create: () => TurnEventLog, { describe, it, expect }: ContractRunner, options?: TurnEventLogContractOptions): void;
 /**
  * The behaviour every `RateLimitStore` must have, so the in-memory store and add-ons such as
  * `@boldare/askdare-upstash` stay interchangeable. Run it with your runner's `describe`, `it` and
