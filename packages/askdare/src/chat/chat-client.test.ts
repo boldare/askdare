@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProtocolEvent } from '../protocol/events';
 import { encodeComment, encodeEvent } from '../protocol/sse';
 import { ChatClient, SessionRefused } from './chat-client';
@@ -164,9 +164,13 @@ describe('ChatClient.upload', () => {
   it('sends the page context only when it changes within a conversation', async () => {
     const { fetch, calls } = fakeFetch({
       messages: () =>
-        new Response(sse([{ type: 'message.start', messageId: 'm' }]), {
-          headers: streamHeaders,
-        }),
+        new Response(
+          sse([
+            { type: 'message.start', messageId: 'm' },
+            { type: 'message.end', messageId: 'm', reason: 'completed' },
+          ]),
+          { headers: streamHeaders },
+        ),
     });
     const chat = client(fetch);
     await chat.send({ text: 'a', context: 'Pricing' }, () => {});
@@ -298,13 +302,18 @@ describe('ChatClient', () => {
     expect(events).toMatchObject([{ type: 'error', code: 'bot_unavailable' }]);
   });
 
-  it('gives up on a stalled stream', async () => {
-    const { fetch } = fakeFetch({
+  it('gives up on a stalled stream before the answer started', async () => {
+    const { fetch, calls } = fakeFetch({
       messages: () => new Response(sse([], { hang: true }), { headers: streamHeaders }),
     });
     const events: ProtocolEvent[] = [];
-    await client(fetch, memoryStorage(), 30).send({ text: 'Hi' }, (event) => events.push(event));
-    expect(events).toMatchObject([{ type: 'error', code: 'timeout' }]);
+    const lost = await client(fetch, memoryStorage(), 30).send({ text: 'Hi' }, (event) =>
+      events.push(event),
+    );
+    expect(lost).toMatchObject({ type: 'error', code: 'timeout', key: 'error.stalled' });
+    expect(events).toEqual([]);
+    // Without the answer's ID there is nothing to resume.
+    expect(calls.some((call) => call.url.endsWith('/resume'))).toBe(false);
   });
 
   it("shows the server's reason when it refuses a session, not a connection problem", async () => {
@@ -345,8 +354,220 @@ describe('ChatClient', () => {
       throw new TypeError('fetch failed');
     }) as typeof fetch;
     const events: ProtocolEvent[] = [];
-    await client(failing).send({ text: 'Hi' }, (event) => events.push(event));
-    expect(events).toMatchObject([{ type: 'error', code: 'upstream_error' }]);
+    const lost = await client(failing).send({ text: 'Hi' }, (event) => events.push(event));
+    expect(lost).toMatchObject({ type: 'error', code: 'upstream_error', key: 'error.connection' });
+    expect(events).toEqual([]);
+  });
+});
+
+/** A turn's events numbered from `first`; the stream drops after them unless one ends the answer. */
+function numbered(
+  events: readonly ProtocolEvent[],
+  first: number,
+  options: { fail?: boolean } = {},
+): Response {
+  let sent = false;
+  const body = new ReadableStream<Uint8Array>({
+    // Pulled again once the events were read: a network error then comes after them.
+    pull(controller) {
+      if (sent) {
+        if (options.fail) controller.error(new TypeError('network error'));
+        else controller.close();
+        return;
+      }
+      sent = true;
+      controller.enqueue(encoder.encode(encodeComment('ok')));
+      events.forEach((event, index) => {
+        controller.enqueue(encoder.encode(encodeEvent(event, first + index)));
+      });
+    },
+  });
+  return new Response(body, { headers: streamHeaders });
+}
+
+describe('resuming a dropped answer', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Runs the timers (the backoff between attempts) until the send settles. */
+  async function settle<T>(promise: Promise<T>): Promise<T> {
+    let done = false;
+    void promise.finally(() => {
+      done = true;
+    });
+    while (!done) await vi.advanceTimersByTimeAsync(250);
+    return promise;
+  }
+
+  const start: readonly ProtocolEvent[] = [
+    { type: 'conversation.created', resumeToken: 'resume-1' },
+    { type: 'user.ack', messageId: 'u1' },
+    { type: 'message.start', messageId: 'm1' },
+    { type: 'text.delta', messageId: 'm1', delta: 'Hel' },
+  ];
+  const end: ProtocolEvent = { type: 'message.end', messageId: 'm1', reason: 'completed' };
+
+  function turn(resume: (call: Call, attempt: number) => Response): {
+    fetch: typeof fetch;
+    calls: Call[];
+  } {
+    let resumes = 0;
+    return fakeFetch({
+      messages: (call) =>
+        call.url.endsWith('/resume') ? resume(call, ++resumes) : numbered(start, 1),
+    });
+  }
+
+  const resumes = (calls: readonly Call[]): Call[] =>
+    calls.filter((call) => call.url.endsWith('/resume'));
+
+  it('continues the answer after its last event, without duplicates', async () => {
+    const { fetch, calls } = turn(() =>
+      // The server sends each event once; a repeated one must still be ignored.
+      numbered(
+        [
+          { type: 'text.delta', messageId: 'm1', delta: 'Hel' },
+          { type: 'text.delta', messageId: 'm1', delta: 'lo' },
+          end,
+        ],
+        4,
+      ),
+    );
+    const events: ProtocolEvent[] = [];
+    const onRetry = vi.fn();
+    const lost = await settle(
+      client(fetch).send({ text: 'Hi' }, (event) => events.push(event), undefined, onRetry),
+    );
+    expect(lost).toBeUndefined();
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    expect(resumes(calls).map((call) => call.body)).toEqual([
+      { botId: 'support', resumeToken: 'resume-1', messageId: 'm1', after: 4 },
+    ]);
+    expect(resumes(calls)[0]?.auth).toBe('Bearer token-1');
+    const text = events.flatMap((event) => (event.type === 'text.delta' ? [event.delta] : []));
+    expect(text.join('')).toBe('Hello');
+    expect(events.at(-1)).toEqual(end);
+  });
+
+  it('resumes after a network error in the middle of the stream', async () => {
+    const { fetch } = fakeFetch({
+      messages: (call) =>
+        call.url.endsWith('/resume') ? numbered([end], 5) : numbered(start, 1, { fail: true }),
+    });
+    const events: ProtocolEvent[] = [];
+    const lost = await settle(client(fetch).send({ text: 'Hi' }, (event) => events.push(event)));
+    expect(lost).toBeUndefined();
+    expect(events.map((event) => event.type).slice(-2)).toEqual(['text.delta', 'message.end']);
+  });
+
+  it('resumes a stream the watchdog gave up on', async () => {
+    const { fetch, calls } = fakeFetch({
+      messages: (call) =>
+        call.url.endsWith('/resume')
+          ? numbered([end], 5)
+          : new Response(
+              new ReadableStream<Uint8Array>({
+                start(controller) {
+                  start.forEach((event, index) => {
+                    controller.enqueue(encoder.encode(encodeEvent(event, index + 1)));
+                  });
+                },
+              }),
+              { headers: streamHeaders },
+            ),
+    });
+    const lost = await settle(client(fetch, memoryStorage(), 1_000).send({ text: 'Hi' }, () => {}));
+    expect(lost).toBeUndefined();
+    expect(resumes(calls)).toHaveLength(1);
+  });
+
+  it('gives up at once when the server no longer has the answer, and keeps the conversation', async () => {
+    const storage = memoryStorage();
+    const { fetch, calls } = turn(() =>
+      Response.json({ error: { code: 'not_found', message: 'Not found.' } }, { status: 404 }),
+    );
+    const events: ProtocolEvent[] = [];
+    const lost = await settle(
+      client(fetch, storage).send({ text: 'Hi' }, (event) => events.push(event)),
+    );
+    expect(lost).toMatchObject({ code: 'upstream_error', key: 'error.connection' });
+    expect(resumes(calls)).toHaveLength(1);
+    expect(events.some((event) => event.type === 'error')).toBe(false);
+    // The answer's events are gone, not the conversation: the history still has it.
+    expect(storage.get('askdare:support:resume')).toBe('resume-1');
+  });
+
+  it('gives up at once when resumes are rate-limited', async () => {
+    const { fetch, calls } = turn(() =>
+      Response.json({ error: { code: 'rate_limited', message: 'Slow down.' } }, { status: 429 }),
+    );
+    expect(await settle(client(fetch).send({ text: 'Hi' }, () => {}))).toBeDefined();
+    expect(resumes(calls)).toHaveLength(1);
+  });
+
+  it('tries three times in a row with backoff, also while offline, then gives up', async () => {
+    const at: number[] = [];
+    const begun = Date.now();
+    const { fetch, calls } = turn((_call, attempt) => {
+      at.push(Date.now() - begun);
+      if (attempt === 1) throw new TypeError('fetch failed');
+      return numbered([], 5);
+    });
+    const onRetry = vi.fn();
+    const lost = await settle(client(fetch).send({ text: 'Hi' }, () => {}, undefined, onRetry));
+    expect(lost).toMatchObject({ key: 'error.connection' });
+    expect(resumes(calls)).toHaveLength(3);
+    expect(onRetry).toHaveBeenCalledTimes(3);
+    // Waits of half a second, 2 s and 8 s.
+    const [first = 0, second = 0, third = 0] = at;
+    expect(second - first).toBeGreaterThanOrEqual(2_000);
+    expect(third - second).toBeGreaterThanOrEqual(8_000);
+  });
+
+  it('keeps resuming while each attempt brings more of the answer, up to ten', async () => {
+    const { fetch, calls } = turn((_call, attempt) =>
+      numbered([{ type: 'text.delta', messageId: 'm1', delta: '.' }], 4 + attempt),
+    );
+    const events: ProtocolEvent[] = [];
+    const lost = await settle(client(fetch).send({ text: 'Hi' }, (event) => events.push(event)));
+    expect(lost).toBeDefined();
+    expect(resumes(calls)).toHaveLength(10);
+    expect(resumes(calls).at(-1)?.body).toMatchObject({ after: 13 });
+    expect(events.filter((event) => event.type === 'text.delta')).toHaveLength(11);
+  });
+
+  it('never resumes an answer that ended with an error', async () => {
+    const { fetch, calls } = fakeFetch({
+      messages: () =>
+        numbered(
+          [...start, { type: 'error', code: 'upstream_error', message: 'Upstream failed.' }],
+          1,
+        ),
+    });
+    const events: ProtocolEvent[] = [];
+    expect(
+      await settle(client(fetch).send({ text: 'Hi' }, (event) => events.push(event))),
+    ).toBeUndefined();
+    expect(resumes(calls)).toHaveLength(0);
+    expect(events.at(-1)).toMatchObject({ type: 'error' });
+  });
+
+  it('stops waiting to resume when the chat stops', async () => {
+    const { fetch, calls } = turn(() => numbered([end], 5));
+    const controller = new AbortController();
+    const sending = client(fetch).send(
+      { text: 'Hi' },
+      () => {},
+      controller.signal,
+      // While it waits before the attempt; no timer runs, so only the abort can end the wait.
+      () => queueMicrotask(() => controller.abort()),
+    );
+    expect(await sending).toBeUndefined();
+    expect(resumes(calls)).toHaveLength(0);
   });
 });
 

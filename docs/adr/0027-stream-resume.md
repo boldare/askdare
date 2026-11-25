@@ -49,6 +49,18 @@ S7's Postgres prototype worked (400 deltas written one by one in 186 ms, or in 2
 - **A failed append** is tried twice more, the same batch in order (after 200 and 400 ms), so a passing error doesn't leave the log short of the answer's end. After that the writer stops logging the turn, and a resume of it ends without `message.end` after the bot's turn timeout; the client then reloads history.
 - **`POST /resume`** checks same origin, the access token, the resume token's owner, the conversation store's owner and its own rate limit (30 per visitor per minute). It reads from the event before `after`, so a client that already saw `message.end` or `error` gets an empty stream at once. It then waits for live events until the answer ends, the events expire (the stream ends, and the next attempt answers `404`), or the bot's turn timeout passes.
 
+### As built (r3b)
+
+- **The client** (`chat/chat-client.ts`) keeps the last event `id` and the answer's `messageId`, and ignores an event whose `id` isn't above the last one. A stream that ends without `message.end` or `error`, fails, or trips the 45 s watchdog is resumed after 0.5, 2 and 8 s: three attempts in a row that bring nothing new, ten in all for one answer, well under the server's 30 per minute. A turn the chat aborted itself is never resumed.
+- **Giving up:** any status other than `200` from `/resume` (a `404` doesn't forget the conversation), the attempts running out, or a drop before `message.start`. The store then loads the latest history page and replaces only what follows the visitor's last message, so older pages and the oldest message shown stay. It does so only when the page's last visitor message is the one sent and its answer isn't the one shown before it; otherwise the chat shows the connection error as before.
+- **The status** is the existing `activity`, set to `status.reconnecting` and announced politely by `Status`: no new state field or React code.
+- **Size:** about 420 bytes gzipped. The room came from:
+  - a missing `/* @__PURE__ */` on `memo()` in `markdown.tsx`, which kept the Markdown renderer in headless pages (−1.2 KB);
+  - the client's English fallbacks for its own errors, which never showed because the store always passes the bot's full dictionary;
+  - the React build cutting the bundled marked down to its classes (`scripts/marked-lexer-only.ts`): we use only `Lexer`, but marked's default instance and `marked()` kept its Parser and Renderer in the entry (about −3.1 KB). `src/marked-lexer-only.test.ts` checks that the cut Lexer reads markdown exactly as marked's.
+- **Measuring:** `react-size.mjs` gzips with Node's zlib. Official Node builds (CI) bundle zlib 1.3.1; a Node linked against an older system zlib (1.2.12) measured this entry 112 B smaller from the same bytes. CI's figure is the one that counts.
+- **Checked by** unit tests of the client and the store, and `e2e/resume.spec.ts`: the widget and the chat inside a page finish an answer whose stream was cut mid-answer, and take it from the history when `/resume` answers `404`.
+
 ## Consequences
 
 - A dropped connection no longer costs the visitor the answer, on hosts where the turn outlives its response and a shared log is configured.

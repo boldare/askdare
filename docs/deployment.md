@@ -115,7 +115,7 @@ When a visitor's connection drops in the middle of an answer, the chat can pick 
   });
   ```
 
-Where neither holds, a dropped answer is shown once it is finished, when the chat reloads the conversation, as before.
+Where neither holds, the chat reloads the conversation instead, a few seconds after the drop, and shows the answer if it is finished by then; otherwise the answer shows the next time the chat loads. See [Troubleshooting](troubleshooting.md#the-chat-reconnects-in-the-middle-of-an-answer).
 
 ## Behind another proxy or CDN
 

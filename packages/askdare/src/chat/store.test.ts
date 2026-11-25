@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ProtocolEvent } from '../protocol/events';
 import type { HistoryMessage, HistoryResponse } from '../protocol/history';
 import type { ChatEvent } from './events';
 import { createFixtureStore } from './fixture-store';
@@ -528,6 +529,154 @@ describe('createChatStore', () => {
     await store.actions.send('How much?');
     const message = server.requests.find((request) => request.path === '/messages');
     expect(message?.body['context']).toBe('Pricing page');
+  });
+});
+
+describe('a dropped answer', () => {
+  const said = (id: string, role: 'user' | 'assistant', text: string): HistoryMessage => ({
+    id,
+    role,
+    text,
+    citations: [],
+    attachments: 0,
+  });
+  /** The answer's start and its first words, then the stream drops. */
+  const dropped = (text: string): readonly ProtocolEvent[] => echo(text).slice(0, 3);
+
+  function storeWith(options: Parameters<typeof fakeServer>[0], stored?: boolean) {
+    const storage = memoryStorage();
+    if (stored) storage.set('askdare:support:resume', 'resume-1');
+    const server = fakeServer(options);
+    const store = createChatStore(testConfig(), { client: testClient(server, storage) });
+    const received: ChatEvent[] = [];
+    store.onEvent((event) => received.push(event));
+    const activities: (string | null)[] = [];
+    store.subscribe(() => activities.push(store.getSnapshot().activity));
+    return { server, store, received, activities };
+  }
+  const shown = (state: ChatState) =>
+    state.messages.map(({ id, role, text, status }) => ({ id, role, text, status }));
+
+  it('resumes after the last event, says so quietly, and shows each word once', async () => {
+    const { server, store, received, activities } = storeWith({
+      answer: dropped,
+      resume: () => [
+        { type: 'text.delta', messageId: 'msg_1', delta: '!' },
+        { type: 'message.end', messageId: 'msg_1', reason: 'completed' },
+      ],
+    });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.send('Hi');
+
+    expect(server.requests.find((request) => request.path === '/resume')?.body).toEqual({
+      botId: 'support',
+      resumeToken: 'resume-1',
+      messageId: 'msg_1',
+      after: 3,
+    });
+    expect(activities).toContain('Reconnecting…');
+    expect(store.getSnapshot()).toMatchObject({ busy: false, activity: null, error: undefined });
+    expect(shown(store.getSnapshot())).toEqual([
+      { id: 'local_1', role: 'user', text: 'Hi', status: 'done' },
+      { id: 'msg_1', role: 'assistant', text: 'You said: Hi!', status: 'done' },
+    ]);
+    expect(received.at(-1)).toMatchObject({ type: 'message.received', outcome: 'completed' });
+  });
+
+  it('takes the answer from the history when it can no longer be resumed', async () => {
+    const { server, store, received } = storeWith({
+      answer: dropped,
+      // `/resume` answers 404: the server no longer has the answer's events.
+      historyPage: () => ({
+        messages: [said('h1', 'user', 'Hi'), said('h2', 'assistant', 'The whole answer.')],
+      }),
+    });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.send('Hi');
+
+    expect(server.requests.map((request) => request.path)).toEqual([
+      '/session',
+      '/messages',
+      '/resume',
+      '/history',
+    ]);
+    expect(store.getSnapshot()).toMatchObject({ busy: false, activity: null, error: undefined });
+    // The visitor's own message stays as it was shown; the answer is the history's.
+    expect(shown(store.getSnapshot())).toEqual([
+      // Under the id it streamed with, so it is the same element and is announced once done.
+      { id: 'local_1', role: 'user', text: 'Hi', status: 'done' },
+      { id: 'msg_1', role: 'assistant', text: 'The whole answer.', status: 'done' },
+    ]);
+    expect(received.at(-1)).toMatchObject({ type: 'message.received', outcome: 'completed' });
+  });
+
+  it('keeps older pages above when it takes the answer from the history', async () => {
+    let sent = false;
+    const { store } = storeWith(
+      {
+        answer: (text) => {
+          sent = true;
+          return dropped(text).slice(1);
+        },
+        historyPage: (before) =>
+          before === 'c1'
+            ? { messages: [said('m1', 'user', 'First'), said('m2', 'assistant', 'One.')] }
+            : {
+                messages: [
+                  said('m3', 'user', 'Second'),
+                  said('m4', 'assistant', 'Two.'),
+                  ...(sent ? [said('m5', 'user', 'Third'), said('m6', 'assistant', 'Three.')] : []),
+                ],
+                before: 'c1',
+              },
+      },
+      true,
+    );
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.loadEarlier();
+    await store.actions.send('Third');
+
+    expect(shown(store.getSnapshot()).map(({ id }) => id)).toEqual([
+      'm1',
+      'm2',
+      'm3',
+      'm4',
+      'local_1',
+      'msg_1',
+    ]);
+    expect(store.getSnapshot()).toMatchObject({ earlier: 'none', error: undefined });
+  });
+
+  it("shows the problem when the history doesn't have the answer yet", async () => {
+    // The visitor asks the same as last time: the history's turn is the earlier one.
+    const { store, received } = storeWith(
+      {
+        answer: dropped,
+        history: [said('m1', 'user', 'Hi'), said('m2', 'assistant', 'Hello!')],
+      },
+      true,
+    );
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.send('Hi');
+
+    expect(store.getSnapshot()).toMatchObject({
+      busy: false,
+      error: 'Connection problem. Please try again.',
+    });
+    expect(shown(store.getSnapshot())).toEqual([
+      { id: 'm1', role: 'user', text: 'Hi', status: 'done' },
+      { id: 'm2', role: 'assistant', text: 'Hello!', status: 'done' },
+      { id: 'local_1', role: 'user', text: 'Hi', status: 'done' },
+      { id: 'msg_1', role: 'assistant', text: 'You said: Hi', status: 'error' },
+    ]);
+    expect(received.slice(-2)).toMatchObject([
+      { type: 'error', code: 'upstream_error' },
+      { type: 'message.received', outcome: 'failed' },
+    ]);
   });
 });
 

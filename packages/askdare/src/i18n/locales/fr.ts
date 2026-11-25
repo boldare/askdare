@@ -24,6 +24,7 @@ export const FR: Dictionary = {
   'status.thinking': 'Réflexion…',
   'status.searching': 'Recherche dans les documents…',
   'status.tool': 'Utilisation de {name}…',
+  'status.reconnecting': 'Reconnexion…',
   'status.typing': 'L’assistant écrit',
   'message.sources': 'Sources',
   'message.replies': 'Réponses suggérées',

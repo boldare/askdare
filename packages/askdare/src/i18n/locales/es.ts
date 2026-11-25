@@ -20,6 +20,7 @@ export const ES: Dictionary = {
   'status.thinking': 'Pensando…',
   'status.searching': 'Buscando en los documentos…',
   'status.tool': 'Usando {name}…',
+  'status.reconnecting': 'Reconectando…',
   'status.typing': 'El asistente está escribiendo',
   'message.sources': 'Fuentes',
   'message.replies': 'Respuestas sugeridas',

@@ -233,6 +233,7 @@ The table is generated from the library's dictionaries with `pnpm --filter @bold
 | `status.thinking` | Thinking… | Přemýšlím… | Denke nach… | Pensando… | Réflexion… | Sto pensando… | Myślę… |
 | `status.searching` | Searching documents… | Prohledávám dokumenty… | Durchsuche Dokumente… | Buscando en los documentos… | Recherche dans les documents… | Cerco nei documenti… | Przeszukuję dokumenty… |
 | `status.tool` | Using {name}… | Používám {name}… | Verwende {name}… | Usando {name}… | Utilisation de {name}… | Uso {name}… | Korzystam z narzędzia {name}… |
+| `status.reconnecting` | Reconnecting… | Znovu se připojuji… | Verbindung wird wiederhergestellt… | Reconectando… | Reconnexion… | Riconnessione in corso… | Łączę ponownie… |
 | `status.typing` | The assistant is typing | Asistent píše | Der Assistent schreibt | El asistente está escribiendo | L’assistant écrit | L’assistente sta scrivendo | Asystent pisze |
 | `message.sources` | Sources | Zdroje | Quellen | Fuentes | Sources | Fonti | Źródła |
 | `message.replies` | Suggested replies | Navrhované odpovědi | Vorgeschlagene Antworten | Respuestas sugeridas | Réponses suggérées | Risposte suggerite | Proponowane odpowiedzi |
