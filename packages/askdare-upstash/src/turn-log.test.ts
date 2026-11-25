@@ -1,6 +1,6 @@
 import type { TurnEvent } from '@boldare/askdare';
 import { turnEventLogContract } from '@boldare/askdare/testing';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { RedisEval } from './index';
 import { APPEND_SCRIPT, READ_SCRIPT, upstashTurnLog } from './turn-log';
 
@@ -147,13 +147,21 @@ describe('upstashTurnLog', () => {
   });
 
   it('polls at the given interval while it waits', async () => {
-    const redis = fakeRedis();
-    const log = upstashTurnLog({ redis, pollMs: 40 });
-    await log.append('turn_1', [delta(1)], 60_000);
-    expect(await log.wait('turn_1', 1, 130)).toEqual([]);
-    const reads = redis.calls.filter((call) => call.script === 'read').length;
-    // One read at once, then one every 40 ms until the deadline: not a busy loop.
-    expect(reads >= 3 && reads <= 5).toBe(true);
+    // A fake clock, so a slow CI runner can't change how many polls fit before the deadline.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    try {
+      const redis = fakeRedis();
+      const log = upstashTurnLog({ redis, pollMs: 40 });
+      await log.append('turn_1', [delta(1)], 60_000);
+      const waiting = log.wait('turn_1', 1, 130);
+      await vi.advanceTimersByTimeAsync(130);
+      expect(await waiting).toEqual([]);
+      const reads = redis.calls.filter((call) => call.script === 'read').length;
+      // One read at once, then one at 40, 80, 120 and 130 ms (the deadline): not a busy loop.
+      expect(reads).toBe(5);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('explains missing configuration on first use', async () => {
