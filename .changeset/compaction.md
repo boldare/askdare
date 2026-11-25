@@ -12,4 +12,4 @@
 - The `ConversationStore` port gains `kind: 'compaction'` on `native` items and a `model` option on `context()`, where the replay window starts at the latest compaction item (new type `CompactionModel`). `conversationStoreContract` tests it. A custom store that ignores the option still works, but reads the whole conversation on every turn.
 - `@boldare/askdare-postgres`: `context()` starts at the latest compaction item, found in SQL. No migration.
 
-See [Configuration](docs/configuration.md#compaction), [Costs](docs/costs.md#long-conversations-and-compaction) and [Privacy](docs/privacy.md#with-your-own-conversation-store).
+See [Configuration](https://github.com/boldare/askdare/blob/main/docs/configuration.md#compaction), [Costs](https://github.com/boldare/askdare/blob/main/docs/costs.md#long-conversations-and-compaction) and [Privacy](https://github.com/boldare/askdare/blob/main/docs/privacy.md#with-your-own-conversation-store).
