@@ -14,6 +14,8 @@ import { memoryKnowledgeIndex, memoryKnowledgeStore } from '../knowledge/memory-
 import type { KnowledgeDocument, KnowledgeIndex } from '../knowledge/port';
 import { RETRIEVAL_RULE, SEARCH_KNOWLEDGE } from '../knowledge/tool';
 import type { ProtocolEvent } from '../protocol/events';
+import { streamTurn } from '../server/stream-turn';
+import type { ChatTranscriptReport } from '../server/transcript-report';
 import { UNTRUSTED } from '../tools/outputs';
 import { createOpenAIGateway } from './gateway';
 import { testConversations } from './testing/conversations';
@@ -354,7 +356,9 @@ describe('knowledge citations after a reload', () => {
 
     // Stored citations resolve the markers without the index; a later sync can't change them.
     await index.clear();
-    const history = await itemHistory(where.store)(where.conversationId, { knowledge: index });
+    const { messages: history } = await itemHistory(where.store)(where.conversationId, {
+      knowledge: index,
+    });
     const reloaded = history.at(-1);
     expect(reloaded?.text).toBe(live.text);
     expect(reloaded?.text).toBe('12 euros [1], answers in a day [2].');
@@ -402,7 +406,7 @@ describe('knowledge citations after a reload', () => {
         }),
       ),
     );
-    const history = await read?.('conv_k', { knowledge: index });
+    const history = (await read?.('conv_k', { knowledge: index }))?.messages;
     expect(history?.at(-1)).toMatchObject({
       text: '12 euros [1], refunds [1].',
       citations: [{ index: 1, title: 'Pricing', url: 'https://example.test/pricing' }],
@@ -420,5 +424,49 @@ describe('knowledge citations after a reload', () => {
     expect(live.text).toBe('12 euros [1].');
     // A provider conversation sends only what is new: the search output goes in the second step.
     expect(bodies[1]?.['conversation']).toBe('conv_live');
+  });
+});
+
+describe('onTranscript with an own index (ADR-0025)', () => {
+  it('OpenAI conversations: gets [n] markers with their citations, as the visitor saw them', async () => {
+    const index = await syncedIndex();
+    const conversations = testConversations();
+    serve(
+      searchStep({ query: 'Team support' }),
+      textTurnEvents([`12 euros [${TEAM}], answers in a day [${SUPPORT_ID}] [${SUPPORT_ID}].`]),
+    );
+    const reports: ChatTranscriptReport[] = [];
+    const pending: Promise<unknown>[] = [];
+    const stream = streamTurn({
+      gateway,
+      conversations: conversations.store,
+      conversationId: 'conv_transcript',
+      owner: 'visitor:test',
+      bot: makeBot(index),
+      text: 'How much is Team?',
+      context: { locale: 'en' },
+      visitorId: `v_${'0f'.repeat(16)}`,
+      signal: new AbortController().signal,
+      issueResumeToken: async (id) => `resume:${id}`,
+      pseudonym: async (value) => `hmac(${value})`,
+      transcript: (report) => {
+        reports.push(report);
+      },
+      waitUntil: (work) => pending.push(work),
+      onError: (error) => {
+        throw error;
+      },
+    });
+    await new Response(stream).text();
+    await Promise.all(pending);
+    expect(reports).toHaveLength(1);
+    expect(reports[0]).toMatchObject({
+      answer: '12 euros [1], answers in a day [2].',
+      citations: [
+        { index: 1, title: 'Pricing', url: 'https://example.test/pricing' },
+        { index: 2, title: 'Support' },
+      ],
+    });
+    expect(reports[0]?.answer).not.toMatch(/\[k[0-9a-f]/);
   });
 });

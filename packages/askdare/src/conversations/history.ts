@@ -9,10 +9,68 @@ import { isFailedOutput, unwrapToolOutput } from '../tools/outputs';
 import { storedGuardNote } from './guard-notes';
 import { storeFailure } from './owner';
 import type { ConversationStore, StoredCitation, StoredItem } from './port';
-import type { HistoryReader, HistoryRequest } from './provider-history';
+import type { HistoryPosition, HistoryReader, HistoryRequest } from './provider-history';
 
-/** Most recent items read per history request; older ones are not shown (paging is task 3a). */
+/**
+ * Items read per store page of history. A history page is about this many items, extended back to
+ * the start of its oldest turn.
+ */
 export const HISTORY_ITEMS = 100;
+
+/**
+ * Store pages one history page reads at most. A turn longer than this (hundreds of tool calls) is
+ * shown split rather than read without end; `maxSteps` keeps real turns far below it.
+ */
+const MAX_READS = 8;
+
+/** One store page, newest items last, and the cursor of the page before it. */
+export interface RawPage<Item> {
+  readonly items: readonly Item[];
+  readonly before?: string | undefined;
+}
+
+/**
+ * Reads one page of whole turns, oldest first: the newest store page before `from`, extended back
+ * to the visitor message that starts its oldest turn, so a turn's cards, options and guardrail
+ * notes are always read together (ADR-0024, decision 7). `read` returns the newest `limit` items
+ * before a store cursor (a store may cap `limit`), the same ones each time for the same cursor:
+ * stores are append-only. `next` is where the following older page ends; absent at the
+ * conversation's start.
+ */
+export async function pageOfTurns<Item>(
+  read: (before: string | undefined, limit: number) => Promise<RawPage<Item>>,
+  startsTurn: (item: Item) => boolean,
+  from: HistoryPosition | undefined,
+): Promise<{ readonly items: readonly Item[]; readonly next?: HistoryPosition | undefined }> {
+  const skip = from?.skip ?? 0;
+  // A full page past the items already shown, where the store's own page limit allows it.
+  let page = await read(from?.before, HISTORY_ITEMS + skip);
+  let items = page.items.slice(0, Math.max(0, page.items.length - skip));
+  const after = (before: string | undefined): HistoryPosition | undefined =>
+    before === undefined ? undefined : { before, skip: 0 };
+  for (let reads = 1; ; reads += 1) {
+    const [oldest] = items;
+    if (oldest !== undefined && startsTurn(oldest)) return { items, next: after(page.before) };
+    const cursor = page.before;
+    if (cursor === undefined) return { items };
+    if (reads >= MAX_READS) return { items, next: after(cursor) };
+    page = await read(cursor, HISTORY_ITEMS);
+    const start = page.items.findLastIndex(startsTurn);
+    if (start === -1) {
+      items = [...page.items, ...items];
+      continue;
+    }
+    items = [...page.items.slice(start), ...items];
+    // The items older than the turn's start stay for the next page, read again from this cursor.
+    return {
+      items,
+      next: start === 0 ? after(page.before) : { before: cursor, skip: page.items.length - start },
+    };
+  }
+}
+
+const startsStoredTurn = (item: StoredItem): boolean =>
+  item.type === 'message' && item.role === 'user';
 
 type StoredMessage = Extract<StoredItem, { type: 'message' }>;
 
@@ -247,14 +305,24 @@ export function historyFromItems(
 }
 
 /**
- * The history reader of an item store: its latest items, read with `page()`. A conversation the
- * store no longer has answers as one that belongs to someone else, so the two can't be told apart.
+ * The history reader of an item store: one page of whole turns, read with `page()`. A conversation
+ * the store no longer has answers as one that belongs to someone else, so the two can't be told
+ * apart.
  */
 export function itemHistory(store: ConversationStore): HistoryReader {
-  return async (conversationId, { signal, ...request }) => {
+  return async (conversationId, { signal, before, replies, ...request }) => {
     try {
-      const page = await store.page(conversationId, { limit: HISTORY_ITEMS, signal });
-      return historyFromItems(page.items, request);
+      const { items, next } = await pageOfTurns(
+        (cursor, limit) => store.page(conversationId, { before: cursor, limit, signal }),
+        startsStoredTurn,
+        before,
+      );
+      // Options belong to the latest answer, which only the latest page has.
+      const messages = historyFromItems(items, {
+        ...request,
+        replies: before ? undefined : replies,
+      });
+      return next ? { messages, next } : { messages };
     } catch (error) {
       throw await storeFailure(store, conversationId, error, signal);
     }

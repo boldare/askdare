@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { ERROR_CODES, MESSAGE_END_REASONS, type ProtocolEvent } from './events';
-import type { HistoryResponse } from './history';
+import { HISTORY_CURSOR_MAX, type HistoryResponse } from './history';
 import { isReplyList } from './replies';
 import { isToolUi, isToolUiList, TOOL_NAME } from './tool-ui';
 
@@ -100,4 +100,5 @@ export const historyResponseSchema: z.ZodType<HistoryResponse> = z.object({
       ui: z.array(toolUi).refine(isToolUiList, 'one to four payloads, no call twice').optional(),
     }),
   ),
+  before: z.string().min(1).max(HISTORY_CURSOR_MAX).optional(),
 });

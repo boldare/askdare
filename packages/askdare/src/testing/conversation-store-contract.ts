@@ -177,6 +177,22 @@ export function conversationStoreContract(
         pages += 1;
       } while (before !== undefined && pages < 1_000);
       expect(seen.map(comparable)).toEqual(written.map(comparable));
+      if (items) {
+        // `POST /history` reads a page again to continue inside it, up to 200 items at a time.
+        const latest = await store.page(id, { limit: 10 });
+        const again = async (): Promise<unknown[]> =>
+          (
+            await store.page(id, {
+              limit: 200,
+              ...(latest.before === undefined ? {} : { before: latest.before }),
+            })
+          ).items.map(comparable);
+        const first = await again();
+        expect(first).toEqual(
+          written.slice(Math.max(0, written.length - 210), -10).map(comparable),
+        );
+        expect(await again()).toEqual(first);
+      }
     });
 
     test('deletes a conversation and returns the files its visitor attached', async (store, create) => {

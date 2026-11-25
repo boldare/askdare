@@ -8,6 +8,7 @@ import { ownerOf } from '../conversations/owner';
 import type { ConversationOwner } from '../conversations/port';
 import type { HistoryReader } from '../conversations/provider-history';
 import { type FakeConversations, fakeConversations } from '../conversations/testing/fake-store';
+import { longConversation } from '../conversations/testing/long-conversation';
 import { AskdareError } from '../errors';
 import type {
   DiagnoseRequest,
@@ -20,6 +21,8 @@ import { createLimits } from '../limits/limits';
 import { memoryStore } from '../limits/store';
 import { doctorReportSchema } from '../protocol/doctor';
 import type { ProtocolEvent } from '../protocol/events';
+import type { HistoryResponse } from '../protocol/history';
+import { historyResponseSchema } from '../protocol/schemas';
 import { decodeEvent, SseParser } from '../protocol/sse';
 import { createIdentityVerifier } from '../security/identity';
 import { createTokenService, type TokenService } from '../security/tokens';
@@ -173,7 +176,9 @@ const storeWith = (history?: HistoryReader): FakeConversations =>
   });
 const conversations = storeWith(async (id, { replies }) => {
   repliesReaders.push(replies);
-  return [{ id: 'm1', role: 'user', text: `history of ${id}`, citations: [], attachments: 0 }];
+  return {
+    messages: [{ id: 'm1', role: 'user', text: `history of ${id}`, citations: [], attachments: 0 }],
+  };
 });
 
 beforeAll(async () => {
@@ -1097,16 +1102,18 @@ describe('conversation history and deletion', () => {
         const offered = replies?.([
           { name: 'find_slots', arguments: '{}', output: '{"slots":["9:00","11:00"]}' },
         ]);
-        return [
-          {
-            id: 'msg_a',
-            role: 'assistant',
-            text: 'Two slots.',
-            citations: [],
-            attachments: 0,
-            ...(offered ? { replies: offered } : {}),
-          },
-        ];
+        return {
+          messages: [
+            {
+              id: 'msg_a',
+              role: 'assistant',
+              text: 'Two slots.',
+              citations: [],
+              attachments: 0,
+              ...(offered ? { replies: offered } : {}),
+            },
+          ],
+        };
       }),
       tokens: async () => tokens,
       limits: createLimits({ store: memoryStore() }),
@@ -1147,16 +1154,18 @@ describe('conversation history and deletion', () => {
               output: '{"slots":["9:00"],"cost":3}',
             },
           ]);
-          return [
-            {
-              id: 'msg_a',
-              role: 'assistant',
-              text: 'One slot.',
-              citations: [],
-              attachments: 0,
-              ...(cards?.length ? { ui: cards } : {}),
-            },
-          ];
+          return {
+            messages: [
+              {
+                id: 'msg_a',
+                role: 'assistant',
+                text: 'One slot.',
+                citations: [],
+                attachments: 0,
+                ...(cards?.length ? { ui: cards } : {}),
+              },
+            ],
+          };
         }),
         tokens: async () => tokens,
         limits: createLimits({ store: memoryStore() }),
@@ -1197,7 +1206,7 @@ describe('conversation history and deletion', () => {
       gateway: () => gateway,
       conversations: storeWith(async (_id, { replies }) => {
         readers.push(replies);
-        return [];
+        return { messages: [] };
       }),
       tokens: async () => tokens,
       limits: createLimits({ store: memoryStore() }),
@@ -1351,10 +1360,12 @@ describe('feedback', () => {
       bots: [bot, quietBot],
       basePath: '/api/chat',
       assets,
-      conversations: storeWith(async () => [
-        { id: 'msg_q1', role: 'user', text: 'Hi', citations: [], attachments: 0 },
-        { id: 'msg_a1', role: 'assistant', text: 'Hello!', citations: [], attachments: 0 },
-      ]),
+      conversations: storeWith(async () => ({
+        messages: [
+          { id: 'msg_q1', role: 'user', text: 'Hi', citations: [], attachments: 0 },
+          { id: 'msg_a1', role: 'assistant', text: 'Hello!', citations: [], attachments: 0 },
+        ],
+      })),
       gateway: () => ({
         ...gateway,
         runTurn: async (request) => ({
@@ -1809,5 +1820,78 @@ describe('an item store (stateless turns)', () => {
       ),
     );
     expect(intruder.status).toBe(404);
+  });
+});
+
+describe('history pages (ADR-0024, decision 7)', () => {
+  const OWNER = `v_${'7a'.repeat(16)}`;
+  const store = memoryConversations();
+  let paged: RequestHandler;
+
+  beforeAll(() => {
+    paged = createRequestHandler({
+      bots: [bot],
+      basePath: '/api/chat',
+      assets,
+      conversations: store,
+      gateway: () => gateway,
+      tokens: async () => tokens,
+      limits: createLimits({ store: memoryStore() }),
+      clientIp: () => 'test',
+      onError: () => {},
+    });
+  });
+
+  /** A long conversation of OWNER's, and its resume token. */
+  const started = async (): Promise<string> => {
+    const conversationId = await store.create({ botId: 'support', owner: `visitor:${OWNER}` });
+    await store.append(conversationId, longConversation(41));
+    return (await tokens.issueResume('support', { visitorId: OWNER, conversationId })).token;
+  };
+  const read = async (resumeToken: string, before?: string): Promise<Response> =>
+    paged(
+      post(
+        '/history',
+        { botId: 'support', resumeToken, ...(before === undefined ? {} : { before }) },
+        { authorization: `Bearer ${(await tokens.issueAccess('support', OWNER)).token}` },
+      ),
+    );
+
+  it('answers the latest page without a cursor, then each older one, every turn once', async () => {
+    const resumeToken = await started();
+    const pages: HistoryResponse[] = [];
+    let before: string | undefined;
+    do {
+      const response = await read(resumeToken, before);
+      expect(response.status).toBe(200);
+      const page = historyResponseSchema.parse(await response.json());
+      pages.push(page);
+      before = page.before;
+    } while (before && pages.length < 20);
+    expect(pages.length).toBeGreaterThan(2);
+    expect(pages.at(-1)?.before).toBeUndefined();
+    for (const page of pages) expect(page.messages[0]?.role).toBe('user');
+    const ids = pages.toReversed().flatMap((page) => page.messages.map((message) => message.id));
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids.filter((id) => id.startsWith('itm_u'))).toHaveLength(41);
+    // Opaque: no store cursor or item ID shows through.
+    expect(pages[0]?.before).not.toMatch(/itm_|^\d+$/);
+  });
+
+  it("refuses a cursor from another conversation, even the same visitor's", async () => {
+    const first = await started();
+    const second = await started();
+    const cursor = historyResponseSchema.parse(await (await read(second)).json()).before;
+    expect(cursor).toBeDefined();
+    const response = await read(first, cursor);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: { code: 'invalid_input' } });
+  });
+
+  it('refuses a forged cursor or a raw store cursor', async () => {
+    const resumeToken = await started();
+    for (const before of ['100', 'itm_u20', 'eyJhbGciOiJkaXIifQ..x.y.z']) {
+      expect((await read(resumeToken, before)).status).toBe(400);
+    }
   });
 });

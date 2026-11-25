@@ -9,6 +9,9 @@ const RESUME_TYP = 'askdare-resume+jwt';
 const ATTACHMENT_TYP = 'askdare-attachment+jwt';
 const FEEDBACK_TYP = 'askdare-feedback+jwt';
 const DOCTOR_TYP = 'askdare-doctor+jwt';
+const HISTORY_TYP = 'askdare-history+jwt';
+/** A store's page cursor inside a history cursor: OpenAI's item IDs, a Postgres `seq`. */
+const STORE_CURSOR_MAX = 1024;
 const DOCTOR_AUDIENCE = 'askdare-doctor';
 const DOCTOR_TTL_SECONDS = 120;
 const MIN_SECRET_LENGTH = 32;
@@ -75,6 +78,16 @@ export interface FeedbackGrant {
   readonly identityKey?: string | undefined;
 }
 
+/**
+ * Where the next older page of a conversation's history ends (ADR-0024, decision 7): the store's
+ * own cursor and how many of the newest items before it were already shown.
+ */
+export interface HistoryCursorGrant {
+  readonly conversationId: string;
+  readonly before: string;
+  readonly skip: number;
+}
+
 export interface AttachmentGrant {
   readonly visitorId: string;
   readonly fileId: string;
@@ -118,6 +131,14 @@ export interface TokenService {
   issueFeedback(botId: string, grant: FeedbackGrant): Promise<IssuedToken>;
   /** Throws `not_found`, so a forged or stale handle reveals nothing. */
   verifyFeedback(token: string, botId: string): Promise<FeedbackGrant>;
+  /**
+   * The `before` cursor of `POST /history`: opaque to clients, and bound to the bot and the
+   * conversation, so it can't name another conversation or a store cursor the server didn't
+   * return. Lives as long as a resume handle.
+   */
+  issueHistoryCursor(botId: string, grant: HistoryCursorGrant): Promise<IssuedToken>;
+  /** Throws `invalid_input` for a forged, expired or malformed cursor. */
+  verifyHistoryCursor(token: string, botId: string): Promise<HistoryCursorGrant>;
   /** A 2-minute token with which `askdare doctor` proves it knows `CHAT_SECRET`. */
   issueDoctor(): Promise<IssuedToken>;
   /** Throws `unauthorized`. */
@@ -375,6 +396,42 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
       } catch (error) {
         throw new AskdareError('not_found', { cause: error });
       }
+    },
+
+    issueHistoryCursor: (botId, grant) =>
+      issue(HISTORY_TYP, botId, grant.conversationId, resumeTtl, {
+        bfr: grant.before,
+        skp: grant.skip,
+      }),
+
+    async verifyHistoryCursor(token, botId) {
+      const invalid = (cause?: unknown): AskdareError =>
+        new AskdareError('invalid_input', {
+          message: 'The history cursor is invalid. Load the history again.',
+          key: 'error.history',
+          cause,
+        });
+      let payload: Awaited<ReturnType<typeof verify>>['payload'];
+      try {
+        ({ payload } = await verify(token, HISTORY_TYP, botId));
+      } catch (error) {
+        throw invalid(error);
+      }
+      const { bfr, skp } = payload;
+      if (
+        typeof payload.sub !== 'string' ||
+        !CONVERSATION_ID.test(payload.sub) ||
+        typeof bfr !== 'string' ||
+        bfr.length === 0 ||
+        bfr.length > STORE_CURSOR_MAX ||
+        typeof skp !== 'number' ||
+        !Number.isSafeInteger(skp) ||
+        skp < 0 ||
+        skp > 1000
+      ) {
+        throw invalid();
+      }
+      return { conversationId: payload.sub, before: bfr, skip: skp };
     },
 
     issueDoctor: () => issue(DOCTOR_TYP, DOCTOR_AUDIENCE, 'doctor', DOCTOR_TTL_SECONDS),

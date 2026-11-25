@@ -60,5 +60,5 @@ export function fakeConversations(options: FakeConversationsOptions = {}): FakeC
       return { fileIds: options.fileIds?.(id) ?? [] };
     },
   };
-  return withHistory(store, options.history ?? (async () => []));
+  return withHistory(store, options.history ?? (async () => ({ messages: [] })));
 }

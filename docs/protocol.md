@@ -25,10 +25,23 @@ Every path sits under the route's base path: `/api/chat` by default, or `basePat
 | `POST /doctor` | Doctor token | Checks the setup for `askdare doctor` ([Diagnostics](#diagnostics)) |
 
 - **`POST /messages`** takes `{ "botId", "text", "resumeToken"?, "attachments"?, "context"?, "locale"? }`. Without `resumeToken`, the server starts a new conversation and sends `conversation.created`. `locale` is the visitor's language tag, passed to the bot's instructions.
-- **`POST /history`** takes `{ "botId", "resumeToken" }` and answers `{ "messages": [{ "id", "role", "text", "citations", "attachments", "feedback"?, "replies"?, "ui"? }] }`, where `attachments` is a count, `feedback` is the answer's rating handle (see [Feedback](#feedback)), `replies` are the options of the latest answer (see [Reply options](#reply-options)) and `ui` are the tool payloads of an answer (see [Tool UI](#tool-ui)).
-- **`DELETE /conversation`** takes the same body and answers `204` with no body.
+- **`POST /history`** takes `{ "botId", "resumeToken", "before"? }` and answers `{ "messages": [{ "id", "role", "text", "citations", "attachments", "feedback"?, "replies"?, "ui"? }], "before"? }`, where `attachments` is a count, `feedback` is the answer's rating handle (see [Feedback](#feedback)), `replies` are the options of the latest answer (see [Reply options](#reply-options)) and `ui` are the tool payloads of an answer (see [Tool UI](#tool-ui)). It answers one page of the conversation, oldest message first (see [History pages](#history-pages)).
+- **`DELETE /conversation`** takes `{ "botId", "resumeToken" }` and answers `204` with no body.
 - **`GET /config/<bot>`** answers the same public configuration the chat document carries: texts, greeting, starters, theme variants and the other widget settings, never the model, instructions, tools or vector stores. For a bot with `locale: 'auto'`, `?lang=` picks the language; without it, the browser's `Accept-Language` does, then English. A bot with a fixed locale ignores `lang`. An invalid tag answers `400` with `invalid_input`, an unknown bot `404`. Responses are cached for five minutes (`no-cache` in development) and vary by `Accept-Language`. `Content-Language` names the language the texts are written in, for the chat document's `lang`: the visitor's when the bot has texts for it, else English for a language without a built-in dictionary.
 - **Same origin only.** Every `POST` and `DELETE` except `/doctor` refuses cross-site requests with `401`. The API serves the chat's own iframe, which runs on the same origin.
+
+## History pages
+
+A long conversation comes back in pages of whole turns, newest page first ([ADR-0024](adr/0024-conversation-store.md), decision 7):
+
+- **The latest page.** Without `before`, `POST /history` answers the latest page, as it did before paging. Clients that never send `before` keep working and see the latest page only.
+- **Older pages.** When older messages exist, the answer has `before`. Send it back as `before`, with the same `botId` and `resumeToken`, for the page before. The oldest page has no `before`.
+- **Whole turns.** A page is about 100 stored items and is extended back to the visitor message that starts its oldest turn, so a turn (a visitor message and the answers to it) is never split between pages. Each page starts with a visitor message, except the oldest when the conversation starts otherwise.
+- **What pages carry.** Every answer has its own cards (`ui`) and rating handle on whichever page it is. Only the latest answer has `replies`, so only the latest page can. With output checks, an answer shows on its page only once it is settled ([ADR-0022](adr/0022-guardrails-implementation.md)).
+- **The cursor.** `before` is opaque, at most 4,096 characters, and valid as long as a resume token (30 days by default), for its conversation only. A cursor that is forged, expired or from another conversation, even the same visitor's, answers `400` with `invalid_input` and the key `error.history`; load the latest page again. The resume token still decides who may read the conversation: a cursor grants nothing on its own.
+- **Between pages.** New turns land on the latest page and don't shift older pages, so a client keeps the cursors it has while the conversation goes on.
+
+Older clients ignore `before` in the answer, so paging is additive in protocol version 1.
 
 ## Transport
 

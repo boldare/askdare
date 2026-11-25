@@ -3,8 +3,29 @@ import type { KnowledgeIndex } from '../knowledge/port';
 import type { HistoryMessage } from '../protocol/history';
 import type { ConversationStore } from './port';
 
+/**
+ * Where an older history page ends: the store's own cursor, and how many of the newest items before
+ * it the newer page already showed. A turn rarely starts on a store page's edge, so a page of
+ * whole turns ends inside the store page it started its oldest turn in (ADR-0024, decision 7).
+ */
+export interface HistoryPosition {
+  /** The cursor the store returned, as `ConversationPage.before`. Opaque. */
+  readonly before: string;
+  /** The newest items before `before` that were already shown. */
+  readonly skip: number;
+}
+
+/** One page of history: whole turns, oldest first, and where the next older page ends. */
+export interface HistoryPage {
+  readonly messages: readonly HistoryMessage[];
+  /** Absent on the oldest page. */
+  readonly next?: HistoryPosition | undefined;
+}
+
 export interface HistoryRequest {
   readonly signal?: AbortSignal | undefined;
+  /** The page older than this position; the latest page when absent. */
+  readonly before?: HistoryPosition | undefined;
   readonly replies?: RepliesReader | undefined;
   readonly ui?: UiReader | undefined;
   /** For bots with output checks: show only answers a note settled (ADR-0022). */
@@ -16,11 +37,11 @@ export interface HistoryRequest {
   readonly knowledge?: KnowledgeIndex | undefined;
 }
 
-/** Reads the visible messages of a conversation, oldest first. */
+/** Reads one page of a conversation's visible messages, oldest first. */
 export type HistoryReader = (
   conversationId: string,
   request: HistoryRequest,
-) => Promise<readonly HistoryMessage[]>;
+) => Promise<HistoryPage>;
 
 const readers = new WeakMap<ConversationStore, HistoryReader>();
 

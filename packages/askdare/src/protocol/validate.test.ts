@@ -210,6 +210,10 @@ describe('the browser validator', () => {
       ...mutations([feedback]).map((handle) => ({
         messages: [{ ...message, feedback: handle }],
       })),
+      ...mutations([{ messages: [message], before: 'eyJhbGciOiJkaXIifQ.cursor' }]),
+      { messages: [message], before: '' },
+      { messages: [message], before: 'x'.repeat(4097) },
+      { messages: [message], before: null },
       { messages: [{ ...message, feedback: { ...feedback, key: 'ABCDEF0123456789' } }] },
       { messages: [] },
       { messages: 'none' },
@@ -223,5 +227,7 @@ describe('the browser validator', () => {
     );
     const offered = { messages: [{ ...message, replies: ['Yes', 'No'] }] };
     expect(parseHistory(offered)).toEqual(historyResponseSchema.parse(offered));
+    const paged = { messages: [message], before: 'x'.repeat(4096) };
+    expect(parseHistory(paged)).toEqual(historyResponseSchema.parse(paged));
   });
 });
