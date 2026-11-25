@@ -112,12 +112,44 @@ describe('turnLogWriter', () => {
     const onError = vi.fn();
     const writer = turnLogWriter(log, 'turn_1', { ttlMs: 60_000, maxEvents: 1, onError });
     expect(writer.write(text('a'))).toBe(1);
-    await writer.flush();
+    const flushed = writer.flush();
+    await vi.advanceTimersByTimeAsync(600); // two retries, after 200 and 400 ms
+    await flushed;
     expect(writer.write(text('b'))).toBe(2);
     await expect(writer.flush()).resolves.toBeUndefined();
-    expect(appends).toBe(1);
+    expect(appends).toBe(3);
     expect(onError).toHaveBeenCalledOnce();
     expect(onError).toHaveBeenCalledWith(failure);
+  });
+
+  it('tries a failed batch again, in order, before giving up', async () => {
+    const log = recordingLog();
+    let failures = 1;
+    const flaky: TurnEventLog = {
+      ...log,
+      append: async (turnId, events, ttlMs) => {
+        if (failures > 0) {
+          failures -= 1;
+          throw new Error('a passing network error');
+        }
+        await log.append(turnId, events, ttlMs);
+      },
+    };
+    const onError = vi.fn();
+    const writer = turnLogWriter(flaky, 'turn_1', { ttlMs: 60_000, maxEvents: 2, onError });
+    writer.write(text('a'));
+    writer.write(text('b'));
+    writer.write(text('c')); // buffered while the first batch is retried
+    writer.write(end);
+    const flushed = writer.flush();
+    await vi.advanceTimersByTimeAsync(200);
+    await flushed;
+    expect(onError).not.toHaveBeenCalled();
+    expect(log.batches).toEqual([
+      [1, 2],
+      [3, 4],
+    ]);
+    expect((await log.read('turn_1', 0))?.map((entry) => entry.seq)).toEqual([1, 2, 3, 4]);
   });
 
   it('passes the time to live and the signal to every append', async () => {
