@@ -1,6 +1,7 @@
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { openaiConversations } from './conversations';
 import { testConversations } from './testing/conversations';
 import {
   type CapturedRequest,
@@ -245,5 +246,88 @@ describe('openaiConversations()', () => {
     );
     await expect(store.delete('conv_x')).resolves.toEqual({ fileIds: [] });
     expect(deleted).toBe(true);
+  });
+
+  describe('diagnose() for askdare doctor', () => {
+    const created = () =>
+      http.post(`${OPENAI_TEST_BASE_URL}/conversations`, () =>
+        HttpResponse.json({ id: 'conv_doc', object: 'conversation', created_at: 0, metadata: {} }),
+      );
+
+    it('creates a test conversation and deletes it again', async () => {
+      const calls: string[] = [];
+      server.use(
+        http.post(`${OPENAI_TEST_BASE_URL}/conversations`, ({ request }) => {
+          calls.push('create');
+          return request.json().then((body) => {
+            expect(body).toEqual({ metadata: { askdare_doctor: 'true' } });
+            return HttpResponse.json({ id: 'conv_doc', object: 'conversation', created_at: 0 });
+          });
+        }),
+        http.delete(`${OPENAI_TEST_BASE_URL}/conversations/conv_doc`, () => {
+          calls.push('delete');
+          return HttpResponse.json({ id: 'conv_doc', deleted: true });
+        }),
+      );
+      expect(await store.diagnose?.()).toEqual([
+        { status: 'ok', title: 'The key can create and delete conversations.' },
+      ]);
+      expect(calls).toEqual(['create', 'delete']);
+    });
+
+    it('names the missing permission', async () => {
+      server.use(
+        http.post(`${OPENAI_TEST_BASE_URL}/conversations`, () =>
+          HttpResponse.json(
+            {
+              error: {
+                message: 'no',
+                type: 'invalid_request_error',
+                code: 'insufficient_permissions',
+              },
+            },
+            { status: 403 },
+          ),
+        ),
+      );
+      expect(await store.diagnose?.()).toEqual([
+        {
+          status: 'fail',
+          title: 'The key may not create conversations.',
+          fix: 'Give the key write access to conversations; chat history lives there.',
+        },
+      ]);
+    });
+
+    it('tries again to delete the test conversation when the first delete fails', async () => {
+      let deletes = 0;
+      server.use(
+        created(),
+        http.delete(`${OPENAI_TEST_BASE_URL}/conversations/conv_doc`, () => {
+          deletes += 1;
+          return deletes === 1
+            ? HttpResponse.json(
+                { error: { message: 'boom', type: 'server_error', code: 'server_error' } },
+                { status: 500 },
+              )
+            : HttpResponse.json({ id: 'conv_doc', deleted: true });
+        }),
+      );
+      expect(await store.diagnose?.()).toEqual([
+        { status: 'fail', title: 'Could not delete conversations (HTTP 500, server_error).' },
+      ]);
+      expect(deletes).toBe(2);
+    });
+
+    it("leaves a missing key to the bots' own checks", async () => {
+      const keyless = openaiConversations({});
+      const key = process.env['OPENAI_API_KEY'];
+      delete process.env['OPENAI_API_KEY'];
+      try {
+        expect(await keyless.diagnose?.()).toEqual([]);
+      } finally {
+        if (key !== undefined) process.env['OPENAI_API_KEY'] = key;
+      }
+    });
   });
 });

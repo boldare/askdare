@@ -162,7 +162,6 @@ Next to the usual checks, each bot now lists the store's and the index's own:
 Bot "support"
   ✓ Model <model> is available.
   ✓ The key can create responses with <model>.
-  ✓ The key can create and delete conversations.
   ✓ Knowledge database: The database answers.
   ✓ pgvector: pgvector 0.8.7
   ✓ Knowledge schema: Schema version 1.
@@ -171,7 +170,7 @@ Bot "support"
   ✓ Postgres conversation store: schema version 1.
 ```
 
-A schema that is behind fails with "Run `npx askdare-postgres migrate`"; an index synced with another embedder, or not at all, fails with the `kb sync` command to run. `doctor` still creates and deletes one test conversation at OpenAI per bot, although a bot on your own store doesn't use the Conversations API.
+A schema that is behind fails with "Run `npx askdare-postgres migrate`"; an index synced with another embedder, or not at all, fails with the `kb sync` command to run. With your own store, `doctor` no longer creates a test conversation at OpenAI: nothing of yours uses the Conversations API.
 
 ## 5. Resume answers across instances
 
@@ -357,11 +356,11 @@ With both moves, OpenAI still processes every model request, and keeps less:
 | Dictations (`/v1/audio/transcriptions`) | Nothing | Eligible |
 | Moderation (`/v1/moderations`), with `moderation` | Nothing | Eligible |
 | Attachments (`/v1/files`), for bots with `attachments` | The files, until they expire after 30 days or the conversation is deleted | Not eligible |
-| `doctor` runs | One test conversation per bot, deleted at once | Not eligible |
+| `doctor` runs, for bots with `attachments` | One test file per bot, deleted at once | Not eligible |
 
 From OpenAI's [data controls](https://developers.openai.com/api/docs/guides/your-data), checked on 2026-11-25; check them again before you rely on them. The same page names two more retentions, also under ZDR: the prompt cache keeps encrypted state on OpenAI's machines for up to 24 hours, and image and file inputs that its classifier flags as child sexual abuse material are kept for review.
 
-- **Zero Data Retention.** OpenAI grants it per organisation or project after approval. With your own store and index, a ZDR project can run the bot, with two exceptions: attachments are stored as files (leave `attachments` off if they must not be), and `doctor` makes one short-lived conversation per run.
+- **Zero Data Retention.** OpenAI grants it per organisation or project after approval. With your own store and index, a ZDR project can run the bot, with one exception: attachments are stored as files. Leave `attachments` off if they must not be; `doctor` then uploads no test file either.
 - **Data residency.** Conversations, knowledge and transcripts sit in your database, in its region, and the turn log in your Upstash database's region. Model requests still go to OpenAI's global endpoint: askdare isn't tested against OpenAI's regional endpoints ([Compliance](compliance.md#3-data-residency)).
 - **Your privacy notice** now names your database host as a processor, the retention you chose, and transcripts if you keep them. [Privacy](privacy.md#with-your-own-conversation-store) has the details and a checklist.
 

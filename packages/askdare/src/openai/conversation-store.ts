@@ -4,6 +4,7 @@ import type { ConversationStore, PositionedItem } from '../conversations/port';
 import { withHistory } from '../conversations/provider-history';
 import { attachedFileIds } from './attachments';
 import { addSources, type KnowledgeSources } from './citations';
+import { checkConversations } from './diagnose';
 import { fromOpenAIError } from './errors';
 import { listHistory } from './history';
 import { fromConversationItem, toResponseInput } from './items';
@@ -132,6 +133,18 @@ export function createOpenAIConversations(client: () => OpenAI): ConversationSto
         if (error instanceof NotFoundError) return { fileIds: [] };
         throw fromOpenAIError(error, timedOut(signal));
       }
+    },
+
+    async diagnose(signal) {
+      signal?.throwIfAborted();
+      let openai: OpenAI;
+      try {
+        openai = client();
+      } catch {
+        // No key: every bot's own checks already say so.
+        return [];
+      }
+      return [await checkConversations(openai)];
     },
   };
   return withHistory(store, async (id, request) => {
