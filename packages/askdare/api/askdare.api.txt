@@ -639,6 +639,111 @@ export declare function memoryAdminStore(): AdminStore;
  */
 export declare function memoryConversations(): ConversationStore;
 /**
+ * A text the visitor reads: one string for every language, or a map by BCP 47 tag
+ * (`{ en: 'Name', pl: 'Imię' }`), as the bot's `texts` are (ADR-0031).
+ */
+type FormText = string | Readonly<Record<string, string>>;
+/** The field types, a closed set; each addition is a minor release with its validation rule. */
+declare const FORM_FIELD_TYPES: readonly ["text", "email", "phone", "select", "textarea", "consent"];
+type FormFieldType = (typeof FORM_FIELD_TYPES)[number];
+interface BaseField<Type extends FormFieldType> {
+  readonly type: Type;
+  /** `[a-z][a-z0-9_]{0,31}`, unique in the form: the key of the value in `onLead`. */
+  readonly name: string;
+  /** Shown above the field as plain text, at most 120 characters. */
+  readonly label: FormText;
+  /** For `consent`: the box must be ticked. Default `false`. */
+  readonly required?: boolean;
+  /**
+   * Whether the model sees this field's value after the form is sent, in a user message
+   * (ADR-0031). Default `false`: the model learns only that the form was sent. Mark fields the
+   * bot needs to go on helping (a topic, a product), not contact details.
+   */
+  readonly toModel?: boolean;
+}
+interface PlaceholderField {
+  /** Shown in the empty field, at most 120 characters. */
+  readonly placeholder?: FormText;
+}
+/** One line of text, at most 200 characters, or `maxLength`. */
+interface FormTextField extends BaseField<"text">, PlaceholderField {
+  readonly maxLength?: number;
+}
+/** An email address, at most 254 characters; the domain is lower-cased. */
+interface FormEmailField extends BaseField<"email">, PlaceholderField {}
+/** Digits, spaces, `+`, `-`, `(` and `)`, 6 to 20 characters. No country rules. */
+interface FormPhoneField extends BaseField<"phone">, PlaceholderField {}
+/** Several lines, at most 2,000 characters, or `maxLength`. */
+interface FormTextareaField extends BaseField<"textarea">, PlaceholderField {
+  readonly maxLength?: number;
+}
+/** One of 2 to 10 options; the visitor can send only a `value` given here. */
+interface FormSelectField extends BaseField<"select"> {
+  readonly options: readonly FormSelectOption[];
+}
+interface FormSelectOption {
+  /** What `onLead` gets, 1 to 100 characters, unique in the field. */
+  readonly value: string;
+  readonly label: FormText;
+}
+/** A checkbox with the site's own wording; it links the bot's `privacyUrl` when one is set. */
+interface FormConsentField extends BaseField<"consent"> {}
+/** A field of a form, from the closed set of types. */
+type FormField = FormTextField | FormEmailField | FormPhoneField | FormTextareaField | FormSelectField | FormConsentField;
+interface FormDefinition<Name extends string = string> {
+  /** `[a-z0-9_]{1,32}`, unique in the bot: what the model picks the form by. */
+  readonly name: Name;
+  /**
+   * For the model only, never sent to the browser: what the form is for and when to show it.
+   * Required unless `model` is `false`.
+   */
+  readonly description?: string;
+  /**
+   * Whether the model may show the form with the `show_form` tool. Default `true`. A form with
+   * `false` serves a handoff only (ADR-0030).
+   */
+  readonly model?: boolean;
+  /** Shown above the fields, at most 120 characters. */
+  readonly title: FormText;
+  /** 1 to 8 fields, in the order shown. */
+  readonly fields: readonly FormField[];
+  /** The button's text, at most 120 characters; the chat's own by default. */
+  readonly submit?: FormText;
+  /** Shown in place of the form once it is sent, at most 300 characters; the chat's own by default. */
+  readonly done?: FormText;
+}
+/** A checked, normalized field: defaults filled in, texts trimmed. */
+type FormFieldSpec = (FormTextField & FieldDefaults & {
+  readonly maxLength: number;
+}) | (FormEmailField & FieldDefaults & {
+  readonly maxLength: number;
+}) | (FormPhoneField & FieldDefaults & {
+  readonly maxLength: number;
+}) | (FormTextareaField & FieldDefaults & {
+  readonly maxLength: number;
+}) | (FormSelectField & FieldDefaults) | (FormConsentField & FieldDefaults);
+interface FieldDefaults {
+  readonly required: boolean;
+  readonly toModel: boolean;
+}
+/** A form a bot can show, as `defineForm` returns it. */
+interface Form<Name extends string = string> {
+  readonly name: Name;
+  /** Empty when `model` is `false` and none was given. */
+  readonly description: string;
+  readonly model: boolean;
+  readonly title: FormText;
+  readonly fields: readonly FormFieldSpec[];
+  readonly submit?: FormText | undefined;
+  readonly done?: FormText | undefined;
+}
+/**
+ * Declares a form the bot can show in the chat (ADR-0031). The definition is checked here, at
+ * startup: an invalid form throws with every reason, like an invalid bot. The visitor types every
+ * value; askdare validates them on the server and passes them to `onLead`, storing none.
+ */
+export declare function defineForm<const Name extends string>(definition: FormDefinition<Name>): Form<Name>;
+/**
  * What the embedder sees for a chunk, and what makes a passage readable on its own: the document
  * title and section above the text. Every index embeds the same input for the same chunk.
  */
@@ -728,7 +833,7 @@ interface TurnstileOptions {
  * ```
  */
 export declare function turnstile(options: TurnstileOptions): HumanVerifier;
-export { type AdminBotDayRow, type AdminCheckOutcome, type AdminConversationQuery, type AdminConversationSummary, type AdminCountEvent, type AdminDashboard, type AdminDashboardHandler, type AdminDashboardRequest, type AdminDayRow, type AdminDays, type AdminHandoffCounts, type AdminHandoffState, type AdminPage, type AdminRange, type AdminRatingQuery, type AdminRatingRecord, type AdminRecordKey, type AdminSource, type AdminStore, type AdminStoredRating, type AdminSweepOptions, type AdminTranscriptCitation, type AdminTranscriptRecord, type AdminTurnRecord, type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type CompactionModel, type ConversationContext, type ConversationInfo, type ConversationOwner, type ConversationPage, type ConversationStore, type ConversationStoreCheck, type CounterHit, ERROR_CODES, type Embedder, type Embeddings, type ErrorCode, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type HumanChallenge, type HumanCheckContext, type HumanVerifier, type KnowledgeCallOptions, type KnowledgeCheck, type KnowledgeChunk, type KnowledgeConfig, type KnowledgeDocument, type KnowledgeIndex, type MemoryTurnLog, type MemoryTurnLogOptions, type ModerationConfig, type OpenAIEmbedderOptions, type Passage, type PositionedItem, type PresetName, type RateLimitStore, type SearchOptions, type StoredCitation, type StoredItem, type StoredPart, type SyncReport, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type TurnEvent, type TurnEventLog, type TurnstileOptions, VersionConflictError, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
+export { type AdminBotDayRow, type AdminCheckOutcome, type AdminConversationQuery, type AdminConversationSummary, type AdminCountEvent, type AdminDashboard, type AdminDashboardHandler, type AdminDashboardRequest, type AdminDayRow, type AdminDays, type AdminHandoffCounts, type AdminHandoffState, type AdminPage, type AdminRange, type AdminRatingQuery, type AdminRatingRecord, type AdminRecordKey, type AdminSource, type AdminStore, type AdminStoredRating, type AdminSweepOptions, type AdminTranscriptCitation, type AdminTranscriptRecord, type AdminTurnRecord, type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type CompactionModel, type ConversationContext, type ConversationInfo, type ConversationOwner, type ConversationPage, type ConversationStore, type ConversationStoreCheck, type CounterHit, ERROR_CODES, type Embedder, type Embeddings, type ErrorCode, type Form, type FormDefinition, type FormField, type FormFieldType, type FormText, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type HumanChallenge, type HumanCheckContext, type HumanVerifier, type KnowledgeCallOptions, type KnowledgeCheck, type KnowledgeChunk, type KnowledgeConfig, type KnowledgeDocument, type KnowledgeIndex, type MemoryTurnLog, type MemoryTurnLogOptions, type ModerationConfig, type OpenAIEmbedderOptions, type Passage, type PositionedItem, type PresetName, type RateLimitStore, type SearchOptions, type StoredCitation, type StoredItem, type StoredPart, type SyncReport, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type TurnEvent, type TurnEventLog, type TurnstileOptions, VersionConflictError, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
 
 // ==== next.d.ts ====
 import { C as PresetName, E as VisitorIdentity, T as ThemeVariants, i as BotHandle } from "./define-bot.js";

@@ -61,6 +61,14 @@ export type {
   StoredPart,
 } from './conversations/port';
 export { VersionConflictError } from './conversations/port';
+export type {
+  Form,
+  FormDefinition,
+  FormField,
+  FormFieldType,
+} from './forms/define-form';
+export { defineForm } from './forms/define-form';
+export type { FormText } from './forms/form-text';
 export { checkKnowledgeDocuments, embeddingInput } from './knowledge/check';
 export type {
   Embedder,
