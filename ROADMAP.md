@@ -21,23 +21,19 @@ askdare is the website chatbot a team owns in code: self-hosted in their Next.js
 - **0.4.0, settle in:** texts per language and switching language in place (ADR-0014), tool cards with `toolRenderers` (ADR-0017), your own page in the widget's iframe with `embedPath` and `EmbedRoot` (ADR-0018).
 - **0.5.0, compliance-ready:** the AI notice everywhere with the `Disclosure` primitive, WCAG 2.2 AA with a conformance statement, opt-in moderation and guardrails (ADR-0019, ADR-0022), an optional Turnstile human check and `limits.requireSharedStore` (ADR-0023), built-in Czech, German, Spanish, French and Italian, a compliance guide, and the public API clean-up: `BotHandle`, exported `ERROR_CODES`, Node.js 26 (ADR-0020, ADR-0021). Also the 0.4.x hygiene: error logs without visitor text, faster streaming Markdown, `doctor` warning about model shutdown dates, and a clear error for context overflow.
 
-## 0.6: own your data
+- **0.6.0, own your data:** a `ConversationStore` port with OpenAI Conversations as the default, `memoryConversations()` and the Postgres add-on `@boldare/askdare-postgres`, so turns replay with `store: false` and zero-data-retention setups work (ADR-0024); a retrieval port with pgvector behind the `search_knowledge` tool and `askdare kb sync` to either index (ADR-0025); both split out of `ModelGateway` (ADR-0026); history paged beyond 100 items; resuming an answer after a dropped connection, with the Upstash turn log (ADR-0027); opt-in compaction for your own store (ADR-0029); the `onTranscript` hook (ADR-0016).
 
-The foundation that admin, handoff, data residency and other providers all need: conversations and knowledge stored outside OpenAI. Spikes S6a, S6b, S7 and S8 ran first; their findings are in [ADR-0024](docs/adr/0024-conversation-store.md) to [ADR-0027](docs/adr/0027-stream-resume.md), accepted with the work that built them; [ADR-0006](docs/adr/0006-support-matrix-and-versioning.md) lists the public surface.
-- **A `ConversationStore` port** (ADR-0024): OpenAI Conversations stays the default, with no database; `memoryConversations()` for tests; a Postgres add-on, `@boldare/askdare-postgres`. With a store of your own, turns replay the history with `store: false`, so OpenAI keeps no copy of the conversation (only abuse-monitoring logs, which ZDR turns off, and attachments in Files): zero-data-retention setups work, and conversations stay in your database's region. Ownership is checked against the store, old conversations can be swept, and the `onTranscript` hook (ADR-0016) lands too.
-- **A retrieval port** (ADR-0025): OpenAI vector stores stay the default; pgvector in the same add-on, behind a `search_knowledge` tool that works on every model path, with citations on today's protocol. `askdare kb sync` syncs the same folder to either. Markdown, MDX, text and HTML on the own path; PDFs later.
-- **Both are split out of `ModelGateway`** (ADR-0026), so a second provider (0.9) only has to run turns. No new provider in 0.6.
-- **History beyond the latest 100 items,** paged by turn.
-- **Resuming an answer after a dropped connection** (ADR-0027): a separate `TurnEventLog` port, in memory by default and on Upstash for sites with several instances.
-- **Compaction for conversations in your own store** ([ADR-0029](docs/adr/0029-compaction-for-item-stores.md)): opt-in `limits.compactAt`. Once a turn gets that large, askdare compacts the conversation in the background, so the following turns replay a few thousand tokens. Spike S9 measured 27–56 % lower cost over a 50-turn conversation, with facts and citations kept. The OpenAI Conversations default gets no compaction.
+## 0.6.x: patches
+
+What the 0.6 review left open and fits in a patch, from "Known gaps" below, done in parallel before the 0.7 tasks and merged into `main`: h1, resume after sign-in (#192); h2, no rating for a replaced answer (#196); h3, `doctor`'s store timeout (#193); h4, an index for the Postgres compaction lookup (#190); h5, regional endpoints documented (#194). Two pieces stay open in "Known gaps": the chat-client half of h1, and a contract run against the EU endpoint, which needs a key from an EU-residency project. The merged patches ship in the next 0.6.x release.
 
 ## 0.7: support-grade
 
-The features buyers compare against Intercom Fin and Chatbase.
-- **Handoff to a human:** a `handoff` tool, a "connecting you" state in the chat, and an `onHandoff` hook. Email and webhook first.
-- **Forms in the chat:** leads into `onLead`, with validated fields, built on reply options and tool cards.
-- **Admin** (ADR-0016): stage 1, the console with no database, then stage 2, `@boldare/askdare-admin` on the 0.6 store, with transcripts, ratings, unanswered questions, cost per conversation and resolution rate. Deleting a conversation, by the visitor or a sweep, then deletes its transcripts and ratings too; 0.6 calls no hook on delete.
-- **Proactive greeting and an unread badge.** The loader is at 5,016 of its 5,120 bytes (gzipped), so this starts by making it smaller or moving logic into the iframe.
+The features buyers compare against Intercom Fin and Chatbase. Planned on 2026-11-26: the decisions come first as ADR-0030 to ADR-0033 (tasks x1 to x4), the tasks are in [`tasks/`](tasks/README.md) and their order is under "Lanes and hot files" below.
+- **Handoff to a human** (ADR-0030): a `handoff` tool, a "connecting you" state in the chat, and an `onHandoff` hook. Email and webhook first; live agent chat stays with the 0.9 adapters.
+- **Forms in the chat** (ADR-0031): leads into `onLead`, with fields defined on the server and validated there, built on reply options and tool cards. A handoff with nobody available falls back to a form.
+- **Admin** (ADR-0016, extended by ADR-0032): stage 1, the console with no database, then stage 2, `@boldare/askdare-admin` on an `AdminStore` port with Postgres and Upstash implementations, with transcripts, ratings, unanswered questions, cost per conversation and resolution rate. Deleting a conversation, by the visitor or a sweep, then deletes its transcripts and ratings too; 0.6 calls no hook on delete.
+- **Proactive greeting and an unread badge** (ADR-0033). The loader is at 5,016 of its 5,120 bytes (gzipped), so spike S10 first measures how to make it smaller or move logic into the iframe. The React entry is near its 34 KB budget too (ADR-0028), so task b1 makes room before the new UI.
 
 ## 0.8: quality and reach
 
@@ -68,13 +64,13 @@ What 0.6 leaves open, found by its tasks and reviews. Each line names where it g
 - **No model request without OpenAI** until another provider path exists. 0.9 ([ADR-0026](docs/adr/0026-provider-path.md)).
 
 **Privacy and security** (low-confidence notes from the `release/0.6` security review, worth a closer look):
-- **Transcripts outlive a deleted conversation:** deleting one calls no hook, so a transcript an app keeps through `onTranscript` stays until the app sweeps it. 0.7, with the admin store ([ADR-0016](docs/adr/0016-admin.md)); an `onConversationDeleted` hook is the fallback if that slips.
+- **Transcripts outlive a deleted conversation:** deleting one calls no hook, so a transcript an app keeps through `onTranscript` stays until the app sweeps it. 0.7, with the admin store ([ADR-0016](docs/adr/0016-admin.md)); an `onConversationDeleted` hook is the fallback if that slips (task c5).
 - **An answer's live stream can hand back an anonymous resume token** when the visitor signs in while it streams and it doesn't drop; the chat client stores it in the user's place, where it outlives sign-out until the next answer. `POST /resume` no longer replays it (0.6.x, h1); the rest is a chat-client fix. 0.6.x.
 
 **Smaller items:**
-- "Reconnecting…" can stay visible after a successful resume until the next text or status event. 0.6.x, once the React entry has room.
+- "Reconnecting…" can stay visible after a successful resume until the next text or status event. 0.7, in task c2, once b1 has made room in the React entry.
 - A message sent at the moment a compaction is stored gets a "please wait" error (documented in [ADR-0029](docs/adr/0029-compaction-for-item-stores.md)). Later.
-- No sweep helper in core: a site's cron route deletes files with the `openai` SDK itself ([own your data](docs/own-your-data.md)). 0.7, with the admin store.
+- No sweep helper in core: a site's cron route deletes files with the `openai` SDK itself ([own your data](docs/own-your-data.md)). 0.7, with the admin store; ADR-0032 (task x3) decides whether core gets one.
 
 ## Later
 
@@ -105,38 +101,48 @@ Work runs in parallel lanes. A **hot file** is changed by one task at a time, be
 - `i18n/texts.ts`;
 - `react/headless.ts`;
 - `embed/loader.ts`, which has a 5 KB budget;
-- **for 0.6, the seams of the gateway split:** `gateway.ts`, `openai/turn.ts`, `openai/history.ts`, `server/handler.ts` and `server/stream-turn.ts`.
+- `i18n/locales/*`, changed together with `i18n/texts.ts`;
+- `server/handler.ts`, which every 0.7 feature mounts into.
 
-Two shared files don't make a task hot in 0.6:
+Two shared files don't make a task hot:
 - **The API snapshot** (`api/askdare.api.txt`) is generated. A task that changes the public API rebases and regenerates it (`pnpm --filter @boldare/askdare api:update`) instead of merging it by hand.
-- **ADR-0006** is updated once, by task 0.6-z1, from the public surface that ADR-0024 to ADR-0027 list. Other 0.6 tasks don't edit it.
+- **ADR-0006** is updated once per release, by its z1 task, from the public surface the release's ADRs list. Other tasks don't edit it.
+
+New ADRs written at the same time take numbers reserved in their task files (0030 to 0033 for 0.7), so parallel pull requests don't collide.
 
 | Lane | What runs in it | Hot files |
 |---|---|---|
 | Organization | The roadmap and `tasks/` | No |
-| Hygiene | 0.5.x patches; 0.6-h1 | No |
-| CI | Workflows, visual baselines, the starter check; 0.6-c1 | No |
-| Decisions | ADRs 0024 to 0027 and 0029, accepted or amended by the tasks that build them; 0.6-z1 | No |
-| Docs | Guides for new features; 0.6-d1 | No |
-| Ports | New modules inside `packages/askdare` that no hot file reaches yet: 0.6-k1, 0.6-k3, 0.6-r1 | No |
-| Add-ons | `packages/askdare-postgres` (0.6-a1, a2, a3) and `packages/askdare-upstash` (0.6-r2); one folder per task inside a package | No |
-| Core | 0.6-1, 2, k2, t1, 3a, 4, 3b, r3a, r3b: work on hot files, in the order below | **Yes** |
+| Hygiene | 0.6.x patches on `main`; 0.7-b1 | No |
+| CI | Workflows, visual baselines, the starter check; 0.7-e1 | No |
+| Decisions | ADRs 0030 to 0033 (0.7-x1, x2, x3), accepted or amended by the tasks that build them; 0.7-z1 | No |
+| Spikes | 0.7-x4 (S10, the loader) | No |
+| Docs | 0.7-d1 | No |
+| Ports | New modules inside `packages/askdare` that no hot file reaches yet: 0.7-p1 (`handoff/`), p2 (`admin/`), p3 (`forms/`) | No |
+| Add-ons | 0.7-a1 (`askdare-postgres/src/admin/`), a2 (`askdare-upstash/src/admin/`), a3 (the new `askdare-admin` package) | No |
+| Loader | 0.7-l1, l2: `embed/loader.ts`, which no other task changes | l1 alone; l2 also `bot/define-bot.ts` |
+| Core | 0.7-c1 to c5: work on hot files, in the order below | **Yes** |
 
-**The 0.6 order.** A task starts when everything before its arrow is merged; tasks on one line run side by side.
+**The 0.7 order.** A task starts when everything before its arrow is merged; tasks on one line run side by side.
 
 ```text
-Ready now:  1 · k1 · r1 · a1 · h1 · c1
-1 ─────────────→ 2 · a2 (a2 also needs a1)
-k1 ────────────→ a3 (needs a1) · k3
-r1 ────────────→ r2
-2 + k1 + h1 ───→ k2 · t1 (t1 needs only 2)
-k2 + t1 ───────→ 3a · 4
-3a ────────────→ 3b · r3a (r3a also needs r1 and 4)
-3b + r3a ──────→ r3b
-a2 + a3 + k2 + k3 → d1
-everything ────→ z1
+Ready now:  x1 + x2 (together) · x3 · x4 · b1
+x1 ─────────────→ p1
+x2 ─────────────→ p3
+x3 ─────────────→ p2
+x4 ─────────────→ l1
+x1 + x2 ────────→ c1
+c1 + b1 ────────→ c2
+p2 ─────────────→ a1 · a2 · a3
+p2 ─────────────→ c5                    (not at the same time as c3: both change handler.ts)
+c2 + p1 + p3 ───→ c3
+c3 + b1 ────────→ c4
+c4 ─────────────→ e1
+l1 + c4 ────────→ l2
+c4 + c5 + a3 + l2 → d1
+everything ─────→ z1
 ```
 
-The critical path is 1 → 2 → k2 → 3a → 3b or r3a → r3b → z1, all in Core. Everything else runs beside it.
+The critical path is x1/x2 → c1 → c2 → c3 → c4 → l2 → d1 → z1, through Core. Admin (x3 → p2 → a1 · a2 · a3 · c5) and the loader (x4 → l1) run beside it. At the widest point, six lanes work at once: Hygiene, Decisions, Spikes, Ports, Add-ons and Core.
 
-**Branches.** 0.5.x patches land on `main` with `--no-ff` and ship as they are ready; so do 0.6-h1 and 0.6-c1. Every other 0.6 task targets the integration branch `release/0.6` until the release ([RELEASING.md](RELEASING.md)). The maintainer creates `release/0.6` from `main` before the first 0.6 pull request.
+**Branches.** 0.6.x patches land on `main` with `--no-ff` and ship as they are ready. Every 0.7 task targets the integration branch `release/0.7` until the release ([RELEASING.md](RELEASING.md)). The maintainer creates `release/0.7` from `main` before the first 0.7 pull request; `main` already has the 0.6.x patches that change `server/handler.ts`.
