@@ -67,6 +67,11 @@ export interface ChatConfig {
    * Absent when the bot has none.
    */
   readonly forms?: readonly ChatForm[];
+  /**
+   * Whether the visitor can ask for a person with `HandoffButton` (ADR-0030). Absent when the bot
+   * has no handoff or turns its button off.
+   */
+  readonly handoff?: true;
 }
 
 /** A human check the chat must pass before it connects; public, the site key only. */

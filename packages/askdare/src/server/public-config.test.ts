@@ -47,6 +47,22 @@ describe('publicConfig', () => {
       expect(json).not.toContain('"suggest"');
     }
   });
+
+  it("says only whether the handoff button shows, never the rest of the bot's handoff", () => {
+    const base = { id: 'h', model: 'm', instructions: 'x' } as const;
+    expect(publicConfig(bot, '/api/chat')).not.toHaveProperty('handoff');
+    const helped = publicConfig(
+      createBot({
+        ...base,
+        handoff: { available: () => true, limits: { perConversation: 2 }, content: 'summary' },
+      }),
+      '/api/chat',
+    );
+    expect(helped.handoff).toBe(true);
+    expect(JSON.stringify(helped)).not.toMatch(/perConversation|"summary"|"content"/);
+    const modelOnly = createBot({ ...base, handoff: { button: false } });
+    expect(publicConfig(modelOnly, '/api/chat')).not.toHaveProperty('handoff');
+  });
 });
 
 describe('getChatConfig', () => {
