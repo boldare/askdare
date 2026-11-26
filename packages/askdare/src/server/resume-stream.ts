@@ -17,6 +17,12 @@ export interface ResumeStreamOptions {
   readonly known: readonly TurnEvent[];
   /** How long to wait for the rest of the answer: no turn runs longer than its timeout. */
   readonly maxDurationMs: number;
+  /**
+   * The handle for the session that resumes, sent in place of any the turn logged. The turn issued
+   * its own for whoever started it, so a visitor who signed in during the answer would otherwise
+   * get the anonymous handle back, which outlives their sign-out.
+   */
+  readonly resumeToken: string;
   /** Aborted when the visitor disconnects. */
   readonly signal: AbortSignal;
   readonly heartbeatIntervalMs?: number | undefined;
@@ -27,6 +33,12 @@ const encoder = new TextEncoder();
 /** The events after which a turn sends nothing more. */
 const ends = (event: ProtocolEvent): boolean =>
   event.type === 'message.end' || event.type === 'error';
+
+/** The event with the resuming session's handle in place of the one the turn logged. */
+const handOver = (event: ProtocolEvent, resumeToken: string): ProtocolEvent =>
+  (event.type === 'conversation.created' || event.type === 'message.end') && event.resumeToken
+    ? { ...event, resumeToken }
+    : event;
 
 /**
  * The rest of an answer for a client whose stream dropped (ADR-0027): the logged events after
@@ -78,7 +90,7 @@ export function resumeStream(options: ResumeStreamOptions): ReadableStream<Uint8
             continue;
           }
           last = seq;
-          write(encodeEvent(event, seq));
+          write(encodeEvent(handOver(event, options.resumeToken), seq));
           if (ends(event)) return true;
         }
         return false;

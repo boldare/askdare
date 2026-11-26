@@ -33,11 +33,56 @@ const options = (overrides: Partial<ResumeStreamOptions>): ResumeStreamOptions =
   after: 0,
   known: [],
   maxDurationMs: 5_000,
+  resumeToken: 'rt_resuming',
   signal: new AbortController().signal,
   ...overrides,
 });
 
 describe('resumeStream', () => {
+  it('sends the resuming session’s handle in place of the one the turn logged', async () => {
+    const log = memoryTurnLog();
+    const logged: TurnEvent[] = [
+      { seq: 1, event: { type: 'conversation.created', resumeToken: 'rt_turn' } },
+      delta(2),
+      {
+        seq: 3,
+        event: {
+          type: 'message.end',
+          messageId: 'msg_1',
+          reason: 'completed',
+          resumeToken: 'rt_turn',
+        },
+      },
+    ];
+    await log.append('turn_1', logged, 60_000);
+    const known = (await log.read('turn_1', 0)) ?? [];
+    const parser = new SseParser();
+    const decoder = new TextDecoder();
+    const sent: ProtocolEvent[] = [];
+    for await (const chunk of resumeStream(options({ log, after: 0, known }))) {
+      for (const raw of parser.push(decoder.decode(chunk, { stream: true }))) {
+        sent.push(JSON.parse(raw.data) as ProtocolEvent);
+      }
+    }
+    expect(sent).toEqual([
+      { type: 'conversation.created', resumeToken: 'rt_resuming' },
+      logged[1]?.event,
+      { type: 'message.end', messageId: 'msg_1', reason: 'completed', resumeToken: 'rt_resuming' },
+    ]);
+    // An end without a handle (a new conversation's first answer) gets none.
+    const plain = memoryTurnLog();
+    await plain.append('turn_1', [end(1)], 60_000);
+    const frames: ProtocolEvent[] = [];
+    for await (const chunk of resumeStream(
+      options({ log: plain, after: 0, known: (await plain.read('turn_1', 0)) ?? [] }),
+    )) {
+      for (const raw of parser.push(decoder.decode(chunk, { stream: true }))) {
+        frames.push(JSON.parse(raw.data) as ProtocolEvent);
+      }
+    }
+    expect(frames).toEqual([end(1).event]);
+  });
+
   it('sends what the client missed, then the live events, until the end', async () => {
     const log = memoryTurnLog();
     await log.append('turn_1', [delta(1), delta(2), delta(3)], 60_000);
