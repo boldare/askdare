@@ -277,7 +277,12 @@ describe('resume', () => {
     await settle();
     const response = await resume(POST, token, seen);
     expect(response.status).toBe(200);
-    expect(await events(response)).toEqual(seen);
+    // The same events, with a handle issued for the resuming session in place of the logged one.
+    const withoutHandle = (list: readonly ProtocolEvent[]) =>
+      list.map((event) =>
+        event.type === 'conversation.created' ? { ...event, resumeToken: '' } : event,
+      );
+    expect(withoutHandle(await events(response))).toEqual(withoutHandle(seen));
   });
 
   it('writes turns to the log it is given', async () => {
