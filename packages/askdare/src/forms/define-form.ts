@@ -16,16 +16,26 @@ export const FORM_FIELD_TYPES = [
 ] as const;
 export type FormFieldType = (typeof FORM_FIELD_TYPES)[number];
 
-/** A form's or a field's name: what the model, the protocol and `onLead` use. */
+/** A form's name: what the model picks it by, and what the protocol and `onLead` carry. */
 export const FORM_NAME: RegExp = /^[a-z0-9_]{1,32}$/;
-/** Whether a name fits `FORM_NAME` and can't change an object's prototype as a key. */
+/**
+ * A field's name, the key of its value: it starts with a letter (as the protocol requires), so
+ * no field can be called `__proto__`.
+ */
+export const FORM_FIELD_NAME: RegExp = /^[a-z][a-z0-9_]{0,31}$/;
+/** Whether a form's name fits `FORM_NAME` and can't change an object's prototype as a key. */
 const isFormName = (name: unknown): name is string =>
   typeof name === 'string' && FORM_NAME.test(name) && name !== '__proto__';
+const isFieldName = (name: unknown): name is string =>
+  typeof name === 'string' && FORM_FIELD_NAME.test(name);
 /** Fields one form may have. */
 export const MAX_FORM_FIELDS = 8;
 /** Forms one bot may have; `defineBot` checks it. */
 export const MAX_BOT_FORMS = 10;
-/** Characters of a title, label, placeholder, option label or `submit`, in every language. */
+/**
+ * Characters of a title, label, placeholder, option label or `submit`, in every language. Every
+ * length here counts UTF-16 code units, as the protocol and the browser do (an emoji is 2).
+ */
 export const MAX_FORM_LABEL = 120;
 /** Characters of `done`, in every language. */
 export const MAX_FORM_DONE = 300;
@@ -45,7 +55,7 @@ export const PHONE_MIN_LENGTH = 6;
 
 interface BaseField<Type extends FormFieldType> {
   readonly type: Type;
-  /** `[a-z0-9_]{1,32}`, unique in the form: the key of the value in `onLead`. */
+  /** `[a-z][a-z0-9_]{0,31}`, unique in the form: the key of the value in `onLead`. */
   readonly name: string;
   /** Shown above the field as plain text, at most 120 characters. */
   readonly label: FormText;
@@ -177,7 +187,7 @@ function optionProblems(where: string, options: unknown): string[] {
       typeof value !== 'string' ||
       value.trim() === '' ||
       value !== value.trim() ||
-      [...value].length > MAX_FORM_OPTION_VALUE
+      value.length > MAX_FORM_OPTION_VALUE
     ) {
       problems.push(
         `${at}.value must be 1-${MAX_FORM_OPTION_VALUE} characters without surrounding spaces`,
@@ -199,8 +209,8 @@ function fieldProblems(field: unknown, index: number, names: Set<string>): strin
   const { type, name } = raw;
   if (!isFieldType(type)) return [`${where}.type must be one of ${FORM_FIELD_TYPES.join(', ')}`];
   const problems: string[] = [];
-  if (!isFormName(name)) {
-    problems.push(`${where}.name must be 1-32 lowercase letters, digits or "_"`);
+  if (!isFieldName(name)) {
+    problems.push(`${where}.name must be 1-32 lowercase letters, digits or "_", from a letter`);
   } else if (names.has(name)) {
     problems.push(`${where}.name "${name}" is used twice`);
   } else {

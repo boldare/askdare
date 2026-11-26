@@ -45,15 +45,16 @@ const PHONE = /^[0-9 +\-()]+$/;
 const EMAIL =
   /^[^\s@]{1,64}@(?=.{1,253}$)(?:[\p{L}\p{N}](?:[\p{L}\p{N}-]{0,61}[\p{L}\p{N}])?\.)+\p{L}{2,63}$/u;
 
-const length = (value: string): number => [...value].length;
-
 /** Any key; Zod reads the message as the error key. */
 const fail = (context: z.RefinementCtx, key: FormErrorKey): never => {
   context.addIssue({ code: 'custom', message: key });
   return z.NEVER;
 };
 
-/** The value trimmed and in NFC, or the error key. */
+/**
+ * The value trimmed and in NFC, or the error key. Lengths count UTF-16 code units, as the widget's
+ * own check and the protocol do.
+ */
 function normalizeString(
   raw: string,
   field: FormFieldSpec & { readonly maxLength: number },
@@ -64,7 +65,7 @@ function normalizeString(
   const value = lines.normalize('NFC').trim();
   const invisible = field.type === 'textarea' ? INVISIBLE_BUT_LINE_BREAKS : INVISIBLE;
   if (invisible.test(value)) return { error: 'error.form.invalid' as const };
-  if (length(value) > field.maxLength) return { error: 'error.form.tooLong' as const };
+  if (value.length > field.maxLength) return { error: 'error.form.tooLong' as const };
   return { value };
 }
 
@@ -97,7 +98,7 @@ function fieldSchema(field: FormFieldSpec): z.ZodType<string | boolean> {
       case 'email':
         return EMAIL.test(value) ? normalizeEmail(value) : fail(context, 'error.form.email');
       case 'phone':
-        return PHONE.test(value) && length(value) >= PHONE_MIN_LENGTH && /\d/.test(value)
+        return PHONE.test(value) && value.length >= PHONE_MIN_LENGTH && /\d/.test(value)
           ? value
           : fail(context, 'error.form.phone');
       case 'text':

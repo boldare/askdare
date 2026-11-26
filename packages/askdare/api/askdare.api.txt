@@ -616,7 +616,7 @@ declare const FORM_FIELD_TYPES: readonly ["text", "email", "phone", "select", "t
 type FormFieldType = (typeof FORM_FIELD_TYPES)[number];
 interface BaseField<Type extends FormFieldType> {
   readonly type: Type;
-  /** `[a-z0-9_]{1,32}`, unique in the form: the key of the value in `onLead`. */
+  /** `[a-z][a-z0-9_]{0,31}`, unique in the form: the key of the value in `onLead`. */
   readonly name: string;
   /** Shown above the field as plain text, at most 120 characters. */
   readonly label: FormText;

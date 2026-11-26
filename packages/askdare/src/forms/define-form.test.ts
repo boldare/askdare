@@ -102,6 +102,17 @@ describe('defineForm', () => {
     expect(problem({ ...contact, name: 'a_1' })).toBeUndefined();
   });
 
+  it('starts a field name with a letter, as the protocol requires', () => {
+    for (const name of ['_x', '1a', '_']) {
+      expect(problem(withField({ name, type: 'text', label: 'X' }))).toMatch(
+        /fields\[0\]\.name must be .*from a letter/,
+      );
+      // A form's name may start with anything the model can send.
+      expect(problem({ ...contact, name })).toBeUndefined();
+    }
+    expect(problem(withField({ name: 'a_1', type: 'text', label: 'X' }))).toBeUndefined();
+  });
+
   it('refuses a field name used twice', () => {
     const field = { name: 'email', type: 'email', label: 'Email' };
     expect(problem({ ...contact, fields: [field, field] })).toMatch(/"email" is used twice/);
@@ -143,8 +154,9 @@ describe('defineForm', () => {
     expect(
       problem(withField({ name: 'x', type: 'text', label: 'X', placeholder: 'x'.repeat(121) })),
     ).toMatch(/placeholder must be at most 120/);
-    // Characters, not UTF-16 units.
-    expect(problem({ ...contact, title: '😀'.repeat(120) })).toBeUndefined();
+    // UTF-16 code units, as the protocol counts them: an emoji is 2.
+    expect(problem({ ...contact, title: '😀'.repeat(60) })).toBeUndefined();
+    expect(problem({ ...contact, title: '😀'.repeat(61) })).toMatch(/title must be at most 120/);
   });
 
   it('refuses empty texts and bad language maps', () => {

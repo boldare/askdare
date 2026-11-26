@@ -108,10 +108,12 @@ describe('validateForm', () => {
       expect(check(text, 'Zoé')).toBe('Zoé');
     });
 
-    it('counts characters, up to 200 or maxLength', () => {
+    it('counts code units, up to 200 or maxLength', () => {
       expect(check(text, 'x'.repeat(200))).toBe('x'.repeat(200));
       expect(check(text, 'x'.repeat(201))).toBe('error.form.tooLong');
-      expect(check(text, '😀'.repeat(200))).toBe('😀'.repeat(200));
+      // UTF-16 code units, as the widget and the protocol count them: an emoji is 2.
+      expect(check(text, '😀'.repeat(100))).toBe('😀'.repeat(100));
+      expect(check(text, '😀'.repeat(101))).toBe('error.form.tooLong');
       expect(check({ ...text, maxLength: 5 }, 'abcdef')).toBe('error.form.tooLong');
       expect(check(text, 'x'.repeat(100_000))).toBe('error.form.tooLong');
     });

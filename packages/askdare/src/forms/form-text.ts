@@ -14,13 +14,14 @@ const primarySubtag = (tag: string): string => (tag.split('-')[0] ?? tag).toLowe
 
 /**
  * What is wrong with a text, or undefined. A map needs at least one language, tags Intl accepts,
- * no language twice, and every string non-empty after trimming and within `max` characters.
+ * no language twice, and every string non-empty after trimming and within `max` characters,
+ * counted in UTF-16 code units as the protocol and the browser count them.
  */
 export function formTextProblem(text: unknown, max: number): string | undefined {
   const tooLong = `must be at most ${max} characters`;
   if (typeof text === 'string') {
     if (text.trim() === '') return 'must not be empty';
-    return [...text.trim()].length > max ? tooLong : undefined;
+    return text.trim().length > max ? tooLong : undefined;
   }
   if (typeof text !== 'object' || text === null || Array.isArray(text)) {
     return 'must be a string or a map of strings by language';
@@ -35,7 +36,7 @@ export function formTextProblem(text: unknown, max: number): string | undefined 
   if (new Set(tags).size !== tags.length) return 'has the same language twice';
   for (const [, value] of entries) {
     if (typeof value !== 'string' || value.trim() === '') return 'must not be empty';
-    if ([...value.trim()].length > max) return tooLong;
+    if (value.trim().length > max) return tooLong;
   }
   return undefined;
 }
