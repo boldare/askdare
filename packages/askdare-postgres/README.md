@@ -49,6 +49,8 @@ await migrate({ parts: ['conversations'] });
 
 `migrate` is idempotent: when the schema is up to date it changes nothing. Concurrent runs wait for each other. Each step runs in a transaction, so a failed one leaves the previous version in place. A database that a newer version of this package migrated makes it stop before changing anything.
 
+Version 2 of `conversations` adds an index for the compaction lookup. Its build blocks appends to conversations for a moment; on a very large table, build it beforehand with `create index concurrently` ([custom stores](https://askdare.vercel.app/docs/custom-store#the-compaction-lookup)).
+
 The database user that migrates needs the right to create tables, and for the `knowledge` part the right to create the `vector` extension (pgvector is a trusted extension, so a database owner may). The app's own user then only needs `select`, `insert`, `update` and `delete` on them.
 
 ## Conversations

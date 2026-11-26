@@ -75,7 +75,6 @@ What 0.6 leaves open, found by its tasks and reviews. Each line names where it g
 **Smaller items:**
 - "Reconnecting…" can stay visible after a successful resume until the next text or status event. 0.6.x, once the React entry has room.
 - `doctor`'s check of the OpenAI store ignores its 10-second limit. 0.6.x.
-- The compaction lookup in Postgres has no index; fine at today's conversation sizes. Add one before conversations grow to thousands of items.
 - A message sent at the moment a compaction is stored gets a "please wait" error (documented in [ADR-0029](docs/adr/0029-compaction-for-item-stores.md)). Later.
 - No sweep helper in core: a site's cron route deletes files with the `openai` SDK itself ([own your data](docs/own-your-data.md)). 0.7, with the admin store.
 

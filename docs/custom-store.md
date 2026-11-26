@@ -296,6 +296,32 @@ A `native` item with `kind: 'compaction'` is a summary of everything before it, 
 
 `context`, `append` and `page` throw for a conversation the store doesn't have; any error will do. When one of them fails, the server asks `info(id)` again, and if the conversation is gone (deleted in another tab, or swept during the turn), it answers the visitor as for an unknown conversation and the chat starts afresh. `VersionConflictError` is the one error the server reads by type.
 
+### The compaction lookup
+
+`context()` runs on every turn, and looks for the latest compaction item of the model each time, with or without `model`. Index that lookup, or it reads every item of a conversation that has no such item: most conversations, since compaction is opt-in and a bot that never sets `compactAt` never writes one. In a database, a partial index over compaction items only stays small, since a conversation has few of them.
+
+`@boldare/askdare-postgres` does this in version 2 of its `conversations` schema, which `npx askdare-postgres migrate` adds:
+
+```sql
+create index askdare_conversation_items_compaction
+  on askdare_conversation_items (conversation_id, (item->>'provider'), (item->>'family'), seq)
+  where type = 'native' and item->>'kind' = 'compaction';
+```
+
+On a conversation of 5,000 items with no compaction item of the model, the lookup went from reading all 5,000 items (468 buffers, about 2 ms with everything cached) to two index pages. Until you migrate, the store works as before and `doctor` reports the schema as behind.
+
+**On a live table.** `migrate` runs each step in a transaction, where `create index concurrently` isn't allowed, so it builds the index with a plain `create index`. Reads go on while it builds; appends to conversations wait until it ends, and a turn that waits too long fails with the usual error. The build reads the whole items table but writes only the compaction items: about 0.1 s for a million items (776 MB) on Postgres 17 with the table in memory, longer from disk. For most databases that is a short pause during a deployment.
+
+For a table too large for that pause, build the index yourself first, with the same definition, then run `migrate`:
+
+```sql
+create index concurrently if not exists askdare_conversation_items_compaction
+  on askdare_conversation_items (conversation_id, (item->>'provider'), (item->>'family'), seq)
+  where type = 'native' and item->>'kind' = 'compaction';
+```
+
+`migrate` keeps an index of that name and only records the version. A concurrent build that failed leaves an invalid index behind; `migrate` drops it and builds it again. Don't run `migrate` while a concurrent build is still running: it waits up to 60 seconds for it, then fails and leaves the schema at version 1.
+
 ### Test it
 
 `conversationStoreContract` from `@boldare/askdare/testing` is the suite `memoryConversations()` and `openaiConversations()` pass. Every conversation a test creates is deleted when it ends, also when it fails:
