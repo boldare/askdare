@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Chat</title>
+<style>
+:root { color-scheme: light dark; --a: #1f5fe0; --bg: #ffffff; --fg: #0d1526; }
+@media (prefers-color-scheme: dark) { :root { --bg: #0a0f1c; --fg: #e8edf7; } }
+html, body { margin: 0; background: transparent; }
+body { display: flex; justify-content: flex-end; align-items: flex-end; height: 100vh; padding: 4px;
+  box-sizing: border-box; font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+div { display: flex; align-items: flex-start; gap: 4px; padding: 8px; border-radius: 16px;
+  background: var(--bg); color: var(--fg);
+  box-shadow: 0 6px 16px -6px rgb(15 23 42 / .45), 0 0 0 1px rgb(15 23 42 / .06);
+  animation: in .34s cubic-bezier(.3, 1.3, .5, 1); }
+button { all: unset; cursor: pointer; padding: 4px 8px; border-radius: 8px; }
+button:focus-visible { outline: 3px solid var(--a); }
+[aria-label] { display: grid; place-items: center; min-width: 24px; height: 24px; padding: 0; font-size: 20px; }
+@keyframes in { from { opacity: 0; transform: translateY(18px) scale(.9); } }
+@media (prefers-reduced-motion: reduce) { div { animation: none; } }
+</style>
+<div><button id="o">Hi! I'm the AI assistant. Questions? Ask me.</button><button id="x" aria-label="Dismiss">×</button></div>
+<script nonce="r4nd0mn0nc3v4lu3">
+const origins = ["https://www.example.com", "https://example.com"];
+const tell = (data) => { for (const origin of origins) parent.postMessage({ v: 1, type: "askdare:greeting", ...data }, origin); };
+o.onclick = () => tell({ open: 1 });
+x.onclick = () => tell({});
+onkeydown = (event) => event.key === "Escape" && tell({});
+tell({ height: document.querySelector("div").offsetHeight + 8 });
+</script>
+</html>

@@ -36,6 +36,7 @@ Short records of decisions that are expensive to reverse. One decision per file,
 | [0030](0030-handoff.md) | Handoff to a human | Proposed |
 | [0031](0031-forms-and-leads.md) | Forms in the chat and leads | Proposed |
 | [0032](0032-admin-store.md) | The admin console and the `AdminStore` port | Proposed |
+| [0033](0033-greeting-and-loader-budget.md) | A proactive greeting and an unread badge in the loader, and its budget | Proposed (spike S10) |
 
 ## Template
 

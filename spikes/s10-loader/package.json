@@ -1,0 +1,12 @@
+{
+  "name": "askdare-spike-s10-loader",
+  "private": true,
+  "type": "module",
+  "description": "Spike S10: room in the loader's 5 KB budget for a proactive greeting and an unread badge (ADR-0033).",
+  "scripts": {
+    "measure": "node measure.mjs"
+  },
+  "devDependencies": {
+    "vite": "8.3.8"
+  }
+}
