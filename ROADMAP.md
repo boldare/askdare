@@ -27,13 +27,17 @@ askdare is the website chatbot a team owns in code: self-hosted in their Next.js
 
 What the 0.6 review left open and fits in a patch, from "Known gaps" below, done in parallel before the 0.7 tasks and merged into `main`: h1, resume after sign-in (#192); h2, no rating for a replaced answer (#196); h3, `doctor`'s store timeout (#193); h4, an index for the Postgres compaction lookup (#190); h5, regional endpoints documented (#194). Two pieces stay open in "Known gaps": the chat-client half of h1, and a contract run against the EU endpoint, which needs a key from an EU-residency project. The merged patches ship in the next 0.6.x release.
 
+Still to do, on `main`: **h6**, the chat-client half of h1 ([task](tasks/0.6.x-h6-resume-token-on-live-stream.md)). It changes `chat/store.ts`, so it lands before c2 starts.
+
 ## 0.7: support-grade
 
 The features buyers compare against Intercom Fin and Chatbase. Planned on 2026-11-26: the decisions come first as ADR-0030 to ADR-0033 (tasks x1 to x4), the tasks are in [`tasks/`](tasks/README.md) and their order is under "Lanes and hot files" below.
 - **Handoff to a human** (ADR-0030): a `handoff` tool, a "connecting you" state in the chat, and an `onHandoff` hook. Email and webhook first; live agent chat stays with the 0.9 adapters.
 - **Forms in the chat** (ADR-0031): leads into `onLead`, with fields defined on the server and validated there, built on reply options and tool cards. A handoff with nobody available falls back to a form.
 - **Admin** (ADR-0016, extended by ADR-0032): stage 1, the console with no database, then stage 2, `@boldare/askdare-admin` on an `AdminStore` port with Postgres and Upstash implementations, with transcripts, ratings, unanswered questions, cost per conversation and resolution rate. Deleting a conversation, by the visitor or a sweep, then deletes its transcripts and ratings too; 0.6 calls no hook on delete.
-- **Proactive greeting and an unread badge** (ADR-0033). The loader is at 5,016 of its 5,120 bytes (gzipped), so spike S10 first measures how to make it smaller or move logic into the iframe. The React entry is near its 34 KB budget too (ADR-0028), so task b1 makes room before the new UI.
+- **Proactive greeting and an unread badge** (ADR-0033). Spike S10 measured the loader at 5,052 of its 5,120 bytes (gzipped). ADR-0033 trims it to about 4,650 bytes with the same behavior (l1), then raises the budget to 5,632 bytes, so the greeting and the badge (l2) land at about 5,195. The React entry needs no room made first: task b1 measured it on 2026-11-26 (`scripts/react-size.mjs`, `release/0.7` at a70bbf8) at 31,678 of 34,816 bytes for the whole entry, 11,311 of 12,288 for the headless case (`Root` and `useChat`) and 12,074 of 14,336 for the embed, after `marked` was cut to its lexer in 0.6.x. The headless case, with 977 bytes left, is the tight one: c2's state grows it, and size work in `chat/store.ts` and `chat/chat-client.ts` found under 400 bytes without dropping behavior, since gzip already absorbs their repetition.
+
+**Decided not to do in 0.7,** and where each piece went (ADR-0030 to ADR-0033, settled with the maintainer on 2026-11-26): live agent chat and stopping the bot after a handoff (0.9); a form that triggers an answer, finer admin metrics and the greeting following a language switch (0.8); lead values in the admin store (0.9, only if ADR-0031 is revisited); provider email adapters, prefilled form fields and bot-defined handoff reasons (Later). Testing the greeting in Firefox, WebKit, a screen reader and with reduced motion, and checking it never covers a focused control, stay in 0.7 (l2 and e1).
 
 ## 0.8: quality and reach
 
@@ -41,6 +45,11 @@ The features buyers compare against Intercom Fin and Chatbase. Planned on 2026-1
 - **Prompt versions and A/B tests** in `defineBot`.
 - **More tools:** remote MCP tools, an `httpTool` preset, `web_search` as a fallback when `file_search` finds nothing, and approving a tool call in the chat.
 - **Model settings:** reasoning effort and verbosity, passed through and checked per model, with no model IDs in the library.
+- **Attachments in your own storage:** a file store port with an S3-compatible add-on, so attachments are sent inline and kept in your own bucket instead of OpenAI Files, closing the last "kept at OpenAI" exception (see Known gaps).
+- **Follow-ups from 0.7:**
+  - a form whose submission runs a model turn, as an opt-in per form (ADR-0031 left it out of 0.7);
+  - admin metrics per conversation: handoff facts per conversation, so the resolution rate isn't a daily ratio; a better "unanswered questions" signal than the citation heuristic, such as a flag for searches that found nothing; more dashboard queries, each with its Upstash backfill (ADR-0032). They feed `askdare eval`;
+  - the greeting's text follows a language switch while it is shown, if someone asks for it (ADR-0033).
 
 ## 0.9: open
 
@@ -48,7 +57,8 @@ The features buyers compare against Intercom Fin and Chatbase. Planned on 2026-1
 - **Verify Hugging Face and local servers** for a profile each: rerun the S6b probes in `spikes/s6b-open-responses/` with a funded Hugging Face account (about 5 USD) and, for Ollama or another local server, on a machine that can run a model with tools. What to look at: errors that arrive as HTTP 200 with `response.failed`, and Hugging Face refusing `allowed_tools`. S6b couldn't run either (402 without credits; the 16 GB laptop froze), so they are not verified, not rejected.
 - **Native adapters** (Claude first, as `@boldare/askdare-anthropic`) stay an option for when a client needs them, under ADR-0026's conditions: a public `ModelGateway` port, reply options before the answer, and no voice or moderation.
 - **Interop:** expose the chat stream to AI SDK UI messages or AG-UI, so those ecosystems can use askdare's backend.
-- **Handoff adapters:** Slack, HubSpot and Zendesk.
+- **Handoff adapters and live chat:** Slack, HubSpot and Zendesk. With a person writing in the chat, a setting stops the bot after a handoff (ADR-0030), and a person's reply reaches the widget as `message.received`, so the unread badge counts it (ADR-0033).
+- **Handoff and lead records in the admin store,** beyond counts, only if ADR-0031's "askdare stores no form values" is revisited for these adapters (ADR-0032).
 
 ## 1.0: stable
 
@@ -59,16 +69,16 @@ API freeze, a support policy and a migration guide from 0.x. We cut 1.0 once two
 What 0.6 leaves open, found by its tasks and reviews. Each line names where it goes; a release that takes one moves it into its own section.
 
 **Data that still reaches or stays at OpenAI** ([own your data](docs/own-your-data.md#what-stays-at-openai)):
-- **Attachments** are stored in OpenAI Files until they expire (30 days) or the conversation is deleted, and Files isn't eligible for Zero Data Retention. This is the one exception to "nothing kept at OpenAI" with your own store and ZDR. Next step: a file store port with an S3-compatible add-on, so attachments are sent inline and kept in your own bucket. Later, after 0.7.
+- **Attachments** are stored in OpenAI Files until they expire (30 days) or the conversation is deleted, and Files isn't eligible for Zero Data Retention. This is the one exception to "nothing kept at OpenAI" with your own store and ZDR. Next step: a file store port with an S3-compatible add-on, so attachments are sent inline and kept in your own bucket. 0.8.
 - **Regional endpoints: no live run yet.** `OPENAI_BASE_URL` points every askdare client at a regional endpoint, and [Deployment](docs/deployment.md#regional-openai-endpoints) says what OpenAI's EU endpoint covers (everything askdare calls except the default Conversations API). Probed on 2026-11-26 with a Global project's key: the EU host routes, but answers 401 on responses and conversations without a residency project. The full contract and smoke run still waits for a key from an EU-residency project, which needs OpenAI's sales team ([Live testing](docs/live-testing.md#against-a-regional-endpoint)). 0.6.x, as soon as a key is available.
 - **No model request without OpenAI** until another provider path exists. 0.9 ([ADR-0026](docs/adr/0026-provider-path.md)).
 
 **Privacy and security** (low-confidence notes from the `release/0.6` security review, worth a closer look):
-- **Transcripts outlive a deleted conversation:** deleting one calls no hook, so a transcript an app keeps through `onTranscript` stays until the app sweeps it. 0.7, with the admin store ([ADR-0016](docs/adr/0016-admin.md)); an `onConversationDeleted` hook is the fallback if that slips (task c5).
-- **An answer's live stream can hand back an anonymous resume token** when the visitor signs in while it streams and it doesn't drop; the chat client stores it in the user's place, where it outlives sign-out until the next answer. `POST /resume` no longer replays it (0.6.x, h1); the rest is a chat-client fix. 0.6.x.
+- **Transcripts outlive a deleted conversation:** deleting one calls no hook, so a transcript an app keeps through `onTranscript` stays until the app sweeps it. 0.7, with the admin store ([ADR-0016](docs/adr/0016-admin.md)); an `onConversationDeleted` hook is the fallback if that slips (task c5, per ADR-0032). Transcripts an app keeps through its own `onTranscript` stay the app's to delete; the docs point to the admin store instead (d1).
+- **An answer's live stream can hand back an anonymous resume token** when the visitor signs in while it streams and it doesn't drop; the chat client stores it in the user's place, where it outlives sign-out until the next answer. `POST /resume` no longer replays it (0.6.x, h1); the rest is a chat-client fix. 0.6.x (task h6).
 
 **Smaller items:**
-- "Reconnecting…" can stay visible after a successful resume until the next text or status event. 0.7, in task c2, once b1 has made room in the React entry.
+- "Reconnecting…" can stay visible after a successful resume until the next text or status event. 0.7, in task c2.
 - A message sent at the moment a compaction is stored gets a "please wait" error (documented in [ADR-0029](docs/adr/0029-compaction-for-item-stores.md)). Later.
 - No sweep helper in core: a site's cron route deletes files with the `openai` SDK itself ([own your data](docs/own-your-data.md)). 0.7, with the admin store; ADR-0032 (task x3) decides whether core gets one.
 
@@ -83,7 +93,10 @@ Ordered when a release is planned:
 - adopting an anonymous conversation at sign-in (`reassign`, ADR-0024), and a Postgres turn log (ADR-0027);
 - right-to-left layouts;
 - business hours, copying and exporting a conversation;
-- a `CustomEvent` for GTM ([ADR-0013](docs/adr/0013-browser-events.md)).
+- a `CustomEvent` for GTM ([ADR-0013](docs/adr/0013-browser-events.md));
+- from the 0.7 decisions, each only when someone asks: ready-made email adapters (Resend, Postmark) as small add-ons ([ADR-0030](docs/adr/0030-handoff.md)); handoff reasons a bot defines itself (ADR-0030); form fields the model fills in, which first needs an ADR on prompt injection ([ADR-0031](docs/adr/0031-forms-and-leads.md)); a `POST <basePath>/sweep` route for cron services ([ADR-0032](docs/adr/0032-admin-store.md)); a greeting shown once per session even when the visitor ignores it, which would need storage before the visitor acts ([ADR-0033](docs/adr/0033-greeting-and-loader-budget.md)).
+
+Considered and not planned: price tables in the core (the app passes prices, ADR-0032); loading the greeting as a second script (ADR-0033's fallback, only if the 5.5 KB budget must shrink again); shorter console warnings in the loader (only if the budget gets tight).
 
 ## How we track work
 
@@ -113,10 +126,9 @@ New ADRs written at the same time take numbers reserved in their task files (003
 | Lane | What runs in it | Hot files |
 |---|---|---|
 | Organization | The roadmap and `tasks/` | No |
-| Hygiene | 0.6.x patches on `main`; 0.7-b1 | No |
+| Hygiene | 0.6.x patches on `main` | No |
 | CI | Workflows, visual baselines, the starter check; 0.7-e1 | No |
-| Decisions | ADRs 0030 to 0033 (0.7-x1, x2, x3), accepted or amended by the tasks that build them; 0.7-z1 | No |
-| Spikes | 0.7-x4 (S10, the loader) | No |
+| Decisions | ADRs 0030 to 0033 (written by x1 to x4, done), accepted or amended by the tasks that build them; 0.7-z1 | No |
 | Docs | 0.7-d1 | No |
 | Ports | New modules inside `packages/askdare` that no hot file reaches yet: 0.7-p1 (`handoff/`), p2 (`admin/`), p3 (`forms/`) | No |
 | Add-ons | 0.7-a1 (`askdare-postgres/src/admin/`), a2 (`askdare-upstash/src/admin/`), a3 (the new `askdare-admin` package) | No |
@@ -126,23 +138,18 @@ New ADRs written at the same time take numbers reserved in their task files (003
 **The 0.7 order.** A task starts when everything before its arrow is merged; tasks on one line run side by side.
 
 ```text
-Ready now:  x1 + x2 (together) · x3 · x4 · b1
-x1 ─────────────→ p1
-x2 ─────────────→ p3
-x3 ─────────────→ p2
-x4 ─────────────→ l1
-x1 + x2 ────────→ c1
-c1 + b1 ────────→ c2
+Ready now:  h6 (on `main`) · p1 · p2 · p3 · l1 · c1
+c1 + h6 ────────→ c2                    (h6 reaches release/0.7 by merging main)
 p2 ─────────────→ a1 · a2 · a3
 p2 ─────────────→ c5                    (not at the same time as c3: both change handler.ts)
 c2 + p1 + p3 ───→ c3
-c3 + b1 ────────→ c4
+c3 ─────────────→ c4
 c4 ─────────────→ e1
 l1 + c4 ────────→ l2
 c4 + c5 + a3 + l2 → d1
 everything ─────→ z1
 ```
 
-The critical path is x1/x2 → c1 → c2 → c3 → c4 → l2 → d1 → z1, through Core. Admin (x3 → p2 → a1 · a2 · a3 · c5) and the loader (x4 → l1) run beside it. At the widest point, six lanes work at once: Hygiene, Decisions, Spikes, Ports, Add-ons and Core.
+The decisions (x1 to x4) are done. The critical path is c1 → c2 → c3 → c4 → l2 → d1 → z1, through Core. Admin (p2 → a1 · a2 · a3 · c5) and the loader (l1) run beside it. Six tasks can start now: h6, p1, p2, p3, l1 and c1.
 
-**Branches.** 0.6.x patches land on `main` with `--no-ff` and ship as they are ready. Every 0.7 task targets the integration branch `release/0.7` until the release ([RELEASING.md](RELEASING.md)). The maintainer creates `release/0.7` from `main` before the first 0.7 pull request; `main` already has the 0.6.x patches that change `server/handler.ts`.
+**Branches.** 0.6.x patches land on `main` with `--no-ff` and ship as they are ready. Every 0.7 task targets the integration branch `release/0.7` until the release ([RELEASING.md](RELEASING.md)). `release/0.7` was created from `main` on 2026-11-26, with the 0.6.x patches that change `server/handler.ts`. Merge `main` into it again after h6, before c2 starts.
