@@ -13,7 +13,7 @@ ADR-0016 decided two stages: a console without a database, then an add-on with a
 
 The stage 1 console is also the first page askdare serves that isn't the widget, and the first that shows server configuration in a browser ([ADR-0008](0008-ui-customization-and-themes.md)). It must be served like the widget app, from memory ([ADR-0005](0005-embedding-model.md); the library reads no files at runtime), and must not cost the loader (5,016 of 5,120 bytes) or the React entry (near its 34 KB, [ADR-0028](0028-react-budget-34-kb.md)) a byte.
 
-Handoffs (ADR-0030, task x1) and forms with leads (ADR-0031, task x2) are being decided at the same time. Their records are left as placeholders here (decision 6).
+Handoffs ([ADR-0030](0030-handoff.md)) and forms with leads ([ADR-0031](0031-forms-and-leads.md)) were decided at the same time. ADR-0031 keeps askdare from storing form values, so the admin store counts handoffs and leads and keeps nothing else of them (decision 6).
 
 ## Decision
 
@@ -67,6 +67,8 @@ interface AdminTurnRecord extends AdminRecordKey {
   readonly citations: number;
   /** What output checks decided (ADR-0022), when the bot has them. */
   readonly check?: 'allowed' | 'replaced' | 'withheld' | undefined;
+  /** The turn created the conversation; counted in `AdminBotDayRow.conversations`. */
+  readonly newConversation: boolean;
 }
 
 /** One rating. A later rating of the same answer replaces it; `rating: null` removes it. */
@@ -88,8 +90,25 @@ interface AdminTranscriptRecord extends AdminRecordKey {
   readonly reason: MessageEndReason;
 }
 
-// PLACEHOLDER (ADR-0030, task x1): AdminHandoffRecord extends AdminRecordKey { … }
-// PLACEHOLDER (ADR-0031, task x2): AdminLeadRecord extends AdminRecordKey { … }, if leads are stored at all.
+/**
+ * A handoff or a lead, counted (decision 6). No conversation, visitor, reason, contact details or
+ * form values: only what a daily counter needs.
+ */
+type AdminCountEvent =
+  | {
+      readonly kind: 'handoff';
+      readonly bot: string;
+      readonly at: number;
+      readonly source: 'chat' | 'console';
+      /** ADR-0030's final state; `requested` is never counted. */
+      readonly state: 'sent' | 'saved' | 'unavailable' | 'failed' | 'limited';
+    }
+  | {
+      readonly kind: 'lead';
+      readonly bot: string;
+      readonly at: number;
+      readonly source: 'chat' | 'console';
+    };
 
 /** A day range in UTC, `from` and `to` as `YYYY-MM-DD`, both included, at most 400 days. */
 interface AdminRange {
@@ -110,11 +129,21 @@ interface AdminDayRow {
   readonly unanswered: number;
   readonly usage: ChatTokenUsage;
 }
-interface AdminRatingDayRow {
+/** Daily totals per bot, for what has no model: conversations, ratings, leads and handoffs. */
+interface AdminBotDayRow {
   readonly day: string;
   readonly bot: string;
+  readonly conversations: number;
   readonly up: number;
   readonly down: number;
+  readonly leads: number;
+  readonly handoffs: {
+    readonly sent: number;
+    readonly saved: number;
+    readonly unavailable: number;
+    readonly failed: number;
+    readonly limited: number;
+  };
 }
 
 /** One conversation in the dashboard's lists. */
@@ -144,13 +173,13 @@ export interface AdminStore {
   recordTurn(record: AdminTurnRecord, signal?: AbortSignal): Promise<void>;
   recordRating(record: AdminRatingRecord, signal?: AbortSignal): Promise<void>;
   recordTranscript(record: AdminTranscriptRecord, signal?: AbortSignal): Promise<void>;
-  // PLACEHOLDER (ADR-0030): recordHandoff?(record: AdminHandoffRecord, signal?: AbortSignal): Promise<void>;
-  // PLACEHOLDER (ADR-0031): recordLead?(record: AdminLeadRecord, signal?: AbortSignal): Promise<void>;
+  /** Increments a daily counter; nothing else is kept. */
+  count(event: AdminCountEvent, signal?: AbortSignal): Promise<void>;
 
   // Reads, by the console and the dashboard. Fixed queries, bounded by a range and a limit.
   days(range: AdminRange, signal?: AbortSignal): Promise<{
     readonly turns: readonly AdminDayRow[];
-    readonly ratings: readonly AdminRatingDayRow[];
+    readonly bots: readonly AdminBotDayRow[];
   }>;
   conversations(
     query: AdminRange & {
@@ -192,7 +221,7 @@ export interface AdminStore {
 Rules every implementation keeps, checked by `adminStoreContract` (same signature as the other suites: `(name, create, { describe, it, expect, …options })`, deleting everything it writes):
 - **Queries are fixed,** not free-form. Each is bounded by a day range and a limit of at most 100, so Upstash can answer it from counters, sorted sets and lists maintained at write time. A store may not scan its whole data set to answer one.
 - **Daily rows are aggregates with no conversation or visitor in them.** `deleteConversation` leaves them; costs over time stay right after an erasure. Only `sweep` removes them.
-- **Everything else is deleted with its conversation:** turns, ratings, transcripts, conversation summaries, and the placeholders' records once they exist.
+- **Everything else is deleted with its conversation:** turns, ratings, transcripts and conversation summaries. Counted handoffs and leads exist only in daily rows.
 - **A rating with `rating: null`** removes the stored one and adjusts the counters; a repeated rating replaces, never adds.
 - **Tokens, not money.** The store keeps token counts. Prices are the app's (`adminDashboard({ prices })`, decision 9): askdare holds no model IDs or price tables, and OpenAI changes both.
 
@@ -204,6 +233,7 @@ This refines ADR-0016's "fed by server hooks": the data is the hooks' data, but 
 
 - A write that fails is reported like a failing hook: to `onError` as `internal_error` with the error's class name, never its message.
 - Writes never delay or fail a turn. They run in the same `after()` work as the hooks.
+- Handoffs are counted once ADR-0030's outcome is final, leads when an accepted form submission is handed to `onLead`.
 - Ratings: `POST /feedback` is accepted for a bot with `widget.feedback` when either `onFeedback` or an admin store is set (today it needs `onFeedback`).
 
 ### 4. Delete, sweep and retention
@@ -229,17 +259,18 @@ A turn that finishes after its conversation was deleted may still write a turn o
 
 ### 5. What the dashboard can show from this
 
-Cost per bot, day and model (`days`, priced by the app); ratings over time (`days`); the 👎 answers with comments (`ratings`); the most expensive conversations (`conversations`, ordered by tokens); a review of a conversation, from its transcript records, or, without them, from the conversation store's `page()` (ADR-0024), which core reads for the console (decision 8).
+Cost per bot, day and model (`days`, priced by the app); ratings, new conversations, leads and handoffs by state over time (`days`); the 👎 answers with comments (`ratings`); the most expensive conversations (`conversations`, ordered by tokens); a review of a conversation, from its transcript records, or, without them, from the conversation store's `page()` (ADR-0024), which core reads for the console (decision 8).
 
-"Unanswered questions" counts completed turns with no citations from bots with knowledge, plus withheld or failed ones. It is a heuristic and the dashboard calls it one. "Resolution rate" needs handoffs and waits for ADR-0030 (decision 6).
+"Unanswered questions" counts completed turns with no citations from bots with knowledge, plus withheld or failed ones. It is a heuristic and the dashboard calls it one. "Resolution rate" is the share of new conversations without a handoff, per bot and day: one minus handoffs (any final state but `limited`) over new conversations. It is a daily ratio, not a per-conversation fact, since handoffs aren't tied to conversations in the store (decision 6).
 
-### 6. Handoff and lead records (placeholders)
+### 6. Handoffs and leads: counts only
 
-ADR-0030 and ADR-0031 are being written alongside this one. This ADR doesn't decide their records. It fixes only what any of them must follow to join the port:
-- **PLACEHOLDER (ADR-0030):** whether `onHandoff` reports are stored, as `AdminHandoffRecord` and `recordHandoff`, and what the dashboard derives from them (the resolution rate).
-- **PLACEHOLDER (ADR-0031):** whether leads are stored at all. The x2 brief leans to "askdare stores nothing itself"; if that holds, there is no `AdminLeadRecord`, and `onLead` stays the only place leads go.
+The admin store keeps **no lead values and no handoff contents** in 0.7. [ADR-0031](0031-forms-and-leads.md) decides that askdare stores no form values: they pass from the request to `onLead` or `onHandoff` and are gone. The admin store follows it.
 
-If they are stored, they extend `AdminRecordKey`, carry pseudonyms only, are written by core (decision 3), are deleted by `deleteConversation` and swept by retention, and are added to the contract suite. Whoever accepts ADR-0030 or ADR-0031 amends this section.
+- **What is kept:** a counter per bot and day of leads, and of handoffs by ADR-0030's final state (`sent`, `saved`, `unavailable`, `failed`, `limited`), through `count()`. No conversation ID, visitor pseudonym, reason, trigger, form name, contact details or values.
+- **A handoff saved as a message** (ADR-0031's `source.kind: 'handoff'`) counts as a handoff in state `saved`, not as a lead. Leads count only forms the model offered, so one submission is counted once.
+- **Erasure:** the counters hold no personal data, so `deleteConversation` leaves them, and `sweep` removes them with the other daily rows (400 days).
+- **Apps that want the details** keep them through their own `onLead` and `onHandoff`, which stay the place leads and requests go.
 
 ### 7. Stage 1: the console route
 
@@ -306,6 +337,18 @@ Added to ADR-0006 when the tasks land; names final there:
 - **The add-ons:** `postgresAdminStore`, `upstashAdminStore` and `adminDashboard`.
 - **The environment:** `ADMIN_SECRET`.
 
+## Settled with the maintainer (2026-11-26)
+
+The questions left open in the first draft, all settled as recommended:
+- **Core writes the records** from the reports the hooks get (decision 3); `@boldare/askdare-admin` wires no hooks.
+- **The dashboard plugs into the console** (decision 9), so `AdminDashboard` is a public core type.
+- **A new `ADMIN_SECRET`** for the secret sign-in, not a token derived from `CHAT_SECRET` (decision 8).
+- **Raw conversation IDs** key the records on the server; the browser gets sealed references.
+- **The numbers:** 30-day record retention, 400 days for daily rows, a 30 KB console budget, sign-ins limited to 5 a minute and 20 an hour.
+- **"Unanswered questions"** is the heuristic of decision 5.
+- **`sweep()` on the returned handlers** (decision 4), with the cron route importing the handlers from a module of its own.
+- **Leads aren't stored** in 0.7, consistent with ADR-0031: the admin store counts leads and handoffs per bot and day, with no values (decision 6).
+
 ## Consequences
 
 - **The "transcripts outlive a deleted conversation" gap closes** for transcripts kept in the admin store, once c5 ships. Transcripts an app keeps through its own `onTranscript` are still the app's to delete; the docs point those apps at `admin.transcripts`. The `onConversationDeleted` fallback of ADR-0016 is not needed unless the admin store slips past 0.7.
@@ -324,5 +367,6 @@ Added to ADR-0006 when the tasks land; names final there:
 - **A `POST <basePath>/sweep` route** for cron services to call. A new authenticated public endpoint, while the app's cron route already has its own secret and a function call is enough.
 - **Using `CHAT_SECRET` (or `doctor`'s token) to sign in.** `CHAT_SECRET` typed into a browser would put every token's key there; `doctor`'s token needs the CLI.
 - **Keying records by the conversation's pseudonym**, as `onUsage` reports it. Reviews and deletes need the store's real ID, and core has it; the browser never sees it (decision 8).
+- **Storing lead values or handoff records in the admin store,** so the dashboard could list them. It would contradict ADR-0031's "askdare stores no values" and put contact details in a second place to erase. Apps keep them through `onLead` and `onHandoff`.
 - **Storing money instead of tokens.** It would put a price table in the library and make history wrong whenever prices change.
 - **Free-form queries (SQL in the add-on).** Postgres could answer them, Upstash couldn't, and the contract suite couldn't hold both to one behaviour.

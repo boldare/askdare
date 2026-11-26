@@ -35,7 +35,7 @@ Short records of decisions that are expensive to reverse. One decision per file,
 | [0029](0029-compaction-for-item-stores.md) | Compaction for conversations in our own store | Accepted (spike S9, task 4) |
 | [0030](0030-handoff.md) | Handoff to a human | Proposed |
 | [0031](0031-forms-and-leads.md) | Forms in the chat and leads | Proposed |
-| [0032](0032-admin-store.md) | The admin console and the `AdminStore` port | Proposed (task x3; built by p2, a1, a2, a3, c5) |
+| [0032](0032-admin-store.md) | The admin console and the `AdminStore` port | Proposed |
 
 ## Template
 
