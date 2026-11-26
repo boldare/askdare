@@ -53,7 +53,7 @@ The database user that migrates needs the right to create tables, and for the `k
 
 ## Conversations
 
-`postgresConversations()` keeps every conversation in your database instead of at OpenAI. Turns then replay the stored items with `store: false`, so nothing of the conversation stays at OpenAI beyond its 30-day abuse monitoring of requests: zero-data-retention organisations and EU-only setups can use askdare.
+`postgresConversations()` keeps every conversation in your database instead of at OpenAI. Turns then replay the stored items with `store: false`, so nothing of the conversation stays at OpenAI beyond its 30-day abuse monitoring of requests: zero-data-retention organisations can use askdare, and conversations stay in your database's region. OpenAI still processes every request, and attachments stay in OpenAI Files ([what stays at OpenAI](https://askdare.vercel.app/docs/own-your-data#what-stays-at-openai)).
 
 ```ts
 // app/api/chat/[...askdare]/route.ts
