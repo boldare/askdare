@@ -1,4 +1,5 @@
 import type { ErrorCode, ProtocolEvent } from '../protocol/events';
+import type { ChatForm } from '../protocol/forms';
 import type { HistoryResponse } from '../protocol/history';
 import { decodeEvent, SseParser } from '../protocol/sse';
 import { parseHistory } from '../protocol/validate';
@@ -160,22 +161,34 @@ export class ChatClient {
   }
 
   /**
-   * The bot's public widget settings in another language, from `GET /config/<bot>`, with the
-   * language its texts are written in; undefined when they can't be read. Never throws.
+   * The bot's public widget settings and forms in another language, from `GET /config/<bot>`,
+   * with the language its texts are written in; undefined when they can't be read. Never throws.
    */
-  async fetchWidget(
-    locale: string,
-  ): Promise<{ readonly widget: ChatWidget; readonly language: string } | undefined> {
+  async fetchWidget(locale: string): Promise<
+    | {
+        readonly widget: ChatWidget;
+        readonly language: string;
+        readonly forms?: readonly ChatForm[] | undefined;
+      }
+    | undefined
+  > {
     const query = new URLSearchParams({ lang: locale });
     try {
       const response = await this.#fetch(
         `${this.#options.basePath}/config/${encodeURIComponent(this.#botId)}?${query}`,
       );
       if (!response.ok) return undefined;
-      const body = (await response.json()) as { readonly widget?: unknown } | null;
+      const body = (await response.json()) as {
+        readonly widget?: unknown;
+        readonly forms?: unknown;
+      } | null;
       if (!isWidget(body?.widget)) return undefined;
       const language = response.headers.get('content-language');
-      return { widget: body.widget, language: language || body.widget.locale };
+      return {
+        widget: body.widget,
+        language: language || body.widget.locale,
+        forms: Array.isArray(body.forms) ? (body.forms as readonly ChatForm[]) : undefined,
+      };
     } catch {
       return undefined;
     }
@@ -341,6 +354,36 @@ export class ChatClient {
     }
   }
 
+  /**
+   * Posts to `/handoff` (the visitor's button, ADR-0030) or `/forms` (a form's values, ADR-0031)
+   * with the conversation's resume token. Resolves to the status (0 when nothing came back) and the
+   * JSON body, with the message to show when the request failed. Never throws.
+   */
+  async post(
+    path: '/handoff' | '/forms',
+    values: Readonly<Record<string, unknown>> = {},
+  ): Promise<{ readonly status: number; readonly body?: unknown; readonly error?: string }> {
+    try {
+      const response = await this.#authorized('POST', path, () =>
+        json({
+          botId: this.#options.botId,
+          resumeToken: this.#options.storage.get(this.#resumeKey()),
+          ...values,
+        }),
+      );
+      const read = response.json().catch(() => undefined);
+      return {
+        status: response.status,
+        body: await read,
+        ...(response.ok
+          ? {}
+          : { error: (await this.#errorFromResponse(response, false, read)).message }),
+      };
+    } catch (error) {
+      return { status: 0, error: this.#failure(error, 'upstream_error').message };
+    }
+  }
+
   /** Uploads one file for the next message. The server checks its type and size again. */
   async upload(file: Blob, name: string, signal?: AbortSignal): Promise<UploadResult> {
     try {
@@ -409,7 +452,8 @@ export class ChatClient {
   /**
    * Sends a message and reports its answer's events. A stream that ends before the answer does is
    * resumed after its last event (ADR-0027): up to three attempts in a row that bring nothing new,
-   * with backoff, and `onRetry` called before each. Resolves to the error to show when the answer
+   * with backoff, and `onRetry` called with true before each and with false once one is answered,
+   * before its events. Resolves to the error to show when the answer
    * was lost on the way, which the caller may still find in the history; other problems arrive as
    * `error` events.
    */
@@ -417,7 +461,7 @@ export class ChatClient {
     message: OutgoingMessage,
     onEvent: (event: ProtocolEvent) => void,
     signal?: AbortSignal,
-    onRetry?: () => void,
+    onRetry?: (reconnecting: boolean) => void,
   ): Promise<ErrorEvent | undefined> {
     const context = message.context !== this.#sentContext ? message.context : undefined;
     const { botId } = this.#options;
@@ -465,6 +509,8 @@ export class ChatClient {
           onEvent(this.#error('bot_unavailable', 'error.updated'));
           return;
         }
+        // The resume was taken: the answer goes on, so the chat stops saying it reconnects.
+        if (answer) onRetry?.(false);
         const stalled = await this.#readStream(
           response.body,
           key,
@@ -498,7 +544,7 @@ export class ChatClient {
       if (seq > from) tries = 0;
       // Without the answer's ID nothing can be resumed.
       if (!answer || ++tries > 3 || ++resumes > 10) return lost;
-      onRetry?.();
+      onRetry?.(true);
       await pause(500 * 4 ** (tries - 1), signal);
       if (signal?.aborted) return;
       const messageId = answer;
@@ -633,10 +679,15 @@ export class ChatClient {
     return this.#error(code, 'error.connection');
   }
 
-  async #errorFromResponse(response: Response, forgetMissing = true): Promise<ErrorEvent> {
+  /** The error a refused request shows; `read` is its body, when the caller has read it already. */
+  async #errorFromResponse(
+    response: Response,
+    forgetMissing = true,
+    read: Promise<unknown> = response.json(),
+  ): Promise<ErrorEvent> {
     let body: ErrorBody = {};
     try {
-      body = (await response.json()) as ErrorBody;
+      body = ((await read) ?? {}) as ErrorBody;
     } catch {
       // Not JSON: fall through to a generic error.
     }

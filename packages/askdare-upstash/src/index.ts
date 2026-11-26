@@ -1,6 +1,8 @@
 import type { CounterHit, RateLimitStore } from '@boldare/askdare';
-import { Redis } from '@upstash/redis';
+import { lazyClient } from './client';
 
+export type { UpstashAdminStoreOptions } from './admin/store';
+export { upstashAdminStore } from './admin/store';
 export type { UpstashTurnLogOptions } from './turn-log';
 export { upstashTurnLog } from './turn-log';
 
@@ -45,22 +47,7 @@ return {count, ttl}
  */
 export function upstashStore(options: UpstashStoreOptions = {}): RateLimitStore {
   const prefix = options.prefix ?? 'askdare:';
-  let redis = options.redis;
-  const client = (): RedisEval => {
-    if (!redis) {
-      // A database from the Upstash console has the UPSTASH_ names; one from the Vercel Marketplace, KV_.
-      const env = process.env;
-      const url = options.url ?? env['UPSTASH_REDIS_REST_URL'] ?? env['KV_REST_API_URL'];
-      const token = options.token ?? env['UPSTASH_REDIS_REST_TOKEN'] ?? env['KV_REST_API_TOKEN'];
-      if (!url || !token) {
-        throw new Error(
-          '[askdare-upstash] Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN, or pass a client.',
-        );
-      }
-      redis = new Redis({ url, token });
-    }
-    return redis;
-  };
+  const client = lazyClient(options);
 
   return {
     shared: true,

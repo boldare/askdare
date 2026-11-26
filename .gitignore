@@ -41,3 +41,6 @@ release/
 
 # Vercel CLI project link
 .vercel/
+packages/askdare-admin/LICENSE
+packages/askdare-admin/.assets/
+packages/askdare-admin/src/generated/

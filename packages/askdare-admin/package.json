@@ -1,0 +1,62 @@
+{
+  "name": "@boldare/askdare-admin",
+  "version": "0.0.0",
+  "description": "The admin dashboard for @boldare/askdare: cost, ratings, unanswered questions, leads, handoffs and conversation reviews, inside the admin console.",
+  "license": "MIT",
+  "author": {
+    "name": "Boldare",
+    "url": "https://www.boldare.com"
+  },
+  "homepage": "https://github.com/boldare/askdare/tree/main/packages/askdare-admin#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/boldare/askdare.git",
+    "directory": "packages/askdare-admin"
+  },
+  "bugs": "https://github.com/boldare/askdare/issues",
+  "keywords": [
+    "askdare",
+    "admin",
+    "dashboard",
+    "chatbot"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build:assets": "vite build -c vite.config.ts && node scripts/inline-assets.mjs",
+    "build": "pnpm run build:assets && tsdown && node -e \"require('node:fs').copyFileSync('../../LICENSE', 'LICENSE')\"",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.ui.json",
+    "check:package": "publint --strict && attw --pack . --profile esm-only && node ../../scripts/check-dts-no-leak.mjs dist"
+  },
+  "peerDependencies": {
+    "@boldare/askdare": "workspace:^"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@boldare/askdare": "workspace:^",
+    "preact": "11.2.0",
+    "publint": "^0.3.25",
+    "tsdown": "^0.23.7",
+    "vite": "^8.3.8"
+  }
+}

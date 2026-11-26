@@ -51,12 +51,13 @@ A library runs inside its users' apps, so every supported combination of version
     - `@boldare/askdare-upstash`: `upstashStore`, `UpstashStoreOptions`, `RedisEval`, `upstashTurnLog` and `UpstashTurnLogOptions`;
     - `@boldare/askdare-postgres`: `postgresConversations`, `pgvectorIndex` and `PgvectorIndexOptions`, `migrate` with `MigrateOptions`, `MigrateReport` and `AppliedMigration`, the connection types `PostgresConnectionOptions`, `PostgresPool`, `PostgresPoolClient` and `PostgresQueryResult`, the `askdare-postgres migrate [part…]` command and its part names (`conversations`, `knowledge`). The tables are not API: they change only through `migrate`, and their names start with `askdare_`;
     - `@boldare/askdare-otel`: `otelUsage` and `OtelUsageOptions`;
+    - `@boldare/askdare-admin` (ADR-0032): `adminDashboard`, `AdminDashboardOptions`, `AdminPrices` and `AdminModelPrice`. The dashboard's handler actions, their JSON and its browser app are internal: core and the add-on change them together, behind `AdminDashboard`;
   - the `askdare` commands and their options (`init`, `doctor`, `kb sync` with `--index`, `--embedding-model` and `--dimensions` and their variables `ASKDARE_EMBEDDING_MODEL` and `ASKDARE_EMBEDDING_DIMENSIONS`, `add ui`), but not their printed output or the `/doctor` report behind `doctor`. The files `add ui` copies are the user's code from then on: their content is not API;
 
   Everything else is internal.
 - **Guards** (published for users in [Support](../support.md)):
   - a `.d.ts` snapshot (`packages/askdare/api/askdare.api.txt`) fails the check when the published types change, until it is updated on purpose with a changeset; a consumer project type-checks the published `.d.ts` with TypeScript 5.9, 6.0 and 7.0;
-  - size budgets fail the build: loader 5 KB, chat app 50 KB, its styles 8 KB, each preset's fonts 82 KB, and `@boldare/askdare/react` 32 KB in an app's bundle, or 12 KB for a page that uses only `Root` and `useChat` (gzipped);
+  - size budgets fail the build: loader 5 KB, chat app 50 KB, its styles 8 KB, each preset's fonts 82 KB, and `@boldare/askdare/react` 32 KB in an app's bundle, or 12 KB for a page that uses only `Root` and `useChat` (gzipped); the admin dashboard's script 12 KB and its styles 4 KB (gzipped, in `@boldare/askdare-admin`);
   - a nightly canary runs the checks and browser tests against `next@canary` and `openai@latest` (with the mocked OpenAI API);
   - a daily live smoke test runs on a cheap model in a dedicated, spend-capped OpenAI project, so a retired model or a changed API fails there.
 

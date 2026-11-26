@@ -625,7 +625,7 @@ export type { EmbedChatConfig, EmbedRootProps };
 
 // ==== index.d.ts ====
 import { A as AdminDashboard, C as PresetName, D as HumanChallenge, E as VisitorIdentity, M as AdminDashboardRequest, O as HumanCheckContext, S as defineTheme, T as ThemeVariants, _ as ToolContext, a as BotLimits, b as ColorScheme, c as VoiceConfig, d as GuardContext, f as GuardHook, g as Tool, h as ModerationConfig, i as BotHandle, j as AdminDashboardHandler, k as HumanVerifier, l as WidgetConfig, m as GuardrailOptions, n as BotContext, o as BotSecurity, p as GuardVerdict, r as BotDefinition, s as KnowledgeConfig, t as AttachmentConfig, u as defineBot, v as ToolDefinition, w as ThemeTokens, x as ThemeDefinition, y as defineTool } from "./define-bot.js";
-import { $ as StoredPart, A as AdminStore, B as ERROR_CODES, C as AdminHandoffState, D as AdminRatingRecord, E as AdminRatingQuery, F as AdminTurnRecord, G as ConversationInfo, J as ConversationStore, K as ConversationOwner, M as AdminSweepOptions, N as AdminTranscriptCitation, O as AdminRecordKey, P as AdminTranscriptRecord, Q as StoredItem, S as AdminHandoffCounts, T as AdminRange, U as CompactionModel, V as ErrorCode, W as ConversationContext, X as PositionedItem, Y as ConversationStoreCheck, Z as StoredCitation, _ as AdminConversationQuery, a as Embedder, b as AdminDayRow, c as KnowledgeCheck, d as KnowledgeIndex, et as VersionConflictError, f as Passage, g as AdminCheckOutcome, h as AdminBotDayRow, i as RateLimitStore, j as AdminStoredRating, k as AdminSource, l as KnowledgeChunk, m as SyncReport, n as TurnEventLog, o as Embeddings, p as SearchOptions, q as ConversationPage, r as CounterHit, s as KnowledgeCallOptions, t as TurnEvent, u as KnowledgeDocument, v as AdminConversationSummary, w as AdminPage, x as AdminDays, y as AdminCountEvent } from "./turn-log.js";
+import { $ as StoredItem, A as AdminStore, B as ERROR_CODES, C as AdminHandoffState, D as AdminRatingRecord, E as AdminRatingQuery, F as AdminTurnRecord, G as ConversationContext, J as ConversationPage, K as ConversationInfo, M as AdminSweepOptions, N as AdminTranscriptCitation, O as AdminRecordKey, P as AdminTranscriptRecord, Q as StoredCitation, S as AdminHandoffCounts, T as AdminRange, V as ErrorCode, W as CompactionModel, X as ConversationStoreCheck, Y as ConversationStore, Z as PositionedItem, _ as AdminConversationQuery, a as Embedder, b as AdminDayRow, c as KnowledgeCheck, d as KnowledgeIndex, et as StoredPart, f as Passage, g as AdminCheckOutcome, h as AdminBotDayRow, i as RateLimitStore, j as AdminStoredRating, k as AdminSource, l as KnowledgeChunk, m as SyncReport, n as TurnEventLog, o as Embeddings, p as SearchOptions, q as ConversationOwner, r as CounterHit, s as KnowledgeCallOptions, t as TurnEvent, tt as VersionConflictError, u as KnowledgeDocument, v as AdminConversationSummary, w as AdminPage, x as AdminDays, y as AdminCountEvent } from "./turn-log.js";
 /**
  * Admin records in this process's memory, for tests and local development. Every instance has its
  * own, and a restart forgets them, so production warns.
@@ -835,8 +835,8 @@ export declare function turnstile(options: TurnstileOptions): HumanVerifier;
 export { type AdminBotDayRow, type AdminCheckOutcome, type AdminConversationQuery, type AdminConversationSummary, type AdminCountEvent, type AdminDashboard, type AdminDashboardHandler, type AdminDashboardRequest, type AdminDayRow, type AdminDays, type AdminHandoffCounts, type AdminHandoffState, type AdminPage, type AdminRange, type AdminRatingQuery, type AdminRatingRecord, type AdminRecordKey, type AdminSource, type AdminStore, type AdminStoredRating, type AdminSweepOptions, type AdminTranscriptCitation, type AdminTranscriptRecord, type AdminTurnRecord, type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type CompactionModel, type ConversationContext, type ConversationInfo, type ConversationOwner, type ConversationPage, type ConversationStore, type ConversationStoreCheck, type CounterHit, ERROR_CODES, type Embedder, type Embeddings, type ErrorCode, type Form, type FormDefinition, type FormField, type FormFieldType, type FormText, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type HumanChallenge, type HumanCheckContext, type HumanVerifier, type KnowledgeCallOptions, type KnowledgeCheck, type KnowledgeChunk, type KnowledgeConfig, type KnowledgeDocument, type KnowledgeIndex, type MemoryTurnLog, type MemoryTurnLogOptions, type ModerationConfig, type OpenAIEmbedderOptions, type Passage, type PositionedItem, type PresetName, type RateLimitStore, type SearchOptions, type StoredCitation, type StoredItem, type StoredPart, type SyncReport, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type TurnEvent, type TurnEventLog, type TurnstileOptions, VersionConflictError, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
 
 // ==== next.d.ts ====
+import { A as AdminStore, H as MessageEndReason, I as ChatCompactionReport, L as ChatTokenUsage, R as ChatToolCallReport, U as ChatForm, V as ErrorCode, Y as ConversationStore, i as RateLimitStore, n as TurnEventLog, z as ChatUsageReport } from "./turn-log.js";
 import { A as AdminDashboard, C as PresetName, E as VisitorIdentity, T as ThemeVariants, i as BotHandle } from "./define-bot.js";
-import { A as AdminStore, H as MessageEndReason, I as ChatCompactionReport, J as ConversationStore, L as ChatTokenUsage, R as ChatToolCallReport, V as ErrorCode, i as RateLimitStore, n as TurnEventLog, z as ChatUsageReport } from "./turn-log.js";
 import "zod";
 /** What a visitor may attach, as the bot allows it. */
 interface ChatAttachments {
@@ -900,6 +900,11 @@ interface ChatConfig {
    * session starts, rendered by `HumanCheck`.
    */
   readonly humanCheck?: ChatHumanCheck;
+  /**
+   * The bot's forms in the visitor's language (ADR-0031), found by the `name` of a message's form.
+   * Absent when the bot has none.
+   */
+  readonly forms?: readonly ChatForm[];
 }
 /** A human check the chat must pass before it connects; public, the site key only. */
 interface ChatHumanCheck {
@@ -1356,8 +1361,16 @@ export type { ChatAttachments, ChatCompactionReport, ChatConfig, ChatConfigOptio
 
 // ==== react.d.ts ====
 
-import { a as ToolResults, c as ChatConfig, d as ChatWidget, i as ToolRenderers, l as ChatHumanCheck, m as ThemeVariants, n as LinkProps, o as ToolResultsProps, p as PresetName, r as ToolRendererProps, s as ChatAttachments, t as Link, u as ChatStyles } from "./tool-results.js";
+import { a as ToolResults, c as ChatConfig, d as ChatWidget, g as FormPurpose, h as FormFieldErrors, i as ToolRenderers, l as ChatHumanCheck, m as ThemeVariants, n as LinkProps, o as ToolResultsProps, p as PresetName, r as ToolRendererProps, s as ChatAttachments, t as Link, u as ChatStyles } from "./tool-results.js";
 import { ComponentProps, ComponentType, NamedExoticComponent, ReactElement, ReactNode, Ref } from "react";
+/**
+ * Where a handoff stands. `requested` while it runs or while its form waits; the others are final:
+ * `sent` (delivered), `saved` (the form's values went to `onLead` instead), `unavailable` (nobody
+ * was available and there was no form), `failed` (the delivery failed and nothing saved it) and
+ * `limited` (a handoff limit refused it).
+ */
+declare const HANDOFF_STATES: readonly ["requested", "sent", "saved", "unavailable", "failed", "limited"];
+type HandoffState = (typeof HANDOFF_STATES)[number];
 /** One tool call's payload, as the `tool.ui` event and the history carry it. */
 interface ToolUi {
   /** The call, as in `tool.status`. Opaque. */
@@ -1459,6 +1472,35 @@ interface ChatMessage {
    * order, at most four: plain JSON for the components registered with `toolRenderers`.
    */
   readonly ui?: readonly ToolUi[] | undefined;
+  /**
+   * A handoff to a person recorded after this answer (ADR-0030): `requested` while it runs or its
+   * form waits, then its final state. Shown as plain text.
+   */
+  readonly handoff?: HandoffState | undefined;
+  /** Forms shown under this answer, in order (ADR-0031); each stays until it is sent or expires. */
+  readonly forms?: readonly MessageForm[] | undefined;
+}
+/**
+ * A form under an answer (ADR-0031). Its fields, title and texts are in `ChatConfig.forms`, found by
+ * `name`. `open` takes values, `submitting` while they go out, then `sent` (show its `done` text,
+ * or the message's handoff state) or `expired` (its handle is no longer valid).
+ */
+interface MessageForm {
+  /** Opaque, unique in the conversation. */
+  readonly callId: string;
+  readonly name: string;
+  /** Picks the texts around the form: a lead, a handoff's contact details, or a message left. */
+  readonly purpose: FormPurpose;
+  readonly state: "open" | "submitting" | "sent" | "expired";
+  /** What `actions.submitForm` takes, while the form is open. */
+  readonly handle?: string | undefined;
+  /**
+   * The fields the server refused at the last try, each with an error key (`error.form.required`,
+   * `error.form.email`…) to look up with `t`. A key the chat doesn't know is a generic error.
+   */
+  readonly errors?: FormFieldErrors | undefined;
+  /** Why the last try failed as a whole, such as a lost connection, in the visitor's language. */
+  readonly error?: string | undefined;
 }
 type Rating = "up" | "down";
 /** A file picked for the next message. */
@@ -1672,6 +1714,18 @@ interface ChatActions {
    * asks what went wrong (`state.commenting`); pass the answer as `comment` with the same rating.
    */
   rate(messageId: string, rating: Rating | null, comment?: string): Promise<void>;
+  /**
+   * Asks for a person (ADR-0030), for the latest answer: its `handoff` is `requested` while the
+   * request runs, then the final state, or `requested` with a form to fill in under it first.
+   * Does nothing before the first answer or while a handoff runs.
+   */
+  handoff(): Promise<void>;
+  /**
+   * Sends the values of an open form by its `handle` (ADR-0031): text by field name, `true` or
+   * `false` for a `consent`. The form is `submitting`, then `sent`, or `open` again with `errors`
+   * per field or an `error`.
+   */
+  submitForm(handle: string, values: Readonly<Record<string, string | boolean>>): Promise<void>;
   /** Closes the question after 👎 without a comment. */
   dismissComment(): void;
   /** Moves keyboard focus to the message field, wherever focus is now. */
@@ -1907,7 +1961,7 @@ export declare function Root({ config, identity, context, greeting, starters, on
 export { type AttachButtonProps, type Chat, type ChatActions, type ChatAttachments, type ChatBot, type ChatConfig, type ChatEvent, type ChatEventListener, type ChatEventType, type ChatHumanCheck, type ChatMessage, type ChatPhase, type ChatState, type ChatStyles, type ChatWidget, type Citation, type CitationsProps, type ComposerProps, type DefaultChatComponents, type DefaultChatProps, type DictateButtonProps, type Dictation, type DisclosureProps, type Earlier, type ErrorMessageProps, type FeedbackButtonProps, type FilesProps, type Frame, type HumanCheckProps, type InputProps, Link, type LinkProps, type LoadEarlierProps, type MarkdownProps, type MessageFilesProps, type MessageListProps, type MessageProps, type MessageTextProps, type MessagesProps, type PanelProps, type PendingFile, type QuickRepliesProps, type Rating, type RecorderProps, type RootProps, type SendProps, type SentFile, type StatusProps, type ThemeProps, type ToolRendererProps, type ToolRenderers, ToolResults, type ToolResultsProps, type ToolUi, type Translate };
 
 // ==== testing.d.ts ====
-import { A as AdminStore, J as ConversationStore, a as Embedder, d as KnowledgeIndex, i as RateLimitStore, n as TurnEventLog, u as KnowledgeDocument } from "./turn-log.js";
+import { A as AdminStore, Y as ConversationStore, a as Embedder, d as KnowledgeIndex, i as RateLimitStore, n as TurnEventLog, u as KnowledgeDocument } from "./turn-log.js";
 /**
  * The parts of a test runner the contract suites use. Vitest's and Jest's `describe`, `it` and
  * `expect` fit, so `@boldare/askdare/testing` depends on no runner.
@@ -2073,6 +2127,51 @@ export type { AdminStoreContractOptions, ContractExpect, ContractRunner, Convers
 // ==== tool-results.d.ts ====
 
 import { ComponentProps, ComponentType, ReactElement } from "react";
+/** The closed set of field types (ADR-0031, point 1). */
+declare const FORM_FIELD_TYPES: readonly ["text", "email", "phone", "select", "textarea", "consent"];
+type FormFieldType = (typeof FORM_FIELD_TYPES)[number];
+/** Why a form is shown: a lead, a handoff's contact details, or a message left for nobody. */
+declare const FORM_PURPOSES: readonly ["lead", "handoff", "message"];
+type FormPurpose = (typeof FORM_PURPOSES)[number];
+/** One option of a `select`. */
+interface ChatFormOption {
+  /** Sent back in `POST /forms`. */
+  readonly value: string;
+  readonly label: string;
+}
+/** One field, in the visitor's language. Every text renders as plain text. */
+interface ChatFormField {
+  readonly name: string;
+  readonly type: FormFieldType;
+  readonly label: string;
+  /** For `consent`, the box must be ticked. */
+  readonly required: boolean;
+  /** `text`, `email`, `phone` and `textarea` only. */
+  readonly placeholder?: string | undefined;
+  /** `select` only, and always there: 2 to 10 options with distinct values. */
+  readonly options?: readonly ChatFormOption[] | undefined;
+  /** `text`, `email`, `phone` and `textarea` only; at most the type's own limit. */
+  readonly maxLength?: number | undefined;
+}
+/**
+ * A form as the bot's public configuration describes it (`GET /config/<bot>` and the chat
+ * document), in the visitor's language. The `form` event and history name it by `name`.
+ */
+interface ChatForm {
+  readonly name: string;
+  readonly title: string;
+  /** 1 to 8, distinct names. */
+  readonly fields: readonly ChatFormField[];
+  /** The submit button. Absent: the chat's own `form.submit` text. */
+  readonly submit?: string | undefined;
+  /** Shown in place of the form once it is sent. Absent: the chat's own `form.done` text. */
+  readonly done?: string | undefined;
+}
+/**
+ * With `400` `invalid_input`, the error of `POST /forms` names the refused fields in `fields`,
+ * each with one error key. It never echoes a value.
+ */
+type FormFieldErrors = Readonly<Record<string, string>>;
 declare const PRESET_NAMES: readonly ["halo", "aura", "sage", "care"];
 type PresetName = (typeof PRESET_NAMES)[number];
 /** Component variants a preset picks; each becomes a `data-ask-*` attribute on the document. */
@@ -2149,6 +2248,11 @@ interface ChatConfig {
    * session starts, rendered by `HumanCheck`.
    */
   readonly humanCheck?: ChatHumanCheck;
+  /**
+   * The bot's forms in the visitor's language (ADR-0031), found by the `name` of a message's form.
+   * Absent when the bot has none.
+   */
+  readonly forms?: readonly ChatForm[];
 }
 /** A human check the chat must pass before it connects; public, the site key only. */
 interface ChatHumanCheck {
@@ -2210,7 +2314,7 @@ type LinkProps = Omit<ComponentProps<"a">, "href" | "target" | "rel"> & {
  * the text alone.
  */
 declare function Link({ href, children, ...props }: LinkProps): ReactElement;
-export { ToolResults as a, ChatConfig as c, ChatWidget as d, EmbedChatConfig as f, ToolRenderers as i, ChatHumanCheck as l, ThemeVariants as m, LinkProps as n, ToolResultsProps as o, PresetName as p, ToolRendererProps as r, ChatAttachments as s, Link as t, ChatStyles as u };
+export { ToolResults as a, ChatConfig as c, ChatWidget as d, EmbedChatConfig as f, FormPurpose as g, FormFieldErrors as h, ToolRenderers as i, ChatHumanCheck as l, ThemeVariants as m, LinkProps as n, ToolResultsProps as o, PresetName as p, ToolRendererProps as r, ChatAttachments as s, Link as t, ChatStyles as u };
 
 // ==== turn-log.d.ts ====
 /**
@@ -2413,9 +2517,46 @@ interface ConversationStore {
  */
 declare const HANDOFF_STATES: readonly ["requested", "sent", "saved", "unavailable", "failed", "limited"];
 type HandoffState = (typeof HANDOFF_STATES)[number];
+/** The closed set of field types (ADR-0031, point 1). */
+declare const FORM_FIELD_TYPES: readonly ["text", "email", "phone", "select", "textarea", "consent"];
+type FormFieldType = (typeof FORM_FIELD_TYPES)[number];
 /** Why a form is shown: a lead, a handoff's contact details, or a message left for nobody. */
 declare const FORM_PURPOSES: readonly ["lead", "handoff", "message"];
 type FormPurpose = (typeof FORM_PURPOSES)[number];
+/** One option of a `select`. */
+interface ChatFormOption {
+  /** Sent back in `POST /forms`. */
+  readonly value: string;
+  readonly label: string;
+}
+/** One field, in the visitor's language. Every text renders as plain text. */
+interface ChatFormField {
+  readonly name: string;
+  readonly type: FormFieldType;
+  readonly label: string;
+  /** For `consent`, the box must be ticked. */
+  readonly required: boolean;
+  /** `text`, `email`, `phone` and `textarea` only. */
+  readonly placeholder?: string | undefined;
+  /** `select` only, and always there: 2 to 10 options with distinct values. */
+  readonly options?: readonly ChatFormOption[] | undefined;
+  /** `text`, `email`, `phone` and `textarea` only; at most the type's own limit. */
+  readonly maxLength?: number | undefined;
+}
+/**
+ * A form as the bot's public configuration describes it (`GET /config/<bot>` and the chat
+ * document), in the visitor's language. The `form` event and history name it by `name`.
+ */
+interface ChatForm {
+  readonly name: string;
+  readonly title: string;
+  /** 1 to 8, distinct names. */
+  readonly fields: readonly ChatFormField[];
+  /** The submit button. Absent: the chat's own `form.submit` text. */
+  readonly submit?: string | undefined;
+  /** Shown in place of the form once it is sent. Absent: the chat's own `form.done` text. */
+  readonly done?: string | undefined;
+}
 /** Stable error codes sent to clients. The accompanying message never contains internals. */
 declare const ERROR_CODES: readonly ["invalid_input", "unauthorized", "session_expired", "not_found", "rate_limited", "budget_exceeded", "bot_unavailable", "content_blocked", "timeout", "upstream_error", "internal_error"];
 type ErrorCode = (typeof ERROR_CODES)[number];
@@ -2995,4 +3136,4 @@ interface TurnEventLog {
   /** True for logs that are shared across server instances. */
   readonly shared: boolean;
 }
-export { StoredPart as $, AdminStore as A, ERROR_CODES as B, AdminHandoffState as C, AdminRatingRecord as D, AdminRatingQuery as E, AdminTurnRecord as F, ConversationInfo as G, MessageEndReason as H, ChatCompactionReport as I, ConversationStore as J, ConversationOwner as K, ChatTokenUsage as L, AdminSweepOptions as M, AdminTranscriptCitation as N, AdminRecordKey as O, AdminTranscriptRecord as P, StoredItem as Q, ChatToolCallReport as R, AdminHandoffCounts as S, AdminRange as T, CompactionModel as U, ErrorCode as V, ConversationContext as W, PositionedItem as X, ConversationStoreCheck as Y, StoredCitation as Z, AdminConversationQuery as _, Embedder as a, AdminDayRow as b, KnowledgeCheck as c, KnowledgeIndex as d, VersionConflictError as et, Passage as f, AdminCheckOutcome as g, AdminBotDayRow as h, RateLimitStore as i, AdminStoredRating as j, AdminSource as k, KnowledgeChunk as l, SyncReport as m, TurnEventLog as n, Embeddings as o, SearchOptions as p, ConversationPage as q, CounterHit as r, KnowledgeCallOptions as s, TurnEvent as t, KnowledgeDocument as u, AdminConversationSummary as v, AdminPage as w, AdminDays as x, AdminCountEvent as y, ChatUsageReport as z };
+export { StoredItem as $, AdminStore as A, ERROR_CODES as B, AdminHandoffState as C, AdminRatingRecord as D, AdminRatingQuery as E, AdminTurnRecord as F, ConversationContext as G, MessageEndReason as H, ChatCompactionReport as I, ConversationPage as J, ConversationInfo as K, ChatTokenUsage as L, AdminSweepOptions as M, AdminTranscriptCitation as N, AdminRecordKey as O, AdminTranscriptRecord as P, StoredCitation as Q, ChatToolCallReport as R, AdminHandoffCounts as S, AdminRange as T, ChatForm as U, ErrorCode as V, CompactionModel as W, ConversationStoreCheck as X, ConversationStore as Y, PositionedItem as Z, AdminConversationQuery as _, Embedder as a, AdminDayRow as b, KnowledgeCheck as c, KnowledgeIndex as d, StoredPart as et, Passage as f, AdminCheckOutcome as g, AdminBotDayRow as h, RateLimitStore as i, AdminStoredRating as j, AdminSource as k, KnowledgeChunk as l, SyncReport as m, TurnEventLog as n, Embeddings as o, SearchOptions as p, ConversationOwner as q, CounterHit as r, KnowledgeCallOptions as s, TurnEvent as t, VersionConflictError as tt, KnowledgeDocument as u, AdminConversationSummary as v, AdminPage as w, AdminDays as x, AdminCountEvent as y, ChatUsageReport as z };
