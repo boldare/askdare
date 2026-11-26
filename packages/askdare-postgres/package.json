@@ -1,6 +1,6 @@
 {
   "name": "@boldare/askdare-postgres",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Conversations and a knowledge index for @boldare/askdare, kept in your own Postgres.",
   "license": "MIT",
   "author": {

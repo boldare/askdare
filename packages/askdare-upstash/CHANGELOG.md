@@ -1,5 +1,28 @@
 # @boldare/askdare-upstash
 
+## 0.2.0
+
+### Minor Changes
+
+- c787d12: New `upstashTurnLog()`: keeps the events of answers being generated in Upstash Redis, so a visitor whose connection drops can resume the answer on any server instance, not only the one that wrote it (ADR-0027). Pass it as `createChatHandler({ resume: { log: upstashTurnLog() } })`; it returns the `TurnEventLog` port of `@boldare/askdare` 0.6 and passes its `turnEventLogContract`. It takes the same connection options as `upstashStore()` (`url`, `token`, `redis`, `prefix`) and `pollMs`, how often a waiting reader checks for new events (default 150 ms, since Upstash's REST API can't block on a stream).
+  
+  Each answer is a Redis stream that holds the answer's text and expires a few minutes after its last event; the add-on logs nothing about it. Mention the database in your privacy notice.
+
+### Patch Changes
+
+- Updated dependencies [6580516]
+- Updated dependencies [5a837ba]
+- Updated dependencies [c8e4269]
+- Updated dependencies [225577a]
+- Updated dependencies [87c0d04]
+- Updated dependencies [e2386f1]
+- Updated dependencies [64af8bb]
+- Updated dependencies [ff7c762]
+- Updated dependencies [e903330]
+- Updated dependencies [1107680]
+- Updated dependencies [94ed842]
+  - @boldare/askdare@0.6.0
+
 ## 0.1.4
 
 ### Patch Changes

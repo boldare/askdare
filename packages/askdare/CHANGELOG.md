@@ -1,5 +1,94 @@
 # @boldare/askdare
 
+## 0.6.0
+
+### Minor Changes
+
+- 6580516: Fixes from the review of 0.6's public API:
+  
+  - **`askdare doctor`** creates and deletes a test conversation at OpenAI only for apps whose conversations OpenAI keeps: the check is now `openaiConversations().diagnose()`, run once per app instead of once per bot. With a store that keeps the items, such as `postgresConversations()`, nothing of yours calls the Conversations API, which isn't eligible for Zero Data Retention.
+  - **Signing in or out while an answer streams** (`askdare('identify')`, or `Root`'s `identity`) now stops that answer in the chat, as stopping the chat does. The server still finishes it in the previous person's conversation. Before, the rest of the answer appeared in the next person's chat (from their own history, so nothing crossed between users).
+  - **The widget is about 3 KB smaller** (gzipped): its iframe app now ships only marked's lexer, as `@boldare/askdare/react` does since this release.
+- 5a837ba: `limits.compactAt` compacts long conversations kept in your own store, such as `@boldare/askdare-postgres` (ADR-0029). It is off unless you set it, between 20,000 and 272,000 tokens.
+  
+  - Once a turn's last model call reads that many input tokens, askdare sends OpenAI one request after the turn, in the background, and stores the encrypted summary it returns with the conversation. The next turns replay from the summary instead of from the start, so they cost less and use less of the token budgets. In spike S9, 50 turns cost 27–56 % less, and three to four times fewer budget tokens.
+  - The visitor never waits for it. It reads the prompt cache the turn just wrote, is charged to the same budgets, and reaches `onUsage` as its own `compaction` entry (new type `ChatCompactionReport` in `@boldare/askdare/next`).
+  - Nothing stored is changed or removed: history, paging and deletion work as before. A visitor who writes again while it runs drops it, and a later turn tries again. When the summaries leave too large a floor, a conversation stops compacting.
+  - `openaiConversations()`, the default, never compacts. `createChatHandler` warns at startup when a bot sets `compactAt` with it.
+  - The `ConversationStore` port gains `kind: 'compaction'` on `native` items and a `model` option on `context()`, where the replay window starts at the latest compaction item (new type `CompactionModel`). `conversationStoreContract` tests it. A custom store that ignores the option still works, but reads the whole conversation on every turn.
+  - `@boldare/askdare-postgres`: `context()` starts at the latest compaction item, found in SQL. No migration.
+  
+  See [Configuration](https://github.com/boldare/askdare/blob/main/docs/configuration.md#compaction), [Costs](https://github.com/boldare/askdare/blob/main/docs/costs.md#long-conversations-and-compaction) and [Privacy](https://github.com/boldare/askdare/blob/main/docs/privacy.md#with-your-own-conversation-store).
+- c8e4269: Conversations now go through a `ConversationStore` port (ADR-0024). Nothing changes for apps that don't set it: the default, `openaiConversations()`, keeps conversations at OpenAI as before.
+  
+  - `createChatHandler({ conversations })` chooses the store, on the server only. `openaiConversations({ apiKey? })` is exported from `@boldare/askdare/next`; without `apiKey` it reads `OPENAI_API_KEY`.
+  - `@boldare/askdare` exports the port and its types (`ConversationStore`, `ConversationOwner`, `ConversationInfo`, `ConversationContext`, `ConversationPage`, `ConversationStoreCheck`, `StoredItem`, `StoredPart`, `StoredCitation`, `PositionedItem`), `VersionConflictError`, and `memoryConversations()`, an in-memory store for tests and local development.
+  - The new subpath `@boldare/askdare/testing` exports the contract suites `conversationStoreContract` and `rateLimitStoreContract`. They take your test runner's `describe`, `it` and `expect`, so they work with Vitest or Jest.
+  - The server now checks that a resumed conversation belongs to the bot and the visitor named in the resume token, as the store records them. A conversation that doesn't is answered like one that no longer exists. With the default store this costs one extra request to OpenAI for each message in an existing conversation and each deletion; the history load makes it alongside its own. Conversations created by earlier versions keep working.
+  - New conversations at OpenAI carry the metadata `askdare_owner` (`visitor:<id>` or `user:<key>`) instead of `askdare_visitor`.
+- 225577a: Visitors who come back to a long conversation can now scroll up to read all of it, in the widget, in the chat inside a page and with the headless API. The chat still opens on the latest page of the conversation, and loads older pages one at a time from the cursor that `POST /history` returns.
+  
+  - **The default look** shows a "Show earlier messages" button at the top of the conversation. It loads as the visitor scrolls up to it, and works as a button from the keyboard. The older messages go in above without moving what the visitor was reading, and screen readers hear "Earlier messages loaded." Focus stays on the button, in view; once the start is reached and the button goes away, the oldest message takes focus.
+  - **Headless:** `state.earlier` (`'more'`, `'loading'` or `'none'`, new type `Earlier`) and the action `loadEarlier()`. The new primitive `LoadEarlier` renders the button (part `load-earlier`, with `data-loading` while a page loads). `Messages` keeps the visitor's place whatever control loads older messages.
+  - **New texts:** `history.earlier`, `history.loading`, `history.loaded` and `error.earlier`, in every built-in language.
+  - A page that fails to load shows `error.earlier` and can be tried again. A cursor the server refuses ends paging until the chat reloads. Starting over or signing in drops the cursor.
+  
+  See [React: Long conversations](https://github.com/boldare/askdare/blob/main/docs/react.md#long-conversations).
+- 87c0d04: `POST /history` now pages back through a whole conversation instead of stopping at its latest 100 items (ADR-0024, decision 7). It answers one page of whole turns, newest page first, and a `before` cursor when older messages exist; sending that cursor back as `before` reads the page before. A turn is never split between pages, so each answer keeps its cards, its rating handle and, under output checks, its verdict. Only the latest page carries reply options. This works with `openaiConversations()` and with stores that keep the items, such as `postgresConversations()`.
+  
+  The cursor is opaque and bound to its conversation: one from another conversation, forged or expired answers `400`. It is additive within protocol version 1: clients that send no cursor get the latest page, as before. The widget, the chat inside a page and the headless API load older pages as the visitor scrolls up.
+  
+  Custom conversation stores: `page()` must return the same items for the same `before` and `limit`, honour a `limit` of up to 200, and keep `before` within 1,024 characters (see [Custom stores](https://github.com/boldare/askdare/blob/main/docs/custom-store.md)).
+- e2386f1: `askdare kb sync` can now sync a knowledge folder into your own index in Postgres instead of an OpenAI vector store (ADR-0025). `kb sync <folder> --index <id>` builds `pgvectorIndex` from `@boldare/askdare-postgres` (install it in the app) with `DATABASE_URL`, and embeds with OpenAI using `OPENAI_API_KEY`.
+  
+  - The embedding model and vector size are required: `--embedding-model` and `--dimensions`, or `ASKDARE_EMBEDDING_MODEL` and `ASKDARE_EMBEDDING_DIMENSIONS`. There is no default model. Use the same ones as the bot's `openaiEmbedder`; another model or size makes the next sync embed everything again.
+  - The sync is incremental. An unchanged file is skipped, an edited file re-embeds only its changed chunks, and a renamed file with a title from front matter or `askdare.kb.json` re-embeds nothing. The report lists added, changed, removed and unchanged documents, and the chunks and tokens embedded or reused.
+  - The index reads `.md`, `.markdown`, `.mdx`, `.txt`, `.html` and `.htm`. Other files, PDFs and `.json` included, are skipped with a warning. The vector-store path still takes them.
+  - `--dry-run --index` reads and chunks the folder without a database or a key.
+  
+  The vector-store path is unchanged, except that it now reads front matter with the same parser as the index. A closing `---` must now end its line.
+- 64af8bb: `createChatHandler({ onTranscript })` hands you each finished turn, so you can keep your own transcripts with any conversation store (ADR-0016). It is off unless you set it, and it is the only hook that receives message content.
+  
+  - It gets what the visitor sent, after `onInput` (a redacted message arrives redacted), and the answer they saw, after output checks: the replacement of a replaced answer, nothing of a withheld one. With it come the answer's sources, the number of attached files, the end reason, the output check's verdict, and the identifiers `onFeedback` gets: the bot, the visitor's pseudonym, the signed-in user and the raw conversation and answer IDs. Never instructions, page context, file names, tool calls or their results.
+  - It runs after the answer has streamed and the conversation is free for the next message, kept alive with Next.js `after`. It isn't called for blocked messages or for turns that failed before their answer finished.
+  - Nothing it throws reaches the chat. `onError` receives an `internal_error` that names only the error's class, never its message, so a failed database write can't put the visitor's text in your logs.
+  - New types `ChatTranscriptReport` and `ChatTranscriptCitation` in `@boldare/askdare/next`. See [Configuration](https://github.com/boldare/askdare/blob/main/docs/configuration.md#ontranscript) and [Privacy](https://github.com/boldare/askdare/blob/main/docs/privacy.md#transcripts).
+- ff7c762: When a visitor's connection drops in the middle of an answer, the chat now carries on with the rest of it instead of showing an error, in the widget, in the chat inside a page and with the headless API.
+  
+  - **How:** a stream that ends before the answer did is resumed with `POST /resume`, after the last event the chat received, so no text is shown twice. It tries after half a second, then 2 and 8 seconds while nothing new comes, and at most ten times for one answer. Meanwhile the status says "Reconnecting…", which screen readers hear politely.
+  - **When it can't be resumed** (the server no longer has the answer's events, as with the default in-memory log on another instance, or the attempts ran out), the chat reloads the latest page of the conversation and shows the finished answer from there. Older pages already shown stay. Only when the answer isn't stored yet does the chat show "Connection problem. Please try again." as before.
+  - **Headless:** `state.activity` is `status.reconnecting` while an answer resumes. `message.received` fires once per answer, as `completed` when it was resumed or taken from the history.
+  - **New text:** `status.reconnecting`, in every built-in language.
+  - **Smaller React bundles:** a page that uses `Root` and `useChat` without `Markdown` no longer bundles the Markdown renderer (about 1.2 KB gzipped less), and `@boldare/askdare/react` no longer ships the parts of marked it never used, only its lexer (about 3 KB gzipped less). Answers render as before.
+  
+  Resuming across instances needs a shared turn log, such as `upstashTurnLog()`. See [Configuration: `resume`](https://github.com/boldare/askdare/blob/main/docs/configuration.md#resume) and [Troubleshooting](https://github.com/boldare/askdare/blob/main/docs/troubleshooting.md#the-chat-reconnects-in-the-middle-of-an-answer).
+- e903330: A bot can answer from its own knowledge index (ADR-0025): `defineBot({ knowledge: { index, maxResults? } })`, next to `knowledge: { vectorStoreId }`. A bot has one or the other; bots with a vector store work as before.
+  
+  - **The `search_knowledge` tool.** With an index, the model searches it through a built-in, strict function tool with one argument, the query, within the bot's step limit. The name is reserved: `defineBot` refuses a tool called `search_knowledge`. The widget shows "Searching…" while it runs, as for file search.
+  - **Citations look the same as file search's.** Results reach the model with source IDs, and the model cites them as `[k0123456789ab]`. While the answer streams, askdare rewrites them into the usual `[n]` markers and `citation` events, with the document's title and http(s) link only. IDs are stable across turns, so a passage found in an earlier turn is looked up in the index and still cites. Made-up or removed IDs are dropped and counted in a warning, never logged with text. No protocol change.
+  - **Untrusted results.** Search results always reach the model inside the untrusted wrapper (ADR-0019), whatever `toolResults` says, and the retrieval rule joins the instructions.
+  - **History.** Item stores keep the citations with the answer's text, so a reload shows the same markers. With `openaiConversations()`, history looks the stored markers up in the index.
+  - **`askdare doctor`** reports the index's checks: the database, pgvector, whether it is synced, and whether its embedder matches the bot's.
+  
+  New exports:
+  
+  - `@boldare/askdare`: `openaiEmbedder` (with `OpenAIEmbedderOptions`); the knowledge port types `KnowledgeIndex`, `Embedder`, `Embeddings`, `KnowledgeDocument`, `KnowledgeChunk`, `Passage`, `SyncReport`, `SearchOptions`, `KnowledgeCallOptions` and `KnowledgeCheck`; and, for index adapters, `checkKnowledgeDocuments` and `embeddingInput`. `KnowledgeConfig` is now a union of the two shapes.
+  - `@boldare/askdare/testing`: `knowledgeIndexContract(name, open, { describe, it, expect, dimensions? })`, with `OpenKnowledgeIndex` and `KnowledgeIndexContractOptions`, and the fixtures `fakeEmbedder` and `knowledgeDocument`. `ContractExpect` now also needs `toHaveLength` and `toBeGreaterThan`, which Vitest's and Jest's `expect` have.
+  
+  `@boldare/askdare-postgres` imports the port and the adapter helpers from `@boldare/askdare` instead of bundling copies, so it needs the `@boldare/askdare` version that exports them.
+- 1107680: Conversation stores that keep the items themselves now work: `createChatHandler({ conversations: memoryConversations() })` no longer refuses one, and `postgresConversations()` from `@boldare/askdare-postgres` plugs in the same way (ADR-0024).
+  
+  - With such an item store, each turn replays the stored conversation to OpenAI with `store: false` and appends everything it produces to your store. Nothing of the conversation stays at OpenAI beyond its 30-day abuse monitoring of requests, so organisations with Zero Data Retention can use askdare. Attached files are still uploaded to OpenAI.
+  - Requests are larger, since they carry the whole conversation, the model's encrypted reasoning included; spike S7 measured the same cost, as the replay is read from the prompt cache. Reasoning is replayed only to the model family that wrote it.
+  - A crash loses at most the model call in flight, and never leaves a tool call without its output. Of two turns started on the same conversation at once, one ends with `rate_limited` ("The previous answer in this conversation is still on its way").
+  - History (`POST /history`) reads item stores too, with citations, reply options and tool cards. Answers are rated by their ID in your store.
+  - The default, `openaiConversations()`, works as before.
+- 94ed842: A visitor whose connection drops in the middle of an answer no longer loses it: the server keeps the answer's events for a few minutes, and a client can continue from the last one it received with the new `POST /resume` (ADR-0027). The widget, the chat inside a page and the headless API use it.
+  
+  - Every event frame of `POST /messages` now carries an SSE `id:`, the event's sequence number in its turn. `POST /resume` takes `{ botId, resumeToken, messageId, after }` and streams the events after `after`, then the live ones, until `message.end` or `error`, each once. An answer that is unknown, expired or not the visitor's answers `404`. Additive within protocol version 1; see [Protocol](https://github.com/boldare/askdare/blob/main/docs/protocol.md#resuming-an-answer).
+  - `createChatHandler({ resume: { log } })` chooses where answers' events are kept. The default, `memoryTurnLog()`, keeps them per instance, so a reconnect to another instance reloads the conversation instead. With several instances, use `upstashTurnLog()` from `@boldare/askdare-upstash`. New exports: `memoryTurnLog`, `MemoryTurnLog`, `MemoryTurnLogOptions`, `TurnEventLog` and `TurnEvent` from `@boldare/askdare`, `ChatHandlerResumeOptions` from `@boldare/askdare/next`, and `turnEventLogContract(name, create, { describe, it, expect, ttlMs?, elapse? })` with `TurnEventLogContractOptions` from `@boldare/askdare/testing`, to test your own log.
+  - Privacy: the log holds the text of answers being written, under an HMAC, for the bot's turn timeout plus one minute after each answer's last event (three minutes by default). Nothing about it is logged. See [Privacy](https://github.com/boldare/askdare/blob/main/docs/privacy.md#turn-log).
+
 ## 0.5.3
 
 ### Patch Changes
