@@ -49,7 +49,7 @@ from ${ITEMS_TABLE},
 where conversation_id = any($1::uuid[]) and type = 'message' and item->>'role' = 'user'`;
 
 /** Items with their positions, newest last, plus the conversation's version, in one snapshot. */
-const selectItems = (where: string): string => `
+export const selectItems = (where: string): string => `
 select c.version::float8 as version, i.seq::float8 as seq, i.item, ${epochMs('i.created_at')} as at
 from ${CONVERSATIONS_TABLE} c
 left join lateral (
@@ -63,9 +63,10 @@ order by i.seq`;
 
 /**
  * Leaves out the items before the latest compaction item of the model in `$3` (provider) and `$4`
- * (family), for `selectItems`. Without a model, nothing.
+ * (family), for `selectItems`. Without a model, nothing. The partial index of migration 2
+ * (`COMPACTION_INDEX`) serves it only while these expressions match its definition.
  */
-const FROM_COMPACTION = `and seq >= coalesce((
+export const FROM_COMPACTION: string = `and seq >= coalesce((
     select max(seq) from ${ITEMS_TABLE}
     where conversation_id = c.id and type = 'native'
       and item->>'kind' = 'compaction' and item->>'provider' = $3 and item->>'family' = $4

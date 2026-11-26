@@ -296,7 +296,7 @@ describe.skipIf(!TEST_DATABASE_URL)('postgresConversations against Postgres', ()
   describe('diagnose', () => {
     it('reports the schema version after migrate', async () => {
       expect(await store().diagnose()).toEqual([
-        { status: 'ok', title: 'Postgres conversation store: schema version 1.' },
+        { status: 'ok', title: 'Postgres conversation store: schema version 2.' },
       ]);
     });
 
