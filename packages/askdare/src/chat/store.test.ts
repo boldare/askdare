@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProtocolEvent } from '../protocol/events';
+import type { ChatForm } from '../protocol/forms';
 import type { HistoryMessage, HistoryResponse } from '../protocol/history';
 import type { ChatEvent } from './events';
 import { createFixtureStore } from './fixture-store';
@@ -613,6 +614,32 @@ describe('a dropped answer', () => {
       { id: 'msg_1', role: 'assistant', text: 'You said: Hi!', status: 'done' },
     ]);
     expect(received.at(-1)).toMatchObject({ type: 'message.received', outcome: 'completed' });
+  });
+
+  it('stops saying it reconnects as soon as a resume is answered', async () => {
+    const { store } = storeWith({
+      answer: dropped,
+      // Nothing that changes the status comes first: a citation, then the end.
+      resume: () => [
+        { type: 'citation', messageId: 'msg_1', index: 1, title: 'Pricing' },
+        { type: 'message.end', messageId: 'msg_1', reason: 'completed' },
+      ],
+    });
+    const seen: { activity: string | null; citations: number }[] = [];
+    store.subscribe(() => {
+      const { activity, messages } = store.getSnapshot();
+      seen.push({ activity, citations: messages.at(-1)?.citations.length ?? 0 });
+    });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.send('Hi');
+
+    const reconnecting = seen.findIndex((item) => item.activity === 'Reconnecting…');
+    const cited = seen.findIndex((item) => item.citations === 1);
+    expect(reconnecting).toBeGreaterThanOrEqual(0);
+    expect(cited).toBeGreaterThan(reconnecting);
+    // Gone before the resumed answer's first event.
+    expect(seen[cited - 1]?.activity).toBeNull();
   });
 
   it('takes the answer from the history when it can no longer be resumed', async () => {
@@ -1294,6 +1321,294 @@ describe('createFixtureStore', () => {
     expect(store.getSnapshot().draft).toBe('Changed');
     expect(store.getSnapshot().messages).toEqual([]);
     expect(store.level()).toBeUndefined();
+  });
+});
+
+describe('handoff and forms', () => {
+  const contact: ChatForm = {
+    name: 'contact',
+    title: 'Get an offer',
+    fields: [{ name: 'email', type: 'email', label: 'Email', required: true }],
+  };
+  /** An answer whose model asked for a person, with a form for the reply address. */
+  const handedOff = (text: string): readonly ProtocolEvent[] => [
+    ...echo(text).slice(0, 3),
+    { type: 'handoff', messageId: 'msg_1', state: 'requested' },
+    {
+      type: 'form',
+      messageId: 'msg_1',
+      callId: 'call_1',
+      name: 'contact',
+      handle: 'form-1',
+      purpose: 'handoff',
+    },
+    { type: 'message.end', messageId: 'msg_1', reason: 'completed' },
+  ];
+
+  async function ready(options: Parameters<typeof fakeServer>[0], stored = false) {
+    const storage = memoryStorage();
+    if (stored) storage.set('askdare:support:resume', 'resume-1');
+    const server = fakeServer(options);
+    const store = createChatStore(testConfig(), { client: testClient(server, storage) });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    return { server, store, storage };
+  }
+  const answer = (state: ChatState) => state.messages.findLast((m) => m.role === 'assistant');
+
+  it('shows a handoff and its form from the stream, then sends the form', async () => {
+    const values = { email: 'anna@example.com' };
+    const { server, store } = await ready({
+      answer: handedOff,
+      submitForm: () => ({ state: 'sent', handoff: 'sent' }),
+    });
+    await store.actions.send('I want a person');
+    expect(answer(store.getSnapshot())).toMatchObject({
+      handoff: 'requested',
+      forms: [
+        { callId: 'call_1', name: 'contact', purpose: 'handoff', handle: 'form-1', state: 'open' },
+      ],
+    });
+
+    const sending = store.actions.submitForm('form-1', values);
+    expect(answer(store.getSnapshot())?.forms?.[0]?.state).toBe('submitting');
+    await sending;
+    expect(answer(store.getSnapshot())).toMatchObject({
+      handoff: 'sent',
+      forms: [{ state: 'sent' }],
+    });
+    expect(server.requests.find((request) => request.path === '/forms')?.body).toEqual({
+      botId: 'support',
+      resumeToken: 'resume-1',
+      form: 'form-1',
+      values,
+    });
+    // Sent: a second try goes nowhere.
+    await store.actions.submitForm('form-1', values);
+    expect(server.requests.filter((request) => request.path === '/forms')).toHaveLength(1);
+  });
+
+  it('shows the errors of refused fields, and clears them on the next try', async () => {
+    let tries = 0;
+    const { store } = await ready({
+      answer: handedOff,
+      submitForm: () =>
+        ++tries === 1
+          ? Response.json(
+              {
+                error: {
+                  code: 'invalid_input',
+                  message: 'Some fields are not valid.',
+                  fields: { email: 'error.form.email' },
+                },
+              },
+              { status: 400 },
+            )
+          : { state: 'sent' },
+    });
+    await store.actions.send('Hi');
+    await store.actions.submitForm('form-1', { email: 'anna' });
+    expect(answer(store.getSnapshot())?.forms?.[0]).toMatchObject({
+      state: 'open',
+      errors: { email: 'error.form.email' },
+    });
+    expect(answer(store.getSnapshot())?.forms?.[0]?.error).toBeUndefined();
+    expect(store.getSnapshot().error).toBeUndefined();
+
+    await store.actions.submitForm('form-1', { email: 'anna@example.com' });
+    const form = answer(store.getSnapshot())?.forms?.[0];
+    expect(form).toMatchObject({ state: 'sent' });
+    expect(form?.errors).toBeUndefined();
+    // A lead's form leaves the handoff as the stream left it.
+    expect(answer(store.getSnapshot())?.handoff).toBe('requested');
+  });
+
+  it.each([
+    [
+      'a limit',
+      () =>
+        Response.json(
+          { error: { code: 'rate_limited', message: 'Too many messages. Please wait a moment.' } },
+          { status: 429 },
+        ),
+      { state: 'open', error: 'Too many messages. Please wait a moment.' },
+    ],
+    [
+      'a lost connection',
+      () => {
+        throw new TypeError('fetch failed');
+      },
+      { state: 'open', error: 'Connection problem. Please try again.' },
+    ],
+    [
+      'an answer that breaks the protocol',
+      () => ({ state: 'maybe' }),
+      { state: 'open', error: 'The assistant is temporarily unavailable. Please try again.' },
+    ],
+    [
+      'a form sent before',
+      () =>
+        Response.json(
+          { error: { code: 'invalid_input', key: 'error.form.sent', message: 'Already sent.' } },
+          { status: 409 },
+        ),
+      { state: 'sent' },
+    ],
+    [
+      'a handle the server no longer takes',
+      () => Response.json({ error: { code: 'not_found', message: 'Not found.' } }, { status: 404 }),
+      { state: 'expired' },
+    ],
+  ])('keeps the form after %s', async (_name, reply, expected) => {
+    const { store, storage } = await ready({ answer: handedOff, submitForm: reply });
+    await store.actions.send('Hi');
+    await store.actions.submitForm('form-1', { email: 'anna@example.com' });
+    expect(answer(store.getSnapshot())?.forms?.[0]).toMatchObject(expected);
+    expect(answer(store.getSnapshot())?.handoff).toBe('requested');
+    // A refused form never forgets the conversation.
+    expect(storage.get('askdare:support:resume')).toBe('resume-1');
+  });
+
+  it('asks for a person with the button, on the latest answer', async () => {
+    let reply: (value: unknown) => void = () => {};
+    const { server, store } = await ready({
+      handoff: () => new Promise((resolve) => (reply = resolve)),
+    });
+    // No answer yet, no conversation: nothing to hand off.
+    await store.actions.handoff();
+    expect(server.requests.some((request) => request.path === '/handoff')).toBe(false);
+
+    await store.actions.send('Hi');
+    const asking = store.actions.handoff();
+    await until(store, (state) => answer(state)?.handoff === 'requested');
+    // While one runs, a second click does nothing.
+    await store.actions.handoff();
+    await until(store, () => server.requests.some((request) => request.path === '/handoff'));
+    reply({ state: 'sent' });
+    await asking;
+    expect(answer(store.getSnapshot())?.handoff).toBe('sent');
+    expect(server.requests.filter((request) => request.path === '/handoff')).toHaveLength(1);
+    expect(server.requests.find((request) => request.path === '/handoff')?.body).toEqual({
+      botId: 'support',
+      resumeToken: 'resume-1',
+    });
+  });
+
+  it('shows the form a handoff from the button waits for', async () => {
+    const { store } = await ready({
+      handoff: () => ({
+        state: 'requested',
+        form: { name: 'contact', handle: 'form-9', purpose: 'message' },
+      }),
+      submitForm: () => ({ state: 'sent', handoff: 'saved' }),
+    });
+    await store.actions.send('Hi');
+    await store.actions.handoff();
+    expect(answer(store.getSnapshot())).toMatchObject({
+      handoff: 'requested',
+      forms: [
+        { callId: 'local_2', name: 'contact', handle: 'form-9', purpose: 'message', state: 'open' },
+      ],
+    });
+    // Its form is waiting: the button can't ask again.
+    await store.actions.handoff();
+    await store.actions.submitForm('form-9', { email: 'anna@example.com' });
+    expect(answer(store.getSnapshot())).toMatchObject({
+      handoff: 'saved',
+      forms: [{ state: 'sent' }],
+    });
+  });
+
+  it.each(['unavailable', 'failed', 'limited'] as const)(
+    'shows a handoff that ends as %s',
+    async (state) => {
+      const { store } = await ready({ handoff: () => ({ state }) });
+      await store.actions.send('Hi');
+      await store.actions.handoff();
+      expect(answer(store.getSnapshot())?.handoff).toBe(state);
+      expect(store.getSnapshot().error).toBeUndefined();
+    },
+  );
+
+  it('takes a handoff back when its request fails, and says why', async () => {
+    let tries = 0;
+    const { store, storage } = await ready({
+      handoff: () =>
+        ++tries === 1
+          ? Response.json(
+              {
+                error: {
+                  code: 'rate_limited',
+                  message: 'Too many messages. Please wait a moment.',
+                },
+              },
+              { status: 429 },
+            )
+          : tries === 2
+            ? Response.json(
+                { error: { code: 'not_found', message: 'Not found.' } },
+                { status: 404 },
+              )
+            : { state: 'requested', form: { name: 'contact', handle: '', purpose: 'handoff' } },
+    });
+    await store.actions.send('Hi');
+    await store.actions.handoff();
+    expect(answer(store.getSnapshot())?.handoff).toBeUndefined();
+    expect(store.getSnapshot().error).toBe('Too many messages. Please wait a moment.');
+    // A bot without handoff: the conversation stays.
+    await store.actions.handoff();
+    expect(answer(store.getSnapshot())?.handoff).toBeUndefined();
+    expect(storage.get('askdare:support:resume')).toBe('resume-1');
+    // `requested` with a form that breaks the protocol would wait forever.
+    await store.actions.handoff();
+    expect(answer(store.getSnapshot())?.handoff).toBeUndefined();
+    expect(answer(store.getSnapshot())?.forms).toBeUndefined();
+    expect(store.getSnapshot().error).toBe(
+      'The assistant is temporarily unavailable. Please try again.',
+    );
+  });
+
+  it('shows the handoff and the forms the history has', async () => {
+    const { store } = await ready(
+      {
+        history: [
+          { id: 'h1', role: 'user', text: 'Hi', citations: [], attachments: 0 },
+          {
+            id: 'h2',
+            role: 'assistant',
+            text: 'A person will write to you.',
+            citations: [],
+            attachments: 0,
+            handoff: { state: 'sent' },
+            forms: [
+              { callId: 'c1', name: 'contact', purpose: 'handoff', state: 'sent' },
+              { callId: 'c2', name: 'contact', purpose: 'lead', state: 'open', handle: 'fresh' },
+            ],
+          },
+        ],
+        submitForm: () => ({ state: 'sent' }),
+      },
+      true,
+    );
+    expect(answer(store.getSnapshot())).toMatchObject({
+      handoff: 'sent',
+      forms: [
+        { callId: 'c1', state: 'sent' },
+        { callId: 'c2', state: 'open', handle: 'fresh' },
+      ],
+    });
+    await store.actions.submitForm('fresh', { email: 'anna@example.com' });
+    expect(answer(store.getSnapshot())?.forms?.map((form) => form.state)).toEqual(['sent', 'sent']);
+  });
+
+  it('switches the forms with the language', async () => {
+    const { store } = await ready({
+      forms: (lang) => [{ ...contact, title: `Offer (${lang})` }],
+    });
+    await store.setLocale('pl');
+    expect(store.config.forms).toEqual([{ ...contact, title: 'Offer (pl)' }]);
+    await store.setLocale('de', testConfig({ forms: [{ ...contact, title: 'Angebot' }] }));
+    expect(store.config.forms?.[0]?.title).toBe('Angebot');
   });
 });
 

@@ -75,7 +75,6 @@ What 0.6 leaves open, found by its tasks and reviews. Each line names where it g
 - **Transcripts outlive a deleted conversation:** deleting one calls no hook, so a transcript an app keeps through `onTranscript` stays until the app sweeps it. 0.7, with the admin store ([ADR-0016](docs/adr/0016-admin.md)); an `onConversationDeleted` hook is the fallback if that slips (task c5, per ADR-0032). Transcripts an app keeps through its own `onTranscript` stay the app's to delete; the docs point to the admin store instead (d1).
 
 **Smaller items:**
-- "Reconnecting…" can stay visible after a successful resume until the next text or status event. 0.7, in task c2.
 - A message sent at the moment a compaction is stored gets a "please wait" error (documented in [ADR-0029](docs/adr/0029-compaction-for-item-stores.md)). Later.
 - No sweep helper in core: a site's cron route deletes files with the `openai` SDK itself ([own your data](docs/own-your-data.md)). 0.7, with the admin store; ADR-0032 (task x3) decides whether core gets one.
 

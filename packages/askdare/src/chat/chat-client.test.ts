@@ -443,7 +443,8 @@ describe('resuming a dropped answer', () => {
       client(fetch).send({ text: 'Hi' }, (event) => events.push(event), undefined, onRetry),
     );
     expect(lost).toBeUndefined();
-    expect(onRetry).toHaveBeenCalledTimes(1);
+    // Reconnecting, then answered.
+    expect(onRetry.mock.calls).toEqual([[true], [false]]);
     expect(resumes(calls).map((call) => call.body)).toEqual([
       { botId: 'support', resumeToken: 'resume-1', messageId: 'm1', after: 4 },
     ]);
@@ -521,7 +522,8 @@ describe('resuming a dropped answer', () => {
     const lost = await settle(client(fetch).send({ text: 'Hi' }, () => {}, undefined, onRetry));
     expect(lost).toMatchObject({ key: 'error.connection' });
     expect(resumes(calls)).toHaveLength(3);
-    expect(onRetry).toHaveBeenCalledTimes(3);
+    // The offline try is never answered; the two empty ones are, and bring nothing.
+    expect(onRetry.mock.calls).toEqual([[true], [true], [false], [true], [false]]);
     // Waits of half a second, 2 s and 8 s.
     const [first = 0, second = 0, third = 0] = at;
     expect(second - first).toBeGreaterThanOrEqual(2_000);
