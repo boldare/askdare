@@ -1,0 +1,407 @@
+[
+  {
+    "variant": "today",
+    "raw": 12380,
+    "gzip": 5052,
+    "vs today": 0,
+    "room left": 68,
+    "brotli": 4427,
+    "note": "today's loader.ts, rebuilt"
+  },
+  {
+    "variant": "1 css-file",
+    "raw": 11493,
+    "gzip": 4802,
+    "vs today": -250,
+    "room left": 318,
+    "brotli": 4214,
+    "note": "STYLES in loader.css?inline, minified by Lightning CSS"
+  },
+  {
+    "variant": "2 +surface",
+    "raw": 11330,
+    "gzip": 4796,
+    "vs today": -256,
+    "room left": 324,
+    "brotli": 4222,
+    "note": "scheme colors declared once on :host"
+  },
+  {
+    "variant": "3 +no-style-fallback",
+    "raw": 11250,
+    "gzip": 4780,
+    "vs today": -272,
+    "room left": 340,
+    "brotli": 4188,
+    "note": "no <style> fallback for Safari < 16.4"
+  },
+  {
+    "variant": "4 +icons",
+    "raw": 11226,
+    "gzip": 4776,
+    "vs today": -276,
+    "room left": 344,
+    "brotli": 4186,
+    "note": "fill attributes that draw nothing"
+  },
+  {
+    "variant": "5 +server-defaults = lean",
+    "raw": 10971,
+    "gzip": 4648,
+    "vs today": -404,
+    "room left": 472,
+    "brotli": 4076,
+    "note": "the fallback look comes from the server"
+  },
+  {
+    "variant": "only css-file",
+    "raw": 11493,
+    "gzip": 4802,
+    "vs today": -250,
+    "room left": 318,
+    "brotli": 4214,
+    "note": ""
+  },
+  {
+    "variant": "only surface",
+    "raw": 12203,
+    "gzip": 5046,
+    "vs today": -6,
+    "room left": 74,
+    "brotli": 4420,
+    "note": ""
+  },
+  {
+    "variant": "only no-style-fallback",
+    "raw": 12300,
+    "gzip": 5037,
+    "vs today": -15,
+    "room left": 83,
+    "brotli": 4428,
+    "note": ""
+  },
+  {
+    "variant": "only icons",
+    "raw": 12356,
+    "gzip": 5047,
+    "vs today": -5,
+    "room left": 73,
+    "brotli": 4455,
+    "note": ""
+  },
+  {
+    "variant": "only server-defaults",
+    "raw": 12125,
+    "gzip": 4923,
+    "vs today": -129,
+    "room left": 197,
+    "brotli": 4308,
+    "note": ""
+  },
+  {
+    "variant": "only helpers",
+    "raw": 12093,
+    "gzip": 5070,
+    "vs today": 18,
+    "room left": 50,
+    "brotli": 4439,
+    "note": "rejected"
+  },
+  {
+    "variant": "only font-on-host",
+    "raw": 12352,
+    "gzip": 5058,
+    "vs today": 6,
+    "room left": 62,
+    "brotli": 4430,
+    "note": "rejected"
+  },
+  {
+    "variant": "only compact-events",
+    "raw": 12360,
+    "gzip": 5045,
+    "vs today": -7,
+    "room left": 75,
+    "brotli": 4415,
+    "note": "rejected"
+  },
+  {
+    "variant": "only messages-light",
+    "raw": 12273,
+    "gzip": 5004,
+    "vs today": -48,
+    "room left": 116,
+    "brotli": 4381,
+    "note": "optional"
+  },
+  {
+    "variant": "only messages",
+    "raw": 12187,
+    "gzip": 4958,
+    "vs today": -94,
+    "room left": 162,
+    "brotli": 4382,
+    "note": "optional"
+  },
+  {
+    "variant": "lean -css-file",
+    "raw": 11844,
+    "gzip": 4898,
+    "vs today": -154,
+    "room left": 222,
+    "brotli": 4289,
+    "note": ""
+  },
+  {
+    "variant": "lean -surface",
+    "raw": 11134,
+    "gzip": 4654,
+    "vs today": -398,
+    "room left": 466,
+    "brotli": 4081,
+    "note": ""
+  },
+  {
+    "variant": "lean -no-style-fallback",
+    "raw": 11051,
+    "gzip": 4663,
+    "vs today": -389,
+    "room left": 457,
+    "brotli": 4089,
+    "note": ""
+  },
+  {
+    "variant": "lean -icons",
+    "raw": 10995,
+    "gzip": 4652,
+    "vs today": -400,
+    "room left": 468,
+    "brotli": 4064,
+    "note": ""
+  },
+  {
+    "variant": "lean -server-defaults",
+    "raw": 11226,
+    "gzip": 4776,
+    "vs today": -276,
+    "room left": 344,
+    "brotli": 4186,
+    "note": ""
+  },
+  {
+    "variant": "lean +helpers",
+    "raw": 10701,
+    "gzip": 4665,
+    "vs today": -387,
+    "room left": 455,
+    "brotli": 4084,
+    "note": "rejected"
+  },
+  {
+    "variant": "lean +font-on-host",
+    "raw": 10947,
+    "gzip": 4650,
+    "vs today": -402,
+    "room left": 470,
+    "brotli": 4090,
+    "note": "rejected"
+  },
+  {
+    "variant": "lean +compact-events",
+    "raw": 10951,
+    "gzip": 4645,
+    "vs today": -407,
+    "room left": 475,
+    "brotli": 4058,
+    "note": "rejected"
+  },
+  {
+    "variant": "lean +messages-light",
+    "raw": 10864,
+    "gzip": 4596,
+    "vs today": -456,
+    "room left": 524,
+    "brotli": 4037,
+    "note": "optional: shorter warnings, doctor hint kept"
+  },
+  {
+    "variant": "lean +messages",
+    "raw": 10778,
+    "gzip": 4547,
+    "vs today": -505,
+    "room left": 573,
+    "brotli": 3980,
+    "note": "optional: all warnings shorter"
+  },
+  {
+    "variant": "today +bubble",
+    "raw": 14138,
+    "gzip": 5453,
+    "vs today": 401,
+    "room left": -333,
+    "brotli": 4789,
+    "note": "greeting drawn by the loader"
+  },
+  {
+    "variant": "today +frame",
+    "raw": 13556,
+    "gzip": 5384,
+    "vs today": 332,
+    "room left": -264,
+    "brotli": 4723,
+    "note": "greeting in a tiny early iframe"
+  },
+  {
+    "variant": "today +badge(element)",
+    "raw": 13197,
+    "gzip": 5282,
+    "vs today": 230,
+    "room left": -162,
+    "brotli": 4631,
+    "note": "badge element, from message.received"
+  },
+  {
+    "variant": "today +badge(attr)",
+    "raw": 13121,
+    "gzip": 5267,
+    "vs today": 215,
+    "room left": -147,
+    "brotli": 4618,
+    "note": "badge as data-unread + ::after"
+  },
+  {
+    "variant": "today +bubble +badge(attr)",
+    "raw": 14671,
+    "gzip": 5639,
+    "vs today": 587,
+    "room left": -519,
+    "brotli": 4986,
+    "note": ""
+  },
+  {
+    "variant": "lean +bubble",
+    "raw": 12393,
+    "gzip": 5024,
+    "vs today": -28,
+    "room left": 96,
+    "brotli": 4397,
+    "note": ""
+  },
+  {
+    "variant": "lean +frame",
+    "raw": 11905,
+    "gzip": 4947,
+    "vs today": -105,
+    "room left": 173,
+    "brotli": 4335,
+    "note": ""
+  },
+  {
+    "variant": "lean +lazy",
+    "raw": 11431,
+    "gzip": 4836,
+    "vs today": -216,
+    "room left": 284,
+    "brotli": 4240,
+    "note": "greeting code in a second script"
+  },
+  {
+    "variant": "lean +badge(element)",
+    "raw": 11543,
+    "gzip": 4846,
+    "vs today": -206,
+    "room left": 274,
+    "brotli": 4249,
+    "note": ""
+  },
+  {
+    "variant": "lean +badge(element, message)",
+    "raw": 11532,
+    "gzip": 4839,
+    "vs today": -213,
+    "room left": 281,
+    "brotli": 4246,
+    "note": "the iframe sends the count"
+  },
+  {
+    "variant": "lean +badge(attr)",
+    "raw": 11462,
+    "gzip": 4828,
+    "vs today": -224,
+    "room left": 292,
+    "brotli": 4223,
+    "note": ""
+  },
+  {
+    "variant": "lean +bubble +badge(attr)",
+    "raw": 12889,
+    "gzip": 5195,
+    "vs today": 143,
+    "room left": -75,
+    "brotli": 4578,
+    "note": "the recommendation"
+  },
+  {
+    "variant": "lean +bubble(no events) +badge(attr)",
+    "raw": 12809,
+    "gzip": 5177,
+    "vs today": 125,
+    "room left": -57,
+    "brotli": 4538,
+    "note": "prices the two greeting events"
+  },
+  {
+    "variant": "lean +bubble +badge(element)",
+    "raw": 12971,
+    "gzip": 5214,
+    "vs today": 162,
+    "room left": -94,
+    "brotli": 4600,
+    "note": ""
+  },
+  {
+    "variant": "lean +frame +badge(attr)",
+    "raw": 12401,
+    "gzip": 5125,
+    "vs today": 73,
+    "room left": -5,
+    "brotli": 4494,
+    "note": ""
+  },
+  {
+    "variant": "lean +lazy +badge(attr)",
+    "raw": 11927,
+    "gzip": 5015,
+    "vs today": -37,
+    "room left": 105,
+    "brotli": 4410,
+    "note": ""
+  },
+  {
+    "variant": "lean +bubble +badge(attr) +messages-light",
+    "raw": 12782,
+    "gzip": 5145,
+    "vs today": 93,
+    "room left": -25,
+    "brotli": 4529,
+    "note": ""
+  },
+  {
+    "variant": "greeting-chunk.js",
+    "raw": 1400,
+    "gzip": 792,
+    "vs today": "",
+    "room left": "",
+    "brotli": 660,
+    "note": "the lazy variant's second script, plus a request"
+  },
+  {
+    "variant": "greeting-frame.html",
+    "raw": 1786,
+    "gzip": 1000,
+    "vs today": "",
+    "room left": "",
+    "brotli": 788,
+    "note": "the iframe page, per visitor, plus a request"
+  }
+]
