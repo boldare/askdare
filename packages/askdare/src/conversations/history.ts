@@ -161,13 +161,19 @@ interface Turn {
 export type ShownForm = Omit<HistoryForm, 'handle'>;
 
 /**
- * What re-issuing a handoff form's handle needs: the handoff it continues. The ID is derived from
- * the conversation and the call by the server, so it stays the same on every retry.
+ * What re-issuing a form's handle after a reload needs: the visitor's language when it was shown,
+ * and for a handoff's form the handoff it continues. The handoff's ID is derived from the
+ * conversation and the call by the server, so it stays the same on every retry.
  */
 export interface FormOrigin {
-  readonly reason: 'visitor_asked' | 'cannot_help' | 'complaint' | 'sensitive' | 'sales';
-  readonly trigger: 'model' | 'visitor';
-  readonly summary?: string | undefined;
+  readonly locale?: string | undefined;
+  readonly handoff?:
+    | {
+        readonly reason: 'visitor_asked' | 'cannot_help' | 'complaint' | 'sensitive' | 'sales';
+        readonly trigger: 'model' | 'visitor';
+        readonly summary?: string | undefined;
+      }
+    | undefined;
 }
 
 /**
@@ -310,22 +316,31 @@ function readHandoffs(turns: readonly Turn[]): {
   };
   // The calls first: every note was written after the call it settles.
   turns.forEach((turn, index) => {
+    // A turn runs one handoff; a later call in it was answered without running (`limited`).
+    let handedOff = false;
     for (const call of turn.calls) {
       if (call.output === undefined || call.callId === undefined) continue;
-      if (call.name === SHOW_FORM && formShown(call.output)) {
+      const shown = call.name === SHOW_FORM ? formShown(call.output) : undefined;
+      if (shown) {
         const name = showFormName(call.arguments);
-        if (name !== undefined) show(index, call.callId, name, 'lead');
-      } else if (call.name === HANDOFF) {
+        if (name === undefined) continue;
+        show(index, call.callId, name, 'lead');
+        origins.set(call.callId, shown.locale ? { locale: shown.locale } : {});
+      } else if (call.name === HANDOFF && !handedOff) {
         const result = readHandoffOutput(call);
         if (!result) continue;
+        handedOff = true;
         states[index] = result.state;
         if (result.form && result.purpose) {
           show(index, call.callId, result.form, result.purpose);
           const args = handoffArguments(call.arguments);
           origins.set(call.callId, {
-            reason: args.reason,
-            trigger: 'model',
-            ...(args.summary ? { summary: args.summary } : {}),
+            ...(result.locale ? { locale: result.locale } : {}),
+            handoff: {
+              reason: args.reason,
+              trigger: 'model',
+              ...(args.summary ? { summary: args.summary } : {}),
+            },
           });
         }
       }
@@ -338,9 +353,12 @@ function readHandoffs(turns: readonly Turn[]): {
         states[target?.turn ?? index] = note.state;
       } else if (note.state === 'shown' && note.purpose !== undefined) {
         show(index, note.callId, note.name, note.purpose);
-        if (note.purpose !== 'lead') {
-          origins.set(note.callId, { reason: 'visitor_asked', trigger: 'visitor' });
-        }
+        origins.set(note.callId, {
+          ...(note.locale ? { locale: note.locale } : {}),
+          ...(note.purpose === 'lead'
+            ? {}
+            : { handoff: { reason: 'visitor_asked', trigger: 'visitor' } }),
+        });
       } else if (note.state === 'sent') {
         const at = owner.get(note.callId);
         const list = at && forms[at.turn];

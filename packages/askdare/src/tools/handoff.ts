@@ -95,10 +95,13 @@ const SENTENCES: Readonly<Record<HandoffState, string>> = {
 export function handoffOutput(
   state: HandoffState,
   form?: { readonly name: string; readonly purpose: string },
+  /** The visitor's language, kept with a form for a handle issued again after a reload. */
+  locale?: string,
 ): string {
   return JSON.stringify({
     state,
     ...(form ? { form: form.name, purpose: form.purpose } : {}),
+    ...(form && locale !== undefined && LOCALE.test(locale) ? { locale } : {}),
     note: SENTENCES[state],
   });
 }
@@ -107,7 +110,13 @@ const output = z.object({
   state: z.enum(['requested', 'sent', 'saved', 'unavailable', 'failed', 'limited']),
   form: z.string().optional(),
   purpose: z.enum(['handoff', 'message']).optional(),
+  locale: z
+    .string()
+    .regex(/^[A-Za-z0-9-]{1,35}$/)
+    .optional(),
 });
+
+const LOCALE = /^[A-Za-z0-9-]{1,35}$/;
 
 /** A stored `handoff` call's state and form, read back from its fixed output for the history. */
 export function readHandoffOutput(call: Pick<StoredToolCall, 'output'>):
@@ -115,14 +124,16 @@ export function readHandoffOutput(call: Pick<StoredToolCall, 'output'>):
       readonly state: HandoffState;
       readonly form?: string;
       readonly purpose?: 'handoff' | 'message';
+      readonly locale?: string;
     }
   | undefined {
   if (call.output === undefined) return undefined;
   try {
     const parsed = output.safeParse(JSON.parse(call.output));
     if (!parsed.success) return undefined;
-    const { state, form, purpose } = parsed.data;
-    return form && purpose ? { state, form, purpose } : { state };
+    const { state, form, purpose, locale } = parsed.data;
+    if (!form || !purpose) return { state };
+    return locale ? { state, form, purpose, locale } : { state, form, purpose };
   } catch {
     return undefined;
   }

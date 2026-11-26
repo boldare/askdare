@@ -36,10 +36,24 @@ export function showFormParameters(forms: readonly Form[]): Record<string, unkno
   };
 }
 
-/** The same for every call, so nothing the model wrote reaches it again. */
-export const SHOW_FORM_OUTPUT: string = JSON.stringify({
-  status: 'shown',
-  note: 'The visitor sees the form under your answer. Do not ask for the same details in text; you will be told when it is sent, but not what it holds.',
+/** A BCP 47 tag as the server checked it, kept with a shown form. */
+const LOCALE = /^[A-Za-z0-9-]{1,35}$/;
+
+/**
+ * The output of a call that showed a form. Nothing the model wrote reaches it again; the visitor's
+ * language is kept with it, so a handle issued again after a reload keeps it (ADR-0031).
+ */
+export function showFormOutput(locale: string): string {
+  return JSON.stringify({
+    status: 'shown',
+    ...(LOCALE.test(locale) ? { locale } : {}),
+    note: 'The visitor sees the form under your answer. Do not ask for the same details in text; you will be told when it is sent, but not what it holds.',
+  });
+}
+
+const shownOutput = z.object({
+  status: z.literal('shown'),
+  locale: z.string().regex(LOCALE).optional(),
 });
 
 /** For a second call in one answer, or a form the bot doesn't offer. */
@@ -60,5 +74,18 @@ export function showFormName(json: string): string | undefined {
   }
 }
 
-/** Whether a stored call's output says the form was shown. */
-export const formShown = (output: string | undefined): boolean => output === SHOW_FORM_OUTPUT;
+/**
+ * Whether a stored call's output says the form was shown, with the visitor's language then;
+ * undefined when it wasn't.
+ */
+export function formShown(
+  output: string | undefined,
+): { readonly locale?: string | undefined } | undefined {
+  if (output === undefined) return undefined;
+  try {
+    const parsed = shownOutput.safeParse(JSON.parse(output));
+    return parsed.success ? { locale: parsed.data.locale } : undefined;
+  } catch {
+    return undefined;
+  }
+}

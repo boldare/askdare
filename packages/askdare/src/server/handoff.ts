@@ -167,7 +167,7 @@ export interface Handoffs {
     visitor: HandoffVisitor,
     conversationId: string,
     form: { readonly callId: string; readonly name: string; readonly purpose: FormPurpose },
-    origin: FormOrigin | undefined,
+    origin: FormOrigin['handoff'],
   ): Promise<string | undefined>;
   /**
    * A form's submission (ADR-0031, decision 4), after the handler checked the session, the
@@ -424,7 +424,7 @@ export function createHandoffs(config: HandoffsConfig): Handoffs {
         conversationId,
         result.form
           ? [
-              formShownNote(result.form.name, callId, result.form.purpose),
+              formShownNote(result.form.name, callId, result.form.purpose, visitor.locale),
               handoffNote('requested', callId),
             ]
           : [handoffNote(result.state)],
@@ -491,7 +491,7 @@ export function createHandoffs(config: HandoffsConfig): Handoffs {
                 source: 'chat',
               });
             }
-          })();
+          })().catch((error: unknown) => reportHook('onLead', error));
           config.waitUntil?.(work);
           return { kind: 'sent' };
         }
@@ -524,7 +524,8 @@ export function createHandoffs(config: HandoffsConfig): Handoffs {
           state = (await deliver(await report(false))) ? 'saved' : 'failed';
         }
         count(bot, state);
-        await note(conversationId, [...sent, handoffNote(state, callId), ...values]);
+        // The values right after the sent note, which is where the history looks for them.
+        await note(conversationId, [...sent, ...values, handoffNote(state, callId)]);
         return { kind: 'sent', handoff: state };
       } catch (error) {
         await claim.release().catch(() => undefined);

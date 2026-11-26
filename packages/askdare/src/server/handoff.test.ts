@@ -18,7 +18,7 @@ import { decodeEvent, SseParser } from '../protocol/sse';
 import { createIdentityVerifier } from '../security/identity';
 import { createTokenService, type TokenService } from '../security/tokens';
 import { handoffOutput } from '../tools/handoff';
-import { SHOW_FORM_OUTPUT } from '../tools/show-form';
+import { showFormOutput } from '../tools/show-form';
 import { adminWriter } from './admin-records';
 import type { EmbedAssets } from './embed-page';
 import { createRequestHandler, type HandlerConfig, type RequestHandler } from './handler';
@@ -67,7 +67,7 @@ const offer = defineForm({
     {
       name: 'topic',
       type: 'select',
-      label: 'Topic',
+      label: { en: 'Topic', de: 'Thema' },
       toModel: true,
       options: [
         { value: 'pricing', label: 'Pricing' },
@@ -233,7 +233,7 @@ interface Visitor {
 /** A visitor with a conversation of one turn. */
 async function converse(
   handler: RequestHandler,
-  options: { readonly ip?: string; readonly identityToken?: string } = {},
+  options: { readonly ip?: string; readonly identityToken?: string; readonly locale?: string } = {},
 ): Promise<Visitor & { events: ProtocolEvent[] }> {
   const headers = options.ip ? { 'x-test-ip': options.ip } : {};
   const session = (await (
@@ -250,7 +250,13 @@ async function converse(
   ).json()) as { accessToken: string };
   const auth = { authorization: `Bearer ${session.accessToken}`, ...headers };
   const events = await streamed(
-    await handler(post('/messages', { botId: 'support', text: 'Hi' }, auth)),
+    await handler(
+      post(
+        '/messages',
+        { botId: 'support', text: 'Hi', ...(options.locale ? { locale: options.locale } : {}) },
+        auth,
+      ),
+    ),
   );
   const created = events.find((event) => event.type === 'conversation.created');
   if (created?.type !== 'conversation.created') throw new Error(JSON.stringify(events));
@@ -440,6 +446,31 @@ describe('a handoff the model asks for', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('keeps the state of the handoff that ran when the model called it twice in one turn', async () => {
+    const handler = makeHandler([define({ handoff: true })]);
+    script = async (request) => {
+      await modelHandoff(request, { reason: 'sales' });
+      // turn.ts answers a second call in the same turn without running it.
+      await request.conversations.append(request.conversationId, [
+        {
+          id: newItemId(),
+          type: 'call',
+          callId: 'call_again',
+          name: 'handoff',
+          arguments: '{"reason":"sales"}',
+        },
+        {
+          id: newItemId(),
+          type: 'call_output',
+          callId: 'call_again',
+          output: handoffOutput('limited'),
+        },
+      ]);
+    };
+    const visitor = await converse(handler);
+    expect((await history(handler, visitor)).messages[1]?.handoff).toEqual({ state: 'sent' });
   });
 
   it('asks for contact details first, then hands the form values over', async () => {
@@ -660,10 +691,39 @@ describe('POST /handoff', () => {
     expect(errors).toEqual(['internal_error: The onHandoff hook failed: TypeError.']);
     expectNoValues(SECRET_EMAIL);
   });
+
+  it("keeps a handoff form's toModel values out of the visible messages after a reload", async () => {
+    const withTopic = defineForm({
+      name: 'contact',
+      model: false,
+      title: 'Contact',
+      fields: [
+        { name: 'email', type: 'email', label: 'Email', required: true },
+        { name: 'topic', type: 'text', label: 'Topic', toModel: true },
+      ],
+    });
+    const handler = makeHandler([define({ handoff: { form: 'contact' }, forms: [withTopic] })]);
+    const visitor = await converse(handler);
+    const asked = (await (await askForPerson(handler, visitor)).json()) as {
+      form: { handle: string };
+    };
+    const response = await submit(handler, visitor, asked.form.handle, {
+      email: SECRET_EMAIL,
+      topic: 'Billing',
+    });
+    expect(await response.json()).toEqual({ state: 'sent', handoff: 'sent' });
+    const page = await history(handler, visitor);
+    expect(page.messages.map((message) => message.role)).toEqual(['user', 'assistant']);
+    expect(page.messages[1]).toMatchObject({
+      handoff: { state: 'sent' },
+      forms: [{ name: 'contact', state: 'sent' }],
+    });
+    expect(JSON.stringify(page)).not.toContain('Billing');
+  });
 });
 
 describe('POST /forms', () => {
-  async function shownForm(handler: RequestHandler) {
+  async function shownForm(handler: RequestHandler, locale?: string) {
     let handle: string | undefined;
     script = async (request) => {
       const shown = await request.showForm?.('offer', 'call_form');
@@ -676,10 +736,15 @@ describe('POST /forms', () => {
           name: 'show_form',
           arguments: '{"form":"offer"}',
         },
-        { id: newItemId(), type: 'call_output', callId: 'call_form', output: SHOW_FORM_OUTPUT },
+        {
+          id: newItemId(),
+          type: 'call_output',
+          callId: 'call_form',
+          output: showFormOutput(request.context.locale),
+        },
       ]);
     };
-    const visitor = await converse(handler);
+    const visitor = await converse(handler, locale ? { locale } : {});
     if (!handle) throw new Error('no form was shown');
     return { visitor, handle };
   }
@@ -819,5 +884,24 @@ describe('POST /forms', () => {
       statuses.push((await submit(handler, visitor, handle, { email: 'bad' })).status);
     }
     expect(statuses).toEqual([400, 400, 400, 400, 400, 429]);
+  });
+
+  it("keeps the visitor's language for a handle issued again after a reload", async () => {
+    const handler = makeHandler([define({ forms: [offer], widget: { locale: 'auto' } })]);
+    const { visitor } = await shownForm(handler, 'de');
+    const reissued = (await history(handler, visitor)).messages[1]?.forms?.[0]?.handle;
+    const response = await submit(handler, visitor, reissued ?? '', {
+      email: SECRET_EMAIL,
+      topic: 'demo',
+      consent: true,
+    });
+    expect(response.status).toBe(200);
+    await Promise.all(pending);
+    expect(leads[0]?.locale).toBe('de');
+    script = async (request) => {
+      const text = JSON.stringify(await request.conversations.context(request.conversationId));
+      expect(text).toContain('[askdare:form-values]\\nThema: demo');
+    };
+    await again(handler, visitor);
   });
 });

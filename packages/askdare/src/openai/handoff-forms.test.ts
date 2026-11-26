@@ -252,6 +252,7 @@ describe('a handoff in a turn', () => {
           state: 'requested',
           form: 'contact',
           purpose: 'handoff',
+          locale: 'en',
           note: expect.any(String),
         },
       },

@@ -1180,13 +1180,15 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
         const forms = await Promise.all(
           message.forms.map(async (form): Promise<HistoryForm> => {
             if (form.state !== 'open') return form;
+            const origin = origins?.get(form.callId);
+            // In the visitor's language when it was shown, so the reports and labels keep it.
             const handle = await handoffs.reissue(
               tokens,
               bot,
-              visitor,
+              origin?.locale ? { ...visitor, locale: origin.locale } : visitor,
               conversationId,
               form,
-              origins?.get(form.callId),
+              origin?.handoff,
             );
             return handle ? { ...form, handle } : { ...form, state: 'expired' };
           }),

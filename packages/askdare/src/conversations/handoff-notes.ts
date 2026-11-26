@@ -32,7 +32,8 @@ const CALL = /^[A-Za-z0-9_-]{1,128}$/;
 const NAME = /^[a-z0-9_]{1,32}$/;
 const HANDOFF_LINE = /^\[askdare:handoff\] ([a-z]+)(?: ([A-Za-z0-9_-]{1,128}))?$/;
 const FORM_LINE =
-  /^\[askdare:form\] ([a-z0-9_]{1,32}) (shown|sent) ([A-Za-z0-9_-]{1,128})(?: (lead|handoff|message))?$/;
+  /^\[askdare:form\] ([a-z0-9_]{1,32}) (shown|sent) ([A-Za-z0-9_-]{1,128})(?: (lead|handoff|message)(?: ([A-Za-z0-9-]{1,35}))?)?$/;
+const LOCALE = /^[A-Za-z0-9-]{1,35}$/;
 
 const developer = (text: string): StoredItem => ({
   id: newItemId(),
@@ -51,8 +52,15 @@ export function handoffNote(state: HandoffState, callId?: string): StoredItem {
 }
 
 /** A form the server showed outside a model call: the one a visitor's handoff asks for. */
-export function formShownNote(name: string, callId: string, purpose: FormPurpose): StoredItem {
-  return developer(`[askdare:form] ${name} shown ${callId} ${purpose}\n${FORM_SHOWN}`);
+export function formShownNote(
+  name: string,
+  callId: string,
+  purpose: FormPurpose,
+  /** The visitor's language, for a handle issued again after a reload. */
+  locale?: string,
+): StoredItem {
+  const language = locale !== undefined && LOCALE.test(locale) ? ` ${locale}` : '';
+  return developer(`[askdare:form] ${name} shown ${callId} ${purpose}${language}\n${FORM_SHOWN}`);
 }
 
 /** A form was sent; it never holds a value. */
@@ -88,6 +96,7 @@ export type HandoffNote =
       readonly state: 'shown' | 'sent';
       readonly callId: string;
       readonly purpose?: FormPurpose | undefined;
+      readonly locale?: string | undefined;
     };
 
 const textOf = (item: StoredItem): string | undefined => {
@@ -118,6 +127,7 @@ export function storedHandoffNote(item: StoredItem): HandoffNote | undefined {
       state: form[2] as 'shown' | 'sent',
       callId: form[3],
       ...(form[4] ? { purpose: form[4] as FormPurpose } : {}),
+      ...(form[5] ? { locale: form[5] } : {}),
     };
   }
   return undefined;

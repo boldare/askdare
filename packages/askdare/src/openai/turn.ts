@@ -21,9 +21,9 @@ import { HANDOFF, handoffOutput } from '../tools/handoff';
 import {
   modelForms,
   SHOW_FORM,
-  SHOW_FORM_OUTPUT,
   SHOW_FORM_REFUSED,
   showFormName,
+  showFormOutput,
 } from '../tools/show-form';
 import { SUGGEST_REPLIES, suggestedReplies } from '../tools/suggest-replies';
 import { addUsage, ZERO_USAGE } from '../usage';
@@ -405,7 +405,7 @@ async function turn(
         answered.push({
           type: 'function_call_output',
           call_id: call.callId,
-          output: shown ? SHOW_FORM_OUTPUT : SHOW_FORM_REFUSED,
+          output: shown ? showFormOutput(request.context.locale) : SHOW_FORM_REFUSED,
         });
       }
       // The model hears how a handoff went, and answers around it: one more step.
@@ -428,7 +428,7 @@ async function turn(
           if (result.form) {
             forms.push({ type: 'form', messageId, callId: call.callId, ...result.form });
           }
-          output = handoffOutput(result.state, result.form);
+          output = handoffOutput(result.state, result.form, request.context.locale);
         }
         handedBack.push({ type: 'function_call_output', call_id: call.callId, output });
       }
