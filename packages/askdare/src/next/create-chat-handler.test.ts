@@ -624,11 +624,24 @@ describe('the admin option', () => {
       }),
     );
 
-  it('refuses a console with neither ADMIN_SECRET nor allow, and options that need a store', () => {
+  it('checks the console setup on first use, so a build without its secrets passes', async () => {
     vi.stubEnv('ADMIN_SECRET', '');
-    expect(() => createChatHandler({ bots: [bot], admin: { console: {} } })).toThrow(
-      /ADMIN_SECRET/,
-    );
+    const reports: ChatErrorReport[] = [];
+    const handlers = createChatHandler({
+      bots: [bot],
+      conversations: memoryConversations(),
+      admin: { console: {} },
+      onError: (report) => {
+        reports.push(report);
+      },
+    });
+    const page = await handlers.GET(new Request(`${BASE}/admin`));
+    expect(page.status).toBe(503);
+    await Promise.all(mocks.pending);
+    expect(reports[0]?.message).toContain('ADMIN_SECRET');
+  });
+
+  it('refuses options that need a store', () => {
     expect(() => createChatHandler({ bots: [bot], admin: { transcripts: true } })).toThrow(
       /needs admin.store/,
     );

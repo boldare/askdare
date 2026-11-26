@@ -1214,7 +1214,7 @@ interface ChatHandlerAdminOptions {
 interface ChatHandlerAdminConsoleOptions {
   /**
    * Users who may sign in with an identity token: the `sub` of a JWT signed with
-   * `IDENTITY_SECRET`, audience `askdare-admin`, at most 10 minutes long, passed to the console
+   * `IDENTITY_SECRET`, audience `askdare:admin`, at most 10 minutes long, passed to the console
    * as `<basePath>/admin#identity=<jwt>`. Without it, only `ADMIN_SECRET` signs in; one of the
    * two is required.
    */

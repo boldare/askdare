@@ -24,7 +24,8 @@ import { hookError, STREAM_HEADERS, streamTurn } from './stream-turn';
 const DAY_MS = 86_400_000;
 /** An identity token for the console lives at most 10 minutes (ADR-0032, decision 8). */
 const ADMIN_IDENTITY_MAX_SECONDS = 10 * 60;
-const ADMIN_IDENTITY_AUDIENCE = 'askdare-admin';
+/** A colon can't be in a bot ID, so no bot's identity token can open the console. */
+const ADMIN_IDENTITY_AUDIENCE = 'askdare:admin';
 const ACTION = /^[a-z0-9-]{1,48}$/;
 
 /** The console's built app, from its generated module (loaded only when the console is on). */
@@ -36,7 +37,7 @@ export interface ConsoleAssets {
 }
 
 export interface AdminConsoleConfig {
-  /** `sub` values of identity tokens allowed in (ADR-0009, audience `askdare-admin`). */
+  /** `sub` values of identity tokens allowed in (ADR-0009, audience `askdare:admin`). */
   readonly allow: readonly string[];
   readonly dashboard?: AdminDashboard | undefined;
   /** `ADMIN_SECRET`, checked; undefined when the secret sign-in is off. Throws for a weak one. */
@@ -268,6 +269,38 @@ export function createAdminConsole(
 
   const json = (body: unknown, status = 200): Response =>
     jsonResponse(body, status, CONSOLE_HEADERS);
+
+  /**
+   * The console's setup, checked on every request rather than at startup, so `next build` never
+   * needs its secrets: without ADMIN_SECRET and `allow`, nobody can sign in, so it answers a setup
+   * error; `allow` without IDENTITY_SECRET is said once, since no identity sign-in can work.
+   */
+  let warnedIdentity = false;
+  const checkSetup = (): void => {
+    const secret = consoleConfig.secret();
+    if (secret === undefined && allow.size === 0) {
+      throw new AskdareError('bot_unavailable', {
+        cause: new TypeError(
+          '[askdare] admin.console needs ADMIN_SECRET in the environment or an admin.console.allow list.',
+        ),
+      });
+    }
+    if (allow.size > 0 && !config.identity?.()) {
+      if (secret === undefined) {
+        throw new AskdareError('bot_unavailable', {
+          cause: new TypeError(
+            '[askdare] admin.console.allow needs IDENTITY_SECRET to verify identity sign-ins, and ADMIN_SECRET is not set either.',
+          ),
+        });
+      }
+      if (!warnedIdentity) {
+        warnedIdentity = true;
+        console.warn(
+          '[askdare] admin.console.allow is set but IDENTITY_SECRET is not: identity sign-ins are refused until it is. ADMIN_SECRET still signs in.',
+        );
+      }
+    }
+  };
 
   const fingerprint = async (subject: string, secret?: string): Promise<string> => {
     const tokens = await config.tokens();
@@ -573,6 +606,7 @@ export function createAdminConsole(
   };
 
   const route = async (request: Request, path: string, method: string): Promise<Response> => {
+    checkSetup();
     if (method === 'GET') {
       if (path === '') return servePage();
       const file = /^\/([a-z]+\.[0-9a-f]{6,16}\.(?:js|css))$/.exec(path);

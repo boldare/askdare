@@ -127,7 +127,7 @@ export interface ChatHandlerAdminOptions {
 export interface ChatHandlerAdminConsoleOptions {
   /**
    * Users who may sign in with an identity token: the `sub` of a JWT signed with
-   * `IDENTITY_SECRET`, audience `askdare-admin`, at most 10 minutes long, passed to the console
+   * `IDENTITY_SECRET`, audience `askdare:admin`, at most 10 minutes long, passed to the console
    * as `<basePath>/admin#identity=<jwt>`. Without it, only `ADMIN_SECRET` signs in; one of the
    * two is required.
    */
@@ -281,12 +281,9 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
   if (consoleOptions?.dashboard && !adminOptions?.store) {
     throw new TypeError('[askdare] admin.console.dashboard needs admin.store.');
   }
+  // Whether ADMIN_SECRET or `allow` is set is checked by the console on its first request, like
+  // the other secrets, so `next build` never needs it.
   const allow = consoleOptions?.allow ?? [];
-  if (consoleOptions && allow.length === 0 && !process.env['ADMIN_SECRET']) {
-    throw new TypeError(
-      '[askdare] admin.console needs ADMIN_SECRET in the environment or an admin.console.allow list.',
-    );
-  }
   const trustProxy = options.limits?.trustProxy ?? 'auto';
   const development = process.env['NODE_ENV'] === 'development';
   const onError = guard('onError', options.onError);

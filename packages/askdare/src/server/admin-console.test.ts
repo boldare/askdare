@@ -117,6 +117,8 @@ function setup(
     conversations?: ConversationStore;
     transcripts?: boolean;
     onFeedback?: HandlerConfig['onFeedback'];
+    /** false: no IDENTITY_SECRET. */
+    identity?: false;
   } = {},
 ): Setup {
   const store = options.store ?? memoryAdminStore();
@@ -160,7 +162,10 @@ function setup(
       usage.push(report);
     },
     onFeedback: options.onFeedback,
-    identity: () => createIdentityVerifier({ secret: IDENTITY_SECRET, chatSecret: CHAT_SECRET }),
+    identity: () =>
+      options.identity === false
+        ? undefined
+        : createIdentityVerifier({ secret: IDENTITY_SECRET, chatSecret: CHAT_SECRET }),
     waitUntil: (work) => settled.push(work),
     admin,
   });
@@ -197,7 +202,7 @@ async function signIn(handler: RequestHandler, body: unknown = { secret: ADMIN_S
 
 const bearer = (token: string | undefined) => ({ authorization: `Bearer ${token}` });
 
-const identityToken = (sub: string, { audience = 'askdare-admin', lifetime = 300 } = {}) => {
+const identityToken = (sub: string, { audience = 'askdare:admin', lifetime = 300 } = {}) => {
   const now = Math.floor(Date.now() / 1000);
   return new SignJWT({})
     .setProtectedHeader({ alg: 'HS256' })
@@ -278,6 +283,8 @@ describe('the admin console route', () => {
     const refused = [
       await identityToken('someone-else'),
       await identityToken('owner-1', { audience: 'support' }),
+      // A chat identity token for a bot whose ID is `askdare-admin`, the audience before c5's fix.
+      await identityToken('owner-1', { audience: 'askdare-admin' }),
       // Longer than the console's 10 minutes.
       await identityToken('owner-1', { lifetime: 3600 }),
     ];
@@ -306,6 +313,28 @@ describe('the admin console route', () => {
     }
     expect(statuses).toEqual([401, 401, 401, 401, 401, 429]);
     expect((await signIn(handler)).response.status).toBe(200);
+  });
+
+  it('answers a setup error on first use while nobody could sign in', async () => {
+    const { handler } = setup({ secret: () => undefined, console: { allow: [] } });
+    expect((await handler(new Request(`${BASE}/admin`))).status).toBe(503);
+    expect((await signIn(handler)).response.status).toBe(503);
+    const noIdentity = setup({ secret: () => undefined, identity: false });
+    expect((await noIdentity.handler(new Request(`${BASE}/admin`))).status).toBe(503);
+  });
+
+  it('says once that allow needs IDENTITY_SECRET, and still signs in with ADMIN_SECRET', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const { handler } = setup({ identity: false });
+      const identity = await signIn(handler, { identity: await identityToken('owner-1') });
+      expect(identity.response.status).toBe(401);
+      expect((await signIn(handler)).response.status).toBe(200);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]?.[0])).toContain('IDENTITY_SECRET');
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('is closed by the kill switch', async () => {
