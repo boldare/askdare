@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createBot } from '../bot/define-bot';
 import { LOADER_JS } from '../generated/assets';
-import { launcherLook, loaderWithLook } from './launcher';
+import { DEFAULT_LOOK, launcherLook, loaderWithLook } from './launcher';
 
 const hostile = createBot({
   id: 'sage-bot',
@@ -24,7 +24,9 @@ describe('loaderWithLook (real built loader)', () => {
 
   it('inlines the look as plain data, whatever quote the minifier chose', () => {
     const js = loaderWithLook(LOADER_JS, hostile);
-    const literal = JSON.stringify(JSON.stringify({ 'sage-bot': launcherLook(hostile) }));
+    const literal = JSON.stringify(
+      JSON.stringify({ 'sage-bot': launcherLook(hostile), '': DEFAULT_LOOK }),
+    );
     expect(js).toContain(`JSON.parse(${literal})`);
     expect(js).not.toContain('__ASKDARE_LAUNCHERS__');
     // Still valid JavaScript (a broken loader would fail on every site that embeds it).
@@ -39,7 +41,16 @@ describe('loaderWithLook (real built loader)', () => {
     const other = createBot({ id: 'internal', model: 'm', instructions: 'x' });
     expect(loaderWithLook(LOADER_JS, hostile)).not.toContain('internal');
     expect(loaderWithLook(LOADER_JS, other)).not.toContain('sage-bot');
-    expect(loaderWithLook(LOADER_JS, undefined)).toContain('JSON.parse("{}")');
+    // Without a bot, only the default look, under ''.
+    const fallback = JSON.stringify(JSON.stringify({ '': DEFAULT_LOOK }));
+    expect(loaderWithLook(LOADER_JS, undefined)).toContain(`JSON.parse(${fallback})`);
+  });
+
+  it("always adds the default look under '', for a data-bot the server didn't see", () => {
+    const literal = JSON.stringify(
+      JSON.stringify({ 'sage-bot': launcherLook(hostile), '': DEFAULT_LOOK }),
+    );
+    expect(loaderWithLook(LOADER_JS, hostile)).toContain(`JSON.parse(${literal})`);
   });
 
   it('gives the launcher each language its own texts', () => {
