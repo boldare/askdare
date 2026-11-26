@@ -34,6 +34,7 @@ Short records of decisions that are expensive to reverse. One decision per file,
 | [0028](0028-react-budget-34-kb.md) | A 34 KB budget for the React entry, for Markdown fixes | Accepted |
 | [0029](0029-compaction-for-item-stores.md) | Compaction for conversations in our own store | Accepted (spike S9, task 4) |
 | [0030](0030-handoff.md) | Handoff to a human | Proposed |
+| [0031](0031-forms-and-leads.md) | Forms in the chat and leads | Proposed |
 
 ## Template
 
