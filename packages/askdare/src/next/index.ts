@@ -6,6 +6,11 @@ export type {
   ChatWidget,
   EmbedChatConfig,
 } from '../chat/config';
+export type { EmailHandoffOptions, HandoffEmail } from '../handoff/email';
+export { emailHandoff } from '../handoff/email';
+export type { ChatHandoffMessage, ChatHandoffReport } from '../handoff/report';
+export type { WebhookHandoffOptions } from '../handoff/webhook';
+export { webhookHandoff } from '../handoff/webhook';
 export type { TrustProxy } from '../limits/client-ip';
 export type { OpenAIConversationsOptions } from '../openai/conversations';
 export { openaiConversations } from '../openai/conversations';
