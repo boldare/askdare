@@ -115,14 +115,14 @@ describe.skipIf(!TEST_DATABASE_URL)('migrate against Postgres', () => {
     const conversations = await migrate({ url: schema.url, parts: ['conversations'] });
     expect(Object.keys(conversations.versions)).toEqual(['conversations']);
     expect((await tables()).some((table) => table.startsWith('askdare_knowledge_'))).toBe(false);
-    const knowledge = await migrate({ url: schema.url, parts: ['knowledge'] });
-    expect(knowledge.applied.every((step) => step.part === 'knowledge')).toBe(true);
+    const knowledge = await migrate({ url: schema.url, parts: ['admin', 'knowledge'] });
+    expect(knowledge.applied.every((step) => step.part !== 'conversations')).toBe(true);
     // The report gives every part the database has.
     expect(knowledge.versions).toEqual(
       Object.fromEntries(SCHEMA_PARTS.map((part) => [part.name, latestVersion(part)])),
     );
     await expect(migrate({ url: schema.url, parts: ['nope'] })).rejects.toThrow(
-      'Unknown schema part "nope"; the parts are conversations, knowledge.',
+      'Unknown schema part "nope"; the parts are conversations, admin, knowledge.',
     );
     await expect(migrate({ url: schema.url, parts: [] })).rejects.toThrow(
       'Name at least one schema part.',

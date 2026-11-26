@@ -1,3 +1,4 @@
+export { type PostgresAdminStoreOptions, postgresAdminStore } from './admin/store';
 export type {
   PostgresConnectionOptions,
   PostgresPool,

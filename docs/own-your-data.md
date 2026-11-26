@@ -67,7 +67,7 @@ Create the tables:
 npx askdare-postgres migrate
 ```
 
-It reads `DATABASE_URL` from the environment, else from `.env.local`, then `.env`, and prints what it applied. askdare never changes the schema while it serves requests, so run `migrate` again before every deployment that brings a new version of the add-on ([Deploy](#9-deploy)). A database without pgvector migrates only the conversations: `npx askdare-postgres migrate conversations`.
+It reads `DATABASE_URL` from the environment, else from `.env.local`, then `.env`, and prints what it applied. askdare never changes the schema while it serves requests, so run `migrate` again before every deployment that brings a new version of the add-on ([Deploy](#9-deploy)). A database without pgvector migrates only the conversations and the admin store: `npx askdare-postgres migrate conversations admin`.
 
 The user that migrates owns the tables. The app's own user only needs `select`, `insert`, `update` and `delete` on them. More in the [add-on's README](../packages/askdare-postgres/README.md#migrate).
 
