@@ -1,0 +1,162 @@
+.askdare-dashboard {
+  --ad-fg: #1b1d22;
+  --ad-muted: #5d6370;
+  --ad-bg: #ffffff;
+  --ad-surface: #f4f5f7;
+  --ad-line: #dfe2e7;
+  --ad-accent: #3b5bdb;
+  --ad-error: #b42318;
+  color: var(--ad-fg);
+  background: var(--ad-bg);
+  font:
+    14px / 1.45 system-ui,
+    sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  .askdare-dashboard {
+    --ad-fg: #e8eaee;
+    --ad-muted: #a2a8b4;
+    --ad-bg: #15171b;
+    --ad-surface: #1f2228;
+    --ad-line: #343842;
+    --ad-accent: #8ea4ff;
+    --ad-error: #ff8a80;
+  }
+}
+.askdare-dashboard h3 {
+  font-size: 15px;
+  margin: 24px 0 8px;
+}
+.askdare-dashboard button,
+.askdare-dashboard select {
+  font: inherit;
+  color: inherit;
+  background: var(--ad-surface);
+  border: 1px solid var(--ad-line);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.askdare-dashboard button:focus-visible,
+.askdare-dashboard select:focus-visible {
+  outline: 2px solid var(--ad-accent);
+  outline-offset: 1px;
+}
+.askdare-dashboard button[aria-pressed="true"] {
+  border-color: var(--ad-accent);
+  color: var(--ad-accent);
+}
+.ad-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.ad-tabs,
+.ad-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.ad-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+}
+.ad-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+  background: var(--ad-surface);
+  border-radius: 8px;
+}
+.ad-tile strong {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.ad-muted {
+  color: var(--ad-muted);
+}
+.ad-error {
+  color: var(--ad-error);
+}
+.ad-scroll {
+  overflow-x: auto;
+}
+.askdare-dashboard table {
+  border-collapse: collapse;
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+.askdare-dashboard th,
+.askdare-dashboard td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--ad-line);
+  white-space: nowrap;
+}
+.askdare-dashboard thead th {
+  color: var(--ad-muted);
+  font-weight: 500;
+}
+.ad-bar-cell {
+  position: relative;
+  display: inline-block;
+  min-width: 120px;
+}
+.ad-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--ad-accent);
+  opacity: 0.18;
+  border-radius: 3px;
+}
+.ad-bar-cell > span:last-child {
+  position: relative;
+  padding: 0 4px;
+}
+.ad-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+  display: grid;
+  gap: 12px;
+}
+.ad-list > li {
+  padding: 12px;
+  background: var(--ad-surface);
+  border-radius: 8px;
+}
+.ad-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+.ad-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 6px 0;
+}
+.ad-visitor {
+  font-weight: 600;
+}
+.ad-sources {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  color: var(--ad-muted);
+  overflow-wrap: anywhere;
+}
+.ad-more {
+  margin-top: 12px;
+}
+.ad-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
