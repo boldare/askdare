@@ -70,7 +70,6 @@ What 0.6 leaves open, found by its tasks and reviews. Each line names where it g
 **Privacy and security** (low-confidence notes from the `release/0.6` security review, worth a closer look):
 - **Transcripts outlive a deleted conversation:** deleting one calls no hook, so a transcript an app keeps through `onTranscript` stays until the app sweeps it. 0.7, with the admin store ([ADR-0016](docs/adr/0016-admin.md)); an `onConversationDeleted` hook is the fallback if that slips.
 - **An answer's live stream can hand back an anonymous resume token** when the visitor signs in while it streams and it doesn't drop; the chat client stores it in the user's place, where it outlives sign-out until the next answer. `POST /resume` no longer replays it (0.6.x, h1); the rest is a chat-client fix. 0.6.x.
-- **A replaced answer can be rated after a reload,** though not while it streams. 0.6.x.
 
 **Smaller items:**
 - "Reconnecting…" can stay visible after a successful resume until the next text or status event. 0.6.x, once the React entry has room.

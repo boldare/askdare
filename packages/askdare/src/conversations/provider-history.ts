@@ -18,6 +18,11 @@ export interface HistoryPosition {
 /** One page of history: whole turns, oldest first, and where the next older page ends. */
 export interface HistoryPage {
   readonly messages: readonly HistoryMessage[];
+  /**
+   * The IDs of the answers the visitor may rate: those they saw as final, as the stream rates them
+   * (ADR-0022). Absent: none.
+   */
+  readonly rated?: readonly string[] | undefined;
   /** Absent on the oldest page. */
   readonly next?: HistoryPosition | undefined;
 }

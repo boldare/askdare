@@ -275,9 +275,25 @@ function turnUi(reader: UiReader, calls: readonly StoredCall[]): readonly ToolUi
  */
 export function historyFromItems(
   oldestFirst: readonly StoredItem[],
-  { replies, ui, checked = false, knowledge }: Omit<HistoryRequest, 'signal'>,
+  request: Omit<HistoryRequest, 'signal'>,
 ): HistoryMessage[] {
+  return historyPageFromItems(oldestFirst, request).messages;
+}
+
+/**
+ * `historyFromItems` with the answers that may be rated: as while it streamed, only each turn's
+ * final answer, and not one a guardrail replaced (ADR-0022): the visitor never saw the original,
+ * and the replacement isn't the model's.
+ */
+export function historyPageFromItems(
+  oldestFirst: readonly StoredItem[],
+  { replies, ui, checked = false, knowledge }: Omit<HistoryRequest, 'signal'>,
+): { readonly messages: HistoryMessage[]; readonly rated: string[] } {
   const { messages, turns } = readTurns(oldestFirst, checked, knowledge !== undefined);
+  const rated = turns.flatMap(({ answer, plain }) => {
+    const message = answer === undefined || !plain ? undefined : messages[answer];
+    return message ? [message.id] : [];
+  });
   // Every answer shows its turn's cards (ADR-0017).
   if (ui) {
     for (const { answer, calls, plain } of turns) {
@@ -302,7 +318,7 @@ export function historyFromItems(
     const offered = items && normalizeReplies(items);
     if (offered) messages[messages.length - 1] = { ...latest, replies: offered };
   }
-  return messages;
+  return { messages, rated };
 }
 
 /**
@@ -319,11 +335,11 @@ export function itemHistory(store: ConversationStore): HistoryReader {
         before,
       );
       // Options belong to the latest answer, which only the latest page has.
-      const messages = historyFromItems(items, {
+      const page = historyPageFromItems(items, {
         ...request,
         replies: before ? undefined : replies,
       });
-      return next ? { messages, next } : { messages };
+      return next ? { ...page, next } : page;
     } catch (error) {
       throw await storeFailure(store, conversationId, error, signal);
     }

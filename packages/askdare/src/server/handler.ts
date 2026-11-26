@@ -1029,9 +1029,11 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     if (!ownsConversation(info, bot.id, grant)) throw conversationGone();
     let messages = history.messages;
     if (feedbackOn(bot)) {
+      // The same answers as the stream rated: never one a guardrail replaced (ADR-0022).
+      const rated = new Set(history.rated);
       messages = await Promise.all(
         messages.map(async (message) =>
-          message.role === 'assistant' && ANSWER_ITEM_ID.test(message.id)
+          message.role === 'assistant' && rated.has(message.id) && ANSWER_ITEM_ID.test(message.id)
             ? {
                 ...message,
                 feedback: await feedbackHandle(tokens, bot, owner, conversationId, message.id),

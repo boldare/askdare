@@ -2,7 +2,7 @@ import type OpenAI from 'openai';
 import type { ConversationItem } from 'openai/resources/conversations/items';
 import {
   HISTORY_ITEMS,
-  historyFromItems,
+  historyPageFromItems,
   pageOfTurns,
   type RawPage,
 } from '../conversations/history';
@@ -90,10 +90,10 @@ export async function listHistory(
     if (item.type === 'file_search_call') addSources(item, sources);
   }
   const passages = knowledge ? await citedPassages(knowledge, items, signal) : undefined;
-  const messages = historyFromItems(
+  const page = historyPageFromItems(
     items.map((item) => fromConversationItem(item, { sources, passages })),
     // Options belong to the latest answer, which only the latest page has.
     { replies: before ? undefined : replies, ui, checked, knowledge },
   );
-  return next ? { messages, next } : { messages };
+  return next ? { ...page, next } : page;
 }
