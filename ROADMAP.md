@@ -25,9 +25,7 @@ askdare is the website chatbot a team owns in code: self-hosted in their Next.js
 
 ## 0.6.x: patches
 
-What the 0.6 review left open and fits in a patch, from "Known gaps" below, done in parallel before the 0.7 tasks and merged into `main`: h1, resume after sign-in (#192); h2, no rating for a replaced answer (#196); h3, `doctor`'s store timeout (#193); h4, an index for the Postgres compaction lookup (#190); h5, regional endpoints documented (#194). Two pieces stay open in "Known gaps": the chat-client half of h1, and a contract run against the EU endpoint, which needs a key from an EU-residency project. The merged patches ship in the next 0.6.x release.
-
-Still to do, on `main`: **h6**, the chat-client half of h1 ([task](tasks/0.6.x-h6-resume-token-on-live-stream.md)). It changes `chat/store.ts`, so it lands before c2 starts.
+What the 0.6 review left open and fits in a patch, from "Known gaps" below, done in parallel before the 0.7 tasks and merged into `main`: h1, resume after sign-in (#192); h2, no rating for a replaced answer (#196); h3, `doctor`'s store timeout (#193); h4, an index for the Postgres compaction lookup (#190); h5, regional endpoints documented (#194); h6, the chat-client half of h1: the live stream no longer hands back an anonymous resume token after sign-in. One piece stays open in "Known gaps": a contract run against the EU endpoint, which needs a key from an EU-residency project. The merged patches ship in the next 0.6.x release.
 
 ## 0.7: support-grade
 
@@ -75,7 +73,6 @@ What 0.6 leaves open, found by its tasks and reviews. Each line names where it g
 
 **Privacy and security** (low-confidence notes from the `release/0.6` security review, worth a closer look):
 - **Transcripts outlive a deleted conversation:** deleting one calls no hook, so a transcript an app keeps through `onTranscript` stays until the app sweeps it. 0.7, with the admin store ([ADR-0016](docs/adr/0016-admin.md)); an `onConversationDeleted` hook is the fallback if that slips (task c5, per ADR-0032). Transcripts an app keeps through its own `onTranscript` stay the app's to delete; the docs point to the admin store instead (d1).
-- **An answer's live stream can hand back an anonymous resume token** when the visitor signs in while it streams and it doesn't drop; the chat client stores it in the user's place, where it outlives sign-out until the next answer. `POST /resume` no longer replays it (0.6.x, h1); the rest is a chat-client fix. 0.6.x (task h6).
 
 **Smaller items:**
 - "Reconnecting…" can stay visible after a successful resume until the next text or status event. 0.7, in task c2.
@@ -138,8 +135,8 @@ New ADRs written at the same time take numbers reserved in their task files (003
 **The 0.7 order.** A task starts when everything before its arrow is merged; tasks on one line run side by side.
 
 ```text
-Ready now:  h6 (on `main`) · p1 · p2 · p3 · l1 · c1
-c1 + h6 ────────→ c2                    (h6 reaches release/0.7 by merging main)
+Ready now:  p1 · p2 · p3 · l1 · c1
+c1 ─────────────→ c2
 p2 ─────────────→ a1 · a2 · a3
 p2 ─────────────→ c5                    (not at the same time as c3: both change handler.ts)
 c2 + p1 + p3 ───→ c3
@@ -150,6 +147,6 @@ c4 + c5 + a3 + l2 → d1
 everything ─────→ z1
 ```
 
-The decisions (x1 to x4) are done. The critical path is c1 → c2 → c3 → c4 → l2 → d1 → z1, through Core. Admin (p2 → a1 · a2 · a3 · c5) and the loader (l1) run beside it. Six tasks can start now: h6, p1, p2, p3, l1 and c1.
+The decisions (x1 to x4) are done. The critical path is c1 → c2 → c3 → c4 → l2 → d1 → z1, through Core. Admin (p2 → a1 · a2 · a3 · c5) and the loader (l1) run beside it.
 
-**Branches.** 0.6.x patches land on `main` with `--no-ff` and ship as they are ready. Every 0.7 task targets the integration branch `release/0.7` until the release ([RELEASING.md](RELEASING.md)). `release/0.7` was created from `main` on 2026-11-26, with the 0.6.x patches that change `server/handler.ts`. Merge `main` into it again after h6, before c2 starts.
+**Branches.** 0.6.x patches land on `main` with `--no-ff` and ship as they are ready. Every 0.7 task targets the integration branch `release/0.7` until the release ([RELEASING.md](RELEASING.md)). `release/0.7` was created from `main` on 2026-11-26, with the 0.6.x patches that change `server/handler.ts`. `main` was merged into it again after h6, so c2 builds on the chat-client fix.
