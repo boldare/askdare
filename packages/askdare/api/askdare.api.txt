@@ -1,5 +1,5 @@
 // ==== define-bot.d.ts ====
-import { E as KnowledgeIndex } from "./turn-log.js";
+import { d as KnowledgeIndex } from "./turn-log.js";
 import { z } from "zod";
 /**
  * Every text the widget shows. The keys are public API (ADR-0008): override any of them with
@@ -598,8 +598,40 @@ export declare function EmbedRoot({ config, toolRenderers, children }: EmbedRoot
 export type { EmbedChatConfig, EmbedRootProps };
 
 // ==== index.d.ts ====
+import { _ as AdminStoredRating, a as AdminCountEvent, b as AdminTranscriptRecord, c as AdminHandoffCounts, d as AdminRange, f as AdminRatingQuery, g as AdminStore, h as AdminSource, i as AdminConversationSummary, l as AdminHandoffState, m as AdminRecordKey, n as AdminCheckOutcome, o as AdminDayRow, p as AdminRatingRecord, r as AdminConversationQuery, s as AdminDays, t as AdminBotDayRow, u as AdminPage, v as AdminSweepOptions, x as AdminTurnRecord, y as AdminTranscriptCitation } from "./port.js";
 import { C as PresetName, D as HumanChallenge, E as VisitorIdentity, O as HumanCheckContext, S as defineTheme, T as ThemeVariants, _ as ToolContext, a as BotLimits, b as ColorScheme, c as VoiceConfig, d as GuardContext, f as GuardHook, g as Tool, h as ModerationConfig, i as BotHandle, k as HumanVerifier, l as WidgetConfig, m as GuardrailOptions, n as BotContext, o as BotSecurity, p as GuardVerdict, r as BotDefinition, s as KnowledgeConfig, t as AttachmentConfig, u as defineBot, v as ToolDefinition, w as ThemeTokens, x as ThemeDefinition, y as defineTool } from "./define-bot.js";
-import { C as KnowledgeCheck, D as Passage, E as KnowledgeIndex, O as SearchOptions, S as KnowledgeCallOptions, T as KnowledgeDocument, _ as StoredItem, b as Embedder, c as CompactionModel, d as ConversationOwner, f as ConversationPage, g as StoredCitation, h as PositionedItem, i as ErrorCode, k as SyncReport, l as ConversationContext, m as ConversationStoreCheck, n as TurnEventLog, o as CounterHit, p as ConversationStore, r as ERROR_CODES, s as RateLimitStore, t as TurnEvent, u as ConversationInfo, v as StoredPart, w as KnowledgeChunk, x as Embeddings, y as VersionConflictError } from "./turn-log.js";
+import { A as StoredCitation, C as ConversationContext, D as ConversationStore, E as ConversationPage, M as StoredPart, N as VersionConflictError, O as ConversationStoreCheck, S as CompactionModel, T as ConversationOwner, a as Embedder, b as ErrorCode, c as KnowledgeCheck, d as KnowledgeIndex, f as Passage, i as RateLimitStore, j as StoredItem, k as PositionedItem, l as KnowledgeChunk, m as SyncReport, n as TurnEventLog, o as Embeddings, p as SearchOptions, r as CounterHit, s as KnowledgeCallOptions, t as TurnEvent, u as KnowledgeDocument, w as ConversationInfo, y as ERROR_CODES } from "./turn-log.js";
+/** What a dashboard handler gets for one request, once core has checked access. */
+interface AdminDashboardRequest {
+  /** The admin store the handler reads from. */
+  readonly store: AdminStore;
+  /** The request's JSON body, parsed and size-limited by core. The handler validates its shape. */
+  readonly input: unknown;
+  /**
+   * Seals a conversation ID into a reference the browser may hold, bound to the admin session.
+   * The browser never gets a raw conversation ID (ADR-0032, decision 8).
+   */
+  seal(conversationId: string): Promise<string>;
+  /** Opens a reference `seal` made for this session: `undefined` when it is invalid or expired. */
+  open(reference: string): Promise<string | undefined>;
+  readonly signal: AbortSignal;
+}
+/** A read handler: resolves to the JSON answer, or throws to answer with an error. */
+type AdminDashboardHandler = (request: AdminDashboardRequest) => Promise<unknown>;
+/** The dashboard: its inlined assets and read handlers, as `adminDashboard()` returns them. */
+interface AdminDashboard {
+  /** The dashboard's script, built and inlined by the add-on. Holds no configuration. */
+  readonly script: string;
+  /** The dashboard's stylesheet, built and inlined by the add-on. */
+  readonly style: string;
+  /** Read handlers by action name (`a-z`, digits and `-`), called with POST requests only. */
+  readonly handlers: Readonly<Record<string, AdminDashboardHandler>>;
+}
+/**
+ * Admin records in this process's memory, for tests and local development. Every instance has its
+ * own, and a restart forgets them, so production warns.
+ */
+export declare function memoryAdminStore(): AdminStore;
 /**
  * Conversations in this process's memory, for tests and local development. Every instance has its
  * own, and a restart forgets them, so production warns. It is an item store: turns replay its
@@ -696,11 +728,11 @@ interface TurnstileOptions {
  * ```
  */
 export declare function turnstile(options: TurnstileOptions): HumanVerifier;
-export { type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type CompactionModel, type ConversationContext, type ConversationInfo, type ConversationOwner, type ConversationPage, type ConversationStore, type ConversationStoreCheck, type CounterHit, ERROR_CODES, type Embedder, type Embeddings, type ErrorCode, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type HumanChallenge, type HumanCheckContext, type HumanVerifier, type KnowledgeCallOptions, type KnowledgeCheck, type KnowledgeChunk, type KnowledgeConfig, type KnowledgeDocument, type KnowledgeIndex, type MemoryTurnLog, type MemoryTurnLogOptions, type ModerationConfig, type OpenAIEmbedderOptions, type Passage, type PositionedItem, type PresetName, type RateLimitStore, type SearchOptions, type StoredCitation, type StoredItem, type StoredPart, type SyncReport, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type TurnEvent, type TurnEventLog, type TurnstileOptions, VersionConflictError, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
+export { type AdminBotDayRow, type AdminCheckOutcome, type AdminConversationQuery, type AdminConversationSummary, type AdminCountEvent, type AdminDashboard, type AdminDashboardHandler, type AdminDashboardRequest, type AdminDayRow, type AdminDays, type AdminHandoffCounts, type AdminHandoffState, type AdminPage, type AdminRange, type AdminRatingQuery, type AdminRatingRecord, type AdminRecordKey, type AdminSource, type AdminStore, type AdminStoredRating, type AdminSweepOptions, type AdminTranscriptCitation, type AdminTranscriptRecord, type AdminTurnRecord, type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type CompactionModel, type ConversationContext, type ConversationInfo, type ConversationOwner, type ConversationPage, type ConversationStore, type ConversationStoreCheck, type CounterHit, ERROR_CODES, type Embedder, type Embeddings, type ErrorCode, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type HumanChallenge, type HumanCheckContext, type HumanVerifier, type KnowledgeCallOptions, type KnowledgeCheck, type KnowledgeChunk, type KnowledgeConfig, type KnowledgeDocument, type KnowledgeIndex, type MemoryTurnLog, type MemoryTurnLogOptions, type ModerationConfig, type OpenAIEmbedderOptions, type Passage, type PositionedItem, type PresetName, type RateLimitStore, type SearchOptions, type StoredCitation, type StoredItem, type StoredPart, type SyncReport, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type TurnEvent, type TurnEventLog, type TurnstileOptions, VersionConflictError, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
 
 // ==== next.d.ts ====
 import { C as PresetName, E as VisitorIdentity, T as ThemeVariants, i as BotHandle } from "./define-bot.js";
-import { a as MessageEndReason, i as ErrorCode, n as TurnEventLog, p as ConversationStore, s as RateLimitStore } from "./turn-log.js";
+import { D as ConversationStore, _ as ChatToolCallReport, b as ErrorCode, g as ChatTokenUsage, h as ChatCompactionReport, i as RateLimitStore, n as TurnEventLog, v as ChatUsageReport, x as MessageEndReason } from "./turn-log.js";
 /** What a visitor may attach, as the bot allows it. */
 interface ChatAttachments {
   readonly images: boolean;
@@ -971,79 +1003,6 @@ interface ChatTranscriptReport {
   /** Why the answer ended. */
   readonly reason: MessageEndReason;
 }
-/** Tokens one turn used, summed over its model calls, as OpenAI reports them. */
-interface ChatTokenUsage {
-  readonly inputTokens: number;
-  /** Input tokens read from the prompt cache; part of `inputTokens`. */
-  readonly cachedInputTokens: number;
-  /** Input tokens written to the prompt cache; part of `inputTokens`. */
-  readonly cacheWriteTokens: number;
-  readonly outputTokens: number;
-  /** Output tokens spent on reasoning; part of `outputTokens`. */
-  readonly reasoningTokens: number;
-}
-/** One function call of a turn. Its arguments and result are never reported. */
-interface ChatToolCallReport {
-  readonly name: string;
-  /** Epoch milliseconds. */
-  readonly startedAt: number;
-  readonly durationMs: number;
-  readonly outcome: "ok" | "error" | "timeout";
-}
-/**
- * The compaction after a turn (ADR-0029), when one was due: the turn's last model call read at
- * least `limits.compactAt` input tokens in a conversation store that keeps the items. Its usage is
- * apart from the turn's own.
- */
-interface ChatCompactionReport {
-  /**
-   * - `compacted`: the summary was stored, and the next turns replay from it;
-   * - `conflict`: the visitor wrote again before it was stored, so it was dropped; a later turn
-   *   compacts again;
-   * - `skipped`: no request was made: a budget couldn't cover it, or the conversation stopped
-   *   compacting because each summary left too large a floor;
-   * - `failed`: the request failed or returned no summary; a later turn tries again.
-   */
-  readonly outcome: "compacted" | "conflict" | "skipped" | "failed";
-  /** What the compaction request used, as OpenAI reported it; zero when none finished. */
-  readonly usage: ChatTokenUsage;
-  readonly durationMs: number;
-}
-/**
- * One chat turn, as `onUsage` receives it (ADR-0012). It carries counters, timings and
- * pseudonyms only: never message text, tool arguments or results, IP addresses or raw IDs.
- */
-interface ChatUsageReport {
-  readonly bot: string;
-  /** The model that answered, as OpenAI reports it; the configured model if none answered. */
-  readonly model: string;
-  /** A pseudonym (HMAC) of the conversation; undefined when none was created. */
-  readonly conversation: string | undefined;
-  /**
-   * A pseudonym (HMAC) of the signed-in user's ID, or of the visitor's when nobody is signed in:
-   * the same value OpenAI gets as `safety_identifier`.
-   */
-  readonly visitor: string;
-  /** Epoch milliseconds. */
-  readonly startedAt: number;
-  readonly durationMs: number;
-  /** `stopped` when the turn was aborted before it could answer. */
-  readonly outcome: "completed" | "stopped" | "failed";
-  /** Why the answer ended, when it did. */
-  readonly finishReason?: MessageEndReason | undefined;
-  /** The stable error code, when the turn failed. */
-  readonly errorCode?: ErrorCode | undefined;
-  /** What OpenAI reported for the model calls that finished; less than billed if one broke off. */
-  readonly usage: ChatTokenUsage;
-  /** Model calls in the turn: one, plus one after each round of tool calls. */
-  readonly steps: number;
-  readonly tools: readonly ChatToolCallReport[];
-  /**
-   * The compaction after the turn, when one was due (`limits.compactAt`). The report then comes
-   * once it has ended, up to a minute and a half after the turn.
-   */
-  readonly compaction?: ChatCompactionReport | undefined;
-}
 interface ChatHandlerOptions {
   readonly bots: readonly BotHandle[];
   /** Path of the catch-all route. Default `/api/chat` (route file `app/api/chat/[...path]/route.ts`). */
@@ -1232,6 +1191,236 @@ export declare function embedPageHeaders(options: {
   readonly bot: string;
 }): EmbedPageHeader[];
 export type { ChatAttachments, ChatCompactionReport, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlerResumeOptions, ChatHandlers, ChatHandoffMessage, ChatHandoffReport, ChatHumanCheck, ChatStyles, ChatTokenUsage, ChatToolCallReport, ChatTranscriptCitation, ChatTranscriptReport, ChatUsageReport, ChatWidget, EmailHandoffOptions, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, HandoffEmail, OpenAIConversationsOptions, RouteHandler, TrustProxy, WebhookHandoffOptions };
+
+// ==== port.d.ts ====
+import { O as ConversationStoreCheck, b as ErrorCode, g as ChatTokenUsage, x as MessageEndReason } from "./turn-log.js";
+/** Where a record came from: the chat, or the console's playground, which the dashboard leaves out. */
+type AdminSource = "chat" | "console";
+/** Who and what a record belongs to. Every record has these, so delete and retention work alike. */
+interface AdminRecordKey {
+  readonly bot: string;
+  /**
+   * The conversation store's ID. Kept on the server: the console's browser gets sealed references,
+   * never this value (ADR-0032, decision 8).
+   */
+  readonly conversationId: string;
+  /** The pseudonym `onUsage` reports (an HMAC of the user or visitor). Never a raw ID or an IP. */
+  readonly visitor: string;
+  /** Epoch milliseconds; the record's day (UTC) and its retention count from here. */
+  readonly at: number;
+  /** `console` for playground turns, so the dashboard can leave them out. */
+  readonly source: AdminSource;
+}
+/** What output checks decided about an answer (ADR-0022), when the bot has them. */
+type AdminCheckOutcome = "allowed" | "replaced" | "withheld";
+/** One turn: counters only, never content. Written for every turn when a store is set. */
+interface AdminTurnRecord extends AdminRecordKey {
+  readonly model: string;
+  readonly durationMs: number;
+  readonly outcome: "completed" | "stopped" | "failed";
+  readonly finishReason?: MessageEndReason | undefined;
+  readonly errorCode?: ErrorCode | undefined;
+  /** The turn's usage plus its compaction's, if any. */
+  readonly usage: ChatTokenUsage;
+  readonly steps: number;
+  /** Names and outcomes only, as `ChatToolCallReport` without timings. */
+  readonly tools: readonly {
+    readonly name: string;
+    readonly outcome: "ok" | "error" | "timeout";
+  }[];
+  /** Sources shown with the answer. */
+  readonly citations: number;
+  readonly check?: AdminCheckOutcome | undefined;
+  /** The turn created the conversation; counted in `AdminBotDayRow.conversations`. */
+  readonly newConversation: boolean;
+  /**
+   * The turn counts as an unanswered question (ADR-0032, decision 5), as core decides it: a
+   * completed answer with no citations from a bot with knowledge, or a withheld or failed one.
+   * Counted in `AdminDayRow.unanswered`. Core decides, so every store counts the same turns.
+   */
+  readonly unanswered: boolean;
+}
+/** One rating. A later rating of the same answer replaces it; `rating: null` removes it. */
+interface AdminRatingRecord extends AdminRecordKey {
+  /** The rated answer. A rating is keyed by its conversation and this ID. */
+  readonly itemId: string;
+  readonly rating: "up" | "down" | null;
+  /** Up to 500 characters, the visitor's own words: personal data, never logged. */
+  readonly comment?: string | undefined;
+}
+/** A stored rating: a removed one (`rating: null`) is never returned. */
+type AdminStoredRating = AdminRatingRecord & {
+  readonly rating: "up" | "down";
+};
+/** A source cited in a transcript. */
+interface AdminTranscriptCitation {
+  readonly index: number;
+  readonly title: string;
+  readonly url?: string | undefined;
+}
+/** One turn's text: written only with `admin.transcripts: true`. */
+interface AdminTranscriptRecord extends AdminRecordKey {
+  readonly itemId?: string | undefined;
+  readonly input: string;
+  readonly attachments: number;
+  readonly answer: string | undefined;
+  readonly citations: readonly AdminTranscriptCitation[];
+  readonly check?: AdminCheckOutcome | undefined;
+  readonly reason: MessageEndReason;
+}
+/** ADR-0030's final states of a handoff; `requested` is never counted. */
+type AdminHandoffState = "sent" | "saved" | "unavailable" | "failed" | "limited";
+/**
+ * A handoff or a lead, counted (ADR-0032, decision 6). No conversation, visitor, reason, contact
+ * details or form values: only what a daily counter needs.
+ */
+type AdminCountEvent = {
+  readonly kind: "handoff";
+  readonly bot: string;
+  readonly at: number;
+  readonly source: AdminSource;
+  readonly state: AdminHandoffState;
+} | {
+  readonly kind: "lead";
+  readonly bot: string;
+  readonly at: number;
+  readonly source: AdminSource;
+};
+/** A day range in UTC, `from` and `to` as `YYYY-MM-DD`, both included, at most 400 days. */
+interface AdminRange {
+  readonly from: string;
+  readonly to: string;
+  readonly bot?: string | undefined;
+  /** Default `chat`: playground records are left out. */
+  readonly source?: AdminSource | "all" | undefined;
+}
+/** Daily totals per bot and model, kept as counters at write time. */
+interface AdminDayRow {
+  readonly day: string;
+  readonly bot: string;
+  readonly model: string;
+  readonly turns: number;
+  readonly failed: number;
+  readonly unanswered: number;
+  readonly usage: ChatTokenUsage;
+}
+/** Handoffs per final state. */
+type AdminHandoffCounts = { readonly [State in AdminHandoffState]: number; };
+/** Daily totals per bot, for what has no model: conversations, ratings, leads and handoffs. */
+interface AdminBotDayRow {
+  readonly day: string;
+  readonly bot: string;
+  readonly conversations: number;
+  readonly up: number;
+  readonly down: number;
+  readonly leads: number;
+  readonly handoffs: AdminHandoffCounts;
+}
+/** What `days()` returns: rows ordered by day, then bot, then model. */
+interface AdminDays {
+  readonly turns: readonly AdminDayRow[];
+  readonly bots: readonly AdminBotDayRow[];
+}
+/** One conversation in the dashboard's lists, summed over the records the store still has. */
+interface AdminConversationSummary {
+  readonly conversationId: string;
+  readonly bot: string;
+  readonly visitor: string;
+  readonly firstAt: number;
+  readonly lastAt: number;
+  readonly turns: number;
+  readonly usage: ChatTokenUsage;
+  readonly up: number;
+  readonly down: number;
+  /** The store has transcript records of the conversation. */
+  readonly transcript: boolean;
+}
+/** A page of a list. */
+interface AdminPage<T> {
+  readonly items: readonly T[];
+  /** Opaque; pass it back for the next page. Absent on the last page. */
+  readonly cursor?: string | undefined;
+}
+/**
+ * The conversations started in the range (their first record's day), newest or most expensive
+ * first.
+ */
+interface AdminConversationQuery extends AdminRange {
+  /**
+   * `tokens`: most input plus output tokens first; `latest`: latest activity first. Ties go to the
+   * latest activity, then to the conversation ID.
+   */
+  readonly order: "tokens" | "latest";
+  /** `down`: only conversations with at least one 👎. */
+  readonly rated?: "down" | undefined;
+  /** 1 to 100. */
+  readonly limit: number;
+  readonly cursor?: string | undefined;
+}
+/** The ratings given in the range, newest first. */
+interface AdminRatingQuery extends AdminRange {
+  readonly rating?: "up" | "down" | undefined;
+  /** 1 to 100. */
+  readonly limit: number;
+  readonly cursor?: string | undefined;
+}
+/** What `sweep()` deletes. */
+interface AdminSweepOptions {
+  /** Epoch milliseconds: records written before it go. */
+  readonly recordsBefore: number;
+  /** `YYYY-MM-DD`: daily rows of days before it go. */
+  readonly daysBefore: string;
+  /** At most this many deletions per call, records and daily rows together. */
+  readonly limit: number;
+}
+/**
+ * Where admin records live (ADR-0032). Every method takes an optional `signal`; an aborted one
+ * stops it before it writes or deletes more. Implementations never log the values they write: a
+ * failure is reported by error class and code only. A query outside its bounds (a malformed day, a
+ * range over 400 days, a limit outside 1 to 100, a cursor the store didn't issue) is refused.
+ */
+interface AdminStore {
+  /** Stable name for logs and diagnostics, such as `memory` or `postgres`. */
+  readonly name: string;
+  /**
+   * Writes a turn and adds it to its daily rows. A turn of the same conversation at the same `at`
+   * that is already stored is not written or counted again.
+   */
+  recordTurn(record: AdminTurnRecord, signal?: AbortSignal): Promise<void>;
+  /**
+   * Writes a rating and adjusts the daily counters. A rating of the same conversation and
+   * `itemId` replaces the stored one, never adds; `rating: null` removes it.
+   */
+  recordRating(record: AdminRatingRecord, signal?: AbortSignal): Promise<void>;
+  /**
+   * Writes a turn's transcript. One of the same conversation, `at` and `itemId` replaces the stored
+   * one.
+   */
+  recordTranscript(record: AdminTranscriptRecord, signal?: AbortSignal): Promise<void>;
+  /** Increments a daily counter of handoffs or leads; nothing else is kept. */
+  count(event: AdminCountEvent, signal?: AbortSignal): Promise<void>;
+  /** Daily rows of the range. */
+  days(range: AdminRange, signal?: AbortSignal): Promise<AdminDays>;
+  conversations(query: AdminConversationQuery, signal?: AbortSignal): Promise<AdminPage<AdminConversationSummary>>;
+  ratings(query: AdminRatingQuery, signal?: AbortSignal): Promise<AdminPage<AdminStoredRating>>;
+  /** The conversation's transcript records, oldest first; empty without them. */
+  transcript(conversationId: string, signal?: AbortSignal): Promise<readonly AdminTranscriptRecord[]>;
+  /**
+   * Deletes every record of the conversation: turns, ratings, transcripts and its summary. Daily
+   * rows stay: they hold no conversation or visitor. An unknown conversation is not an error, and
+   * calling it twice is fine.
+   */
+  deleteConversation(conversationId: string, signal?: AbortSignal): Promise<void>;
+  /**
+   * Retention: deletes up to `limit` records written before `recordsBefore` and daily rows of days
+   * before `daysBefore`, and resolves to how many it deleted. The caller calls again while that is
+   * `limit`.
+   */
+  sweep(options: AdminSweepOptions, signal?: AbortSignal): Promise<number>;
+  /** Schema status and the oldest record's age, for `askdare doctor`. */
+  diagnose?(signal?: AbortSignal): Promise<readonly ConversationStoreCheck[]>;
+}
+export { AdminStoredRating as _, AdminCountEvent as a, AdminTranscriptRecord as b, AdminHandoffCounts as c, AdminRange as d, AdminRatingQuery as f, AdminStore as g, AdminSource as h, AdminConversationSummary as i, AdminHandoffState as l, AdminRecordKey as m, AdminCheckOutcome as n, AdminDayRow as o, AdminRatingRecord as p, AdminConversationQuery as r, AdminDays as s, AdminBotDayRow as t, AdminPage as u, AdminSweepOptions as v, AdminTurnRecord as x, AdminTranscriptCitation as y };
 
 // ==== react.d.ts ====
 
@@ -1786,7 +1975,8 @@ export declare function Root({ config, identity, context, greeting, starters, on
 export { type AttachButtonProps, type Chat, type ChatActions, type ChatAttachments, type ChatBot, type ChatConfig, type ChatEvent, type ChatEventListener, type ChatEventType, type ChatHumanCheck, type ChatMessage, type ChatPhase, type ChatState, type ChatStyles, type ChatWidget, type Citation, type CitationsProps, type ComposerProps, type DefaultChatComponents, type DefaultChatProps, type DictateButtonProps, type Dictation, type DisclosureProps, type Earlier, type ErrorMessageProps, type FeedbackButtonProps, type FilesProps, type Frame, type HumanCheckProps, type InputProps, Link, type LinkProps, type LoadEarlierProps, type MarkdownProps, type MessageFilesProps, type MessageListProps, type MessageProps, type MessageTextProps, type MessagesProps, type PanelProps, type PendingFile, type QuickRepliesProps, type Rating, type RecorderProps, type RootProps, type SendProps, type SentFile, type StatusProps, type ThemeProps, type ToolRendererProps, type ToolRenderers, ToolResults, type ToolResultsProps, type ToolUi, type Translate };
 
 // ==== testing.d.ts ====
-import { E as KnowledgeIndex, T as KnowledgeDocument, b as Embedder, n as TurnEventLog, p as ConversationStore, s as RateLimitStore } from "./turn-log.js";
+import { D as ConversationStore, a as Embedder, d as KnowledgeIndex, i as RateLimitStore, n as TurnEventLog, u as KnowledgeDocument } from "./turn-log.js";
+import { g as AdminStore } from "./port.js";
 /**
  * The parts of a test runner the contract suites use. Vitest's and Jest's `describe`, `it` and
  * `expect` fit, so `@boldare/askdare/testing` depends on no runner.
@@ -1876,6 +2066,33 @@ interface TurnEventLogContractOptions extends ContractRunner {
  * as the other suites: pass your runner's `describe`, `it` and `expect` with the options.
  */
 export declare function turnEventLogContract(name: string, create: () => TurnEventLog, options: TurnEventLogContractOptions): void;
+interface AdminStoreContractOptions extends ContractRunner {
+  /**
+   * Epoch milliseconds of the first day the suite writes on. Every record and daily row it writes
+   * falls within 200 days from here, and it cleans up by sweeping everything before that, so pick a
+   * time before any real data. Default: 3 January 2000 (UTC).
+   */
+  readonly epoch?: number | undefined;
+  /** Per-test timeout in milliseconds, for stores behind a network. Default: the runner's. */
+  readonly timeoutMs?: number | undefined;
+}
+/**
+ * The behaviour every `AdminStore` must have (ADR-0032). Run it from your store's tests with your
+ * runner's `describe`, `it` and `expect`:
+ *
+ * ```ts
+ * import { adminStoreContract } from '@boldare/askdare/testing';
+ * import { describe, expect, it } from 'vitest';
+ *
+ * adminStoreContract('my store', () => myAdminStore(), { describe, it, expect });
+ * ```
+ *
+ * Every test writes under bots of its own, on days near `epoch`, and deletes everything it wrote
+ * when it ends, also when it fails: its conversations with `deleteConversation`, its daily rows
+ * with `sweep`. Since `sweep` removes everything before a day, don't run the suite in parallel with
+ * itself against one database.
+ */
+export declare function adminStoreContract(name: string, createStore: () => AdminStore, options: AdminStoreContractOptions): void;
 interface ConversationStoreContractOptions extends ContractRunner {
   /**
    * `items` (default) for stores that keep the items themselves and replay them; `provider` for
@@ -1920,7 +2137,7 @@ export declare function conversationStoreContract(name: string, createStore: () 
  * ```
  */
 export declare function rateLimitStoreContract(name: string, create: () => RateLimitStore, runner: ContractRunner): void;
-export type { ContractExpect, ContractRunner, ConversationStoreContractOptions, FakeEmbedderOptions, KnowledgeDocumentInput, KnowledgeIndexContractOptions, OpenKnowledgeIndex, TurnEventLogContractOptions };
+export type { AdminStoreContractOptions, ContractExpect, ContractRunner, ConversationStoreContractOptions, FakeEmbedderOptions, KnowledgeDocumentInput, KnowledgeIndexContractOptions, OpenKnowledgeIndex, TurnEventLogContractOptions };
 
 // ==== tool-results.d.ts ====
 
@@ -2065,108 +2282,6 @@ declare function Link({ href, children, ...props }: LinkProps): ReactElement;
 export { ToolResults as a, ChatConfig as c, ChatWidget as d, EmbedChatConfig as f, ToolRenderers as i, ChatHumanCheck as l, ThemeVariants as m, LinkProps as n, ToolResultsProps as o, PresetName as p, ToolRendererProps as r, ChatAttachments as s, Link as t, ChatStyles as u };
 
 // ==== turn-log.d.ts ====
-/**
- * The retrieval port of ADR-0025: what a bot's own knowledge index is, with no OpenAI or database
- * types. Every model path and every adapter (in-memory, pgvector, community ones) speaks only these.
- * Server-side only: the client never chooses an index (ADR-0004).
- */
-/**
- * One piece of a document: within one section, at most about 350 tokens. Core chunks every
- * document (`knowledgeDocument`), so every index stores the same chunks.
- */
-interface KnowledgeChunk {
-  /** What the model cites: `k` and the first 12 hex characters of `sha256`. Stable across syncs and turns. */
-  readonly sourceId: string;
-  /** The heading trail inside the document, such as "Pricing › Billing"; undefined before the first heading. */
-  readonly section: string | undefined;
-  readonly text: string;
-  /** SHA-256 (hex) over the document title, the section and the text: the embedding cache key. */
-  readonly sha256: string;
-}
-/** One file of the knowledge folder, extracted and chunked. Built by `askdare kb sync`, never at runtime. */
-interface KnowledgeDocument {
-  /** POSIX path relative to the knowledge folder: the document's identity in the index. */
-  readonly path: string;
-  /** SHA-256 (hex) of the file's bytes: an unchanged file is skipped. */
-  readonly sha256: string;
-  readonly title: string;
-  /** http(s) only; the only link a citation may carry. */
-  readonly url: string | undefined;
-  /** In document order. */
-  readonly chunks: readonly KnowledgeChunk[];
-}
-/** What one `sync` did. */
-interface SyncReport {
-  readonly added: readonly string[];
-  readonly changed: readonly string[];
-  readonly removed: readonly string[];
-  /** Documents whose file hash, title and URL were already in the index. */
-  readonly unchanged: number;
-  /** Distinct chunks embedded in this run. */
-  readonly embeddedChunks: number;
-  /** Chunks of added or changed documents whose embedding the index already had. */
-  readonly reusedChunks: number;
-  readonly embeddingTokens: number;
-}
-/** A chunk with its document, as search and citations see it. `text` is untrusted third-party content. */
-interface Passage {
-  readonly sourceId: string;
-  readonly path: string;
-  readonly title: string;
-  readonly url: string | undefined;
-  readonly section: string | undefined;
-  readonly text: string;
-  /** Relevance from `search`, higher is better; absent from `passage()`. */
-  readonly score?: number;
-}
-interface SearchOptions {
-  readonly maxResults: number;
-  readonly signal?: AbortSignal;
-}
-interface KnowledgeCallOptions {
-  readonly signal?: AbortSignal;
-}
-/**
- * One finding of `diagnose`, for `askdare doctor`. Every index reports `knowledge.synced` and
- * `knowledge.embedder`; adapters add their own, such as `knowledge.pgvector`.
- */
-interface KnowledgeCheck {
-  readonly id: string;
-  readonly ok: boolean;
-  /** Counts, versions and what to do. Never document text. */
-  readonly detail: string;
-}
-/** A bot's knowledge. One database may hold many bots' indexes, each under its own index ID. */
-interface KnowledgeIndex {
-  /**
-   * Makes the index mirror `documents`, the whole folder. Idempotent: an unchanged file is skipped,
-   * and only chunks whose hash the index doesn't have are embedded. Each document is written
-   * atomically. Refuses documents that `checkKnowledgeDocuments` refuses, before changing anything.
-   */
-  sync(documents: readonly KnowledgeDocument[], options?: KnowledgeCallOptions): Promise<SyncReport>;
-  /** The best passages first, each with a score. */
-  search(query: string, options: SearchOptions): Promise<readonly Passage[]>;
-  /** Resolves a cited source ID from this turn or an earlier one; undefined once the chunk is gone. */
-  passage(sourceId: string, options?: KnowledgeCallOptions): Promise<Passage | undefined>;
-  /** Removes everything this index holds. */
-  clear(options?: KnowledgeCallOptions): Promise<void>;
-  diagnose(options?: KnowledgeCallOptions): Promise<readonly KnowledgeCheck[]>;
-}
-interface Embeddings {
-  /** One vector per input, in input order, each `dimensions` long. */
-  readonly vectors: readonly (readonly number[])[];
-  readonly tokens: number;
-}
-/** Turns text into vectors. Separate from the index, so the site picks the key and the model. */
-interface Embedder {
-  /**
-   * Provider, model and dimensions, such as `openai:<model>:1536`. Stored with the index: a
-   * different ID makes the next sync embed everything again.
-   */
-  readonly id: string;
-  readonly dimensions: number;
-  embed(texts: readonly string[], options?: KnowledgeCallOptions): Promise<Embeddings>;
-}
 /**
  * The `ConversationStore` port (ADR-0024): where conversations live. `openaiConversations()` keeps
  * them at OpenAI (the default), `memoryConversations()` in memory for tests, and add-ons such as
@@ -2359,27 +2474,6 @@ interface ConversationStore {
   /** Small live checks for `askdare doctor`, such as a reachable database with the right schema. */
   diagnose?(signal?: AbortSignal): Promise<readonly ConversationStoreCheck[]>;
 }
-/** Result of incrementing a fixed-window counter. */
-interface CounterHit {
-  /** Counter value after the increment. */
-  readonly count: number;
-  /** Milliseconds until the window resets. */
-  readonly resetMs: number;
-}
-/**
- * Shared counter storage behind rate limits and budgets. The in-memory default works for a single
- * instance; multi-instance deployments (Vercel, several dynos) need a shared store such as
- * `@boldare/askdare-upstash`. Implementations must be atomic per key.
- */
-interface RateLimitStore {
-  /**
-   * Adds `amount` to `key`, starting a `windowMs` window if none is open. `0` reads without
-   * changing; negative amounts refund.
-   */
-  hit(key: string, windowMs: number, amount: number): Promise<CounterHit>;
-  /** True for stores that are shared across server instances. */
-  readonly shared: boolean;
-}
 /** Stable error codes sent to clients. The accompanying message never contains internals. */
 declare const ERROR_CODES: readonly ["invalid_input", "unauthorized", "session_expired", "not_found", "rate_limited", "budget_exceeded", "bot_unavailable", "content_blocked", "timeout", "upstream_error", "internal_error"];
 type ErrorCode = (typeof ERROR_CODES)[number];
@@ -2475,6 +2569,202 @@ interface ErrorEvent {
   readonly params?: Readonly<Record<string, string | number>> | undefined;
 }
 type ProtocolEvent = ConversationCreatedEvent | UserAckEvent | MessageStartEvent | ReasoningEvent | TextDeltaEvent | CitationEvent | ToolStatusEvent | ToolUiEvent | RepliesEvent | MessageEndEvent | ErrorEvent;
+/** Tokens one turn used, summed over its model calls, as OpenAI reports them. */
+interface ChatTokenUsage {
+  readonly inputTokens: number;
+  /** Input tokens read from the prompt cache; part of `inputTokens`. */
+  readonly cachedInputTokens: number;
+  /** Input tokens written to the prompt cache; part of `inputTokens`. */
+  readonly cacheWriteTokens: number;
+  readonly outputTokens: number;
+  /** Output tokens spent on reasoning; part of `outputTokens`. */
+  readonly reasoningTokens: number;
+}
+/** One function call of a turn. Its arguments and result are never reported. */
+interface ChatToolCallReport {
+  readonly name: string;
+  /** Epoch milliseconds. */
+  readonly startedAt: number;
+  readonly durationMs: number;
+  readonly outcome: "ok" | "error" | "timeout";
+}
+/**
+ * The compaction after a turn (ADR-0029), when one was due: the turn's last model call read at
+ * least `limits.compactAt` input tokens in a conversation store that keeps the items. Its usage is
+ * apart from the turn's own.
+ */
+interface ChatCompactionReport {
+  /**
+   * - `compacted`: the summary was stored, and the next turns replay from it;
+   * - `conflict`: the visitor wrote again before it was stored, so it was dropped; a later turn
+   *   compacts again;
+   * - `skipped`: no request was made: a budget couldn't cover it, or the conversation stopped
+   *   compacting because each summary left too large a floor;
+   * - `failed`: the request failed or returned no summary; a later turn tries again.
+   */
+  readonly outcome: "compacted" | "conflict" | "skipped" | "failed";
+  /** What the compaction request used, as OpenAI reported it; zero when none finished. */
+  readonly usage: ChatTokenUsage;
+  readonly durationMs: number;
+}
+/**
+ * One chat turn, as `onUsage` receives it (ADR-0012). It carries counters, timings and
+ * pseudonyms only: never message text, tool arguments or results, IP addresses or raw IDs.
+ */
+interface ChatUsageReport {
+  readonly bot: string;
+  /** The model that answered, as OpenAI reports it; the configured model if none answered. */
+  readonly model: string;
+  /** A pseudonym (HMAC) of the conversation; undefined when none was created. */
+  readonly conversation: string | undefined;
+  /**
+   * A pseudonym (HMAC) of the signed-in user's ID, or of the visitor's when nobody is signed in:
+   * the same value OpenAI gets as `safety_identifier`.
+   */
+  readonly visitor: string;
+  /** Epoch milliseconds. */
+  readonly startedAt: number;
+  readonly durationMs: number;
+  /** `stopped` when the turn was aborted before it could answer. */
+  readonly outcome: "completed" | "stopped" | "failed";
+  /** Why the answer ended, when it did. */
+  readonly finishReason?: MessageEndReason | undefined;
+  /** The stable error code, when the turn failed. */
+  readonly errorCode?: ErrorCode | undefined;
+  /** What OpenAI reported for the model calls that finished; less than billed if one broke off. */
+  readonly usage: ChatTokenUsage;
+  /** Model calls in the turn: one, plus one after each round of tool calls. */
+  readonly steps: number;
+  readonly tools: readonly ChatToolCallReport[];
+  /**
+   * The compaction after the turn, when one was due (`limits.compactAt`). The report then comes
+   * once it has ended, up to a minute and a half after the turn.
+   */
+  readonly compaction?: ChatCompactionReport | undefined;
+}
+/**
+ * The retrieval port of ADR-0025: what a bot's own knowledge index is, with no OpenAI or database
+ * types. Every model path and every adapter (in-memory, pgvector, community ones) speaks only these.
+ * Server-side only: the client never chooses an index (ADR-0004).
+ */
+/**
+ * One piece of a document: within one section, at most about 350 tokens. Core chunks every
+ * document (`knowledgeDocument`), so every index stores the same chunks.
+ */
+interface KnowledgeChunk {
+  /** What the model cites: `k` and the first 12 hex characters of `sha256`. Stable across syncs and turns. */
+  readonly sourceId: string;
+  /** The heading trail inside the document, such as "Pricing › Billing"; undefined before the first heading. */
+  readonly section: string | undefined;
+  readonly text: string;
+  /** SHA-256 (hex) over the document title, the section and the text: the embedding cache key. */
+  readonly sha256: string;
+}
+/** One file of the knowledge folder, extracted and chunked. Built by `askdare kb sync`, never at runtime. */
+interface KnowledgeDocument {
+  /** POSIX path relative to the knowledge folder: the document's identity in the index. */
+  readonly path: string;
+  /** SHA-256 (hex) of the file's bytes: an unchanged file is skipped. */
+  readonly sha256: string;
+  readonly title: string;
+  /** http(s) only; the only link a citation may carry. */
+  readonly url: string | undefined;
+  /** In document order. */
+  readonly chunks: readonly KnowledgeChunk[];
+}
+/** What one `sync` did. */
+interface SyncReport {
+  readonly added: readonly string[];
+  readonly changed: readonly string[];
+  readonly removed: readonly string[];
+  /** Documents whose file hash, title and URL were already in the index. */
+  readonly unchanged: number;
+  /** Distinct chunks embedded in this run. */
+  readonly embeddedChunks: number;
+  /** Chunks of added or changed documents whose embedding the index already had. */
+  readonly reusedChunks: number;
+  readonly embeddingTokens: number;
+}
+/** A chunk with its document, as search and citations see it. `text` is untrusted third-party content. */
+interface Passage {
+  readonly sourceId: string;
+  readonly path: string;
+  readonly title: string;
+  readonly url: string | undefined;
+  readonly section: string | undefined;
+  readonly text: string;
+  /** Relevance from `search`, higher is better; absent from `passage()`. */
+  readonly score?: number;
+}
+interface SearchOptions {
+  readonly maxResults: number;
+  readonly signal?: AbortSignal;
+}
+interface KnowledgeCallOptions {
+  readonly signal?: AbortSignal;
+}
+/**
+ * One finding of `diagnose`, for `askdare doctor`. Every index reports `knowledge.synced` and
+ * `knowledge.embedder`; adapters add their own, such as `knowledge.pgvector`.
+ */
+interface KnowledgeCheck {
+  readonly id: string;
+  readonly ok: boolean;
+  /** Counts, versions and what to do. Never document text. */
+  readonly detail: string;
+}
+/** A bot's knowledge. One database may hold many bots' indexes, each under its own index ID. */
+interface KnowledgeIndex {
+  /**
+   * Makes the index mirror `documents`, the whole folder. Idempotent: an unchanged file is skipped,
+   * and only chunks whose hash the index doesn't have are embedded. Each document is written
+   * atomically. Refuses documents that `checkKnowledgeDocuments` refuses, before changing anything.
+   */
+  sync(documents: readonly KnowledgeDocument[], options?: KnowledgeCallOptions): Promise<SyncReport>;
+  /** The best passages first, each with a score. */
+  search(query: string, options: SearchOptions): Promise<readonly Passage[]>;
+  /** Resolves a cited source ID from this turn or an earlier one; undefined once the chunk is gone. */
+  passage(sourceId: string, options?: KnowledgeCallOptions): Promise<Passage | undefined>;
+  /** Removes everything this index holds. */
+  clear(options?: KnowledgeCallOptions): Promise<void>;
+  diagnose(options?: KnowledgeCallOptions): Promise<readonly KnowledgeCheck[]>;
+}
+interface Embeddings {
+  /** One vector per input, in input order, each `dimensions` long. */
+  readonly vectors: readonly (readonly number[])[];
+  readonly tokens: number;
+}
+/** Turns text into vectors. Separate from the index, so the site picks the key and the model. */
+interface Embedder {
+  /**
+   * Provider, model and dimensions, such as `openai:<model>:1536`. Stored with the index: a
+   * different ID makes the next sync embed everything again.
+   */
+  readonly id: string;
+  readonly dimensions: number;
+  embed(texts: readonly string[], options?: KnowledgeCallOptions): Promise<Embeddings>;
+}
+/** Result of incrementing a fixed-window counter. */
+interface CounterHit {
+  /** Counter value after the increment. */
+  readonly count: number;
+  /** Milliseconds until the window resets. */
+  readonly resetMs: number;
+}
+/**
+ * Shared counter storage behind rate limits and budgets. The in-memory default works for a single
+ * instance; multi-instance deployments (Vercel, several dynos) need a shared store such as
+ * `@boldare/askdare-upstash`. Implementations must be atomic per key.
+ */
+interface RateLimitStore {
+  /**
+   * Adds `amount` to `key`, starting a `windowMs` window if none is open. `0` reads without
+   * changing; negative amounts refund.
+   */
+  hit(key: string, windowMs: number, amount: number): Promise<CounterHit>;
+  /** True for stores that are shared across server instances. */
+  readonly shared: boolean;
+}
 /** A protocol event of a running turn, with its place in the turn. */
 interface TurnEvent {
   /** 1-based and increasing within a turn; the SSE `id:` of the event's frame. */
@@ -2511,4 +2801,4 @@ interface TurnEventLog {
   /** True for logs that are shared across server instances. */
   readonly shared: boolean;
 }
-export { KnowledgeCheck as C, Passage as D, KnowledgeIndex as E, SearchOptions as O, KnowledgeCallOptions as S, KnowledgeDocument as T, StoredItem as _, MessageEndReason as a, Embedder as b, CompactionModel as c, ConversationOwner as d, ConversationPage as f, StoredCitation as g, PositionedItem as h, ErrorCode as i, SyncReport as k, ConversationContext as l, ConversationStoreCheck as m, TurnEventLog as n, CounterHit as o, ConversationStore as p, ERROR_CODES as r, RateLimitStore as s, TurnEvent as t, ConversationInfo as u, StoredPart as v, KnowledgeChunk as w, Embeddings as x, VersionConflictError as y };
+export { StoredCitation as A, ConversationContext as C, ConversationStore as D, ConversationPage as E, StoredPart as M, VersionConflictError as N, ConversationStoreCheck as O, CompactionModel as S, ConversationOwner as T, ChatToolCallReport as _, Embedder as a, ErrorCode as b, KnowledgeCheck as c, KnowledgeIndex as d, Passage as f, ChatTokenUsage as g, ChatCompactionReport as h, RateLimitStore as i, StoredItem as j, PositionedItem as k, KnowledgeChunk as l, SyncReport as m, TurnEventLog as n, Embeddings as o, SearchOptions as p, CounterHit as r, KnowledgeCallOptions as s, TurnEvent as t, KnowledgeDocument as u, ChatUsageReport as v, ConversationInfo as w, MessageEndReason as x, ERROR_CODES as y };
