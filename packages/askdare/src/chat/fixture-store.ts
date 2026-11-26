@@ -65,6 +65,8 @@ export function createFixtureStore(botConfig: ChatConfig, fixture: Fixture): Cha
     newConversation: nothing,
     loadEarlier: nothing,
     rate: nothing,
+    handoff: nothing,
+    submitForm: nothing,
     dismissComment: () => set({ commenting: undefined }),
     // The field takes focus as in a live chat, so the gallery shows the same state.
     focus: () => focus('input'),

@@ -1,5 +1,8 @@
 import type { TextKey } from '../i18n/texts';
-import type { ErrorCode } from '../protocol/events';
+import type { ErrorCode, ProtocolEvent } from '../protocol/events';
+import type { FormFieldErrors } from '../protocol/forms';
+import type { HandoffState } from '../protocol/handoff';
+import { parseEvent } from '../protocol/validate';
 import { ChatClient, SessionRefused } from './chat-client';
 import type { ChatConfig } from './config';
 import { type ChatEvent, type ChatEventListener, eventListeners } from './events';
@@ -9,12 +12,20 @@ import { canRecord, MicrophoneError, type Recording, startRecording } from './re
 import {
   activityFor,
   applyEvent,
+  changeForm,
   failStreaming,
   fromHistory,
   type Translate,
   translator,
 } from './reducer';
-import { type ChatState, canSend, type PendingFile, type Rating, type SentFile } from './state';
+import {
+  type ChatState,
+  canSend,
+  type MessageForm,
+  type PendingFile,
+  type Rating,
+  type SentFile,
+} from './state';
 import { browserStorage } from './storage';
 
 /** What visitors can do in the chat; the same for every UI on top of the store. */
@@ -44,6 +55,18 @@ export interface ChatActions {
    * asks what went wrong (`state.commenting`); pass the answer as `comment` with the same rating.
    */
   rate(messageId: string, rating: Rating | null, comment?: string): Promise<void>;
+  /**
+   * Asks for a person (ADR-0030), for the latest answer: its `handoff` is `requested` while the
+   * request runs, then the final state, or `requested` with a form to fill in under it first.
+   * Does nothing before the first answer or while a handoff runs.
+   */
+  handoff(): Promise<void>;
+  /**
+   * Sends the values of an open form by its `handle` (ADR-0031): text by field name, `true` or
+   * `false` for a `consent`. The form is `submitting`, then `sent`, or `open` again with `errors`
+   * per field or an `error`.
+   */
+  submitForm(handle: string, values: Readonly<Record<string, string | boolean>>): Promise<void>;
   /** Closes the question after 👎 without a comment. */
   dismissComment(): void;
   /** Moves keyboard focus to the message field, wherever focus is now. */
@@ -251,6 +274,8 @@ export function createChatStore(
     events.emit({ type: 'ready', bot });
   };
   const { focus, onFocus } = focusRequests();
+  const apply = (event: ProtocolEvent): void =>
+    set({ messages: applyEvent(state.messages, event) });
 
   let localId = 0;
   const nextLocalId = (): string => `local_${++localId}`;
@@ -510,11 +535,11 @@ export function createChatStore(
           if (next !== undefined) set({ activity: next });
           if (event.type === 'message.start') answer = event.messageId;
           if (event.type === 'error') fail(event);
-          else set({ messages: applyEvent(state.messages, event) });
+          else apply(event);
         },
         controller.signal,
-        // Quietly, in the status: the next text of the resumed answer replaces it.
-        () => set({ activity: t('status.reconnecting') }),
+        // Quietly, in the status, until the answer goes on.
+        (reconnecting) => set({ activity: reconnecting ? t('status.reconnecting') : null }),
       );
       // The answer couldn't be resumed: the history has it once it is done.
       if (lost && !(await recover(controller.signal)) && !controller.signal.aborted) fail(lost);
@@ -710,6 +735,69 @@ export function createChatStore(
       set({ ...next, earlier: after ? 'more' : 'none' });
     },
 
+    async handoff() {
+      const answer = state.messages.findLast((message) => message.role === 'assistant');
+      // Not while one runs, or while its form waits.
+      if (state.phase !== 'ready' || !answer || answer.handoff === 'requested') return;
+      const messageId = answer.id;
+      apply({ type: 'handoff', messageId, state: 'requested' });
+      set({ error: undefined });
+      const { body, error } = await client.post('/handoff');
+      // Checked as the stream's own events would be.
+      const reply = body as { state?: unknown; form?: object } | undefined;
+      const final = error
+        ? undefined
+        : parseEvent({ type: 'handoff', messageId, state: reply?.state });
+      const form =
+        reply?.form &&
+        parseEvent({ ...reply.form, type: 'form', messageId, callId: nextLocalId() });
+      if (final && (form || !reply?.form)) {
+        apply(final);
+        if (form) apply(form);
+      } else {
+        // Back to what the answer showed before (undefined: nothing).
+        apply({ type: 'handoff', messageId, state: answer.handoff as HandoffState });
+        set({ error: error ?? t('error.upstream_error') });
+      }
+    },
+
+    async submitForm(handle, values) {
+      const message = state.messages.find((item) =>
+        item.forms?.some((form) => form.handle === handle && form.state === 'open'),
+      );
+      if (!message) return;
+      const update = (change: Partial<MessageForm>): void =>
+        set({ messages: changeForm(state.messages, handle, change) });
+      update({ state: 'submitting', errors: undefined, error: undefined });
+      const { status, body, error } = await client.post('/forms', { form: handle, values });
+      const reply = body as
+        | { state?: unknown; handoff?: unknown; error?: { fields?: FormFieldErrors } }
+        | undefined;
+      if (!error && reply?.state === 'sent') {
+        update({ state: 'sent' });
+        // A handoff's form: the handoff's final state.
+        const handoff = parseEvent({
+          type: 'handoff',
+          messageId: message.id,
+          state: reply.handoff,
+        });
+        if (handoff) apply(handoff);
+        return;
+      }
+      // Error keys by field name; the chat looks them up with `t` and shows them as plain text.
+      const errors = reply?.error?.fields;
+      // Sent before (409), or a handle the server no longer takes (404): it can't go out again.
+      update(
+        status === 409
+          ? { state: 'sent' }
+          : status === 404
+            ? { state: 'expired' }
+            : typeof errors === 'object'
+              ? { state: 'open', errors }
+              : { state: 'open', error: error ?? t('error.upstream_error') },
+      );
+    },
+
     dismissComment() {
       if (state.commenting !== undefined) set({ commenting: undefined });
     },
@@ -822,10 +910,10 @@ export function createChatStore(
     async setLocale(locale, next) {
       const id = ++switches;
       const fetched = next
-        ? { widget: next.widget, language: undefined }
+        ? { widget: next.widget, language: undefined, forms: next.forms }
         : await client.fetchWidget(locale);
       if (id !== switches || fetched === undefined) return false;
-      const { widget } = fetched;
+      const { widget, forms } = fetched;
       language = fetched.language;
       // Only what depends on the language; the look and the rest stay as they are.
       const { title, greeting, placeholder, launcherLabel, texts } = widget;
@@ -840,6 +928,8 @@ export function createChatStore(
           launcherLabel,
           texts,
         },
+        // Open forms follow the language with the rest of the chat.
+        ...(forms ? { forms } : {}),
       };
       t = translator(texts);
       client.setLocale(widget.locale);

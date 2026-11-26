@@ -46,6 +46,12 @@ export interface FakeServerOptions {
   readonly failConfig?: boolean;
   /** Holds every `/config` response until `release()`. */
   readonly holdConfig?: boolean;
+  /** The bot's forms in `GET /config/<bot>`, by language. */
+  readonly forms?: (lang: string) => unknown;
+  /** Answers `POST /handoff`: a body sent as JSON, or a `Response` as it is. Without it, 404. */
+  readonly handoff?: (body: Record<string, unknown>) => unknown;
+  /** Answers `POST /forms`: a body sent as JSON, or a `Response` as it is. Without it, 404. */
+  readonly submitForm?: (body: Record<string, unknown>) => unknown;
 }
 
 export interface FakeServer {
@@ -94,6 +100,7 @@ export function fakeServer(options: FakeServerOptions = {}): FakeServer {
             placeholder: texts['composer.placeholder'],
             texts,
           },
+          ...(options.forms ? { forms: options.forms(lang) } : {}),
         },
         { headers: { 'content-language': lang } },
       );
@@ -159,6 +166,15 @@ export function fakeServer(options: FakeServerOptions = {}): FakeServer {
               { status: 429 },
             )
           : new Response(null, { status: 204 });
+      case '/handoff':
+      case '/forms': {
+        const answer: unknown = await (path === '/handoff'
+          ? options.handoff
+          : options.submitForm)?.(body);
+        if (answer === undefined)
+          return Response.json({ error: { code: 'not_found' } }, { status: 404 });
+        return answer instanceof Response ? answer : Response.json(answer);
+      }
       case '/conversation':
         return new Response(null, { status: 204 });
       case '/transcriptions':
