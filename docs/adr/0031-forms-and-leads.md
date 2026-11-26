@@ -113,13 +113,13 @@ A bot whose forms are offered to the model needs `onLead`: without it, the handl
 - **The `show_form` tool costs input tokens on every step** of a bot with forms offered to the model, inside the cached prefix, as `suggest_replies` does.
 - **The closed set of fields will be asked to grow** (dates, numbers, file uploads, several pages). Each addition is a minor release with its validation rule, not an escape hatch.
 
-## Open questions for the maintainer
+## Settled with the maintainer (2026-11-26)
 
-Recommendations are in the decision above; these are the calls to confirm when accepting it.
-- **Values to the model:** per field with `toModel` (recommended), per form, or never in 0.7.
-- **A submission that runs a model turn,** so the bot answers the form: left out of 0.7 (recommended), or an option now.
-- **Prefilled values from the model:** refused in 0.7 (recommended); revisit with a rule such as "only values the visitor typed in this conversation".
-- **`onLead` required** when a form is offered to the model (recommended), or only a startup warning.
+The questions left open in the first draft, all settled as recommended:
+- **Values to the model:** per field, with `toModel`, off by default.
+- **A submission runs no model turn** in 0.7.
+- **No prefilled values from the model** in 0.7.
+- **`onLead` is required** when a bot offers a form to the model: the handler refuses to start without it.
 
 ## Alternatives considered
 

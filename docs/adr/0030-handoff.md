@@ -143,13 +143,13 @@ A request is counted when it is accepted, before delivery, and a failed delivery
 - **The conversation holds one more kind of developer note,** with no content, so it adds a few tokens to later turns.
 - **The `handoff` tool costs input tokens on every step** of a bot that turns it on, inside the cached prefix, as `suggest_replies` does. `docs/costs.md` says so.
 
-## Open questions for the maintainer
+## Settled with the maintainer (2026-11-26)
 
-Recommendations are in the decision above; these are the calls to confirm when accepting it.
-- **Email:** an app-supplied `send` function (recommended), or a built-in HTTP adapter for one provider as well.
-- **Defaults:** `perConversation: 1`, `perVisitorPerDay: 3`, `perBotPerDay: 100`, and `content: 'none'`. A support team reading email may want `'summary'` as the default for `emailHandoff`; the recommendation keeps content opt-in everywhere, as ADR-0016 does.
-- **The button's place:** in the header's menu (recommended), or always visible under the composer.
-- **The reason enum:** the five values above, or a bot-defined list.
+The questions left open in the first draft, all settled as recommended:
+- **Email:** an app-supplied `send` function only; no built-in provider adapter in 0.7.
+- **Defaults:** `perConversation: 1`, `perVisitorPerDay: 3`, `perBotPerDay: 100`, and `content: 'none'` for every transport.
+- **The button's place:** in the chat header's menu.
+- **The reason enum:** the five fixed values above, not a bot-defined list.
 
 ## Alternatives considered
 
