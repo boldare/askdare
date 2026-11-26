@@ -1,4 +1,4 @@
-import { HttpResponse, http } from 'msw';
+import { delay, HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { openaiConversations } from './conversations';
@@ -317,6 +317,44 @@ describe('openaiConversations()', () => {
         { status: 'fail', title: 'Could not delete conversations (HTTP 500, server_error).' },
       ]);
       expect(deletes).toBe(2);
+    });
+
+    it("ends a hanging request when doctor's time limit does", async () => {
+      server.use(
+        http.post(`${OPENAI_TEST_BASE_URL}/conversations`, async () => {
+          await delay('infinite');
+          return HttpResponse.json({});
+        }),
+      );
+      const started = Date.now();
+      expect(await store.diagnose?.(AbortSignal.timeout(50))).toEqual([
+        {
+          status: 'fail',
+          title: 'The OpenAI API did not answer in time to create conversations.',
+          fix: 'Run doctor again. If it keeps timing out, check the OpenAI status page and the network between this server and OpenAI.',
+        },
+      ]);
+      // Far below the client's own 20-second timeout.
+      expect(Date.now() - started).toBeLessThan(2_000);
+    });
+
+    it('still deletes the test conversation when the delete times out', async () => {
+      let deletes = 0;
+      server.use(
+        created(),
+        http.delete(`${OPENAI_TEST_BASE_URL}/conversations/conv_doc`, async () => {
+          deletes += 1;
+          if (deletes === 1) await delay('infinite');
+          return HttpResponse.json({ id: 'conv_doc', deleted: true });
+        }),
+      );
+      expect(await store.diagnose?.(AbortSignal.timeout(50))).toEqual([
+        expect.objectContaining({
+          status: 'fail',
+          title: 'The OpenAI API did not answer in time to delete conversations.',
+        }),
+      ]);
+      await expect.poll(() => deletes).toBe(2);
     });
 
     it("leaves a missing key to the bots' own checks", async () => {

@@ -130,22 +130,38 @@ async function checkModel(client: OpenAI, model: string, use: string): Promise<D
  * Whether the key can create and delete conversations: `openaiConversations().diagnose()`, so
  * `askdare doctor` asks it only of apps whose conversations OpenAI keeps. A store that keeps the
  * items never calls the Conversations API, which isn't eligible for zero data retention.
+ *
+ * `signal` is doctor's time limit for the store check; once it ends, so do the requests.
  */
-export async function checkConversations(client: OpenAI): Promise<DoctorCheck> {
+export async function checkConversations(
+  client: OpenAI,
+  signal?: AbortSignal,
+): Promise<DoctorCheck> {
+  const options = signal ? { ...OPTIONS, signal } : OPTIONS;
   let conversationId: string | undefined;
   try {
     conversationId = (
-      await client.conversations.create({ metadata: { askdare_doctor: 'true' } }, OPTIONS)
+      await client.conversations.create({ metadata: { askdare_doctor: 'true' } }, options)
     ).id;
-    await client.conversations.delete(conversationId, OPTIONS);
+    await client.conversations.delete(conversationId, options);
     return { status: 'ok', title: 'The key can create and delete conversations.' };
   } catch (error) {
+    const what = conversationId === undefined ? 'create conversations' : 'delete conversations';
     if (conversationId !== undefined) {
-      // Second chance, so the empty test conversation doesn't stay forever.
-      await client.conversations.delete(conversationId, OPTIONS).catch(() => undefined);
+      // Second chance, so the empty test conversation doesn't stay forever. Without the signal,
+      // which may have ended; and not awaited then, so the report keeps its time limit.
+      const retry = client.conversations.delete(conversationId, OPTIONS).catch(() => undefined);
+      if (!signal?.aborted) await retry;
+    }
+    if (signal?.aborted) {
+      return {
+        status: 'fail',
+        title: `The OpenAI API did not answer in time to ${what}.`,
+        fix: 'Run doctor again. If it keeps timing out, check the OpenAI status page and the network between this server and OpenAI.',
+      };
     }
     return failed(
-      conversationId === undefined ? 'create conversations' : 'delete conversations',
+      what,
       failureOf(error),
       'Give the key write access to conversations; chat history lives there.',
     );
