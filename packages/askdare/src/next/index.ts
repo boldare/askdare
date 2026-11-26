@@ -27,10 +27,14 @@ export type {
 } from '../server/usage-report';
 export type {
   ChatErrorReport,
+  ChatHandlerAdminConsoleOptions,
+  ChatHandlerAdminOptions,
   ChatHandlerLimitsOptions,
   ChatHandlerOptions,
   ChatHandlerResumeOptions,
   ChatHandlers,
+  ChatSweepOptions,
+  ChatSweepResult,
   RouteHandler,
 } from './create-chat-handler';
 export { createChatHandler } from './create-chat-handler';

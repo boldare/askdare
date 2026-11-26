@@ -79,6 +79,13 @@ export interface StreamTurnOptions {
    * `onError` by its error's name only, since it may hold content.
    */
   readonly transcript?: ((report: ChatTranscriptReport) => void | Promise<void>) | undefined;
+  /**
+   * Receives what the admin store keeps of the turn (ADR-0032), after `report` and `transcript`
+   * were handed over: the same values, plus the conversation's own ID. Never throws.
+   */
+  readonly record?: ((turn: TurnRecordInput) => Promise<void>) | undefined;
+  /** Whether `record` gets the transcript too (`admin.transcripts`). */
+  readonly recordText?: boolean | undefined;
   /** Issues the rating handle of the answer; absent when the bot's answers can't be rated. */
   readonly issueFeedback?:
     | ((conversationId: string, itemId: string) => Promise<FeedbackHandle>)
@@ -112,6 +119,20 @@ export interface StreamTurnOptions {
   readonly explain?: ((error: AskdareError) => string | undefined) | undefined;
   readonly heartbeatIntervalMs?: number | undefined;
   readonly generateId?: (() => string) | undefined;
+}
+
+/** One turn, as the admin store's writer receives it (ADR-0032, decision 3). */
+export interface TurnRecordInput {
+  readonly usage: ChatUsageReport;
+  /** The conversation store's ID; undefined when the turn failed before creating one. */
+  readonly conversationId: string | undefined;
+  /** The turn created the conversation. */
+  readonly newConversation: boolean;
+  /** Sources shown with the answer. */
+  readonly citations: number;
+  readonly check: ChatTranscriptReport['check'];
+  /** With `recordText`, for a turn whose answer finished. */
+  readonly transcript: ChatTranscriptReport | undefined;
 }
 
 export const STREAM_HEADERS: Readonly<Record<string, string>> = {
@@ -187,10 +208,11 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         return seq;
       };
       // What the visitor saw of the answer, for the transcript; kept only when there is a hook.
+      const keepText = options.transcript !== undefined || options.recordText === true;
       const shown: string[] = [];
       const citations: ChatTranscriptCitation[] = [];
       const emit = (event: ProtocolEvent): void => {
-        if (options.transcript) {
+        if (keepText || options.record) {
           if (event.type === 'text.delta') shown.push(event.delta);
           else if (event.type === 'citation') {
             const { index, title, url } = event;
@@ -519,66 +541,96 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         }
       };
 
+      /** The turn's usage report, as `onUsage` gets it; undefined for a turn that never ran. */
+      let usageReport: ChatUsageReport | undefined;
       /** Hands the report to the hook once the stream is closed, so it never delays the answer. */
       const sendReport = async (): Promise<void> => {
-        if (!options.report || (!ran && errorCode === undefined)) return;
+        if ((!options.report && !options.record) || (!ran && errorCode === undefined)) return;
+        usageReport = {
+          bot: bot.id,
+          model: model ?? bot.model,
+          conversation: conversationId
+            ? await options.pseudonym(`conversation:${conversationId}`)
+            : undefined,
+          visitor: await options.pseudonym(subject),
+          startedAt,
+          durationMs: (endedAt ?? Date.now()) - startedAt,
+          outcome,
+          ...(finishReason ? { finishReason } : {}),
+          ...(errorCode ? { errorCode } : {}),
+          usage,
+          steps,
+          tools,
+          ...(compaction ? { compaction } : {}),
+        };
+        if (!options.report) return;
         try {
-          await options.report({
-            bot: bot.id,
-            model: model ?? bot.model,
-            conversation: conversationId
-              ? await options.pseudonym(`conversation:${conversationId}`)
-              : undefined,
-            visitor: await options.pseudonym(subject),
-            startedAt,
-            durationMs: (endedAt ?? Date.now()) - startedAt,
-            outcome,
-            ...(finishReason ? { finishReason } : {}),
-            ...(errorCode ? { errorCode } : {}),
-            usage,
-            steps,
-            tools,
-            ...(compaction ? { compaction } : {}),
-          });
+          await options.report(usageReport);
         } catch (error) {
           console.error(`[askdare] the onUsage hook failed: ${hookError(error)}`);
         }
       };
 
+      /** What output checks decided, for a turn whose answer finished (ADR-0022). */
+      const checked = (): ChatTranscriptReport['check'] =>
+        holding && finishReason !== undefined ? (verdict ?? 'withheld') : undefined;
+
+      /** The turn's transcript; undefined unless its answer finished. */
+      let transcriptReport: ChatTranscriptReport | undefined;
       /**
        * Hands the transcript to the hook once the stream is closed, for a turn whose answer
        * finished. An answer the checks never released counts as withheld: the visitor didn't see
        * it, and history hides it (ADR-0022).
        */
       const sendTranscript = async (): Promise<void> => {
-        if (!options.transcript || finishReason === undefined || conversationId === undefined) {
+        if (!keepText || finishReason === undefined || conversationId === undefined) {
           return;
         }
-        const check = holding ? (verdict ?? 'withheld') : undefined;
+        const check = checked();
         const withheld = check === 'withheld';
+        transcriptReport = {
+          bot: bot.id,
+          visitor: await options.pseudonym(subject),
+          ...(options.context.identity ? { identity: options.context.identity } : {}),
+          conversationId,
+          // Only an answer shown as it was keeps its ID, like the rating handle.
+          ...(answerItemId && (check === undefined || check === 'allowed')
+            ? { itemId: answerItemId }
+            : {}),
+          startedAt,
+          input,
+          attachments: options.attachments?.length ?? 0,
+          answer: withheld ? undefined : shown.join(''),
+          citations: withheld ? [] : citations,
+          ...(check ? { check } : {}),
+          reason: finishReason,
+        };
+        if (!options.transcript) return;
         try {
-          await options.transcript({
-            bot: bot.id,
-            visitor: await options.pseudonym(subject),
-            ...(options.context.identity ? { identity: options.context.identity } : {}),
-            conversationId,
-            // Only an answer shown as it was keeps its ID, like the rating handle.
-            ...(answerItemId && (check === undefined || check === 'allowed')
-              ? { itemId: answerItemId }
-              : {}),
-            startedAt,
-            input,
-            attachments: options.attachments?.length ?? 0,
-            answer: withheld ? undefined : shown.join(''),
-            citations: withheld ? [] : citations,
-            ...(check ? { check } : {}),
-            reason: finishReason,
-          });
+          await options.transcript(transcriptReport);
         } catch (error) {
           // The name only: a hook that stores transcripts may fail with their content in its message.
           const message = `The onTranscript hook failed: ${hookError(error)}.`;
           if (options.onError) options.onError(new AskdareError('internal_error', { message }));
           else console.error(`[askdare] ${message}`);
+        }
+      };
+
+      /** Hands the turn to the admin store's writer, once the hooks have theirs (ADR-0032). */
+      const sendRecord = async (): Promise<void> => {
+        if (!options.record || !usageReport) return;
+        const check = checked();
+        try {
+          await options.record({
+            usage: usageReport,
+            conversationId,
+            newConversation: options.conversationId === undefined && conversationId !== undefined,
+            citations: check === 'withheld' ? 0 : citations.length,
+            check,
+            transcript: options.recordText ? transcriptReport : undefined,
+          });
+        } catch (error) {
+          console.error(`[askdare] the admin record failed: ${hookError(error)}`);
         }
       };
 
@@ -615,7 +667,8 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           ]);
         })
         // The usage report waits for the compaction, which it reports; the transcript doesn't.
-        .then(() => Promise.all([compact().then(sendReport), sendTranscript()]));
+        .then(() => Promise.all([compact().then(sendReport), sendTranscript()]))
+        .then(sendRecord);
       try {
         options.waitUntil?.(work);
       } catch {

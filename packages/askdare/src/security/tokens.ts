@@ -10,6 +10,13 @@ const ATTACHMENT_TYP = 'askdare-attachment+jwt';
 const FEEDBACK_TYP = 'askdare-feedback+jwt';
 const DOCTOR_TYP = 'askdare-doctor+jwt';
 const HISTORY_TYP = 'askdare-history+jwt';
+const ADMIN_TYP = 'askdare-admin+jwt';
+const ADMIN_REF_TYP = 'askdare-admin-ref+jwt';
+const ADMIN_AUDIENCE = 'askdare-admin';
+const ADMIN_REF_AUDIENCE = 'askdare-admin-ref';
+/** An admin session lasts 15 minutes; a reload signs in again (ADR-0032, decision 8). */
+const ADMIN_TTL_SECONDS = 15 * 60;
+const ADMIN_SESSION = /^s_[0-9a-f]{32}$/;
 /** A store's page cursor inside a history cursor: OpenAI's item IDs, a Postgres `seq`. */
 const STORE_CURSOR_MAX = 1024;
 const DOCTOR_AUDIENCE = 'askdare-doctor';
@@ -143,6 +150,26 @@ export interface TokenService {
   issueDoctor(): Promise<IssuedToken>;
   /** Throws `unauthorized`. */
   verifyDoctor(token: string): Promise<void>;
+  /** A 15-minute console session token (ADR-0032). */
+  issueAdmin(
+    grant: Omit<AdminGrant, 'session'>,
+  ): Promise<IssuedToken & { readonly grant: AdminGrant }>;
+  /** Throws `unauthorized`, or `session_expired` once it ran out. */
+  verifyAdmin(token: string): Promise<AdminGrant & { readonly expiresAt: number }>;
+  /** A conversation reference for the console's browser, valid until the session ends. */
+  sealAdminReference(conversationId: string, session: string, expiresAt: number): Promise<string>;
+  /** The conversation behind a reference sealed for this session; undefined otherwise. */
+  openAdminReference(reference: string, session: string): Promise<string | undefined>;
+}
+
+/** A console session (ADR-0032, decision 8). */
+export interface AdminGrant {
+  /** A random ID per sign-in, which sealed references are bound to. */
+  readonly session: string;
+  /** Who signed in: `secret`, or `user:<sub>` for an allowlisted identity. */
+  readonly subject: string;
+  /** A pseudonym of `ADMIN_SECRET` or of the subject; a rotated secret no longer matches. */
+  readonly fingerprint: string;
 }
 
 interface DerivedKey {
@@ -245,6 +272,9 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
       clockTolerance,
     });
   }
+
+  const hex = (bytes: Uint8Array): string =>
+    Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 
   return {
     issueAccess: (botId, visitorId, identity, humanCheckedAt) =>
@@ -441,6 +471,59 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
         await verify(token, DOCTOR_TYP, DOCTOR_AUDIENCE);
       } catch {
         throw new AskdareError('unauthorized');
+      }
+    },
+
+    async issueAdmin(grant) {
+      const session = `s_${hex(crypto.getRandomValues(new Uint8Array(16)))}`;
+      const issued = await issue(ADMIN_TYP, ADMIN_AUDIENCE, session, ADMIN_TTL_SECONDS, {
+        adm: grant.subject,
+        afp: grant.fingerprint,
+      });
+      return { ...issued, grant: { ...grant, session } };
+    },
+
+    async verifyAdmin(token) {
+      try {
+        const { payload } = await verify(token, ADMIN_TYP, ADMIN_AUDIENCE);
+        const { adm, afp, exp } = payload;
+        if (
+          typeof payload.sub !== 'string' ||
+          !ADMIN_SESSION.test(payload.sub) ||
+          typeof adm !== 'string' ||
+          typeof afp !== 'string' ||
+          typeof exp !== 'number'
+        ) {
+          throw new AskdareError('unauthorized');
+        }
+        return { session: payload.sub, subject: adm, fingerprint: afp, expiresAt: exp };
+      } catch (error) {
+        if (error instanceof errors.JWTExpired) {
+          throw new AskdareError('session_expired', { cause: error });
+        }
+        throw new AskdareError('unauthorized', { cause: error });
+      }
+    },
+
+    async sealAdminReference(conversationId, session, expiresAt) {
+      const ttl = Math.max(1, expiresAt - now());
+      return (await issue(ADMIN_REF_TYP, ADMIN_REF_AUDIENCE, conversationId, ttl, { ses: session }))
+        .token;
+    },
+
+    async openAdminReference(reference, session) {
+      try {
+        const { payload } = await verify(reference, ADMIN_REF_TYP, ADMIN_REF_AUDIENCE);
+        if (
+          typeof payload.sub !== 'string' ||
+          !CONVERSATION_ID.test(payload.sub) ||
+          payload['ses'] !== session
+        ) {
+          return undefined;
+        }
+        return payload.sub;
+      } catch {
+        return undefined;
       }
     },
   };

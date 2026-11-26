@@ -113,6 +113,10 @@ export interface Limits {
   beginTranscription(bot: Bot, keys: UploadLimitKeys): Promise<TranscriptionReservation>;
   /** `askdare doctor` runs, which make small OpenAI requests: a few per minute for the whole app. */
   checkDoctor(): Promise<void>;
+  /** The kill switch, for every console request (ADR-0032). */
+  checkAdmin(): void;
+  /** Console sign-ins: 5 a minute per IP and 20 an hour across the app (ADR-0032, decision 8). */
+  checkAdminSignIn(clientIp: string): Promise<void>;
 }
 
 export interface LimitsOptions {
@@ -225,6 +229,16 @@ export function createLimits(options: LimitsOptions): Limits {
     async checkDoctor() {
       assertEnabled();
       await enforce('ask:doctor', MINUTE, 3);
+    },
+
+    checkAdmin() {
+      assertEnabled();
+    },
+
+    async checkAdminSignIn(clientIp) {
+      assertEnabled();
+      await enforce(`ask:as:${clientIp}`, MINUTE, 5);
+      await enforce('ask:as', HOUR, 20);
     },
 
     async checkConversationAccess(bot, visitorId) {

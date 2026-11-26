@@ -13,7 +13,7 @@ import { itemHistory } from '../conversations/history';
 import { conversationGone, ownerOf, ownsConversation } from '../conversations/owner';
 import type { ConversationStore } from '../conversations/port';
 import { type HistoryPosition, historyReader } from '../conversations/provider-history';
-import { AskdareError, type AskdareErrorOptions, forLog, toAskdareError } from '../errors';
+import { AskdareError, forLog, toAskdareError } from '../errors';
 import type { ModelGateway, RepliesReader, TurnAttachment, UiReader } from '../gateway';
 import { canonicalLocale } from '../i18n/texts';
 import type { Limits } from '../limits/limits';
@@ -35,6 +35,7 @@ import { type ColorScheme, type ResolvedTheme, resolveTheme } from '../theme/the
 import { readToolReplies, readToolUi } from '../tools/define-tool';
 import { readSuggestedReplies } from '../tools/suggest-replies';
 import { detectAudio, languageHints, maxAudioBytes, worstCaseSeconds } from '../voice/audio';
+import { type AdminHandlerConfig, adminStoreChecks, createAdminConsole } from './admin-console';
 import {
   documentLanguage,
   type EmbedAssets,
@@ -47,6 +48,15 @@ import {
   themeAsset,
 } from './embed-page';
 import type { ChatFeedbackReport } from './feedback-report';
+import {
+  assertSameOrigin,
+  bearerToken,
+  errorResponse,
+  jsonResponse,
+  NO_STORE,
+  readBytes,
+  readJson,
+} from './http';
 import { loaderWithLook } from './launcher';
 import { publicConfig } from './public-config';
 import { resumeStream } from './resume-stream';
@@ -104,11 +114,12 @@ export interface HandlerConfig {
    * `404` and clients reload history.
    */
   readonly resume?: TurnEventLog | undefined;
+  /** The admin store and console (ADR-0032); without it, `<basePath>/admin…` answers 404. */
+  readonly admin?: AdminHandlerConfig | undefined;
 }
 
 export type RequestHandler = (request: Request) => Promise<Response>;
 
-const MAX_BODY_BYTES = 256 * 1024;
 /** Upload metadata travels in headers because the body is the raw file. */
 const BOT_HEADER = 'x-askdare-bot';
 const FILENAME_HEADER = 'x-askdare-filename';
@@ -116,7 +127,6 @@ const FILENAME_HEADER = 'x-askdare-filename';
 const LANGUAGES_HEADER = 'x-askdare-languages';
 /** Transcription is short; this only bounds a stuck upstream call. */
 const TRANSCRIPTION_TIMEOUT_MS = 60_000;
-const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 /** Bounds a human check with its provider, such as Cloudflare's siteverify. */
 const HUMAN_CHECK_TIMEOUT_MS = 10_000;
 /** Bounds deleting a conversation, which outlives the request that asked for it. */
@@ -183,100 +193,6 @@ const messageBody = z.object({
     .optional(),
 });
 
-function jsonResponse(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', ...NO_STORE, ...headers },
-  });
-}
-
-function errorResponse(error: AskdareError, explanation?: string): Response {
-  const retry = error.retryAfterMs;
-  return jsonResponse(
-    {
-      error: {
-        code: error.code,
-        // A development explanation replaces the visitor's message and its translation.
-        message: explanation ?? error.message,
-        ...(retry ? { retryAfterMs: retry } : {}),
-        ...(error.key && !explanation ? { key: error.key } : {}),
-        ...(error.params ? { params: error.params } : {}),
-      },
-    },
-    error.status,
-    retry ? { 'Retry-After': String(Math.ceil(retry / 1000)) } : {},
-  );
-}
-
-/**
- * Defense in depth only: browsers can't reach the API cross-origin anyway, because JSON bodies need
- * a CORS preflight we never grant. Compares Origin with the Host header, which proxies set, never
- * with X-Forwarded-Host, which clients control.
- */
-function assertSameOrigin(request: Request): void {
-  const denied = (): AskdareError =>
-    new AskdareError('unauthorized', { message: 'Cross-origin requests are not allowed.' });
-  if (request.headers.get('sec-fetch-site') === 'cross-site') throw denied();
-  const origin = request.headers.get('origin');
-  if (origin === null) return;
-  const host = request.headers.get('host') ?? new URL(request.url).host;
-  let originHost: string;
-  try {
-    originHost = new URL(origin).host;
-  } catch {
-    throw denied();
-  }
-  if (originHost !== host) throw denied();
-}
-
-/** Reads at most `limit` bytes and cancels the upload as soon as it grows past the limit. */
-async function readBytes(
-  request: Request,
-  limit: number,
-  tooLargeError: AskdareErrorOptions = { message: 'Request body is too large.' },
-): Promise<Uint8Array> {
-  const tooLarge = (): AskdareError => new AskdareError('invalid_input', tooLargeError);
-  if (Number(request.headers.get('content-length') ?? 0) > limit) throw tooLarge();
-  if (!request.body) return new Uint8Array();
-  const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > limit) {
-      await reader.cancel();
-      throw tooLarge();
-    }
-    chunks.push(value);
-  }
-  const bytes = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return bytes;
-}
-
-async function readJson<T>(request: Request, schema: z.ZodType<T>): Promise<T> {
-  const contentType = request.headers.get('content-type') ?? '';
-  if (!contentType.toLowerCase().startsWith('application/json')) {
-    throw new AskdareError('invalid_input', { message: 'Expected an application/json body.' });
-  }
-  const text = new TextDecoder().decode(await readBytes(request, MAX_BODY_BYTES));
-  let json: unknown;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    throw new AskdareError('invalid_input', { message: 'Malformed JSON.' });
-  }
-  const parsed = schema.safeParse(json);
-  if (!parsed.success) throw new AskdareError('invalid_input');
-  return parsed.data;
-}
-
 /**
  * Whether the current session may use a conversation: anonymous conversations stay open to their
  * visitor, signed-in ones only to the same user (ADR-0009).
@@ -291,13 +207,6 @@ function sameOwner(
   return grant.identityKey === undefined
     ? grant.visitorId === visitorId
     : grant.identityKey === key;
-}
-
-function bearerToken(request: Request): string {
-  const header = request.headers.get('authorization') ?? '';
-  const match = /^Bearer\s+(\S+)$/i.exec(header);
-  if (!match?.[1]) throw new AskdareError('unauthorized');
-  return match[1];
 }
 
 /** Turns attachment handles into files, rejecting foreign, expired and duplicate handles. */
@@ -571,7 +480,9 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
   };
 
   /** Whether visitors may rate this bot's answers. */
-  const feedbackOn = (bot: Bot): boolean => config.onFeedback !== undefined && bot.widget.feedback;
+  const adminWriter = config.admin?.writer;
+  const feedbackOn = (bot: Bot): boolean =>
+    (config.onFeedback !== undefined || adminWriter !== undefined) && bot.widget.feedback;
 
   /** The rating handle of one answer, bound to the session that may rate it. */
   const feedbackHandle = async (
@@ -785,6 +696,8 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       },
       report: config.onUsage,
       transcript: config.onTranscript,
+      record: adminWriter ? (turn) => adminWriter.turn(bot, 'chat', turn) : undefined,
+      recordText: adminWriter?.transcripts,
       issueFeedback: feedbackOn(bot)
         ? (id, itemId) => feedbackHandle(tokens, bot, { visitorId, key }, id, itemId)
         : undefined,
@@ -1112,7 +1025,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     const body = await readJson(request, feedbackBody);
     const bot = findBot(body.botId);
     const onFeedback = config.onFeedback;
-    if (!onFeedback || !bot.widget.feedback) throw new AskdareError('not_found');
+    if (!feedbackOn(bot)) throw new AskdareError('not_found');
     const tokens = await config.tokens();
     const { visitorId, identity } = keyed(await tokens.verifyAccess(bearerToken(request), bot.id));
     const key = identity ? await keyOf(bot, identity) : undefined;
@@ -1120,31 +1033,56 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     if (!sameOwner(grant, visitorId, key)) throw new AskdareError('not_found');
     await config.limits.checkFeedback(bot, visitorId);
     const comment = body.comment?.trim();
-    const work = (async () =>
-      onFeedback({
-        bot: bot.id,
-        rating: body.rating,
-        ...(comment && body.rating !== null ? { comment } : {}),
-        visitor: await tokens.pseudonym(identity ? `user:${identity.identity.id}` : visitorId),
-        ...(identity ? { identity: identity.identity } : {}),
-        conversationId: grant.conversationId,
-        itemId: grant.itemId,
-      }))().catch((error: unknown) => {
+    const at = Date.now();
+    const work = (async () => {
+      const visitor = await tokens.pseudonym(identity ? `user:${identity.identity.id}` : visitorId);
+      const withComment = comment && body.rating !== null ? { comment } : {};
+      await Promise.all([
+        onFeedback?.({
+          bot: bot.id,
+          rating: body.rating,
+          ...withComment,
+          visitor,
+          ...(identity ? { identity: identity.identity } : {}),
+          conversationId: grant.conversationId,
+          itemId: grant.itemId,
+        }),
+        adminWriter?.rating({
+          bot: bot.id,
+          conversationId: grant.conversationId,
+          visitor,
+          at,
+          source: 'chat',
+          itemId: grant.itemId,
+          rating: body.rating,
+          ...withComment,
+        }),
+      ]);
+    })().catch((error: unknown) => {
       console.error(`[askdare] the onFeedback hook failed: ${hookError(error)}`);
     });
     config.waitUntil?.(work);
     return new Response(null, { status: 204, headers: NO_STORE });
   };
 
+  /**
+   * Deletes a conversation whose ownership was checked: its admin records first, so a failure
+   * leaves the conversation for a retry to find (ADR-0032, decision 4), then the conversation, then
+   * its files.
+   */
+  const deleteOwned = async (conversationId: string, signal: AbortSignal): Promise<void> => {
+    await adminWriter?.store.deleteConversation(conversationId, signal);
+    const { fileIds } = await config.conversations.delete(conversationId, signal);
+    if (fileIds.length > 0) await config.gateway().deleteFiles(fileIds);
+  };
+
   const deleteConversation = async (request: Request): Promise<Response> => {
     const { bot, conversationId, grant } = await ownedConversation(request, conversationBody);
-    const { conversations } = config;
     // Not the request's signal: a visitor who leaves right after asking still gets it deleted.
     const signal = AbortSignal.timeout(DELETE_TIMEOUT_MS);
     // Someone else's conversation is answered like one already deleted, and left alone.
-    if (ownsConversation(await conversations.info(conversationId, signal), bot.id, grant)) {
-      const { fileIds } = await conversations.delete(conversationId, signal);
-      if (fileIds.length > 0) await config.gateway().deleteFiles(fileIds);
+    if (ownsConversation(await config.conversations.info(conversationId, signal), bot.id, grant)) {
+      await deleteOwned(conversationId, signal);
     }
     return new Response(null, { status: 204, headers: NO_STORE });
   };
@@ -1156,6 +1094,11 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
   let doctorRunning = false;
   const runDoctor = async (request: Request): Promise<Response> => {
     await (await config.tokens()).verifyDoctor(bearerToken(request));
+    return jsonResponse(await doctorReport(), 200, NO_STORE);
+  };
+
+  /** The checks behind `askdare doctor` and the console's doctor. */
+  const doctorReport = async (): Promise<DoctorReport> => {
     // The kill switch stops it too, and the shared store bounds runs across instances.
     await config.limits.checkDoctor();
     if (doctorRunning) throw new AskdareError('rate_limited', { retryAfterMs: 5_000 });
@@ -1168,16 +1111,28 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
         // Reported per bot below.
       }
       // The conversation store is shared by every bot, so its checks run once.
-      const storeChecks: readonly DoctorCheck[] = config.conversations.diagnose
-        ? await config.conversations
-            .diagnose(AbortSignal.timeout(DOCTOR_STORE_TIMEOUT_MS))
-            .catch((): DoctorCheck[] => [
-              {
-                status: 'fail',
-                title: `The conversation store "${config.conversations.name}" could not be checked.`,
-              },
-            ])
+      const storeChecks: DoctorCheck[] = config.conversations.diagnose
+        ? [
+            ...(await config.conversations
+              .diagnose(AbortSignal.timeout(DOCTOR_STORE_TIMEOUT_MS))
+              .catch((): DoctorCheck[] => [
+                {
+                  status: 'fail',
+                  title: `The conversation store "${config.conversations.name}" could not be checked.`,
+                },
+              ])),
+          ]
         : [];
+      // So is the admin store, with the retention it should keep (ADR-0032, decision 4).
+      if (adminWriter && config.admin) {
+        storeChecks.push(
+          ...(await adminStoreChecks(
+            adminWriter,
+            config.admin.retentionDays,
+            AbortSignal.timeout(DOCTOR_STORE_TIMEOUT_MS),
+          )),
+        );
+      }
       const bots: DoctorReport['bots'][number][] = [];
       for (const bot of config.bots) {
         const checks = gateway
@@ -1211,23 +1166,40 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
               }),
         });
       }
-      const report: DoctorReport = {
+      return {
         development: config.development === true,
         sharedLimits: config.sharedLimits === true,
         gallery: config.gallery === true,
         bots,
       };
-      return jsonResponse(report, 200, NO_STORE);
     } finally {
       doctorRunning = false;
     }
   };
+
+  // Off by default: without `admin.console`, its paths answer 404 like any unknown path.
+  const consoleOptions = config.admin?.console;
+  const adminConsole =
+    config.admin && consoleOptions
+      ? createAdminConsole({
+          config,
+          admin: config.admin,
+          console: consoleOptions,
+          findBot,
+          report,
+          doctor: doctorReport,
+          deleteConversation: deleteOwned,
+        })
+      : undefined;
 
   const route = async (request: Request): Promise<Response> => {
     const { pathname } = new URL(request.url);
     if (!pathname.startsWith(`${config.basePath}/`)) throw new AskdareError('not_found');
     const path = pathname.slice(config.basePath.length);
     const method = request.method.toUpperCase();
+    if (adminConsole && (path === '/admin' || path.startsWith('/admin/'))) {
+      return adminConsole(request, path.slice('/admin'.length), method);
+    }
 
     if (method === 'GET') {
       const query = new URL(request.url).searchParams;

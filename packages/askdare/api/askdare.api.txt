@@ -1,6 +1,32 @@
 // ==== define-bot.d.ts ====
-import { d as KnowledgeIndex } from "./turn-log.js";
+import { A as AdminStore, d as KnowledgeIndex } from "./turn-log.js";
 import { z } from "zod";
+/** What a dashboard handler gets for one request, once core has checked access. */
+interface AdminDashboardRequest {
+  /** The admin store the handler reads from. */
+  readonly store: AdminStore;
+  /** The request's JSON body, parsed and size-limited by core. The handler validates its shape. */
+  readonly input: unknown;
+  /**
+   * Seals a conversation ID into a reference the browser may hold, bound to the admin session.
+   * The browser never gets a raw conversation ID (ADR-0032, decision 8).
+   */
+  seal(conversationId: string): Promise<string>;
+  /** Opens a reference `seal` made for this session: `undefined` when it is invalid or expired. */
+  open(reference: string): Promise<string | undefined>;
+  readonly signal: AbortSignal;
+}
+/** A read handler: resolves to the JSON answer, or throws to answer with an error. */
+type AdminDashboardHandler = (request: AdminDashboardRequest) => Promise<unknown>;
+/** The dashboard: its inlined assets and read handlers, as `adminDashboard()` returns them. */
+interface AdminDashboard {
+  /** The dashboard's script, built and inlined by the add-on. Holds no configuration. */
+  readonly script: string;
+  /** The dashboard's stylesheet, built and inlined by the add-on. */
+  readonly style: string;
+  /** Read handlers by action name (`a-z`, digits and `-`), called with POST requests only. */
+  readonly handlers: Readonly<Record<string, AdminDashboardHandler>>;
+}
 /**
  * Every text the widget shows. The keys are public API (ADR-0008): override any of them with
  * `widget.texts`. Plural keys end in a CLDR category (`zero`, `one`, `two`, `few`, `many`, `other`).
@@ -574,7 +600,7 @@ interface BotHandle {
  * visitor's message.
  */
 declare function defineBot(definition: BotDefinition): BotHandle;
-export { PresetName as C, HumanChallenge as D, VisitorIdentity as E, HumanCheckContext as O, defineTheme as S, ThemeVariants as T, ToolContext as _, BotLimits as a, ColorScheme as b, VoiceConfig as c, GuardContext as d, GuardHook as f, Tool as g, ModerationConfig as h, BotHandle as i, HumanVerifier as k, WidgetConfig as l, GuardrailOptions as m, BotContext as n, BotSecurity as o, GuardVerdict as p, BotDefinition as r, KnowledgeConfig as s, AttachmentConfig as t, defineBot as u, ToolDefinition as v, ThemeTokens as w, ThemeDefinition as x, defineTool as y };
+export { AdminDashboard as A, PresetName as C, HumanChallenge as D, VisitorIdentity as E, AdminDashboardRequest as M, HumanCheckContext as O, defineTheme as S, ThemeVariants as T, ToolContext as _, BotLimits as a, ColorScheme as b, VoiceConfig as c, GuardContext as d, GuardHook as f, Tool as g, ModerationConfig as h, BotHandle as i, AdminDashboardHandler as j, HumanVerifier as k, WidgetConfig as l, GuardrailOptions as m, BotContext as n, BotSecurity as o, GuardVerdict as p, BotDefinition as r, KnowledgeConfig as s, AttachmentConfig as t, defineBot as u, ToolDefinition as v, ThemeTokens as w, ThemeDefinition as x, defineTool as y };
 
 // ==== embed.d.ts ====
 
@@ -598,35 +624,8 @@ export declare function EmbedRoot({ config, toolRenderers, children }: EmbedRoot
 export type { EmbedChatConfig, EmbedRootProps };
 
 // ==== index.d.ts ====
-import { _ as AdminStoredRating, a as AdminCountEvent, b as AdminTranscriptRecord, c as AdminHandoffCounts, d as AdminRange, f as AdminRatingQuery, g as AdminStore, h as AdminSource, i as AdminConversationSummary, l as AdminHandoffState, m as AdminRecordKey, n as AdminCheckOutcome, o as AdminDayRow, p as AdminRatingRecord, r as AdminConversationQuery, s as AdminDays, t as AdminBotDayRow, u as AdminPage, v as AdminSweepOptions, x as AdminTurnRecord, y as AdminTranscriptCitation } from "./port.js";
-import { C as PresetName, D as HumanChallenge, E as VisitorIdentity, O as HumanCheckContext, S as defineTheme, T as ThemeVariants, _ as ToolContext, a as BotLimits, b as ColorScheme, c as VoiceConfig, d as GuardContext, f as GuardHook, g as Tool, h as ModerationConfig, i as BotHandle, k as HumanVerifier, l as WidgetConfig, m as GuardrailOptions, n as BotContext, o as BotSecurity, p as GuardVerdict, r as BotDefinition, s as KnowledgeConfig, t as AttachmentConfig, u as defineBot, v as ToolDefinition, w as ThemeTokens, x as ThemeDefinition, y as defineTool } from "./define-bot.js";
-import { A as StoredCitation, C as ConversationContext, D as ConversationStore, E as ConversationPage, M as StoredPart, N as VersionConflictError, O as ConversationStoreCheck, S as CompactionModel, T as ConversationOwner, a as Embedder, b as ErrorCode, c as KnowledgeCheck, d as KnowledgeIndex, f as Passage, i as RateLimitStore, j as StoredItem, k as PositionedItem, l as KnowledgeChunk, m as SyncReport, n as TurnEventLog, o as Embeddings, p as SearchOptions, r as CounterHit, s as KnowledgeCallOptions, t as TurnEvent, u as KnowledgeDocument, w as ConversationInfo, y as ERROR_CODES } from "./turn-log.js";
-/** What a dashboard handler gets for one request, once core has checked access. */
-interface AdminDashboardRequest {
-  /** The admin store the handler reads from. */
-  readonly store: AdminStore;
-  /** The request's JSON body, parsed and size-limited by core. The handler validates its shape. */
-  readonly input: unknown;
-  /**
-   * Seals a conversation ID into a reference the browser may hold, bound to the admin session.
-   * The browser never gets a raw conversation ID (ADR-0032, decision 8).
-   */
-  seal(conversationId: string): Promise<string>;
-  /** Opens a reference `seal` made for this session: `undefined` when it is invalid or expired. */
-  open(reference: string): Promise<string | undefined>;
-  readonly signal: AbortSignal;
-}
-/** A read handler: resolves to the JSON answer, or throws to answer with an error. */
-type AdminDashboardHandler = (request: AdminDashboardRequest) => Promise<unknown>;
-/** The dashboard: its inlined assets and read handlers, as `adminDashboard()` returns them. */
-interface AdminDashboard {
-  /** The dashboard's script, built and inlined by the add-on. Holds no configuration. */
-  readonly script: string;
-  /** The dashboard's stylesheet, built and inlined by the add-on. */
-  readonly style: string;
-  /** Read handlers by action name (`a-z`, digits and `-`), called with POST requests only. */
-  readonly handlers: Readonly<Record<string, AdminDashboardHandler>>;
-}
+import { A as AdminDashboard, C as PresetName, D as HumanChallenge, E as VisitorIdentity, M as AdminDashboardRequest, O as HumanCheckContext, S as defineTheme, T as ThemeVariants, _ as ToolContext, a as BotLimits, b as ColorScheme, c as VoiceConfig, d as GuardContext, f as GuardHook, g as Tool, h as ModerationConfig, i as BotHandle, j as AdminDashboardHandler, k as HumanVerifier, l as WidgetConfig, m as GuardrailOptions, n as BotContext, o as BotSecurity, p as GuardVerdict, r as BotDefinition, s as KnowledgeConfig, t as AttachmentConfig, u as defineBot, v as ToolDefinition, w as ThemeTokens, x as ThemeDefinition, y as defineTool } from "./define-bot.js";
+import { $ as StoredPart, A as AdminStore, B as ERROR_CODES, C as AdminHandoffState, D as AdminRatingRecord, E as AdminRatingQuery, F as AdminTurnRecord, G as ConversationInfo, J as ConversationStore, K as ConversationOwner, M as AdminSweepOptions, N as AdminTranscriptCitation, O as AdminRecordKey, P as AdminTranscriptRecord, Q as StoredItem, S as AdminHandoffCounts, T as AdminRange, U as CompactionModel, V as ErrorCode, W as ConversationContext, X as PositionedItem, Y as ConversationStoreCheck, Z as StoredCitation, _ as AdminConversationQuery, a as Embedder, b as AdminDayRow, c as KnowledgeCheck, d as KnowledgeIndex, et as VersionConflictError, f as Passage, g as AdminCheckOutcome, h as AdminBotDayRow, i as RateLimitStore, j as AdminStoredRating, k as AdminSource, l as KnowledgeChunk, m as SyncReport, n as TurnEventLog, o as Embeddings, p as SearchOptions, q as ConversationPage, r as CounterHit, s as KnowledgeCallOptions, t as TurnEvent, u as KnowledgeDocument, v as AdminConversationSummary, w as AdminPage, x as AdminDays, y as AdminCountEvent } from "./turn-log.js";
 /**
  * Admin records in this process's memory, for tests and local development. Every instance has its
  * own, and a restart forgets them, so production warns.
@@ -836,8 +835,9 @@ export declare function turnstile(options: TurnstileOptions): HumanVerifier;
 export { type AdminBotDayRow, type AdminCheckOutcome, type AdminConversationQuery, type AdminConversationSummary, type AdminCountEvent, type AdminDashboard, type AdminDashboardHandler, type AdminDashboardRequest, type AdminDayRow, type AdminDays, type AdminHandoffCounts, type AdminHandoffState, type AdminPage, type AdminRange, type AdminRatingQuery, type AdminRatingRecord, type AdminRecordKey, type AdminSource, type AdminStore, type AdminStoredRating, type AdminSweepOptions, type AdminTranscriptCitation, type AdminTranscriptRecord, type AdminTurnRecord, type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type CompactionModel, type ConversationContext, type ConversationInfo, type ConversationOwner, type ConversationPage, type ConversationStore, type ConversationStoreCheck, type CounterHit, ERROR_CODES, type Embedder, type Embeddings, type ErrorCode, type Form, type FormDefinition, type FormField, type FormFieldType, type FormText, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type HumanChallenge, type HumanCheckContext, type HumanVerifier, type KnowledgeCallOptions, type KnowledgeCheck, type KnowledgeChunk, type KnowledgeConfig, type KnowledgeDocument, type KnowledgeIndex, type MemoryTurnLog, type MemoryTurnLogOptions, type ModerationConfig, type OpenAIEmbedderOptions, type Passage, type PositionedItem, type PresetName, type RateLimitStore, type SearchOptions, type StoredCitation, type StoredItem, type StoredPart, type SyncReport, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type TurnEvent, type TurnEventLog, type TurnstileOptions, VersionConflictError, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
 
 // ==== next.d.ts ====
-import { C as PresetName, E as VisitorIdentity, T as ThemeVariants, i as BotHandle } from "./define-bot.js";
-import { D as ConversationStore, _ as ChatToolCallReport, b as ErrorCode, g as ChatTokenUsage, h as ChatCompactionReport, i as RateLimitStore, n as TurnEventLog, v as ChatUsageReport, x as MessageEndReason } from "./turn-log.js";
+import { A as AdminDashboard, C as PresetName, E as VisitorIdentity, T as ThemeVariants, i as BotHandle } from "./define-bot.js";
+import { A as AdminStore, H as MessageEndReason, I as ChatCompactionReport, J as ConversationStore, L as ChatTokenUsage, R as ChatToolCallReport, V as ErrorCode, i as RateLimitStore, n as TurnEventLog, z as ChatUsageReport } from "./turn-log.js";
+import "zod";
 /** What a visitor may attach, as the bot allows it. */
 interface ChatAttachments {
   readonly images: boolean;
@@ -1108,6 +1108,26 @@ interface ChatTranscriptReport {
   /** Why the answer ended. */
   readonly reason: MessageEndReason;
 }
+interface ChatSweepOptions {
+  /** Conversations with no message for this many days are deleted. Default 30; 0 for all. */
+  readonly idleDays?: number | undefined;
+  /**
+   * The most conversations one call deletes, default 100; admin records go in up to ten times as
+   * many. `more` in the result says a later call has work left.
+   */
+  readonly limit?: number | undefined;
+  readonly signal?: AbortSignal | undefined;
+}
+interface ChatSweepResult {
+  /** Conversations deleted. */
+  readonly conversations: number;
+  /** Their attached files deleted. */
+  readonly files: number;
+  /** Admin records and daily rows deleted for their age. */
+  readonly records: number;
+  /** Whether a later call has more to delete. */
+  readonly more: boolean;
+}
 interface ChatHandlerOptions {
   readonly bots: readonly BotHandle[];
   /** Path of the catch-all route. Default `/api/chat` (route file `app/api/chat/[...path]/route.ts`). */
@@ -1170,6 +1190,37 @@ interface ChatHandlerOptions {
    * it off in production.
    */
   readonly gallery?: boolean;
+  /**
+   * The admin store and console (ADR-0016, ADR-0032). With `store`, askdare writes each turn's
+   * counters, ratings and, with `transcripts`, transcripts there itself, and deleting or sweeping a
+   * conversation deletes its records too. `console` turns on the owners' console at
+   * `<basePath>/admin`.
+   */
+  readonly admin?: ChatHandlerAdminOptions;
+}
+interface ChatHandlerAdminOptions {
+  /** Where admin records live, such as `postgresAdminStore()` from `@boldare/askdare-postgres`. */
+  readonly store?: AdminStore;
+  /**
+   * Also keep each turn's text (the visitor's message and the answer they saw) in the store.
+   * Personal data: off by default; needs `store`.
+   */
+  readonly transcripts?: boolean;
+  /** Days records are kept, once the app calls `sweep()` on a schedule. Default 30, at most 400. */
+  readonly retentionDays?: number;
+  /** The console at `<basePath>/admin`, off unless set. */
+  readonly console?: ChatHandlerAdminConsoleOptions;
+}
+interface ChatHandlerAdminConsoleOptions {
+  /**
+   * Users who may sign in with an identity token: the `sub` of a JWT signed with
+   * `IDENTITY_SECRET`, audience `askdare-admin`, at most 10 minutes long, passed to the console
+   * as `<basePath>/admin#identity=<jwt>`. Without it, only `ADMIN_SECRET` signs in; one of the
+   * two is required.
+   */
+  readonly allow?: readonly string[];
+  /** The stage 2 dashboard, such as `adminDashboard()` from `@boldare/askdare-admin`. Needs `store`. */
+  readonly dashboard?: AdminDashboard;
 }
 /** One server error, as `onError` receives it. */
 interface ChatErrorReport {
@@ -1214,6 +1265,12 @@ interface ChatHandlers {
   readonly GET: RouteHandler;
   readonly POST: RouteHandler;
   readonly DELETE: RouteHandler;
+  /**
+   * Deletes conversations idle for `idleDays` (with a store that can list them, not OpenAI's),
+   * with their files and admin records, then admin records older than `admin.retentionDays`. Call
+   * it from your own scheduled route, behind its own secret; askdare schedules nothing.
+   */
+  readonly sweep: (options?: ChatSweepOptions) => Promise<ChatSweepResult>;
 }
 /**
  * Creates the Next.js route handlers for askdare. Mount them in a catch-all route:
@@ -1295,237 +1352,7 @@ export declare function embedPageHeaders(options: {
   readonly bots: readonly BotHandle[];
   readonly bot: string;
 }): EmbedPageHeader[];
-export type { ChatAttachments, ChatCompactionReport, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlerResumeOptions, ChatHandlers, ChatHandoffMessage, ChatHandoffReport, ChatHumanCheck, ChatStyles, ChatTokenUsage, ChatToolCallReport, ChatTranscriptCitation, ChatTranscriptReport, ChatUsageReport, ChatWidget, EmailHandoffOptions, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, HandoffEmail, OpenAIConversationsOptions, RouteHandler, TrustProxy, WebhookHandoffOptions };
-
-// ==== port.d.ts ====
-import { O as ConversationStoreCheck, b as ErrorCode, g as ChatTokenUsage, x as MessageEndReason } from "./turn-log.js";
-/** Where a record came from: the chat, or the console's playground, which the dashboard leaves out. */
-type AdminSource = "chat" | "console";
-/** Who and what a record belongs to. Every record has these, so delete and retention work alike. */
-interface AdminRecordKey {
-  readonly bot: string;
-  /**
-   * The conversation store's ID. Kept on the server: the console's browser gets sealed references,
-   * never this value (ADR-0032, decision 8).
-   */
-  readonly conversationId: string;
-  /** The pseudonym `onUsage` reports (an HMAC of the user or visitor). Never a raw ID or an IP. */
-  readonly visitor: string;
-  /** Epoch milliseconds; the record's day (UTC) and its retention count from here. */
-  readonly at: number;
-  /** `console` for playground turns, so the dashboard can leave them out. */
-  readonly source: AdminSource;
-}
-/** What output checks decided about an answer (ADR-0022), when the bot has them. */
-type AdminCheckOutcome = "allowed" | "replaced" | "withheld";
-/** One turn: counters only, never content. Written for every turn when a store is set. */
-interface AdminTurnRecord extends AdminRecordKey {
-  readonly model: string;
-  readonly durationMs: number;
-  readonly outcome: "completed" | "stopped" | "failed";
-  readonly finishReason?: MessageEndReason | undefined;
-  readonly errorCode?: ErrorCode | undefined;
-  /** The turn's usage plus its compaction's, if any. */
-  readonly usage: ChatTokenUsage;
-  readonly steps: number;
-  /** Names and outcomes only, as `ChatToolCallReport` without timings. */
-  readonly tools: readonly {
-    readonly name: string;
-    readonly outcome: "ok" | "error" | "timeout";
-  }[];
-  /** Sources shown with the answer. */
-  readonly citations: number;
-  readonly check?: AdminCheckOutcome | undefined;
-  /** The turn created the conversation; counted in `AdminBotDayRow.conversations`. */
-  readonly newConversation: boolean;
-  /**
-   * The turn counts as an unanswered question (ADR-0032, decision 5), as core decides it: a
-   * completed answer with no citations from a bot with knowledge, or a withheld or failed one.
-   * Counted in `AdminDayRow.unanswered`. Core decides, so every store counts the same turns.
-   */
-  readonly unanswered: boolean;
-}
-/** One rating. A later rating of the same answer replaces it; `rating: null` removes it. */
-interface AdminRatingRecord extends AdminRecordKey {
-  /** The rated answer. A rating is keyed by its conversation and this ID. */
-  readonly itemId: string;
-  readonly rating: "up" | "down" | null;
-  /** Up to 500 characters, the visitor's own words: personal data, never logged. */
-  readonly comment?: string | undefined;
-}
-/** A stored rating: a removed one (`rating: null`) is never returned. */
-type AdminStoredRating = AdminRatingRecord & {
-  readonly rating: "up" | "down";
-};
-/** A source cited in a transcript. */
-interface AdminTranscriptCitation {
-  readonly index: number;
-  readonly title: string;
-  readonly url?: string | undefined;
-}
-/** One turn's text: written only with `admin.transcripts: true`. */
-interface AdminTranscriptRecord extends AdminRecordKey {
-  readonly itemId?: string | undefined;
-  readonly input: string;
-  readonly attachments: number;
-  readonly answer: string | undefined;
-  readonly citations: readonly AdminTranscriptCitation[];
-  readonly check?: AdminCheckOutcome | undefined;
-  readonly reason: MessageEndReason;
-}
-/** ADR-0030's final states of a handoff; `requested` is never counted. */
-type AdminHandoffState = "sent" | "saved" | "unavailable" | "failed" | "limited";
-/**
- * A handoff or a lead, counted (ADR-0032, decision 6). No conversation, visitor, reason, contact
- * details or form values: only what a daily counter needs.
- */
-type AdminCountEvent = {
-  readonly kind: "handoff";
-  readonly bot: string;
-  readonly at: number;
-  readonly source: AdminSource;
-  readonly state: AdminHandoffState;
-} | {
-  readonly kind: "lead";
-  readonly bot: string;
-  readonly at: number;
-  readonly source: AdminSource;
-};
-/** A day range in UTC, `from` and `to` as `YYYY-MM-DD`, both included, at most 400 days. */
-interface AdminRange {
-  readonly from: string;
-  readonly to: string;
-  readonly bot?: string | undefined;
-  /** Default `chat`: playground records are left out. */
-  readonly source?: AdminSource | "all" | undefined;
-}
-/** Daily totals per bot and model, kept as counters at write time. */
-interface AdminDayRow {
-  readonly day: string;
-  readonly bot: string;
-  readonly model: string;
-  readonly turns: number;
-  readonly failed: number;
-  readonly unanswered: number;
-  readonly usage: ChatTokenUsage;
-}
-/** Handoffs per final state. */
-type AdminHandoffCounts = { readonly [State in AdminHandoffState]: number; };
-/** Daily totals per bot, for what has no model: conversations, ratings, leads and handoffs. */
-interface AdminBotDayRow {
-  readonly day: string;
-  readonly bot: string;
-  readonly conversations: number;
-  readonly up: number;
-  readonly down: number;
-  readonly leads: number;
-  readonly handoffs: AdminHandoffCounts;
-}
-/** What `days()` returns: rows ordered by day, then bot, then model. */
-interface AdminDays {
-  readonly turns: readonly AdminDayRow[];
-  readonly bots: readonly AdminBotDayRow[];
-}
-/** One conversation in the dashboard's lists, summed over the records the store still has. */
-interface AdminConversationSummary {
-  readonly conversationId: string;
-  readonly bot: string;
-  readonly visitor: string;
-  readonly firstAt: number;
-  readonly lastAt: number;
-  readonly turns: number;
-  readonly usage: ChatTokenUsage;
-  readonly up: number;
-  readonly down: number;
-  /** The store has transcript records of the conversation. */
-  readonly transcript: boolean;
-}
-/** A page of a list. */
-interface AdminPage<T> {
-  readonly items: readonly T[];
-  /** Opaque; pass it back for the next page. Absent on the last page. */
-  readonly cursor?: string | undefined;
-}
-/**
- * The conversations started in the range (their first record's day), newest or most expensive
- * first.
- */
-interface AdminConversationQuery extends AdminRange {
-  /**
-   * `tokens`: most input plus output tokens first; `latest`: latest activity first. Ties go to the
-   * latest activity, then to the conversation ID.
-   */
-  readonly order: "tokens" | "latest";
-  /** `down`: only conversations with at least one 👎. */
-  readonly rated?: "down" | undefined;
-  /** 1 to 100. */
-  readonly limit: number;
-  readonly cursor?: string | undefined;
-}
-/** The ratings given in the range, newest first. */
-interface AdminRatingQuery extends AdminRange {
-  readonly rating?: "up" | "down" | undefined;
-  /** 1 to 100. */
-  readonly limit: number;
-  readonly cursor?: string | undefined;
-}
-/** What `sweep()` deletes. */
-interface AdminSweepOptions {
-  /** Epoch milliseconds: records written before it go. */
-  readonly recordsBefore: number;
-  /** `YYYY-MM-DD`: daily rows of days before it go. */
-  readonly daysBefore: string;
-  /** At most this many deletions per call, records and daily rows together. */
-  readonly limit: number;
-}
-/**
- * Where admin records live (ADR-0032). Every method takes an optional `signal`; an aborted one
- * stops it before it writes or deletes more. Implementations never log the values they write: a
- * failure is reported by error class and code only. A query outside its bounds (a malformed day, a
- * range over 400 days, a limit outside 1 to 100, a cursor the store didn't issue) is refused.
- */
-interface AdminStore {
-  /** Stable name for logs and diagnostics, such as `memory` or `postgres`. */
-  readonly name: string;
-  /**
-   * Writes a turn and adds it to its daily rows. A turn of the same conversation at the same `at`
-   * that is already stored is not written or counted again.
-   */
-  recordTurn(record: AdminTurnRecord, signal?: AbortSignal): Promise<void>;
-  /**
-   * Writes a rating and adjusts the daily counters. A rating of the same conversation and
-   * `itemId` replaces the stored one, never adds; `rating: null` removes it.
-   */
-  recordRating(record: AdminRatingRecord, signal?: AbortSignal): Promise<void>;
-  /**
-   * Writes a turn's transcript. One of the same conversation, `at` and `itemId` replaces the stored
-   * one.
-   */
-  recordTranscript(record: AdminTranscriptRecord, signal?: AbortSignal): Promise<void>;
-  /** Increments a daily counter of handoffs or leads; nothing else is kept. */
-  count(event: AdminCountEvent, signal?: AbortSignal): Promise<void>;
-  /** Daily rows of the range. */
-  days(range: AdminRange, signal?: AbortSignal): Promise<AdminDays>;
-  conversations(query: AdminConversationQuery, signal?: AbortSignal): Promise<AdminPage<AdminConversationSummary>>;
-  ratings(query: AdminRatingQuery, signal?: AbortSignal): Promise<AdminPage<AdminStoredRating>>;
-  /** The conversation's transcript records, oldest first; empty without them. */
-  transcript(conversationId: string, signal?: AbortSignal): Promise<readonly AdminTranscriptRecord[]>;
-  /**
-   * Deletes every record of the conversation: turns, ratings, transcripts and its summary. Daily
-   * rows stay: they hold no conversation or visitor. An unknown conversation is not an error, and
-   * calling it twice is fine.
-   */
-  deleteConversation(conversationId: string, signal?: AbortSignal): Promise<void>;
-  /**
-   * Retention: deletes up to `limit` records written before `recordsBefore` and daily rows of days
-   * before `daysBefore`, and resolves to how many it deleted. The caller calls again while that is
-   * `limit`.
-   */
-  sweep(options: AdminSweepOptions, signal?: AbortSignal): Promise<number>;
-  /** Schema status and the oldest record's age, for `askdare doctor`. */
-  diagnose?(signal?: AbortSignal): Promise<readonly ConversationStoreCheck[]>;
-}
-export { AdminStoredRating as _, AdminCountEvent as a, AdminTranscriptRecord as b, AdminHandoffCounts as c, AdminRange as d, AdminRatingQuery as f, AdminStore as g, AdminSource as h, AdminConversationSummary as i, AdminHandoffState as l, AdminRecordKey as m, AdminCheckOutcome as n, AdminDayRow as o, AdminRatingRecord as p, AdminConversationQuery as r, AdminDays as s, AdminBotDayRow as t, AdminPage as u, AdminSweepOptions as v, AdminTurnRecord as x, AdminTranscriptCitation as y };
+export type { ChatAttachments, ChatCompactionReport, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerAdminConsoleOptions, ChatHandlerAdminOptions, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlerResumeOptions, ChatHandlers, ChatHandoffMessage, ChatHandoffReport, ChatHumanCheck, ChatStyles, ChatSweepOptions, ChatSweepResult, ChatTokenUsage, ChatToolCallReport, ChatTranscriptCitation, ChatTranscriptReport, ChatUsageReport, ChatWidget, EmailHandoffOptions, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, HandoffEmail, OpenAIConversationsOptions, RouteHandler, TrustProxy, WebhookHandoffOptions };
 
 // ==== react.d.ts ====
 
@@ -2080,8 +1907,7 @@ export declare function Root({ config, identity, context, greeting, starters, on
 export { type AttachButtonProps, type Chat, type ChatActions, type ChatAttachments, type ChatBot, type ChatConfig, type ChatEvent, type ChatEventListener, type ChatEventType, type ChatHumanCheck, type ChatMessage, type ChatPhase, type ChatState, type ChatStyles, type ChatWidget, type Citation, type CitationsProps, type ComposerProps, type DefaultChatComponents, type DefaultChatProps, type DictateButtonProps, type Dictation, type DisclosureProps, type Earlier, type ErrorMessageProps, type FeedbackButtonProps, type FilesProps, type Frame, type HumanCheckProps, type InputProps, Link, type LinkProps, type LoadEarlierProps, type MarkdownProps, type MessageFilesProps, type MessageListProps, type MessageProps, type MessageTextProps, type MessagesProps, type PanelProps, type PendingFile, type QuickRepliesProps, type Rating, type RecorderProps, type RootProps, type SendProps, type SentFile, type StatusProps, type ThemeProps, type ToolRendererProps, type ToolRenderers, ToolResults, type ToolResultsProps, type ToolUi, type Translate };
 
 // ==== testing.d.ts ====
-import { D as ConversationStore, a as Embedder, d as KnowledgeIndex, i as RateLimitStore, n as TurnEventLog, u as KnowledgeDocument } from "./turn-log.js";
-import { g as AdminStore } from "./port.js";
+import { A as AdminStore, J as ConversationStore, a as Embedder, d as KnowledgeIndex, i as RateLimitStore, n as TurnEventLog, u as KnowledgeDocument } from "./turn-log.js";
 /**
  * The parts of a test runner the contract suites use. Vitest's and Jest's `describe`, `it` and
  * `expect` fit, so `@boldare/askdare/testing` depends on no runner.
@@ -2784,6 +2610,232 @@ interface ChatUsageReport {
    */
   readonly compaction?: ChatCompactionReport | undefined;
 }
+/** Where a record came from: the chat, or the console's playground, which the dashboard leaves out. */
+type AdminSource = "chat" | "console";
+/** Who and what a record belongs to. Every record has these, so delete and retention work alike. */
+interface AdminRecordKey {
+  readonly bot: string;
+  /**
+   * The conversation store's ID. Kept on the server: the console's browser gets sealed references,
+   * never this value (ADR-0032, decision 8).
+   */
+  readonly conversationId: string;
+  /** The pseudonym `onUsage` reports (an HMAC of the user or visitor). Never a raw ID or an IP. */
+  readonly visitor: string;
+  /** Epoch milliseconds; the record's day (UTC) and its retention count from here. */
+  readonly at: number;
+  /** `console` for playground turns, so the dashboard can leave them out. */
+  readonly source: AdminSource;
+}
+/** What output checks decided about an answer (ADR-0022), when the bot has them. */
+type AdminCheckOutcome = "allowed" | "replaced" | "withheld";
+/** One turn: counters only, never content. Written for every turn when a store is set. */
+interface AdminTurnRecord extends AdminRecordKey {
+  readonly model: string;
+  readonly durationMs: number;
+  readonly outcome: "completed" | "stopped" | "failed";
+  readonly finishReason?: MessageEndReason | undefined;
+  readonly errorCode?: ErrorCode | undefined;
+  /** The turn's usage plus its compaction's, if any. */
+  readonly usage: ChatTokenUsage;
+  readonly steps: number;
+  /** Names and outcomes only, as `ChatToolCallReport` without timings. */
+  readonly tools: readonly {
+    readonly name: string;
+    readonly outcome: "ok" | "error" | "timeout";
+  }[];
+  /** Sources shown with the answer. */
+  readonly citations: number;
+  readonly check?: AdminCheckOutcome | undefined;
+  /** The turn created the conversation; counted in `AdminBotDayRow.conversations`. */
+  readonly newConversation: boolean;
+  /**
+   * The turn counts as an unanswered question (ADR-0032, decision 5), as core decides it: a
+   * completed answer with no citations from a bot with knowledge, or a withheld or failed one.
+   * Counted in `AdminDayRow.unanswered`. Core decides, so every store counts the same turns.
+   */
+  readonly unanswered: boolean;
+}
+/** One rating. A later rating of the same answer replaces it; `rating: null` removes it. */
+interface AdminRatingRecord extends AdminRecordKey {
+  /** The rated answer. A rating is keyed by its conversation and this ID. */
+  readonly itemId: string;
+  readonly rating: "up" | "down" | null;
+  /** Up to 500 characters, the visitor's own words: personal data, never logged. */
+  readonly comment?: string | undefined;
+}
+/** A stored rating: a removed one (`rating: null`) is never returned. */
+type AdminStoredRating = AdminRatingRecord & {
+  readonly rating: "up" | "down";
+};
+/** A source cited in a transcript. */
+interface AdminTranscriptCitation {
+  readonly index: number;
+  readonly title: string;
+  readonly url?: string | undefined;
+}
+/** One turn's text: written only with `admin.transcripts: true`. */
+interface AdminTranscriptRecord extends AdminRecordKey {
+  readonly itemId?: string | undefined;
+  readonly input: string;
+  readonly attachments: number;
+  readonly answer: string | undefined;
+  readonly citations: readonly AdminTranscriptCitation[];
+  readonly check?: AdminCheckOutcome | undefined;
+  readonly reason: MessageEndReason;
+}
+/** ADR-0030's final states of a handoff; `requested` is never counted. */
+type AdminHandoffState = "sent" | "saved" | "unavailable" | "failed" | "limited";
+/**
+ * A handoff or a lead, counted (ADR-0032, decision 6). No conversation, visitor, reason, contact
+ * details or form values: only what a daily counter needs.
+ */
+type AdminCountEvent = {
+  readonly kind: "handoff";
+  readonly bot: string;
+  readonly at: number;
+  readonly source: AdminSource;
+  readonly state: AdminHandoffState;
+} | {
+  readonly kind: "lead";
+  readonly bot: string;
+  readonly at: number;
+  readonly source: AdminSource;
+};
+/** A day range in UTC, `from` and `to` as `YYYY-MM-DD`, both included, at most 400 days. */
+interface AdminRange {
+  readonly from: string;
+  readonly to: string;
+  readonly bot?: string | undefined;
+  /** Default `chat`: playground records are left out. */
+  readonly source?: AdminSource | "all" | undefined;
+}
+/** Daily totals per bot and model, kept as counters at write time. */
+interface AdminDayRow {
+  readonly day: string;
+  readonly bot: string;
+  readonly model: string;
+  readonly turns: number;
+  readonly failed: number;
+  readonly unanswered: number;
+  readonly usage: ChatTokenUsage;
+}
+/** Handoffs per final state. */
+type AdminHandoffCounts = { readonly [State in AdminHandoffState]: number; };
+/** Daily totals per bot, for what has no model: conversations, ratings, leads and handoffs. */
+interface AdminBotDayRow {
+  readonly day: string;
+  readonly bot: string;
+  readonly conversations: number;
+  readonly up: number;
+  readonly down: number;
+  readonly leads: number;
+  readonly handoffs: AdminHandoffCounts;
+}
+/** What `days()` returns: rows ordered by day, then bot, then model. */
+interface AdminDays {
+  readonly turns: readonly AdminDayRow[];
+  readonly bots: readonly AdminBotDayRow[];
+}
+/** One conversation in the dashboard's lists, summed over the records the store still has. */
+interface AdminConversationSummary {
+  readonly conversationId: string;
+  readonly bot: string;
+  readonly visitor: string;
+  readonly firstAt: number;
+  readonly lastAt: number;
+  readonly turns: number;
+  readonly usage: ChatTokenUsage;
+  readonly up: number;
+  readonly down: number;
+  /** The store has transcript records of the conversation. */
+  readonly transcript: boolean;
+}
+/** A page of a list. */
+interface AdminPage<T> {
+  readonly items: readonly T[];
+  /** Opaque; pass it back for the next page. Absent on the last page. */
+  readonly cursor?: string | undefined;
+}
+/**
+ * The conversations started in the range (their first record's day), newest or most expensive
+ * first.
+ */
+interface AdminConversationQuery extends AdminRange {
+  /**
+   * `tokens`: most input plus output tokens first; `latest`: latest activity first. Ties go to the
+   * latest activity, then to the conversation ID.
+   */
+  readonly order: "tokens" | "latest";
+  /** `down`: only conversations with at least one 👎. */
+  readonly rated?: "down" | undefined;
+  /** 1 to 100. */
+  readonly limit: number;
+  readonly cursor?: string | undefined;
+}
+/** The ratings given in the range, newest first. */
+interface AdminRatingQuery extends AdminRange {
+  readonly rating?: "up" | "down" | undefined;
+  /** 1 to 100. */
+  readonly limit: number;
+  readonly cursor?: string | undefined;
+}
+/** What `sweep()` deletes. */
+interface AdminSweepOptions {
+  /** Epoch milliseconds: records written before it go. */
+  readonly recordsBefore: number;
+  /** `YYYY-MM-DD`: daily rows of days before it go. */
+  readonly daysBefore: string;
+  /** At most this many deletions per call, records and daily rows together. */
+  readonly limit: number;
+}
+/**
+ * Where admin records live (ADR-0032). Every method takes an optional `signal`; an aborted one
+ * stops it before it writes or deletes more. Implementations never log the values they write: a
+ * failure is reported by error class and code only. A query outside its bounds (a malformed day, a
+ * range over 400 days, a limit outside 1 to 100, a cursor the store didn't issue) is refused.
+ */
+interface AdminStore {
+  /** Stable name for logs and diagnostics, such as `memory` or `postgres`. */
+  readonly name: string;
+  /**
+   * Writes a turn and adds it to its daily rows. A turn of the same conversation at the same `at`
+   * that is already stored is not written or counted again.
+   */
+  recordTurn(record: AdminTurnRecord, signal?: AbortSignal): Promise<void>;
+  /**
+   * Writes a rating and adjusts the daily counters. A rating of the same conversation and
+   * `itemId` replaces the stored one, never adds; `rating: null` removes it.
+   */
+  recordRating(record: AdminRatingRecord, signal?: AbortSignal): Promise<void>;
+  /**
+   * Writes a turn's transcript. One of the same conversation, `at` and `itemId` replaces the stored
+   * one.
+   */
+  recordTranscript(record: AdminTranscriptRecord, signal?: AbortSignal): Promise<void>;
+  /** Increments a daily counter of handoffs or leads; nothing else is kept. */
+  count(event: AdminCountEvent, signal?: AbortSignal): Promise<void>;
+  /** Daily rows of the range. */
+  days(range: AdminRange, signal?: AbortSignal): Promise<AdminDays>;
+  conversations(query: AdminConversationQuery, signal?: AbortSignal): Promise<AdminPage<AdminConversationSummary>>;
+  ratings(query: AdminRatingQuery, signal?: AbortSignal): Promise<AdminPage<AdminStoredRating>>;
+  /** The conversation's transcript records, oldest first; empty without them. */
+  transcript(conversationId: string, signal?: AbortSignal): Promise<readonly AdminTranscriptRecord[]>;
+  /**
+   * Deletes every record of the conversation: turns, ratings, transcripts and its summary. Daily
+   * rows stay: they hold no conversation or visitor. An unknown conversation is not an error, and
+   * calling it twice is fine.
+   */
+  deleteConversation(conversationId: string, signal?: AbortSignal): Promise<void>;
+  /**
+   * Retention: deletes up to `limit` records written before `recordsBefore` and daily rows of days
+   * before `daysBefore`, and resolves to how many it deleted. The caller calls again while that is
+   * `limit`.
+   */
+  sweep(options: AdminSweepOptions, signal?: AbortSignal): Promise<number>;
+  /** Schema status and the oldest record's age, for `askdare doctor`. */
+  diagnose?(signal?: AbortSignal): Promise<readonly ConversationStoreCheck[]>;
+}
 /**
  * The retrieval port of ADR-0025: what a bot's own knowledge index is, with no OpenAI or database
  * types. Every model path and every adapter (in-memory, pgvector, community ones) speaks only these.
@@ -2943,4 +2995,4 @@ interface TurnEventLog {
   /** True for logs that are shared across server instances. */
   readonly shared: boolean;
 }
-export { StoredCitation as A, ConversationContext as C, ConversationStore as D, ConversationPage as E, StoredPart as M, VersionConflictError as N, ConversationStoreCheck as O, CompactionModel as S, ConversationOwner as T, ChatToolCallReport as _, Embedder as a, ErrorCode as b, KnowledgeCheck as c, KnowledgeIndex as d, Passage as f, ChatTokenUsage as g, ChatCompactionReport as h, RateLimitStore as i, StoredItem as j, PositionedItem as k, KnowledgeChunk as l, SyncReport as m, TurnEventLog as n, Embeddings as o, SearchOptions as p, CounterHit as r, KnowledgeCallOptions as s, TurnEvent as t, KnowledgeDocument as u, ChatUsageReport as v, ConversationInfo as w, MessageEndReason as x, ERROR_CODES as y };
+export { StoredPart as $, AdminStore as A, ERROR_CODES as B, AdminHandoffState as C, AdminRatingRecord as D, AdminRatingQuery as E, AdminTurnRecord as F, ConversationInfo as G, MessageEndReason as H, ChatCompactionReport as I, ConversationStore as J, ConversationOwner as K, ChatTokenUsage as L, AdminSweepOptions as M, AdminTranscriptCitation as N, AdminRecordKey as O, AdminTranscriptRecord as P, StoredItem as Q, ChatToolCallReport as R, AdminHandoffCounts as S, AdminRange as T, CompactionModel as U, ErrorCode as V, ConversationContext as W, PositionedItem as X, ConversationStoreCheck as Y, StoredCitation as Z, AdminConversationQuery as _, Embedder as a, AdminDayRow as b, KnowledgeCheck as c, KnowledgeIndex as d, VersionConflictError as et, Passage as f, AdminCheckOutcome as g, AdminBotDayRow as h, RateLimitStore as i, AdminStoredRating as j, AdminSource as k, KnowledgeChunk as l, SyncReport as m, TurnEventLog as n, Embeddings as o, SearchOptions as p, ConversationPage as q, CounterHit as r, KnowledgeCallOptions as s, TurnEvent as t, KnowledgeDocument as u, AdminConversationSummary as v, AdminPage as w, AdminDays as x, AdminCountEvent as y, ChatUsageReport as z };

@@ -35,6 +35,8 @@ export interface IdentityVerifier {
   verify(
     token: string,
     botId: string,
+    /** A shorter cap than the default 24 hours between `iat` and `exp`, such as the console's 10 minutes. */
+    maxLifetimeSeconds?: number,
   ): Promise<
     | { readonly ok: true; readonly verified: VerifiedIdentity }
     | { readonly ok: false; readonly reason: IdentityFailure }
@@ -128,7 +130,8 @@ export function createIdentityVerifier(options: {
       ).join('');
     },
 
-    async verify(token, botId) {
+    async verify(token, botId, maxLifetimeSeconds = MAX_LIFETIME_SECONDS) {
+      const maxLifetime = Math.min(maxLifetimeSeconds, MAX_LIFETIME_SECONDS);
       let payload: Record<string, unknown>;
       try {
         ({ payload } = await jwtVerify(token, key, {
@@ -136,7 +139,7 @@ export function createIdentityVerifier(options: {
           audience: botId,
           requiredClaims: ['sub', 'iat', 'exp'],
           // Also refuses an `iat` in the future, which would stretch the lifetime cap.
-          maxTokenAge: MAX_LIFETIME_SECONDS,
+          maxTokenAge: maxLifetime,
           currentDate: new Date(now() * 1000),
           clockTolerance: 30,
         }));
@@ -158,7 +161,7 @@ export function createIdentityVerifier(options: {
         typeof iat !== 'number' ||
         typeof exp !== 'number' ||
         exp <= iat ||
-        exp - iat > MAX_LIFETIME_SECONDS
+        exp - iat > maxLifetime
       ) {
         return { ok: false, reason: 'lifetime' };
       }
@@ -172,7 +175,7 @@ export function createIdentityVerifier(options: {
       // Never longer than the cap from now, whatever the token says.
       return {
         ok: true,
-        verified: { identity, expiresAt: Math.min(exp, now() + MAX_LIFETIME_SECONDS) },
+        verified: { identity, expiresAt: Math.min(exp, now() + maxLifetime) },
       };
     },
   };
