@@ -30,6 +30,7 @@ import { defineTool } from '../tools/define-tool';
 import type { EmbedAssets } from './embed-page';
 import type { ChatFeedbackReport } from './feedback-report';
 import { createRequestHandler, type RequestHandler } from './handler';
+import { DEFAULT_LOOK } from './launcher';
 
 const APP = 'https://app.example.com';
 const BASE = `${APP}/api/chat`;
@@ -249,7 +250,10 @@ describe('static routes', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toContain('text/javascript');
     expect(response.headers.get('cross-origin-resource-policy')).toBe('cross-origin');
-    expect(await response.text()).toBe('console.log(JSON.parse("{}"))');
+    // No bot: only the default look, under '' (ADR-0033).
+    expect(await response.text()).toBe(
+      `console.log(JSON.parse(${JSON.stringify(JSON.stringify({ '': DEFAULT_LOOK }))}))`,
+    );
     expect(response.headers.get('cache-control')).toContain('max-age=300');
   });
 

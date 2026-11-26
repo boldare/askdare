@@ -71,6 +71,8 @@ Built in tasks 3b and 3c (November 2026), on `release/0.4`:
 - **`doctor`** against the dev server passed the page with the headers and named `embedPageHeaders` when they were missing.
 - **Sizes** (gzipped): the loader 5,016 of 5,120 bytes; a page with `EmbedRoot` and the hooks 11,174 bytes (budget 14,336); `react.js` 32,037 bytes.
 
+Update (2026-11-26): the loader sizes in this ADR (4,963 and 5,016 bytes) were true when it was written. The full-screen focus fix then took it to 5,052 B. Task l1 ([ADR-0033](0033-greeting-and-loader-budget.md)) trimmed it to 4,721 B with the same behavior and raised its budget to 5,632 B.
+
 ## Consequences
 
 - **New public API (ADR-0006, a minor version):**

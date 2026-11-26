@@ -9,6 +9,8 @@ import { eventListeners } from '../chat/events';
 import { pageLocale } from '../chat/page-options';
 import type { LauncherLook, LauncherTexts } from '../protocol/launcher';
 import { type HostEvent, type HostEventListener, hostEvent } from './host-events';
+// Minified at build time by Lightning CSS (vite.loader.config.ts sets the browsers).
+import STYLES from './loader.css?inline';
 
 type Command = 'open' | 'close' | 'toggle';
 
@@ -65,86 +67,33 @@ declare global {
   }
 }
 
-// Short custom property names keep the loader small: a accent, o text on accent, b orb,
-// l and d panel background (light, dark), t and u text on them, r panel radius.
-const STYLES = `
-:host { all: initial; }
-[part=launcher] {
-  position: fixed; right: 24px; bottom: 24px; z-index: 2147483000;
-  display: flex; align-items: center; justify-content: center; gap: 10px;
-  min-width: 56px; height: 56px; padding: 0; border: 0; border-radius: 999px;
-  background: var(--a); color: var(--o); cursor: pointer;
-  font: 600 15px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  box-shadow: 0 12px 32px -10px rgb(15 23 42 / .45), 0 2px 6px rgb(15 23 42 / .16);
-  transition: transform .16s ease, box-shadow .16s ease;
-}
-[part=launcher]:hover { transform: translateY(-2px); }
-[part=launcher]:focus-visible { outline: 3px solid var(--a); outline-offset: 3px; }
-.pill { padding: 0 22px 0 6px; }
-.av { display: grid; place-items: center; width: 44px; height: 44px; overflow: hidden;
-  border-radius: 50%; background: var(--o); color: var(--a); font-size: 14px; }
-.av img { width: 100%; height: 100%; object-fit: cover; }
-/* The orb launcher: the orb with its label, on the panel's background, so it reads as a chat. */
-.orb { height: 60px; padding: 0 22px 0 6px; background: var(--l); color: var(--t);
-  box-shadow: 0 14px 34px -12px var(--a), 0 2px 8px rgb(15 23 42 / .12),
-    0 0 0 1px rgb(15 23 42 / .06); }
-:host([data-askdare-scheme=dark]) .orb { background: var(--d); color: var(--u); }
-@media (prefers-color-scheme: dark) {
-  :host([data-askdare-scheme=auto]) .orb { background: var(--d); color: var(--u); }
-}
-.ob { position: relative; width: 48px; height: 48px; border-radius: 50%; background: var(--b);
-  box-shadow: inset 0 -5px 12px rgb(0 0 0 / .18), inset 0 4px 10px rgb(255 255 255 / .6); }
-.ob::after { content: ""; position: absolute; top: 12%; left: 20%; width: 36%; height: 28%;
-  border-radius: 50%; background: radial-gradient(closest-side, #fffe, #fff0); }
-[aria-expanded=true], :host .orb[aria-expanded=true] { background: var(--a); color: var(--o); }
-[aria-expanded=true] .av, [aria-expanded=true] .ob, [aria-expanded=true] .lb { display: none; }
-.pill[aria-expanded=true], .orb[aria-expanded=true] { padding: 0; width: 56px; }
-[part=panel] {
-  position: fixed; right: 24px; bottom: 96px; z-index: 2147483000;
-  width: min(400px, calc(100vw - 48px)); height: min(680px, calc(100dvh - 120px));
-  overflow: hidden; border-radius: var(--r); background: var(--l);
-  box-shadow: 0 28px 70px -12px rgb(15 23 42 / .4), 0 0 0 1px rgb(15 23 42 / .06);
-  transform-origin: bottom right; animation: in .34s cubic-bezier(.3, 1.3, .5, 1);
-}
-/* Closing plays the opening backwards, faster, before the panel is hidden. */
-[part=panel][data-closing] { pointer-events: none;
-  animation: out .18s cubic-bezier(.4, 0, 1, 1) forwards; }
-:host([data-askdare-scheme=dark]) [part=panel] { background: var(--d); }
-@media (prefers-color-scheme: dark) {
-  :host([data-askdare-scheme=auto]) [part=panel] { background: var(--d); }
-}
-[part=panel][hidden] { display: none; }
-[part=unavailable] { position: absolute; inset: 0; display: grid; place-items: center;
-  margin: 0; padding: 24px; background: var(--l); color: var(--t); text-align: center;
-  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-[part=panel].solo { bottom: 24px; }
-[part=panel].inline { position: relative; inset: auto; z-index: auto; width: 100%; height: 100%;
-  border-radius: inherit; box-shadow: none; animation: none; }
-iframe { display: block; width: 100%; height: 100%; border: 0; }
-/* The icon turns as it swaps between chat and close; not on the first paint. */
-[data-turned] svg { animation: turn .26s cubic-bezier(.3, 1.4, .5, 1); }
-@keyframes in { from { opacity: 0; transform: translateY(18px) scale(.9); } 50% { opacity: 1; } }
-@keyframes out { to { opacity: 0; transform: translateY(12px) scale(.94); } }
-@keyframes turn { from { opacity: 0; transform: rotate(-90deg) scale(.5); } }
-@keyframes up { from { transform: translateY(100%); } }
-@media (max-width: 480px) {
-  [part=panel] { inset: 0; width: 100vw; height: 100dvh; border-radius: 0;
-    animation: up .3s cubic-bezier(.2, .8, .2, 1); }
-  [part=panel][data-closing] { animation: out .18s ease-in forwards; }
-  [aria-expanded=true][data-ready] { display: none; }
-}
-@media (prefers-reduced-motion: reduce) {
-  [part=launcher], [part=panel], [part=panel][data-closing], svg, [data-turned] svg {
-    transition: none; animation: none; }
-}
-`;
+const SVG = 'http://www.w3.org/2000/svg';
 
-const CHAT_ICON =
-  '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.2 3.6A.5.5 0 0 1 5 19.2V16h-.5A.5.5 0 0 1 4 15.5z" fill="currentColor"/></svg>';
-const CLOSE_ICON =
-  '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+/**
+ * A 24 × 24 icon, built node by node: `innerHTML` throws on a page that enforces Trusted Types
+ * (`require-trusted-types-for 'script'`), and the launcher would never mount there (ADR-0033).
+ */
+function svgIcon(size: string, d: string, paint: Readonly<Record<string, string>>): SVGSVGElement {
+  const icon = document.createElementNS(SVG, 'svg');
+  for (const [name, value] of Object.entries({
+    width: size,
+    height: size,
+    viewBox: '0 0 24 24',
+    'aria-hidden': 'true',
+    ...paint,
+  })) {
+    icon.setAttribute(name, value);
+  }
+  const path = document.createElementNS(SVG, 'path');
+  path.setAttribute('d', d);
+  icon.append(path);
+  return icon;
+}
 
-/** Each bot's launcher look, inlined by the server (see LAUNCHER_PLACEHOLDER). */
+/**
+ * Each bot's launcher look, inlined by the server (see LAUNCHER_PLACEHOLDER): the requested bot's,
+ * and a default one under '' for a tag with only `data-bot` or another bot (server/launcher.ts).
+ */
 function looks(): Record<string, LauncherLook> {
   try {
     return JSON.parse('__ASKDARE_LAUNCHERS__') as Record<string, LauncherLook>;
@@ -207,63 +156,60 @@ function boot(): void {
       return `${appOrigin}${basePath}/embed/${encodeURIComponent(botId)}${search ? `?${search}` : ''}`;
     };
 
-    const look = looks()[botId];
+    const all = looks();
+    const look = (all[botId] ?? all['']) as LauncherLook;
     const textsFor = (): LauncherTexts => {
       // No language on the page: then the visitor's browser decides.
-      const language = (look?.locale || lang || navigator.language).toLowerCase().split('-')[0];
-      return (
-        look?.texts[language ?? 'en'] ??
-        look?.texts['en'] ?? {
-          label: 'Ask us',
-          open: 'Open chat',
-          close: 'Close chat',
-          unavailable: 'The chat couldn’t load. Please try again later.',
-          title: 'Chat',
-        }
-      );
+      const language = (look.locale || lang || navigator.language).toLowerCase().split('-')[0];
+      return (look.texts[language ?? 'en'] ?? look.texts['en']) as LauncherTexts;
     };
     let texts: LauncherTexts;
     const host = document.createElement('div');
     host.dataset['askdare'] = botId;
-    host.dataset['askdareScheme'] = look?.scheme ?? 'auto';
+    host.dataset['askdareScheme'] = look.scheme;
     // CSSOM, not a style attribute: allowed under a strict CSP on the host page.
     for (const [name, value] of [
-      ['--a', look?.accent ?? '#1f5fe0'],
-      ['--o', look?.onAccent ?? '#ffffff'],
-      ['--b', look?.orb ?? 'var(--a)'],
-      ['--l', look?.light ?? '#ffffff'],
-      ['--d', look?.dark ?? '#0a0f1c'],
-      ['--t', look?.text ?? '#0d1526'],
-      ['--u', look?.textDark ?? '#e8edf7'],
-      ['--r', look?.radius ? `min(${look.radius}, 24px)` : '18px'],
+      ['--a', look.accent],
+      ['--o', look.onAccent],
+      ['--b', look.orb],
+      ['--l', look.light],
+      ['--d', look.dark],
+      ['--t', look.text],
+      ['--u', look.textDark],
+      ['--r', `min(${look.radius}, 24px)`],
     ] as const) {
       host.style.setProperty(name, value);
     }
     const shadow = host.attachShadow({ mode: 'open' });
-    // A constructed stylesheet is not inline style, so a site's strict CSP doesn't block it.
-    // Safari before 16.4 lacks them: fall back to a <style> element.
-    try {
-      const sheet = new CSSStyleSheet();
-      sheet.replaceSync(STYLES);
-      shadow.adoptedStyleSheets = [sheet];
-    } catch {
-      const style = document.createElement('style');
-      style.textContent = STYLES;
-      shadow.append(style);
-    }
+    // A constructed stylesheet is not inline style, so a site's strict CSP doesn't block it. Every
+    // supported browser has them (docs/support.md).
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(STYLES);
+    shadow.adoptedStyleSheets = [sheet];
     const launcher = document.createElement('button');
     launcher.type = 'button';
-    launcher.className = look?.style ?? 'circle';
+    launcher.className = look.style;
     launcher.setAttribute('part', 'launcher');
     launcher.setAttribute('aria-expanded', 'false');
     const icon = document.createElement('span');
     icon.style.display = 'contents';
+    const chatIcon = svgIcon(
+      '26',
+      'M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.2 3.6A.5.5 0 0 1 5 19.2V16h-.5A.5.5 0 0 1 4 15.5z',
+      { fill: 'currentColor' },
+    );
+    const closeIcon = svgIcon('22', 'M6 6l12 12M18 6 6 18', {
+      stroke: 'currentColor',
+      'stroke-width': '2',
+      'stroke-linecap': 'round',
+    });
+    // Put back in the page on every swap, so the turn animation plays again.
     const showIcon = (open: boolean): void => {
-      icon.innerHTML = open ? CLOSE_ICON : look?.style === 'circle' || !look ? CHAT_ICON : '';
+      icon.replaceChildren(...(open ? [closeIcon] : look.style === 'circle' ? [chatIcon] : []));
     };
     showIcon(false);
     const label = document.createElement('span');
-    if (look?.style === 'pill' || look?.style === 'orb') {
+    if (look.style === 'pill' || look.style === 'orb') {
       // The pill shows the bot's picture or initials; the orb launcher, the orb.
       const avatar = document.createElement('span');
       avatar.className = look.style === 'orb' ? 'ob' : 'av';
@@ -329,7 +275,7 @@ function boot(): void {
       texts = textsFor();
       // A visible label starts the button's name, as WCAG's "label in name" asks; the action follows.
       closedName =
-        look?.style === 'pill' || look?.style === 'orb'
+        look.style === 'pill' || look.style === 'orb'
           ? `${texts.label}, ${texts.open}`
           : texts.open;
       launcher.setAttribute('aria-label', isOpen() ? texts.close : closedName);
@@ -346,7 +292,7 @@ function boot(): void {
      */
     const switchTo = (tag: string | undefined): void => {
       if (!tag) return;
-      if (look?.locale) {
+      if (look.locale) {
         if (!warned) {
           console.warn(
             `[askdare] The bot "${botId}" has a fixed locale, so it keeps its language.`,

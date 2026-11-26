@@ -12,3 +12,9 @@ declare module '*.js?raw' {
   const source: string;
   export default source;
 }
+
+// A stylesheet as minified text (the loader adopts it as a constructed stylesheet).
+declare module '*.css?inline' {
+  const css: string;
+  export default css;
+}
