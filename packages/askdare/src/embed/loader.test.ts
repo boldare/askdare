@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createBot } from '../bot/define-bot';
 import { LOADER_JS } from '../generated/assets';
 import { loaderWithLook } from '../server/launcher';
+import { defineTheme } from '../theme/theme';
 
 const APP = 'https://app.test';
 const auto = createBot({
@@ -24,13 +25,20 @@ const lastPort = (): { onmessage: ((event: MessageEvent) => void) | null } =>
 /** URLs the chat's iframe was sent to with location.replace(). */
 let reloads: string[];
 
-/** Runs the real built loader on this page, as `<script src=…widget.js?bot=support …>`. */
-function load(bot = auto, attributes: Record<string, string> = {}): Api {
+/**
+ * Runs the real built loader on this page, as `<script src=…widget.js?bot=support …>`, with the look
+ * the server inlines for `bot` (null: a `src` without a known bot).
+ */
+function load(
+  bot: typeof auto | null = auto,
+  attributes: Record<string, string> = {},
+  src = `${APP}/api/chat/widget.js?bot=support`,
+): Api {
   const script = document.createElement('script');
-  script.src = `${APP}/api/chat/widget.js?bot=support`;
+  script.src = src;
   for (const [name, value] of Object.entries(attributes)) script.setAttribute(name, value);
   Object.defineProperty(document, 'currentScript', { value: script, configurable: true });
-  new Function(loaderWithLook(LOADER_JS, bot))();
+  new Function(loaderWithLook(LOADER_JS, bot ?? undefined))();
   return window.askdare as unknown as Api;
 }
 
@@ -251,5 +259,53 @@ describe('a chat page that asks for the handshake (ADR-0018)', () => {
     expect(handshakes).toHaveLength(1);
     hello(own);
     expect(handshakes).toHaveLength(2);
+  });
+});
+
+describe('the launcher look (ADR-0033)', () => {
+  const shadow = (): ShadowRoot =>
+    (document.querySelector('[data-askdare]') as HTMLElement).shadowRoot as ShadowRoot;
+  const host = (): HTMLElement => document.querySelector('[data-askdare]') as HTMLElement;
+
+  it('gives a tag with only data-bot the default look from the server', () => {
+    load(null, { 'data-bot': 'support' }, `${APP}/api/chat/widget.js`);
+    expect(launcher().className).toBe('circle');
+    expect(launcher().getAttribute('aria-label')).toBe('Open chat');
+    expect(host().style.getPropertyValue('--a')).toBe('#1f5fe0');
+    expect(host().style.getPropertyValue('--r')).toBe('min(18px, 24px)');
+    expect(host().dataset['askdareScheme']).toBe('auto');
+    expect(shadow().querySelector('[part=panel]')?.getAttribute('aria-label')).toBe('Chat');
+  });
+
+  it("falls back to the default look when data-bot isn't the bot in ?bot=", () => {
+    // `auto` has the orb launcher.
+    load(auto, { 'data-bot': 'sales' });
+    expect(launcher().className).toBe('circle');
+    expect(launcher().getAttribute('aria-label')).toBe('Open chat');
+  });
+
+  it('builds its icons as SVG nodes, never from HTML (Trusted Types)', () => {
+    const innerHTML = vi.spyOn(Element.prototype, 'innerHTML', 'set');
+    const api = load(
+      createBot({
+        id: 'support',
+        model: 'm',
+        instructions: 'x',
+        widget: { theme: defineTheme({ variants: { launcher: 'circle' } }) },
+      }),
+    );
+    const svg = (): SVGElement | null => launcher().querySelector('svg');
+    expect(svg()?.namespaceURI).toBe('http://www.w3.org/2000/svg');
+    expect(svg()?.getAttribute('aria-hidden')).toBe('true');
+    expect(svg()?.getAttribute('width')).toBe('26');
+    expect(svg()?.getAttribute('fill')).toBe('currentColor');
+    openChat(api);
+    expect(svg()?.getAttribute('width')).toBe('22');
+    expect(svg()?.getAttribute('stroke')).toBe('currentColor');
+    expect(launcher().hasAttribute('data-turned')).toBe(true);
+    api('close');
+    expect(svg()?.getAttribute('width')).toBe('26');
+    expect(launcher().querySelectorAll('svg')).toHaveLength(1);
+    expect(innerHTML).not.toHaveBeenCalled();
   });
 });

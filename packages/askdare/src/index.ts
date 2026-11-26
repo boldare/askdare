@@ -1,4 +1,33 @@
 export type {
+  AdminDashboard,
+  AdminDashboardHandler,
+  AdminDashboardRequest,
+} from './admin/dashboard';
+export { memoryAdminStore } from './admin/memory';
+export type {
+  AdminBotDayRow,
+  AdminCheckOutcome,
+  AdminConversationQuery,
+  AdminConversationSummary,
+  AdminCountEvent,
+  AdminDayRow,
+  AdminDays,
+  AdminHandoffCounts,
+  AdminHandoffState,
+  AdminPage,
+  AdminRange,
+  AdminRatingQuery,
+  AdminRatingRecord,
+  AdminRecordKey,
+  AdminSource,
+  AdminStore,
+  AdminStoredRating,
+  AdminSweepOptions,
+  AdminTranscriptCitation,
+  AdminTranscriptRecord,
+  AdminTurnRecord,
+} from './admin/port';
+export type {
   AttachmentConfig,
   BotContext,
   BotDefinition,

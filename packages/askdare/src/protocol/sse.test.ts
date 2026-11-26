@@ -25,6 +25,16 @@ const SAMPLE_EVENTS: readonly ProtocolEvent[] = [
     data: { slots: ['9:00'] },
   },
   { type: 'replies', messageId: 'msg_1', items: ['Yes, book it', 'Show prices'] },
+  { type: 'handoff', messageId: 'msg_1', state: 'requested' },
+  {
+    type: 'form',
+    messageId: 'msg_1',
+    callId: 'call_2',
+    name: 'contact',
+    handle: 'form.handle',
+    purpose: 'handoff',
+  },
+  { type: 'handoff', messageId: 'msg_1', state: 'sent' },
   { type: 'message.end', messageId: 'msg_1', reason: 'completed' },
   { type: 'error', code: 'rate_limited', message: 'Too many messages.', retryAfterMs: 1500 },
 ];

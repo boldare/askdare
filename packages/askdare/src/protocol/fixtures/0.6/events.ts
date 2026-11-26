@@ -1,0 +1,158 @@
+// Frozen copy of protocol/events.ts as released in @boldare/askdare 0.6.0, for protocol-0.6.test.ts. Never edit.
+/** Stable error codes sent to clients. The accompanying message never contains internals. */
+export const ERROR_CODES = [
+  'invalid_input',
+  'unauthorized',
+  'session_expired',
+  'not_found',
+  'rate_limited',
+  'budget_exceeded',
+  'bot_unavailable',
+  'content_blocked',
+  'timeout',
+  'upstream_error',
+  'internal_error',
+] as const;
+
+export type ErrorCode = (typeof ERROR_CODES)[number];
+
+export const MESSAGE_END_REASONS = [
+  'completed',
+  'max_steps',
+  'max_output_tokens',
+  'timeout',
+  'content_filter',
+  'aborted',
+] as const;
+
+export type MessageEndReason = (typeof MESSAGE_END_REASONS)[number];
+
+export const PROTOCOL_EVENT_TYPES = [
+  'conversation.created',
+  'user.ack',
+  'message.start',
+  'reasoning',
+  'text.delta',
+  'citation',
+  'tool.status',
+  'tool.ui',
+  'replies',
+  'message.end',
+  'error',
+] as const;
+
+export type ProtocolEventType = (typeof PROTOCOL_EVENT_TYPES)[number];
+
+export interface ConversationCreatedEvent {
+  readonly type: 'conversation.created';
+  /** Signed handle that lets this visitor resume the conversation. Never a raw OpenAI ID. */
+  readonly resumeToken: string;
+}
+
+export interface UserAckEvent {
+  readonly type: 'user.ack';
+  readonly messageId: string;
+}
+
+export interface MessageStartEvent {
+  readonly type: 'message.start';
+  readonly messageId: string;
+}
+
+export interface ReasoningEvent {
+  readonly type: 'reasoning';
+  readonly messageId: string;
+  readonly state: 'started' | 'done';
+}
+
+export interface TextDeltaEvent {
+  readonly type: 'text.delta';
+  readonly messageId: string;
+  readonly delta: string;
+}
+
+export interface CitationEvent {
+  readonly type: 'citation';
+  readonly messageId: string;
+  /** 1-based marker shown in the text as [n]. */
+  readonly index: number;
+  readonly title: string;
+  readonly url?: string | undefined;
+}
+
+export interface ToolStatusEvent {
+  readonly type: 'tool.status';
+  readonly messageId: string;
+  readonly callId: string;
+  readonly name: string;
+  readonly state: 'running' | 'done' | 'error';
+}
+
+/**
+ * A tool's result as the visitor may see it, for a component the site registered (ADR-0017). Sent
+ * right after the call's `tool.status` `done`, never for a failed call, at most four per answer.
+ * `data` is plain JSON of at most 8 KB, as the tool's `ui` function returned it.
+ */
+export interface ToolUiEvent {
+  readonly type: 'tool.ui';
+  readonly messageId: string;
+  readonly callId: string;
+  readonly name: string;
+  readonly data: unknown;
+}
+
+/**
+ * Options the visitor can click under this answer instead of typing (ADR-0015). Sent at most
+ * once, before `message.end`: one to four distinct, trimmed, one-line texts of up to 80
+ * characters, without links. A client shows them as plain text, never as Markdown.
+ */
+export interface RepliesEvent {
+  readonly type: 'replies';
+  readonly messageId: string;
+  readonly items: readonly string[];
+}
+
+/** What the client needs to rate one answer (ADR-0012). */
+export interface FeedbackHandle {
+  /** Opaque; sent back to `POST /feedback`. */
+  readonly handle: string;
+  /** Stable for the answer across reloads, so the client can remember its rating. Hex. */
+  readonly key: string;
+}
+
+export interface MessageEndEvent {
+  readonly type: 'message.end';
+  readonly messageId: string;
+  readonly reason: MessageEndReason;
+  /**
+   * A fresh handle for a resumed conversation, so an active conversation stays reachable for 30
+   * days after its last message rather than its first.
+   */
+  readonly resumeToken?: string | undefined;
+  /** Present when visitors may rate this bot's answers. */
+  readonly feedback?: FeedbackHandle | undefined;
+}
+
+export interface ErrorEvent {
+  readonly type: 'error';
+  readonly code: ErrorCode;
+  /** English fallback. */
+  readonly message: string;
+  readonly retryAfterMs?: number | undefined;
+  /** Dictionary key for the visitor's language, with its placeholders. */
+  readonly key?: string | undefined;
+  readonly params?: Readonly<Record<string, string | number>> | undefined;
+}
+
+export type ProtocolEvent =
+  | ConversationCreatedEvent
+  | UserAckEvent
+  | MessageStartEvent
+  | ReasoningEvent
+  | TextDeltaEvent
+  | CitationEvent
+  | ToolStatusEvent
+  | ToolUiEvent
+  | RepliesEvent
+  | MessageEndEvent
+  | ErrorEvent;
