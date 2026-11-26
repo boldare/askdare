@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isEmbedPath } from '../base-path';
+import { type Form, MAX_BOT_FORMS } from '../forms/define-form';
 import { canonicalLocale, TEXT_KEYS, type TextKey, textLocale, textsFor } from '../i18n/texts';
 import type { KnowledgeIndex } from '../knowledge/port';
 import { SEARCH_KNOWLEDGE } from '../knowledge/tool';
@@ -15,6 +16,8 @@ import {
   themeWarnings,
 } from '../theme/theme';
 import type { Tool } from '../tools/define-tool';
+import { HANDOFF } from '../tools/handoff';
+import { modelForms, SHOW_FORM } from '../tools/show-form';
 import { SUGGEST_REPLIES } from '../tools/suggest-replies';
 import {
   type GuardrailOptions,
@@ -155,6 +158,62 @@ export interface AttachmentConfig {
   readonly maxPdfPages?: number;
 }
 
+/** What `handoff.available` gets: the bot and the visitor it is asked for. */
+export interface HandoffAvailabilityContext {
+  readonly bot: string;
+  readonly locale: string;
+  /** The signed-in user, verified (ADR-0009); undefined when anonymous. */
+  readonly identity?: VisitorIdentity | undefined;
+}
+
+/** How many handoffs are accepted (ADR-0030, decision 7). */
+export interface HandoffLimits {
+  /** Per conversation; a second request ends as `limited`. Default 1. */
+  readonly perConversation?: number;
+  /** Per visitor or signed-in user per UTC day, and the same per IP. Default 3. */
+  readonly perVisitorPerDay?: number;
+  /** For the whole bot per UTC day; `onError` hears once when it runs out. Default 100. */
+  readonly perBotPerDay?: number;
+}
+
+/**
+ * Handoff to a person (ADR-0030): the model may call the `handoff` tool and the chat shows a "Talk
+ * to a person" control. Requests go to `createChatHandler`'s `onHandoff`, which is then required.
+ */
+export interface HandoffConfig {
+  /** The model may call the reserved `handoff` tool. Default `true`. */
+  readonly model?: boolean;
+  /** The chat shows "Talk to a person". Default `true`. */
+  readonly button?: boolean;
+  /**
+   * The name of a form in `forms` that collects contact details before the request goes out,
+   * and takes a message while nobody is available. Skipped for a signed-in visitor with an email.
+   */
+  readonly form?: string;
+  /**
+   * Whether someone can take a request now: office hours, holidays, on-call. May be async; it
+   * has two seconds, and a throw or a timeout counts as unavailable. Default: always available.
+   */
+  readonly available?: (context: HandoffAvailabilityContext) => boolean | Promise<boolean>;
+  /**
+   * What of the conversation the request carries: `none` (the default), `summary` (a short note
+   * the model writes) or `transcript` (the summary and the visible messages of the latest history
+   * page). Contact details from the form are always included.
+   */
+  readonly content?: 'none' | 'summary' | 'transcript';
+  readonly limits?: HandoffLimits;
+}
+
+/** A bot's handoff settings, resolved. Internal. */
+export interface ResolvedHandoff {
+  readonly model: boolean;
+  readonly button: boolean;
+  readonly form: Form | undefined;
+  readonly available: HandoffConfig['available'];
+  readonly content: 'none' | 'summary' | 'transcript';
+  readonly limits: Required<HandoffLimits>;
+}
+
 export interface VoiceConfig {
   /** OpenAI transcription model, for example `gpt-transcribe`. Required: the library never assumes a model. */
   readonly model: string;
@@ -290,6 +349,17 @@ export interface BotDefinition extends GuardrailOptions {
    * with it. Off when absent: askdare's page, which needs nothing from you.
    */
   readonly embedPath?: string | undefined;
+  /**
+   * Handoff to a person (ADR-0030); `true` for the defaults. Off when absent: no tool, no
+   * button. Needs `onHandoff` in `createChatHandler`.
+   */
+  readonly handoff?: boolean | HandoffConfig | undefined;
+  /**
+   * Forms the chat can show (ADR-0031), made with `defineForm`: at most 10, with distinct names.
+   * Forms the model may show add the reserved `show_form` tool and need `onLead` in
+   * `createChatHandler`.
+   */
+  readonly forms?: readonly Form[] | undefined;
 }
 
 /** Marks a resolved bot; `Symbol.for`, so a second copy of this module recognises it too. */
@@ -323,7 +393,16 @@ export interface Bot extends BotHandle {
   };
   readonly widget: BotWidget;
   readonly guardrails: Guardrails;
+  /** Off when undefined. */
+  readonly handoff: ResolvedHandoff | undefined;
+  readonly forms: readonly Form[];
 }
+
+const DEFAULT_HANDOFF_LIMITS: Required<HandoffLimits> = {
+  perConversation: 1,
+  perVisitorPerDay: 3,
+  perBotPerDay: 100,
+};
 
 const DEFAULT_LIMITS: ResolvedLimits = {
   maxOutputTokens: 1024,
@@ -437,7 +516,7 @@ export function languageTexts(
 /** The language part of a BCP 47 tag, lowercase: `pl` for `pl-PL`. */
 export const primarySubtag = (tag: string): string => (tag.split('-')[0] ?? tag).toLowerCase();
 
-const definitionSchema = z.object({
+const definitionShape = z.object({
   id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,47}$/, 'use 1-48 lowercase letters, digits or dashes'),
   model: z.string().trim().min(1, 'is required'),
   instructions: z.union([z.string().trim().min(1, 'must not be empty'), z.function()]),
@@ -486,6 +565,54 @@ const definitionSchema = z.object({
     .refine(
       (tools) => tools.every((tool) => tool.name !== SEARCH_KNOWLEDGE),
       `must not use the reserved name ${SEARCH_KNOWLEDGE}`,
+    )
+    .refine(
+      (tools) => tools.every((tool) => tool.name !== HANDOFF && tool.name !== SHOW_FORM),
+      `must not use the reserved names ${HANDOFF} and ${SHOW_FORM}`,
+    )
+    .optional(),
+  handoff: z
+    .union([
+      z.boolean(),
+      z
+        .object({
+          model: z.boolean().optional(),
+          button: z.boolean().optional(),
+          form: z.string().optional(),
+          available: z.function().optional(),
+          content: z.enum(['none', 'summary', 'transcript']).optional(),
+          limits: z
+            .object({
+              perConversation: z.number().int().min(1).max(10).optional(),
+              perVisitorPerDay: z.number().int().min(1).max(100).optional(),
+              perBotPerDay: z.number().int().min(1).max(1_000_000).optional(),
+            })
+            .strict()
+            .optional(),
+        })
+        .strict()
+        .refine(
+          (value) => value.model !== false || value.button !== false,
+          'must let the model or the visitor ask for a person (model or button)',
+        ),
+    ])
+    .optional(),
+  forms: z
+    .array(
+      z.custom<Form>(
+        (value) =>
+          typeof value === 'object' &&
+          value !== null &&
+          Object.isFrozen(value) &&
+          Array.isArray((value as Form).fields) &&
+          typeof (value as Form).model === 'boolean',
+        'must be created with defineForm()',
+      ),
+    )
+    .max(MAX_BOT_FORMS)
+    .refine(
+      (forms) => new Set(forms.map((form) => form.name)).size === forms.length,
+      'must have unique names',
     )
     .optional(),
   pageContext: z.boolean().optional(),
@@ -586,6 +713,35 @@ const definitionSchema = z.object({
     .optional(),
   ...guardrailShape,
 });
+
+const definitionSchema = definitionShape.superRefine((definition, context) => {
+  const { handoff } = definition;
+  const name = typeof handoff === 'object' ? handoff.form : undefined;
+  if (name !== undefined && !(definition.forms ?? []).some((form) => form.name === name)) {
+    context.addIssue({
+      code: 'custom',
+      path: ['handoff', 'form'],
+      message: `must name a form in forms, got "${name}"`,
+    });
+  }
+});
+
+function resolveHandoff(definition: BotDefinition): ResolvedHandoff | undefined {
+  const { handoff } = definition;
+  if (handoff === undefined || handoff === false) return undefined;
+  const options: HandoffConfig = handoff === true ? {} : handoff;
+  return Object.freeze({
+    model: options.model ?? true,
+    button: options.button ?? true,
+    form: (definition.forms ?? []).find((form) => form.name === options.form),
+    available: options.available,
+    content: options.content ?? 'none',
+    limits: Object.freeze({ ...DEFAULT_HANDOFF_LIMITS, ...options.limits }),
+  });
+}
+
+/** Whether the model may show any of the bot's forms, which needs `onLead`. */
+export const offersForms = (bot: Pick<Bot, 'forms'>): boolean => modelForms(bot.forms).length > 0;
 
 /** What `search_knowledge` and `askdare doctor` call; checked at startup, not on a visitor's turn. */
 function isKnowledgeIndex(value: unknown): value is KnowledgeIndex {
@@ -735,5 +891,7 @@ export function createBot(definition: BotDefinition): Bot {
       theme,
     }),
     guardrails: resolveGuardrails(definition),
+    handoff: resolveHandoff(definition),
+    forms: Object.freeze([...(definition.forms ?? [])]),
   });
 }

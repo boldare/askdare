@@ -10,6 +10,7 @@ import type {
   TokenUsage,
   ToolCallRecord,
   TurnAttachment,
+  TurnRequest,
 } from '../gateway';
 import type {
   ErrorCode,
@@ -97,6 +98,13 @@ export interface StreamTurnOptions {
    */
   readonly lockConversation?:
     | ((conversationId: string) => Promise<() => Promise<void>>)
+    | undefined;
+  /**
+   * The handoff and form actions of the turn (ADR-0030, ADR-0031), once its conversation is
+   * known. Absent for a bot with neither.
+   */
+  readonly actions?:
+    | ((conversationId: string) => Promise<Pick<TurnRequest, 'handoff' | 'showForm'>>)
     | undefined;
   /** Holds the budget for one more model call before a tool round; see `TurnRequest`. */
   readonly reserveCall?: (() => Promise<boolean>) | undefined;
@@ -362,8 +370,10 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         // From here the client can resume, so the turn is in the log at once, not 100 ms later.
         void logged?.flush();
         safetyIdentifier = await options.pseudonym(subject);
+        const actions = await options.actions?.(conversationId);
         ran = true;
         const result = await gateway.runTurn({
+          ...actions,
           bot,
           conversationId,
           conversations,

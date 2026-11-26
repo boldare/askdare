@@ -7,6 +7,7 @@ import { type BotHandle, botOf, compactionWarnings } from '../bot/define-bot';
 import type { ConversationStore } from '../conversations/port';
 import { historyReader } from '../conversations/provider-history';
 import { AskdareError, forLog } from '../errors';
+import type { ChatLeadReport } from '../forms/lead-report';
 import type { ModelGateway } from '../gateway';
 import {
   FONT_FILES,
@@ -20,6 +21,7 @@ import {
   WIDGET_JS,
   WIDGET_JS_FILE,
 } from '../generated/assets';
+import type { ChatHandoffReport } from '../handoff/report';
 import { getClientIp, type TrustProxy } from '../limits/client-ip';
 import { createLimits } from '../limits/limits';
 import { memoryStore, type RateLimitStore } from '../limits/store';
@@ -95,6 +97,19 @@ export interface ChatHandlerOptions {
    * name, never its message.
    */
   readonly onTranscript?: (report: ChatTranscriptReport) => void | Promise<void>;
+  /**
+   * Receives each request for a person (ADR-0030), such as `webhookHandoff()` or `emailHandoff()`.
+   * Awaited, with a 10-second deadline: what it does decides what the visitor sees, and a throw or
+   * the deadline means the request failed (`onError` gets the error's name only). Required when a
+   * bot turns `handoff` on. The report carries contact details: treat it as personal data.
+   */
+  readonly onHandoff?: (report: ChatHandoffReport) => void | Promise<void>;
+  /**
+   * Receives each sent form (ADR-0031) after the response, with the visitor's validated values.
+   * askdare stores none of them: keep them here. Required when a bot offers forms to the model. A
+   * throw goes to `onError` by the error's name only. Treat the report as personal data.
+   */
+  readonly onLead?: (report: ChatLeadReport) => void | Promise<void>;
   /**
    * Serves the state gallery: `/embed/<bot>?gallery=<state>&preset=<preset>&scheme=<scheme>`
    * renders fixture states without calling the model. For development and visual tests; leave
@@ -349,6 +364,9 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
     onFeedback: guard('onFeedback', options.onFeedback),
     // Not guarded: a failure goes to onError, by its error's name, from inside the turn.
     onTranscript: options.onTranscript,
+    // Neither: a failure is a state the visitor sees, and goes to onError by name.
+    onHandoff: options.onHandoff,
+    onLead: options.onLead,
     assets: {
       loaderJs: LOADER_JS,
       widgetJs: WIDGET_JS,
