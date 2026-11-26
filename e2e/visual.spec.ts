@@ -14,6 +14,9 @@ const STATES = [
   'feedback',
   'replies',
   'replies-composer',
+  'handoff',
+  'form',
+  'form-errors',
 ];
 
 async function render(page: Page, query: Record<string, string>): Promise<void> {

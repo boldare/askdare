@@ -17,6 +17,9 @@ const STATES = [
   'feedback',
   'replies',
   'replies-composer',
+  'handoff',
+  'form',
+  'form-errors',
 ];
 
 // The criteria axe can check, up to WCAG 2.2 AA (docs/accessibility.md). Selecting rules by tag also
@@ -116,11 +119,11 @@ test('the chat inside a page has no axe violations', async ({ page }) => {
 // what has focus. The message list scrolls to what gets focus, so this holds on a phone too.
 test('a focused control is never hidden by the rest of the chat', async ({ page, isMobile }) => {
   if (!isMobile) await page.setViewportSize({ width: 400, height: 640 });
-  for (const state of ['feedback', 'replies', 'attachments']) {
+  for (const state of ['feedback', 'replies', 'attachments', 'handoff', 'form', 'form-errors']) {
     await page.goto(`${APP}?${new URLSearchParams({ gallery: state })}`);
     await page.locator('[data-ask-part="panel"]').waitFor();
     const hidden = await page.evaluate(() =>
-      [...document.querySelectorAll<HTMLElement>('button, a[href], textarea, input')]
+      [...document.querySelectorAll<HTMLElement>('button, a[href], textarea, input, select')]
         .filter((element) => element.getClientRects().length > 0)
         .flatMap((element) => {
           element.focus();
@@ -133,4 +136,23 @@ test('a focused control is never hidden by the rest of the chat', async ({ page,
     );
     expect(hidden, state).toEqual([]);
   }
+});
+
+// A form refused by the server (ADR-0031): each error tied to its field (focus is a unit test), and
+// a handoff's outcome is a status.
+test('a form names its errors and a handoff its outcome', async ({ page }) => {
+  await page.goto(`${APP}?${new URLSearchParams({ gallery: 'form-errors' })}`);
+  const form = page.getByRole('form', { name: 'Get an offer for your team' });
+  const email = form.getByRole('textbox', { name: 'Work email' });
+  await expect(email).toHaveAttribute('aria-invalid', 'true');
+  await expect(email).toHaveAccessibleDescription('Enter a valid email address.');
+  await expect(form.getByRole('checkbox')).toHaveAccessibleDescription(
+    'Tick this box to continue.',
+  );
+
+  await page.goto(`${APP}?${new URLSearchParams({ gallery: 'handoff' })}`);
+  await expect(page.getByRole('button', { name: 'Talk to a person' })).toBeVisible();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'A person from our team' }),
+  ).toBeVisible();
 });

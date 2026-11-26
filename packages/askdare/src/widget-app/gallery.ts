@@ -1,5 +1,6 @@
 import type { Fixture } from '../chat/fixture-store';
-import type { ChatMessage } from '../chat/state';
+import type { ChatMessage, MessageForm } from '../chat/state';
+import type { ChatForm } from '../protocol/forms';
 import type { GalleryState } from '../server/embed-page';
 
 /** A small landscape, as a stand-in for a visitor's photo (an <img> never runs SVG scripts). */
@@ -51,6 +52,46 @@ const offering: readonly ChatMessage[] = conversation.map((item) =>
     ? { ...item, replies: ['Start the free trial', 'Compare the plans', 'Talk to sales'] }
     : item,
 );
+
+/** A lead form with every kind of field (ADR-0031). */
+const CONTACT: ChatForm = {
+  name: 'contact',
+  title: 'Get an offer for your team',
+  fields: [
+    { name: 'name', type: 'text', label: 'Name', required: true },
+    { name: 'email', type: 'email', label: 'Work email', required: true },
+    {
+      name: 'size',
+      type: 'select',
+      label: 'Team size',
+      required: false,
+      options: [
+        { value: 'small', label: '1–20 people' },
+        { value: 'medium', label: '21–200 people' },
+        { value: 'large', label: 'More than 200' },
+      ],
+    },
+    { name: 'message', type: 'textarea', label: 'Anything else?', required: false },
+    {
+      name: 'consent',
+      type: 'consent',
+      label: 'Brightloop may contact me about this request.',
+      required: true,
+    },
+  ],
+  submit: 'Get my offer',
+};
+
+/** The conversation, with a lead form under the latest answer. */
+const withForm = (form: Partial<MessageForm>): readonly ChatMessage[] => [
+  ...conversation.slice(0, 2),
+  message('u2', 'user', 'Can we get an offer for 40 people?'),
+  message('a2', 'assistant', 'Sure. Leave your details and our sales team will send one.', {
+    forms: [
+      { callId: 'c1', name: 'contact', purpose: 'lead', state: 'open', handle: 'h', ...form },
+    ],
+  }),
+];
 
 /** Every state a theme has to look right in. */
 export const FIXTURES: Readonly<Record<GalleryState, Fixture>> = {
@@ -111,4 +152,23 @@ export const FIXTURES: Readonly<Record<GalleryState, Fixture>> = {
   // Options under the latest answer only (ADR-0015), and in one row above the message field.
   replies: { messages: offering },
   'replies-composer': { messages: offering, variants: { replies: 'composer' } },
+  // A visitor asked for a person (ADR-0030): the header's button, and the outcome under the answer.
+  handoff: {
+    messages: [
+      ...conversation,
+      message('u3', 'user', 'I’d rather talk to someone about the contract.'),
+      message('a3', 'assistant', 'Of course. I’ve passed your request on to our team.', {
+        handoff: 'sent',
+      }),
+    ],
+    config: { handoff: true },
+  },
+  // A lead form under the latest answer (ADR-0031), and the same form refused by the server.
+  form: { messages: withForm({}), config: { forms: [CONTACT] } },
+  'form-errors': {
+    messages: withForm({
+      errors: { email: 'error.form.email', consent: 'error.form.required' },
+    }),
+    config: { forms: [CONTACT] },
+  },
 };

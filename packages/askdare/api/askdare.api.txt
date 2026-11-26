@@ -168,6 +168,20 @@ declare const EN: {
   readonly "feedback.comment": "What went wrong?";
   readonly "feedback.send": "Send feedback";
   readonly "feedback.skip": "Skip";
+  readonly "handoff.button": "Talk to a person";
+  readonly "handoff.connecting": "Connecting you with a person…";
+  readonly "handoff.sent": "Done. A person from our team will get back to you by email.";
+  readonly "handoff.sentTo": "Done. A person from our team will get back to you at {email}.";
+  readonly "handoff.saved": "We’ve saved your message. A person will reply by email.";
+  readonly "handoff.unavailable": "Nobody is available right now. Please try again later.";
+  readonly "handoff.unavailableTitle": "Nobody is available right now. Leave a message and we’ll reply by email.";
+  readonly "handoff.failed": "We couldn’t reach the team right now. Please try again later.";
+  readonly "handoff.limited": "You’ve already asked for a person. They’ll get back to you.";
+  readonly "form.submit": "Send";
+  readonly "form.done": "Thanks! We’ve received your details.";
+  readonly "form.optional": "(optional)";
+  readonly "form.choose": "Choose…";
+  readonly "form.expired": "This form is no longer available.";
   readonly "message.attachments.one": "{count} attachment";
   readonly "message.attachments.other": "{count} attachments";
   readonly "attachment.list": "Attachments";
@@ -190,6 +204,9 @@ declare const EN: {
   readonly "launcher.open": "Open chat";
   readonly "launcher.close": "Close chat";
   readonly "launcher.unavailable": "The chat couldn’t load. Please try again later.";
+  readonly "launcher.greeting": "Hi! I’m an AI assistant. Can I help you?";
+  readonly "launcher.dismiss": "Dismiss";
+  readonly "launcher.unread": "new messages";
   readonly "humanCheck.label": "Checking that you’re human";
   readonly "error.humanCheck": "We couldn’t confirm you’re human. Please try again.";
   readonly "error.connection": "Connection problem. Please try again.";
@@ -226,6 +243,13 @@ declare const EN: {
   readonly "error.recordingTooLong": "This recording is too long.";
   readonly "error.dictationBusy": "Another dictation is still being transcribed. Please try again in a moment.";
   readonly "error.dictationBudget": "Dictation is unavailable for the rest of the day. You can still type.";
+  readonly "error.form.required": "This field is required.";
+  readonly "error.form.consent": "Tick this box to continue.";
+  readonly "error.form.email": "Enter a valid email address.";
+  readonly "error.form.phone": "Enter a valid phone number.";
+  readonly "error.form.tooLong": "Use at most {max} characters.";
+  readonly "error.form.option": "Choose one of the options.";
+  readonly "error.form.invalid": "This contains characters that can’t be accepted.";
 };
 /** Plural texts: the base plus a CLDR category, every category overridable. */
 declare const PLURAL_BASES: readonly ["message.attachments"];
@@ -959,6 +983,11 @@ interface ChatConfig {
    * Absent when the bot has none.
    */
   readonly forms?: readonly ChatForm[];
+  /**
+   * Whether the visitor can ask for a person with `HandoffButton` (ADR-0030). Absent when the bot
+   * has no handoff or turns its button off.
+   */
+  readonly handoff?: true;
 }
 /** A human check the chat must pass before it connects; public, the site key only. */
 interface ChatHumanCheck {
@@ -1463,7 +1492,7 @@ export type { ChatAttachments, ChatCompactionReport, ChatConfig, ChatConfigOptio
 
 // ==== react.d.ts ====
 
-import { a as ToolResults, c as ChatConfig, d as ChatWidget, g as FormPurpose, h as FormFieldErrors, i as ToolRenderers, l as ChatHumanCheck, m as ThemeVariants, n as LinkProps, o as ToolResultsProps, p as PresetName, r as ToolRendererProps, s as ChatAttachments, t as Link, u as ChatStyles } from "./tool-results.js";
+import { _ as ChatFormOption, a as ToolResults, b as FormPurpose, c as ChatConfig, d as ChatWidget, g as ChatFormField, h as ChatForm, i as ToolRenderers, l as ChatHumanCheck, m as ThemeVariants, n as LinkProps, o as ToolResultsProps, p as PresetName, r as ToolRendererProps, s as ChatAttachments, t as Link, u as ChatStyles, v as FormFieldErrors, y as FormFieldType } from "./tool-results.js";
 import { ComponentProps, ComponentType, NamedExoticComponent, ReactElement, ReactNode, Ref } from "react";
 /**
  * Where a handoff stands. `requested` while it runs or while its form waits; the others are final:
@@ -1724,6 +1753,20 @@ declare const EN: {
   readonly "feedback.comment": "What went wrong?";
   readonly "feedback.send": "Send feedback";
   readonly "feedback.skip": "Skip";
+  readonly "handoff.button": "Talk to a person";
+  readonly "handoff.connecting": "Connecting you with a person…";
+  readonly "handoff.sent": "Done. A person from our team will get back to you by email.";
+  readonly "handoff.sentTo": "Done. A person from our team will get back to you at {email}.";
+  readonly "handoff.saved": "We’ve saved your message. A person will reply by email.";
+  readonly "handoff.unavailable": "Nobody is available right now. Please try again later.";
+  readonly "handoff.unavailableTitle": "Nobody is available right now. Leave a message and we’ll reply by email.";
+  readonly "handoff.failed": "We couldn’t reach the team right now. Please try again later.";
+  readonly "handoff.limited": "You’ve already asked for a person. They’ll get back to you.";
+  readonly "form.submit": "Send";
+  readonly "form.done": "Thanks! We’ve received your details.";
+  readonly "form.optional": "(optional)";
+  readonly "form.choose": "Choose…";
+  readonly "form.expired": "This form is no longer available.";
   readonly "message.attachments.one": "{count} attachment";
   readonly "message.attachments.other": "{count} attachments";
   readonly "attachment.list": "Attachments";
@@ -1746,6 +1789,9 @@ declare const EN: {
   readonly "launcher.open": "Open chat";
   readonly "launcher.close": "Close chat";
   readonly "launcher.unavailable": "The chat couldn’t load. Please try again later.";
+  readonly "launcher.greeting": "Hi! I’m an AI assistant. Can I help you?";
+  readonly "launcher.dismiss": "Dismiss";
+  readonly "launcher.unread": "new messages";
   readonly "humanCheck.label": "Checking that you’re human";
   readonly "error.humanCheck": "We couldn’t confirm you’re human. Please try again.";
   readonly "error.connection": "Connection problem. Please try again.";
@@ -1782,6 +1828,13 @@ declare const EN: {
   readonly "error.recordingTooLong": "This recording is too long.";
   readonly "error.dictationBusy": "Another dictation is still being transcribed. Please try again in a moment.";
   readonly "error.dictationBudget": "Dictation is unavailable for the rest of the day. You can still type.";
+  readonly "error.form.required": "This field is required.";
+  readonly "error.form.consent": "Tick this box to continue.";
+  readonly "error.form.email": "Enter a valid email address.";
+  readonly "error.form.phone": "Enter a valid phone number.";
+  readonly "error.form.tooLong": "Use at most {max} characters.";
+  readonly "error.form.option": "Choose one of the options.";
+  readonly "error.form.invalid": "This contains characters that can’t be accepted.";
 };
 /** Plural texts: the base plus a CLDR category, every category overridable. */
 declare const PLURAL_BASES: readonly ["message.attachments"];
@@ -1890,6 +1943,8 @@ interface ChatBot {
   readonly maxDictationSeconds: number | undefined;
   /** Every text in the visitor's language, plural forms included. */
   readonly texts: Readonly<Record<string, string>>;
+  /** The bot's forms in the visitor's language (ADR-0031), found by a message form's `name`. */
+  readonly forms: readonly ChatForm[];
 }
 interface Chat {
   readonly state: ChatState;
@@ -1937,6 +1992,37 @@ interface FeedbackButtonProps extends ComponentProps<"button"> {
  * be rated. After 👎 the chat's `state.commenting` names the answer to ask about.
  */
 export declare function FeedbackButton({ rating, onClick, ...props }: FeedbackButtonProps): ReactElement | null;
+interface FormProps extends Omit<ComponentProps<"form">, "children" | "onSubmit"> {
+  /** One of the current message's `forms`. */
+  readonly form: MessageForm;
+}
+/**
+ * A form under an answer (ADR-0031), drawn from its description in the bot's configuration: a
+ * `form` with its title, a `form-field` per field with a visible label, and the submit button.
+ * Labels and options are plain text; a `consent` field links the bot's privacy policy. Values are
+ * checked by hand first, then by the server: each error (`form-error`) is tied to its field with
+ * `aria-describedby`, and the first field with an error gets focus. Once sent or expired, the
+ * form becomes its `form-done` text (for a handoff's form, the handoff's outcome), which gets focus
+ * if the visitor had just sent it. Use it inside `MessageList`, once per `useMessage().forms`.
+ */
+export declare function Form({ form, ...props }: FormProps): ReactElement | null;
+type HandoffButtonProps = ComponentProps<"button">;
+/**
+ * "Talk to a person" (ADR-0030): asks for a person for the latest answer, through the chat's own
+ * endpoint, with no model call. Its text is `handoff.button` unless you pass children. Renders
+ * nothing for a bot without the button and before the first answer, so every handoff belongs to a
+ * conversation. `aria-disabled` while a turn runs and while a handoff is under way, so it keeps
+ * focus; the outcome shows under that answer (`HandoffStatus`, or the handoff's form).
+ */
+export declare function HandoffButton({ children, onClick, disabled, ...props }: HandoffButtonProps): ReactElement | null;
+type HandoffStatusProps = ComponentProps<"p">;
+/**
+ * Where a handoff for this answer stands, as plain text in the visitor's language: "Connecting
+ * you…" while it runs, then its outcome (`data-state` has the state). Announced to screen readers.
+ * When the handoff has a form, the form says it instead, so this renders nothing. Use it inside
+ * `MessageList`.
+ */
+export declare function HandoffStatus(props: HandoffStatusProps): ReactElement | null;
 type HumanCheckProps = Omit<ComponentProps<"div">, "children">;
 /**
  * The bot's human check (`security.humanVerifier`), shown while the chat waits for it before it
@@ -2060,7 +2146,7 @@ interface RootProps {
  * take what `askdare('identify')` and `askdare('configure')` take, checked the same way.
  */
 export declare function Root({ config, identity, context, greeting, starters, onEvent, toolRenderers, children }: RootProps): ReactElement;
-export { type AttachButtonProps, type Chat, type ChatActions, type ChatAttachments, type ChatBot, type ChatConfig, type ChatEvent, type ChatEventListener, type ChatEventType, type ChatHumanCheck, type ChatMessage, type ChatPhase, type ChatState, type ChatStyles, type ChatWidget, type Citation, type CitationsProps, type ComposerProps, type DefaultChatComponents, type DefaultChatProps, type DictateButtonProps, type Dictation, type DisclosureProps, type Earlier, type ErrorMessageProps, type FeedbackButtonProps, type FilesProps, type Frame, type HumanCheckProps, type InputProps, Link, type LinkProps, type LoadEarlierProps, type MarkdownProps, type MessageFilesProps, type MessageListProps, type MessageProps, type MessageTextProps, type MessagesProps, type PanelProps, type PendingFile, type QuickRepliesProps, type Rating, type RecorderProps, type RootProps, type SendProps, type SentFile, type StatusProps, type ThemeProps, type ToolRendererProps, type ToolRenderers, ToolResults, type ToolResultsProps, type ToolUi, type Translate };
+export { type AttachButtonProps, type Chat, type ChatActions, type ChatAttachments, type ChatBot, type ChatConfig, type ChatEvent, type ChatEventListener, type ChatEventType, type ChatForm, type ChatFormField, type ChatFormOption, type ChatHumanCheck, type ChatMessage, type ChatPhase, type ChatState, type ChatStyles, type ChatWidget, type Citation, type CitationsProps, type ComposerProps, type DefaultChatComponents, type DefaultChatProps, type DictateButtonProps, type Dictation, type DisclosureProps, type Earlier, type ErrorMessageProps, type FeedbackButtonProps, type FilesProps, type FormFieldType, type FormProps, type FormPurpose, type Frame, type HandoffButtonProps, type HandoffState, type HandoffStatusProps, type HumanCheckProps, type InputProps, Link, type LinkProps, type LoadEarlierProps, type MarkdownProps, type MessageFilesProps, type MessageForm, type MessageListProps, type MessageProps, type MessageTextProps, type MessagesProps, type PanelProps, type PendingFile, type QuickRepliesProps, type Rating, type RecorderProps, type RootProps, type SendProps, type SentFile, type StatusProps, type ThemeProps, type ToolRendererProps, type ToolRenderers, ToolResults, type ToolResultsProps, type ToolUi, type Translate };
 
 // ==== testing.d.ts ====
 import { A as AdminStore, Y as ConversationStore, a as Embedder, d as KnowledgeIndex, i as RateLimitStore, n as TurnEventLog, u as KnowledgeDocument } from "./turn-log.js";
@@ -2355,6 +2441,11 @@ interface ChatConfig {
    * Absent when the bot has none.
    */
   readonly forms?: readonly ChatForm[];
+  /**
+   * Whether the visitor can ask for a person with `HandoffButton` (ADR-0030). Absent when the bot
+   * has no handoff or turns its button off.
+   */
+  readonly handoff?: true;
 }
 /** A human check the chat must pass before it connects; public, the site key only. */
 interface ChatHumanCheck {
@@ -2416,7 +2507,7 @@ type LinkProps = Omit<ComponentProps<"a">, "href" | "target" | "rel"> & {
  * the text alone.
  */
 declare function Link({ href, children, ...props }: LinkProps): ReactElement;
-export { ToolResults as a, ChatConfig as c, ChatWidget as d, EmbedChatConfig as f, FormPurpose as g, FormFieldErrors as h, ToolRenderers as i, ChatHumanCheck as l, ThemeVariants as m, LinkProps as n, ToolResultsProps as o, PresetName as p, ToolRendererProps as r, ChatAttachments as s, Link as t, ChatStyles as u };
+export { ChatFormOption as _, ToolResults as a, FormPurpose as b, ChatConfig as c, ChatWidget as d, EmbedChatConfig as f, ChatFormField as g, ChatForm as h, ToolRenderers as i, ChatHumanCheck as l, ThemeVariants as m, LinkProps as n, ToolResultsProps as o, PresetName as p, ToolRendererProps as r, ChatAttachments as s, Link as t, ChatStyles as u, FormFieldErrors as v, FormFieldType as y };
 
 // ==== turn-log.d.ts ====
 /**

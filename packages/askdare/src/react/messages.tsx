@@ -27,7 +27,10 @@ const hasContent = (message: ChatMessage): boolean =>
   message.status === 'streaming' ||
   message.text !== '' ||
   message.citations.length > 0 ||
-  (message.status === 'done' && (message.replies?.length ?? 0) > 0);
+  (message.status === 'done' && (message.replies?.length ?? 0) > 0) ||
+  // An answer may be only a form, or a handoff's status.
+  message.handoff !== undefined ||
+  (message.forms?.length ?? 0) > 0;
 
 export type MessagesProps = ComponentProps<'div'>;
 
