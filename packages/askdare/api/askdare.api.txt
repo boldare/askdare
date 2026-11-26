@@ -776,6 +776,101 @@ interface EmbedChatConfig extends ChatConfig {
   /** `inline` inside an element of the host page, `floating` in the widget's panel. */
   readonly mode: "floating" | "inline";
 }
+/** One visible message of the conversation, in a report with `content: 'transcript'`. */
+interface ChatHandoffMessage {
+  readonly role: "user" | "assistant";
+  readonly text: string;
+}
+/**
+ * One request for a person, as `onHandoff` receives it (ADR-0030). Contact details are always
+ * included; conversation content only as the bot's `content` option allows. Treat it as
+ * personal data.
+ */
+interface ChatHandoffReport {
+  /** A random ID for this handoff, the same on every retry: drop duplicates by it. */
+  readonly id: string;
+  readonly bot: string;
+  readonly locale: string;
+  /** When the handoff was accepted, in epoch milliseconds. */
+  readonly createdAt: number;
+  /** `model` when the bot called the `handoff` tool, `visitor` for the "Talk to a person" button. */
+  readonly trigger: "model" | "visitor";
+  /** Why: the `handoff` tool's enum. A visitor's button is always `visitor_asked`. */
+  readonly reason: "visitor_asked" | "cannot_help" | "complaint" | "sensitive" | "sales";
+  /**
+   * A pseudonym (HMAC) of the signed-in user's ID, or of the visitor's: the same value
+   * `onUsage`, `onFeedback` and `onTranscript` report.
+   */
+  readonly visitor: string;
+  /** The signed-in user, verified (ADR-0009); absent for anonymous visitors. */
+  readonly identity?: VisitorIdentity | undefined;
+  /** The conversation in your conversation store, as `onFeedback` gets it. Never sent to the browser. */
+  readonly conversationId: string;
+  /**
+   * `false` for a message left while nobody was available, which reaches `onHandoff` only when
+   * the app set no `onLead`.
+   */
+  readonly available: boolean;
+  /**
+   * The validated values of the bot's handoff form, or `{ email }` from a signed-in visitor's
+   * identity. Absent when there was neither.
+   */
+  readonly contact?: Readonly<Record<string, string | boolean>> | undefined;
+  /** The model's short note for the person, with `content: 'summary'` or `'transcript'`. */
+  readonly summary?: string | undefined;
+  /**
+   * The visible messages of the conversation's latest history page, oldest first, with
+   * `content: 'transcript'` only.
+   */
+  readonly transcript?: readonly ChatHandoffMessage[] | undefined;
+}
+/** The email `emailHandoff` asks your `send` function to deliver: plain text only. */
+interface HandoffEmail {
+  readonly to: string | readonly string[];
+  readonly from: string;
+  /** The visitor's email, from the handoff form or the signed-in identity, so a reply reaches them. */
+  readonly replyTo?: string | undefined;
+  /** Fixed text with the bot and the reason; nothing the visitor typed. */
+  readonly subject: string;
+  readonly text: string;
+}
+interface EmailHandoffOptions {
+  /** Who gets the requests: your support inbox. */
+  readonly to: string | readonly string[];
+  /** The sender your mail provider accepts for your domain. */
+  readonly from: string;
+  /**
+   * Sends one email with whatever your app already uses (Resend, Postmark, SES, nodemailer).
+   * Throw when it was not sent; the visitor is then told the request failed.
+   */
+  readonly send: (email: HandoffEmail) => void | Promise<void>;
+}
+/**
+ * A handoff transport that formats the report as a plain-text email and passes it to your
+ * `send` function. The visitor's email becomes `replyTo`, so the person answers them directly.
+ * Throws when `send` throws.
+ */
+export declare function emailHandoff(options: EmailHandoffOptions): (report: ChatHandoffReport) => Promise<void>;
+interface WebhookHandoffOptions {
+  /** Where to post the report: `https:` only, or `http://localhost` outside production. */
+  readonly url: string;
+  /**
+   * The Standard Webhooks signing secret your receiver verifies with: `whsec_` and a base64 key
+   * of at least 24 bytes. Your own secret, never `CHAT_SECRET`.
+   */
+  readonly secret: string;
+  /** How long one attempt may take, in milliseconds; default 4000, at most 9000. */
+  readonly timeoutMs?: number | undefined;
+  /** Extra headers, such as an API key of the receiver. They can't replace the signature headers. */
+  readonly headers?: Readonly<Record<string, string>> | undefined;
+}
+/**
+ * A handoff transport that posts the report as JSON to your endpoint, signed with Standard
+ * Webhooks headers (`webhook-id` is the report's `id`). Each attempt has `timeoutMs`; a network
+ * error, a timeout, a `408`, `429` or `5xx` gets one retry after 500 ms, within the ten seconds
+ * a handoff has. Redirects are not followed. Throws when the report was not delivered.
+ */
+export declare function webhookHandoff(options: WebhookHandoffOptions): (report: ChatHandoffReport) => Promise<void>;
 /**
  * Which proxy to trust when reading the client IP:
  * - `vercel`: Vercel overwrites `x-forwarded-for` and sets `x-real-ip`, so both are reliable.
@@ -1136,7 +1231,7 @@ export declare function embedPageHeaders(options: {
   readonly bots: readonly BotHandle[];
   readonly bot: string;
 }): EmbedPageHeader[];
-export type { ChatAttachments, ChatCompactionReport, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlerResumeOptions, ChatHandlers, ChatHumanCheck, ChatStyles, ChatTokenUsage, ChatToolCallReport, ChatTranscriptCitation, ChatTranscriptReport, ChatUsageReport, ChatWidget, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, OpenAIConversationsOptions, RouteHandler, TrustProxy };
+export type { ChatAttachments, ChatCompactionReport, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlerResumeOptions, ChatHandlers, ChatHandoffMessage, ChatHandoffReport, ChatHumanCheck, ChatStyles, ChatTokenUsage, ChatToolCallReport, ChatTranscriptCitation, ChatTranscriptReport, ChatUsageReport, ChatWidget, EmailHandoffOptions, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, HandoffEmail, OpenAIConversationsOptions, RouteHandler, TrustProxy, WebhookHandoffOptions };
 
 // ==== react.d.ts ====
 
