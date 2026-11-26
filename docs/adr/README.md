@@ -19,7 +19,7 @@ Short records of decisions that are expensive to reverse. One decision per file,
 | [0013](0013-browser-events.md) | Chat events in the browser, metadata only | Accepted |
 | [0014](0014-runtime-language.md) | Changing the chat's language at runtime | Accepted |
 | [0015](0015-reply-options.md) | Reply options and tool UI payloads | Accepted |
-| [0016](0016-admin.md) | Admin: a console first, then an add-on with storage | Accepted (`onTranscript` in 0.6) |
+| [0016](0016-admin.md) | Admin: a console first, then an add-on with storage | Accepted (`onTranscript` in 0.6; extended by ADR-0032) |
 | [0017](0017-tool-renderers.md) | Tool results as React components (`toolRenderers`) | Accepted |
 | [0018](0018-embed-path.md) | Your own page inside the widget's iframe (`embedPath`) | Accepted |
 | [0019](0019-compliance-and-guardrails.md) | Compliance by default, guardrails and bot protection | Accepted |
@@ -35,6 +35,7 @@ Short records of decisions that are expensive to reverse. One decision per file,
 | [0029](0029-compaction-for-item-stores.md) | Compaction for conversations in our own store | Accepted (spike S9, task 4) |
 | [0030](0030-handoff.md) | Handoff to a human | Proposed |
 | [0031](0031-forms-and-leads.md) | Forms in the chat and leads | Proposed |
+| [0032](0032-admin-store.md) | The admin console and the `AdminStore` port | Proposed |
 
 ## Template
 
