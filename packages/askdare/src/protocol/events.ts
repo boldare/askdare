@@ -1,3 +1,6 @@
+import type { FormPurpose } from './forms';
+import type { HandoffState } from './handoff';
+
 /** Stable error codes sent to clients. The accompanying message never contains internals. */
 export const ERROR_CODES = [
   'invalid_input',
@@ -36,6 +39,8 @@ export const PROTOCOL_EVENT_TYPES = [
   'tool.status',
   'tool.ui',
   'replies',
+  'handoff',
+  'form',
   'message.end',
   'error',
 ] as const;
@@ -111,6 +116,34 @@ export interface RepliesEvent {
   readonly items: readonly string[];
 }
 
+/**
+ * A handoff to a person the model asked for in this answer (ADR-0030): `requested` as soon as the
+ * call is seen, then the final state once the step's calls are done, before the model writes on.
+ * When a form is needed, a `form` event follows `requested`, and the final state comes from the
+ * form's submission (`POST /forms`) instead. Shown as plain text, never as Markdown.
+ */
+export interface HandoffEvent {
+  readonly type: 'handoff';
+  readonly messageId: string;
+  readonly state: HandoffState;
+}
+
+/**
+ * A form to show under this answer (ADR-0031). Sent once the step's calls are done, in call order,
+ * like `tool.ui`. The fields come from the bot's public configuration, by `name`.
+ */
+export interface FormEvent {
+  readonly type: 'form';
+  readonly messageId: string;
+  /** The call that showed the form. Opaque. */
+  readonly callId: string;
+  readonly name: string;
+  /** Opaque; sent back to `POST /forms` as `form`. Valid for 24 hours. */
+  readonly handle: string;
+  /** Picks the texts around the form: a lead, a handoff's contact details, or a message left. */
+  readonly purpose: FormPurpose;
+}
+
 /** What the client needs to rate one answer (ADR-0012). */
 export interface FeedbackHandle {
   /** Opaque; sent back to `POST /feedback`. */
@@ -153,5 +186,7 @@ export type ProtocolEvent =
   | ToolStatusEvent
   | ToolUiEvent
   | RepliesEvent
+  | HandoffEvent
+  | FormEvent
   | MessageEndEvent
   | ErrorEvent;

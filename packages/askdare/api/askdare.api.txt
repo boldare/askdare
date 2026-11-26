@@ -2285,6 +2285,17 @@ interface RateLimitStore {
   /** True for stores that are shared across server instances. */
   readonly shared: boolean;
 }
+/**
+ * Where a handoff stands. `requested` while it runs or while its form waits; the others are final:
+ * `sent` (delivered), `saved` (the form's values went to `onLead` instead), `unavailable` (nobody
+ * was available and there was no form), `failed` (the delivery failed and nothing saved it) and
+ * `limited` (a handoff limit refused it).
+ */
+declare const HANDOFF_STATES: readonly ["requested", "sent", "saved", "unavailable", "failed", "limited"];
+type HandoffState = (typeof HANDOFF_STATES)[number];
+/** Why a form is shown: a lead, a handoff's contact details, or a message left for nobody. */
+declare const FORM_PURPOSES: readonly ["lead", "handoff", "message"];
+type FormPurpose = (typeof FORM_PURPOSES)[number];
 /** Stable error codes sent to clients. The accompanying message never contains internals. */
 declare const ERROR_CODES: readonly ["invalid_input", "unauthorized", "session_expired", "not_found", "rate_limited", "budget_exceeded", "bot_unavailable", "content_blocked", "timeout", "upstream_error", "internal_error"];
 type ErrorCode = (typeof ERROR_CODES)[number];
@@ -2350,6 +2361,32 @@ interface RepliesEvent {
   readonly messageId: string;
   readonly items: readonly string[];
 }
+/**
+ * A handoff to a person the model asked for in this answer (ADR-0030): `requested` as soon as the
+ * call is seen, then the final state once the step's calls are done, before the model writes on.
+ * When a form is needed, a `form` event follows `requested`, and the final state comes from the
+ * form's submission (`POST /forms`) instead. Shown as plain text, never as Markdown.
+ */
+interface HandoffEvent {
+  readonly type: "handoff";
+  readonly messageId: string;
+  readonly state: HandoffState;
+}
+/**
+ * A form to show under this answer (ADR-0031). Sent once the step's calls are done, in call order,
+ * like `tool.ui`. The fields come from the bot's public configuration, by `name`.
+ */
+interface FormEvent {
+  readonly type: "form";
+  readonly messageId: string;
+  /** The call that showed the form. Opaque. */
+  readonly callId: string;
+  readonly name: string;
+  /** Opaque; sent back to `POST /forms` as `form`. Valid for 24 hours. */
+  readonly handle: string;
+  /** Picks the texts around the form: a lead, a handoff's contact details, or a message left. */
+  readonly purpose: FormPurpose;
+}
 /** What the client needs to rate one answer (ADR-0012). */
 interface FeedbackHandle {
   /** Opaque; sent back to `POST /feedback`. */
@@ -2379,7 +2416,7 @@ interface ErrorEvent {
   readonly key?: string | undefined;
   readonly params?: Readonly<Record<string, string | number>> | undefined;
 }
-type ProtocolEvent = ConversationCreatedEvent | UserAckEvent | MessageStartEvent | ReasoningEvent | TextDeltaEvent | CitationEvent | ToolStatusEvent | ToolUiEvent | RepliesEvent | MessageEndEvent | ErrorEvent;
+type ProtocolEvent = ConversationCreatedEvent | UserAckEvent | MessageStartEvent | ReasoningEvent | TextDeltaEvent | CitationEvent | ToolStatusEvent | ToolUiEvent | RepliesEvent | HandoffEvent | FormEvent | MessageEndEvent | ErrorEvent;
 /** A protocol event of a running turn, with its place in the turn. */
 interface TurnEvent {
   /** 1-based and increasing within a turn; the SSE `id:` of the event's frame. */

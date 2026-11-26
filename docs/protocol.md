@@ -20,16 +20,18 @@ Every path sits under the route's base path: `/api/chat` by default, or `basePat
 | `POST /history` | Access token | The visible messages of the visitor's conversation |
 | `POST /resume` | Access token | The rest of an answer whose stream dropped, as an event stream ([Resuming an answer](#resuming-an-answer)) |
 | `POST /feedback` | Access token | Rates one answer ([Feedback](#feedback)) |
+| `POST /handoff` | Access token | Asks for a person, from the chat's button ([Handoff](#handoff)) |
+| `POST /forms` | Access token | Sends a form shown in the chat ([Forms](#forms)) |
 | `DELETE /conversation` | Access token | Deletes the visitor's conversation, and its files when the bot accepts attachments |
 | `POST /attachments` | Access token | Uploads one file ([Attachments](#attachments)) |
 | `POST /transcriptions` | Access token | Transcribes one dictation ([Dictation](#dictation)) |
 | `POST /doctor` | Doctor token | Checks the setup for `askdare doctor` ([Diagnostics](#diagnostics)) |
 
 - **`POST /messages`** takes `{ "botId", "text", "resumeToken"?, "attachments"?, "context"?, "locale"? }`. Without `resumeToken`, the server starts a new conversation and sends `conversation.created`. `locale` is the visitor's language tag, passed to the bot's instructions.
-- **`POST /history`** takes `{ "botId", "resumeToken", "before"? }` and answers `{ "messages": [{ "id", "role", "text", "citations", "attachments", "feedback"?, "replies"?, "ui"? }], "before"? }`, where `attachments` is a count, `feedback` is the answer's rating handle (see [Feedback](#feedback)), `replies` are the options of the latest answer (see [Reply options](#reply-options)) and `ui` are the tool payloads of an answer (see [Tool UI](#tool-ui)). It answers one page of the conversation, oldest message first (see [History pages](#history-pages)).
+- **`POST /history`** takes `{ "botId", "resumeToken", "before"? }` and answers `{ "messages": [{ "id", "role", "text", "citations", "attachments", "feedback"?, "replies"?, "ui"?, "handoff"?, "forms"? }], "before"? }`, where `attachments` is a count, `feedback` is the answer's rating handle (see [Feedback](#feedback)), `replies` are the options of the latest answer (see [Reply options](#reply-options)), `ui` are the tool payloads of an answer (see [Tool UI](#tool-ui)), `handoff` is the state of a handoff recorded after an answer (see [Handoff](#handoff)) and `forms` are the forms shown under an answer (see [Forms](#forms)). It answers one page of the conversation, oldest message first (see [History pages](#history-pages)).
 - **`POST /resume`** takes `{ "botId", "resumeToken", "messageId", "after" }` and answers an event stream: the answer's events after `after`, then the live ones (see [Resuming an answer](#resuming-an-answer)).
 - **`DELETE /conversation`** takes `{ "botId", "resumeToken" }` and answers `204` with no body.
-- **`GET /config/<bot>`** answers the same public configuration the chat document carries: texts, greeting, starters, theme variants and the other widget settings, never the model, instructions, tools or vector stores. For a bot with `locale: 'auto'`, `?lang=` picks the language; without it, the browser's `Accept-Language` does, then English. A bot with a fixed locale ignores `lang`. An invalid tag answers `400` with `invalid_input`, an unknown bot `404`. Responses are cached for five minutes (`no-cache` in development) and vary by `Accept-Language`. `Content-Language` names the language the texts are written in, for the chat document's `lang`: the visitor's when the bot has texts for it, else English for a language without a built-in dictionary.
+- **`GET /config/<bot>`** answers the same public configuration the chat document carries: texts, greeting, starters, theme variants, the bot's forms (see [Forms](#forms)) and the other widget settings, never the model, instructions, tools or vector stores. For a bot with `locale: 'auto'`, `?lang=` picks the language; without it, the browser's `Accept-Language` does, then English. A bot with a fixed locale ignores `lang`. An invalid tag answers `400` with `invalid_input`, an unknown bot `404`. Responses are cached for five minutes (`no-cache` in development) and vary by `Accept-Language`. `Content-Language` names the language the texts are written in, for the chat document's `lang`: the visitor's when the bot has texts for it, else English for a language without a built-in dictionary.
 - **Same origin only.** Every `POST` and `DELETE` except `/doctor` refuses cross-site requests with `401`. The API serves the chat's own iframe, which runs on the same origin.
 
 ## History pages
@@ -94,6 +96,8 @@ Older clients ignore the `id:` field, and the endpoint is new, so resuming is ad
 | `tool.status` | `messageId`, `callId`, `name`, `state: running \| done \| error` | A tool ran; arguments and results stay on the server. `name: file_search` is the knowledge base search |
 | `tool.ui` | `messageId`, `callId`, `name`, `data` | What a tool picked from its result for the visitor ([Tool UI](#tool-ui)); after the step's `tool.status` events, at most four per answer |
 | `replies` | `messageId`, `items` | Options the visitor can click instead of typing ([Reply options](#reply-options)); at most once, before `message.end` |
+| `handoff` | `messageId`, `state` | Where a handoff the model asked for stands ([Handoff](#handoff)); `requested`, then the final state |
+| `form` | `messageId`, `callId`, `name`, `handle`, `purpose` | A form to show under the answer ([Forms](#forms)); after the step's `tool.status` events |
 | `message.end` | `messageId`, `reason`, `resumeToken?`, `feedback?` | The reply finished. A resumed conversation gets a fresh `resumeToken`, so it stays reachable 30 days after its last message. `feedback` is the answer's rating handle, when answers can be rated. Reasons: `completed`, `max_steps`, `max_output_tokens`, `timeout`, `content_filter`, `aborted` |
 | `error` | `code`, `message`, `retryAfterMs?`, `key?`, `params?` | The turn failed; `message` is safe to show ([keys and parameters](#error-keys-and-parameters)) |
 
@@ -141,6 +145,119 @@ A tool can pick fields from its result for the visitor to see as a card, list or
 
 Older clients ignore the event, so it is additive in protocol version 1.
 
+## Handoff
+
+A bot with `handoff` in `defineBot` can pass the conversation to a person: the model through the reserved tool `handoff`, the visitor through the chat's "Talk to a person" button ([ADR-0030](adr/0030-handoff.md)). The handoff is one-way: the request reaches a person through the app's `onHandoff`, who answers outside the chat, usually by email. The chat shows where it stands, in one of six states:
+
+| State | Meaning | Text |
+| --- | --- | --- |
+| `requested` | Running, or waiting for its form | `handoff.connecting` |
+| `sent` | Delivered to the app's `onHandoff` | `handoff.sent` |
+| `saved` | Nobody was available, or the delivery failed, and the form's values went to `onLead` | `handoff.saved` |
+| `unavailable` | Nobody was available and there was no form to leave a message in | `handoff.unavailable` |
+| `failed` | The delivery failed and nothing saved the request | `handoff.failed` |
+| `limited` | A handoff limit refused it | `handoff.limited` |
+
+Show the state in plain text, never as Markdown.
+
+- **From the model.** When the model calls the tool, the answer's stream carries `handoff` events: `{ "messageId", "state": "requested" }` as soon as the call is seen, then the final state once the step's calls are done, before the model writes on. When the bot collects contact details, a [`form`](#forms) event follows `requested` instead of a final state, and the final state comes from the form's submission.
+- **From the button.** `POST /handoff` takes `{ "botId", "resumeToken" }` with the `Bearer` token and runs no model call. Nothing in the body chooses the reason, the recipient or the content. Show the button only once a conversation exists. It answers `200` with `{ "state", "form"? }`:
+  - the final state, such as `{ "state": "sent" }`;
+  - or `{ "state": "requested", "form": { "name", "handle", "purpose" } }` when the visitor has to fill in a form first: `name` picks its description from the configuration, `handle` goes to `POST /forms`, and `purpose` is `handoff` (contact details) or `message` (nobody is available: show `handoff.unavailableTitle` above the form). Only `requested` comes with a form.
+- **A limit is a state.** A handoff over the bot's limits answers `200` with `limited`, which the chat shows. The endpoint's own burst limit still answers `429`. A bot without handoff answers `404`.
+- **History.** After a reload, `POST /history` returns `handoff: { "state" }` on the answer the handoff was recorded after; for the button, on the latest answer at that time.
+
+```text
+event: handoff
+data: {"type":"handoff","messageId":"msg_1","state":"requested"}
+
+event: handoff
+data: {"type":"handoff","messageId":"msg_1","state":"sent"}
+```
+
+```json
+{ "state": "requested", "form": { "name": "contact", "handle": "eyJhbGciOiJkaXIi…", "purpose": "message" } }
+```
+
+Older clients ignore the event, the history field and the endpoint (an old widget has no button), so handoff is additive in protocol version 1.
+
+## Forms
+
+A bot can show a small form in the chat, defined in the server's code with `defineForm`: a lead's contact details, a callback number, a handoff's reply address ([ADR-0031](adr/0031-forms-and-leads.md)). The model picks a form by name through the reserved tool `show_form` and never defines fields or fills in values; the visitor types every value.
+
+### The description, in the configuration
+
+The bot's public configuration (`GET /config/<bot>` and the chat document) carries `forms`, absent for a bot without them: one to ten forms with distinct names, in the visitor's language. A language switch refetches the configuration, so an open form changes language with the rest of the chat. Nothing for the model (a form's `description`, `toModel` and `model`) is in it.
+
+```json
+{
+  "forms": [
+    {
+      "name": "contact",
+      "title": "Get an offer",
+      "fields": [
+        { "name": "name", "type": "text", "label": "Name", "required": true, "maxLength": 80 },
+        { "name": "email", "type": "email", "label": "Email", "required": true, "placeholder": "you@example.com" },
+        { "name": "topic", "type": "select", "label": "Topic", "required": false,
+          "options": [{ "value": "pricing", "label": "Pricing" }, { "value": "demo", "label": "A demo" }] },
+        { "name": "consent", "type": "consent", "label": "I agree to be contacted about my request.", "required": true }
+      ],
+      "submit": "Send",
+      "done": "Thanks! We'll be in touch."
+    }
+  ]
+}
+```
+
+- **A form:** `name` (`[a-z0-9_]`, 1 to 32 characters), `title`, `fields`, `submit` (the button) and `done` (shown in place of the form once it is sent).
+- **A field:** `name` (a letter, then letters, digits, `_` or `-`, at most 64 characters, distinct in its form), `type`, `label` and `required`. One to eight per form.
+- **Types:** `text` (at most 200 characters), `email` (254), `phone` (20), `textarea` (2,000), `select` and `consent` (a checkbox; `required` means it must be ticked). The four text types may have a `placeholder` and a lower `maxLength`. A `select` always has `options`: two to ten `{ "value", "label" }` with distinct values. Keys that don't belong to a field's type are ignored; an unknown type makes the whole list invalid.
+- **Lengths** are UTF-16 code units, as JavaScript's `length` counts them: titles, labels, placeholders, option labels and `submit` 1 to 120, `done` 1 to 300, option values 1 to 200.
+- **Plain text.** Render every text as text, never as Markdown or HTML. A `consent` field links the bot's `privacyUrl` when the disclosure has one.
+
+### The `form` event
+
+`{ "messageId", "callId", "name", "handle", "purpose" }` tells the chat to show a form under that answer. The events of a step come once its calls are done, in call order, like `tool.ui`. `callId` is opaque, `name` picks the description, `handle` is what `POST /forms` takes (encrypted, bound to the bot and the visitor, valid for 24 hours), and `purpose` picks the texts around it: `lead` (the model showed it), `handoff` (a handoff's contact details) or `message` (a handoff while nobody is available). A form stays open under its answer, even after the visitor writes more, until it is sent or its handle expires.
+
+```text
+event: form
+data: {"type":"form","messageId":"msg_1","callId":"call_2","name":"contact","handle":"eyJhbGciOiJkaXIi…","purpose":"lead"}
+```
+
+After a reload, `POST /history` returns them as `forms: [{ "callId", "name", "purpose", "state", "handle"? }]` on their answer, one to ten with distinct `callId`s. `state` is `open`, `sent` or `expired`; an open form has a fresh `handle`.
+
+### Sending a form
+
+`POST /forms` takes `{ "botId", "resumeToken", "form", "values" }` with the `Bearer` token: `form` is the handle, and `values` an object by field name, with a string for each field and `true` or `false` for a `consent`. At most eight values, each string at most 4,000 characters; the form's own limits are checked after that. Nothing in the body names the form or the conversation: the handle does.
+
+```json
+{
+  "botId": "support",
+  "resumeToken": "eyJhbGciOiJkaXIi…",
+  "form": "eyJhbGciOiJkaXIi…",
+  "values": { "name": "Anna", "email": "anna@example.com", "topic": "demo", "consent": true }
+}
+```
+
+- **Sent:** `200` with `{ "state": "sent" }`. A handoff's form adds the handoff's final state, `{ "state": "sent", "handoff": "sent" }`. Show `done`, or the handoff's state, in place of the form. A submission runs no model turn; the model learns the form was sent with the next message.
+- **Refused fields:** `400` with `invalid_input` and `fields`, one error key per refused field. It never echoes a value. The keys are `error.form.required`, `error.form.email`, `error.form.phone`, `error.form.tooLong` and `error.form.option`; a later version may add others of the form `error.form.<name>`, which a client shows as a generic error for the field.
+
+  ```json
+  {
+    "error": {
+      "code": "invalid_input",
+      "message": "Some fields are not valid.",
+      "fields": { "email": "error.form.email", "consent": "error.form.required" }
+    }
+  }
+  ```
+
+- **Already sent:** `409` with `invalid_input` and the key `error.form.sent`.
+- **Not this visitor's:** `404` with `not_found` for a handle of another visitor or bot, or a forged one.
+- **Too many:** `429` with `rate_limited`, over 5 submissions a minute or 20 a day per visitor.
+
+Older clients ignore the event and the history field and never call the endpoint, so forms are additive in protocol version 1.
+
 ## Identity
 
 `POST /session` takes an optional `identityToken`: the JWT from `askdare('identify')`, or `null` to sign out. Without it, a renewal keeps the identity the previous access token had. Widgets send the page's latest token with every session request. The answer adds `identified` (boolean), `identityKey` (an HMAC that tells users apart without revealing them; widgets keep one conversation handle per key), `resumeToken` when signing in adopted an anonymous conversation, and `identityProblem` when a token was refused. A signed-in access token expires with the identity token. Identities travel inside the encrypted access token; clients never see the claims ([ADR-0009](adr/0009-visitor-identity.md)).
@@ -184,7 +301,7 @@ Next to `code` and `message`, an `error` event can carry:
 - **Explained in development.** When `NODE_ENV` is `development`, as under `next dev`, a `bot_unavailable` error caused by the setup carries a description for you in `message` instead of a key: a missing or weak secret, a missing `OPENAI_API_KEY`, a key OpenAI rejects, a model the project can't use. The widget shows that description as it is. In production, the server never sends one.
 - **Messages for developers.** Some refusals carry only a plain English `message`, such as `Expected an application/json body.`, `Malformed JSON.`, `Request body is too large.` and `Cross-origin requests are not allowed.`
 
-Error responses outside the stream have the same fields, inside `error`:
+Error responses outside the stream have the same fields, inside `error`, and a refused form adds `fields` ([Sending a form](#sending-a-form)):
 
 ```json
 {
@@ -206,7 +323,8 @@ Error responses outside the stream have the same fields, inside `error`:
 | `400` | `invalid_input` | The body is not what the endpoint expects (wrong `Content-Type`, malformed JSON, a JSON body over 256 KB), or the message, file or recording is refused, including when it is too large |
 | `401` | `unauthorized` | The `Bearer` token is missing or invalid, or the request is cross-site |
 | `401` | `session_expired` | The access token expired; renew it with `POST /session` and retry |
-| `404` | `not_found` | An unknown path, bot or asset; a resume token that is invalid or belongs to someone else; a conversation that no longer exists; an answer that can't be resumed |
+| `404` | `not_found` | An unknown path, bot or asset; a resume token that is invalid or belongs to someone else; a conversation that no longer exists; an answer that can't be resumed; a bot without handoff; a form handle that isn't the visitor's |
+| `409` | `invalid_input` | The form was already sent (`POST /forms`, key `error.form.sent`) |
 | `429` | `rate_limited` | A rate limit was reached, the conversation reached `maxTurns`, or another dictation is still being transcribed |
 | `429` | `budget_exceeded` | A daily token or speech budget is spent |
 | `500` | `internal_error` | Unexpected server error |
@@ -224,6 +342,8 @@ An error response with `retryAfterMs` also has a `Retry-After` header, in whole 
 | `POST /messages` | `200`, `400`, `401`, `404`, `429`, `503` |
 | `POST /history` | `200`, `400`, `401`, `404`, `429`, `502`, `503`, `504` |
 | `POST /resume` | `200`, `400`, `401`, `404`, `429`, `502`, `503`, `504` |
+| `POST /handoff` | `200`, `400`, `401`, `404`, `429`, `503` |
+| `POST /forms` | `200`, `400`, `401`, `404`, `409`, `429`, `503` |
 | `DELETE /conversation` | `204`, `400`, `401`, `404`, `429`, `502`, `503`, `504` |
 | `POST /attachments`, `POST /transcriptions` | `200`, `400`, `401`, `404`, `429`, `502`, `503`, `504` |
 | `POST /doctor` | `200`, `401`, `429`, `503` |
