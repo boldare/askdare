@@ -212,7 +212,7 @@ importers:
   examples/starter:
     dependencies:
       '@boldare/askdare':
-        specifier: ^0.5.3
+        specifier: ^0.6.0
         version: link:../../packages/askdare
       next:
         specifier: ^16.4.6
