@@ -15,8 +15,16 @@ import {
 } from '../conversations/port';
 import { AskdareError } from '../errors';
 import type { TokenUsage, TurnRequest, TurnResult } from '../gateway';
-import type { MessageEndReason } from '../protocol/events';
+import type { MessageEndReason, ProtocolEvent } from '../protocol/events';
 import type { ToolUi } from '../protocol/tool-ui';
+import { HANDOFF, handoffOutput } from '../tools/handoff';
+import {
+  modelForms,
+  SHOW_FORM,
+  SHOW_FORM_OUTPUT,
+  SHOW_FORM_REFUSED,
+  showFormName,
+} from '../tools/show-form';
 import { SUGGEST_REPLIES, suggestedReplies } from '../tools/suggest-replies';
 import { addUsage, ZERO_USAGE } from '../usage';
 import { fromOpenAIError } from './errors';
@@ -41,6 +49,7 @@ import {
   danglingCallId,
   executeCalls,
   responseTools,
+  type StepOffer,
   toolChoice,
 } from './tools';
 
@@ -282,6 +291,10 @@ async function turn(
   let toolReplies: readonly string[] | undefined;
   // Options the model suggested in this turn; it may do so once (ADR-0015).
   let replies: readonly string[] | undefined;
+  // A turn hands off once, and only while the conversation has handoffs left (ADR-0030).
+  let handedOff = request.handoff?.offered !== true;
+  // A turn shows one form at most (ADR-0031).
+  let formShown = request.showForm === undefined;
   // The server keeps at most four per answer (server/stream-turn.ts).
   const onUi = (ui: ToolUi): void =>
     request.emit({ type: 'tool.ui', messageId: request.messageId, ...ui });
@@ -320,9 +333,13 @@ async function turn(
       : [toResponseInput(visitorItem(request)) as ResponseInputItem];
     for (let step = 1; step <= bot.limits.maxSteps; step += 1) {
       // The model suggests once, and not after a tool defined options, which win anyway.
-      const suggest = replies === undefined && toolReplies === undefined;
+      const offer: StepOffer = {
+        suggest: replies === undefined && toolReplies === undefined,
+        handoff: !handedOff,
+        form: !formShown,
+      };
       const last =
-        step === bot.limits.maxSteps || (callsFunctions(bot, suggest) && !(await covers(step + 1)));
+        step === bot.limits.maxSteps || (callsFunctions(bot, offer) && !(await covers(step + 1)));
       let outcome: StepOutcome;
       try {
         outcome = await runStep(
@@ -331,7 +348,7 @@ async function turn(
           context,
           input,
           citations,
-          toolChoice(bot, last, suggest),
+          toolChoice(bot, last, offer),
         );
       } catch (error) {
         // An item store never holds a call without its output, so only OpenAI's can dangle.
@@ -353,21 +370,79 @@ async function turn(
       usage = addUsage(usage, outcome.usage);
       request.onStep?.({ model: outcome.model, usage: outcome.usage });
       const suggestions: FunctionCall[] = [];
+      const shows: FunctionCall[] = [];
+      const handoffs: FunctionCall[] = [];
       const calls: FunctionCall[] = [];
       for (const call of outcome.functionCalls) {
-        (call.name === SUGGEST_REPLIES ? suggestions : calls).push(call);
+        if (call.name === SUGGEST_REPLIES) suggestions.push(call);
+        else if (call.name === SHOW_FORM && request.showForm) shows.push(call);
+        else if (call.name === HANDOFF && request.handoff) handoffs.push(call);
+        else calls.push(call);
       }
       const latest = suggestions.at(-1);
       if (latest) replies = suggestedReplies(latest.arguments) ?? [];
-      const answered = answerSuggestions(suggestions);
+      // Forms go out once the step's calls are done, in call order, like cards (ADR-0031).
+      const forms: Extract<ProtocolEvent, { type: 'form' }>[] = [];
+      const answered = [...answerSuggestions(suggestions)];
+      for (const call of shows) {
+        const name = showFormName(call.arguments);
+        const offered = modelForms(bot.forms).some((form) => form.name === name);
+        const shown =
+          !formShown && name !== undefined && offered
+            ? await request.showForm?.(name, call.callId)
+            : undefined;
+        if (shown && name !== undefined) {
+          formShown = true;
+          forms.push({
+            type: 'form',
+            messageId: request.messageId,
+            callId: call.callId,
+            name,
+            handle: shown.handle,
+            purpose: 'lead',
+          });
+        }
+        answered.push({
+          type: 'function_call_output',
+          call_id: call.callId,
+          output: shown ? SHOW_FORM_OUTPUT : SHOW_FORM_REFUSED,
+        });
+      }
+      // The model hears how a handoff went, and answers around it: one more step.
+      const handedBack: ResponseInputItem[] = [];
+      for (const call of handoffs) {
+        let output: string;
+        if (handedOff || !request.handoff) {
+          output = handoffOutput('limited');
+        } else {
+          handedOff = true;
+          const { messageId } = request;
+          request.emit({ type: 'handoff', messageId, state: 'requested' });
+          const result = await request.handoff.run({
+            callId: call.callId,
+            arguments: call.arguments,
+          });
+          if (result.state !== 'requested') {
+            request.emit({ type: 'handoff', messageId, state: result.state });
+          }
+          if (result.form) {
+            forms.push({ type: 'form', messageId, callId: call.callId, ...result.form });
+          }
+          output = handoffOutput(result.state, result.form);
+        }
+        handedBack.push({ type: 'function_call_output', call_id: call.callId, output });
+      }
       // Options after the answer end the turn: their call is answered without the model. Models
       // mark text written before any call as commentary, options included, so text followed only
       // by options is the answer; taking another step made the model write it a second time.
       // A call before any text takes one more step.
       const answerItemId =
         outcome.answerItemId ??
-        (calls.length === 0 && answered.length > 0 ? outcome.textItemId : undefined);
-      if (calls.length === 0 && (answered.length === 0 || answerItemId)) {
+        (calls.length === 0 && handoffs.length === 0 && answered.length > 0
+          ? outcome.textItemId
+          : undefined);
+      if (calls.length === 0 && handoffs.length === 0 && (answered.length === 0 || answerItemId)) {
+        for (const form of forms) request.emit(form);
         // The last step's items go in with the answers to its `suggest_replies` calls.
         const storedId = replay ? await replay.record(outcome, answered, citations) : undefined;
         if (!replay && answered.length > 0) await storeOutputs(request, answered);
@@ -385,6 +460,7 @@ async function turn(
       }
       const outputs = [
         ...answered,
+        ...handedBack,
         ...(calls.length > 0
           ? await executeCalls(calls, request, {
               onReplies: (items) => {
@@ -395,6 +471,7 @@ async function turn(
             })
           : []),
       ];
+      for (const form of forms) request.emit(form);
       if (replay) {
         // The step's calls are stored only with their outputs, after every call has one.
         await replay.record(outcome, outputs, citations);

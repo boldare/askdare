@@ -2,11 +2,16 @@ import { mergeRepeatedMarkers } from '../citation-markers';
 import type { StoredCall, UiReader } from '../gateway';
 import { rewriteMarkers } from '../knowledge/markers';
 import { citationKey } from '../knowledge/passages';
+import type { FormPurpose, HistoryForm } from '../protocol/forms';
+import type { HandoffState } from '../protocol/handoff';
 import type { HistoryCitation, HistoryMessage } from '../protocol/history';
 import { normalizeReplies } from '../protocol/replies';
 import { isToolUiList, MAX_TOOL_UI, type ToolUi } from '../protocol/tool-ui';
+import { HANDOFF, handoffArguments, readHandoffOutput } from '../tools/handoff';
 import { isFailedOutput, unwrapToolOutput } from '../tools/outputs';
+import { formShown, SHOW_FORM, showFormName } from '../tools/show-form';
 import { storedGuardNote } from './guard-notes';
+import { type HandoffNote, isFormValues, storedHandoffNote } from './handoff-notes';
 import { storeFailure } from './owner';
 import type { ConversationStore, StoredCitation, StoredItem } from './port';
 import type { HistoryPosition, HistoryReader, HistoryRequest } from './provider-history';
@@ -148,6 +153,21 @@ interface Turn {
   answer: number | undefined;
   /** False once a guardrail replaced or withheld its answer: it then offers no cards or options. */
   plain: boolean;
+  /** Handoff and form notes in this turn, oldest first (ADR-0030, ADR-0031). */
+  readonly notes: HandoffNote[];
+}
+
+/** A form under an answer in the history, before the server gives an open one a fresh handle. */
+export type ShownForm = Omit<HistoryForm, 'handle'>;
+
+/**
+ * What re-issuing a handoff form's handle needs: the handoff it continues. The ID is derived from
+ * the conversation and the call by the server, so it stays the same on every retry.
+ */
+export interface FormOrigin {
+  readonly reason: 'visitor_asked' | 'cannot_help' | 'complaint' | 'sensitive' | 'sales';
+  readonly trigger: 'model' | 'visitor';
+  readonly summary?: string | undefined;
 }
 
 /**
@@ -168,7 +188,9 @@ function readTurns(
   const messages: HistoryMessage[] = [];
   const turns: Turn[] = [];
   const outputs = new Map<string, string>();
-  const newTurn = (): Turn => ({ calls: [], answer: undefined, plain: true });
+  const newTurn = (): Turn => ({ calls: [], answer: undefined, plain: true, notes: [] });
+  // A form's values follow its sent note; anywhere else, the same text is a visitor's message.
+  let afterSentNote = false;
   let turn = newTurn();
   const hidden = new Set<number>();
   // The turn's answers since its last note, and whether the next answer is a replacement.
@@ -201,6 +223,15 @@ function readTurns(
     turns.push(turn);
   };
   for (const item of oldestFirst) {
+    const followsSent = afterSentNote;
+    afterSentNote = false;
+    if (followsSent && isFormValues(item)) continue;
+    const handoff = storedHandoffNote(item);
+    if (handoff) {
+      turn.notes.push(handoff);
+      afterSentNote = handoff.kind === 'form' && handoff.state === 'sent';
+      continue;
+    }
     if (item.type === 'message' && item.role === 'user') {
       close();
       turn = newTurn();
@@ -256,6 +287,71 @@ function readTurns(
   return { messages: kept, turns };
 }
 
+/**
+ * Each turn's handoff state and forms, from its `handoff` and `show_form` calls and from the notes
+ * the server wrote (ADR-0030, ADR-0031). A note that names a form's call settles that form, and a
+ * handoff state that names one goes to the answer the form is under.
+ */
+function readHandoffs(turns: readonly Turn[]): {
+  readonly states: (HandoffState | undefined)[];
+  readonly forms: ShownForm[][];
+  readonly origins: Map<string, FormOrigin>;
+} {
+  const states: (HandoffState | undefined)[] = turns.map(() => undefined);
+  const forms: ShownForm[][] = turns.map(() => []);
+  const origins = new Map<string, FormOrigin>();
+  const owner = new Map<string, { turn: number; form: number }>();
+  const show = (turn: number, callId: string, name: string, purpose: FormPurpose): void => {
+    if (owner.has(callId)) return;
+    const list = forms[turn];
+    if (!list) return;
+    owner.set(callId, { turn, form: list.length });
+    list.push({ callId, name, purpose, state: 'open' });
+  };
+  // The calls first: every note was written after the call it settles.
+  turns.forEach((turn, index) => {
+    for (const call of turn.calls) {
+      if (call.output === undefined || call.callId === undefined) continue;
+      if (call.name === SHOW_FORM && formShown(call.output)) {
+        const name = showFormName(call.arguments);
+        if (name !== undefined) show(index, call.callId, name, 'lead');
+      } else if (call.name === HANDOFF) {
+        const result = readHandoffOutput(call);
+        if (!result) continue;
+        states[index] = result.state;
+        if (result.form && result.purpose) {
+          show(index, call.callId, result.form, result.purpose);
+          const args = handoffArguments(call.arguments);
+          origins.set(call.callId, {
+            reason: args.reason,
+            trigger: 'model',
+            ...(args.summary ? { summary: args.summary } : {}),
+          });
+        }
+      }
+    }
+  });
+  turns.forEach((turn, index) => {
+    for (const note of turn.notes) {
+      if (note.kind === 'handoff') {
+        const target = note.callId === undefined ? undefined : owner.get(note.callId);
+        states[target?.turn ?? index] = note.state;
+      } else if (note.state === 'shown' && note.purpose !== undefined) {
+        show(index, note.callId, note.name, note.purpose);
+        if (note.purpose !== 'lead') {
+          origins.set(note.callId, { reason: 'visitor_asked', trigger: 'visitor' });
+        }
+      } else if (note.state === 'sent') {
+        const at = owner.get(note.callId);
+        const list = at && forms[at.turn];
+        const form = at && list?.[at.form];
+        if (at && list && form) list[at.form] = { ...form, state: 'sent' };
+      }
+    }
+  });
+  return { states, forms, origins };
+}
+
 /** The payloads a turn's calls define, within the limits; none when the reader fails. */
 function turnUi(reader: UiReader, calls: readonly StoredCall[]): readonly ToolUi[] | undefined {
   if (calls.length === 0) return undefined;
@@ -288,8 +384,24 @@ export function historyFromItems(
 export function historyPageFromItems(
   oldestFirst: readonly StoredItem[],
   { replies, ui, checked = false, knowledge }: Omit<HistoryRequest, 'signal'>,
-): { readonly messages: HistoryMessage[]; readonly rated: string[] } {
+): {
+  readonly messages: HistoryMessage[];
+  readonly rated: string[];
+  readonly origins?: ReadonlyMap<string, FormOrigin> | undefined;
+} {
   const { messages, turns } = readTurns(oldestFirst, checked, knowledge !== undefined);
+  const handoffs = readHandoffs(turns);
+  turns.forEach(({ answer }, index) => {
+    const message = answer === undefined ? undefined : messages[answer];
+    const state = handoffs.states[index];
+    const forms = handoffs.forms[index] ?? [];
+    if (answer === undefined || !message || (state === undefined && forms.length === 0)) return;
+    messages[answer] = {
+      ...message,
+      ...(state === undefined ? {} : { handoff: { state } }),
+      ...(forms.length > 0 ? { forms } : {}),
+    };
+  });
   const rated = turns.flatMap(({ answer, plain }) => {
     const message = answer === undefined || !plain ? undefined : messages[answer];
     return message ? [message.id] : [];
@@ -318,7 +430,9 @@ export function historyPageFromItems(
     const offered = items && normalizeReplies(items);
     if (offered) messages[messages.length - 1] = { ...latest, replies: offered };
   }
-  return { messages, rated };
+  return handoffs.origins.size > 0
+    ? { messages, rated, origins: handoffs.origins }
+    : { messages, rated };
 }
 
 /**

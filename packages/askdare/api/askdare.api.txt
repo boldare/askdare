@@ -28,6 +28,111 @@ interface AdminDashboard {
   readonly handlers: Readonly<Record<string, AdminDashboardHandler>>;
 }
 /**
+ * A text the visitor reads: one string for every language, or a map by BCP 47 tag
+ * (`{ en: 'Name', pl: 'Imię' }`), as the bot's `texts` are (ADR-0031).
+ */
+type FormText = string | Readonly<Record<string, string>>;
+/** The field types, a closed set; each addition is a minor release with its validation rule. */
+declare const FORM_FIELD_TYPES: readonly ["text", "email", "phone", "select", "textarea", "consent"];
+type FormFieldType = (typeof FORM_FIELD_TYPES)[number];
+interface BaseField<Type extends FormFieldType> {
+  readonly type: Type;
+  /** `[a-z][a-z0-9_]{0,31}`, unique in the form: the key of the value in `onLead`. */
+  readonly name: string;
+  /** Shown above the field as plain text, at most 120 characters. */
+  readonly label: FormText;
+  /** For `consent`: the box must be ticked. Default `false`. */
+  readonly required?: boolean;
+  /**
+   * Whether the model sees this field's value after the form is sent, in a user message
+   * (ADR-0031). Default `false`: the model learns only that the form was sent. Mark fields the
+   * bot needs to go on helping (a topic, a product), not contact details.
+   */
+  readonly toModel?: boolean;
+}
+interface PlaceholderField {
+  /** Shown in the empty field, at most 120 characters. */
+  readonly placeholder?: FormText;
+}
+/** One line of text, at most 200 characters, or `maxLength`. */
+interface FormTextField extends BaseField<"text">, PlaceholderField {
+  readonly maxLength?: number;
+}
+/** An email address, at most 254 characters; the domain is lower-cased. */
+interface FormEmailField extends BaseField<"email">, PlaceholderField {}
+/** Digits, spaces, `+`, `-`, `(` and `)`, 6 to 20 characters. No country rules. */
+interface FormPhoneField extends BaseField<"phone">, PlaceholderField {}
+/** Several lines, at most 2,000 characters, or `maxLength`. */
+interface FormTextareaField extends BaseField<"textarea">, PlaceholderField {
+  readonly maxLength?: number;
+}
+/** One of 2 to 10 options; the visitor can send only a `value` given here. */
+interface FormSelectField extends BaseField<"select"> {
+  readonly options: readonly FormSelectOption[];
+}
+interface FormSelectOption {
+  /** What `onLead` gets, 1 to 100 characters, unique in the field. */
+  readonly value: string;
+  readonly label: FormText;
+}
+/** A checkbox with the site's own wording; it links the bot's `privacyUrl` when one is set. */
+interface FormConsentField extends BaseField<"consent"> {}
+/** A field of a form, from the closed set of types. */
+type FormField = FormTextField | FormEmailField | FormPhoneField | FormTextareaField | FormSelectField | FormConsentField;
+interface FormDefinition<Name extends string = string> {
+  /** `[a-z0-9_]{1,32}`, unique in the bot: what the model picks the form by. */
+  readonly name: Name;
+  /**
+   * For the model only, never sent to the browser: what the form is for and when to show it.
+   * Required unless `model` is `false`.
+   */
+  readonly description?: string;
+  /**
+   * Whether the model may show the form with the `show_form` tool. Default `true`. A form with
+   * `false` serves a handoff only (ADR-0030).
+   */
+  readonly model?: boolean;
+  /** Shown above the fields, at most 120 characters. */
+  readonly title: FormText;
+  /** 1 to 8 fields, in the order shown. */
+  readonly fields: readonly FormField[];
+  /** The button's text, at most 120 characters; the chat's own by default. */
+  readonly submit?: FormText;
+  /** Shown in place of the form once it is sent, at most 300 characters; the chat's own by default. */
+  readonly done?: FormText;
+}
+/** A checked, normalized field: defaults filled in, texts trimmed. */
+type FormFieldSpec = (FormTextField & FieldDefaults & {
+  readonly maxLength: number;
+}) | (FormEmailField & FieldDefaults & {
+  readonly maxLength: number;
+}) | (FormPhoneField & FieldDefaults & {
+  readonly maxLength: number;
+}) | (FormTextareaField & FieldDefaults & {
+  readonly maxLength: number;
+}) | (FormSelectField & FieldDefaults) | (FormConsentField & FieldDefaults);
+interface FieldDefaults {
+  readonly required: boolean;
+  readonly toModel: boolean;
+}
+/** A form a bot can show, as `defineForm` returns it. */
+interface Form<Name extends string = string> {
+  readonly name: Name;
+  /** Empty when `model` is `false` and none was given. */
+  readonly description: string;
+  readonly model: boolean;
+  readonly title: FormText;
+  readonly fields: readonly FormFieldSpec[];
+  readonly submit?: FormText | undefined;
+  readonly done?: FormText | undefined;
+}
+/**
+ * Declares a form the bot can show in the chat (ADR-0031). The definition is checked here, at
+ * startup: an invalid form throws with every reason, like an invalid bot. The visitor types every
+ * value; askdare validates them on the server and passes them to `onLead`, storing none.
+ */
+declare function defineForm<const Name extends string>(definition: FormDefinition<Name>): Form<Name>;
+/**
  * Every text the widget shows. The keys are public API (ADR-0008): override any of them with
  * `widget.texts`. Plural keys end in a CLDR category (`zero`, `one`, `two`, `few`, `many`, `other`).
  */
@@ -478,6 +583,49 @@ interface AttachmentConfig {
    */
   readonly maxPdfPages?: number;
 }
+/** What `handoff.available` gets: the bot and the visitor it is asked for. */
+interface HandoffAvailabilityContext {
+  readonly bot: string;
+  readonly locale: string;
+  /** The signed-in user, verified (ADR-0009); undefined when anonymous. */
+  readonly identity?: VisitorIdentity | undefined;
+}
+/** How many handoffs are accepted (ADR-0030, decision 7). */
+interface HandoffLimits {
+  /** Per conversation; a second request ends as `limited`. Default 1. */
+  readonly perConversation?: number;
+  /** Per visitor or signed-in user per UTC day, and the same per IP. Default 3. */
+  readonly perVisitorPerDay?: number;
+  /** For the whole bot per UTC day; `onError` hears once when it runs out. Default 100. */
+  readonly perBotPerDay?: number;
+}
+/**
+ * Handoff to a person (ADR-0030): the model may call the `handoff` tool and the chat shows a "Talk
+ * to a person" control. Requests go to `createChatHandler`'s `onHandoff`, which is then required.
+ */
+interface HandoffConfig {
+  /** The model may call the reserved `handoff` tool. Default `true`. */
+  readonly model?: boolean;
+  /** The chat shows "Talk to a person". Default `true`. */
+  readonly button?: boolean;
+  /**
+   * The name of a form in `forms` that collects contact details before the request goes out,
+   * and takes a message while nobody is available. Skipped for a signed-in visitor with an email.
+   */
+  readonly form?: string;
+  /**
+   * Whether someone can take a request now: office hours, holidays, on-call. May be async; it
+   * has two seconds, and a throw or a timeout counts as unavailable. Default: always available.
+   */
+  readonly available?: (context: HandoffAvailabilityContext) => boolean | Promise<boolean>;
+  /**
+   * What of the conversation the request carries: `none` (the default), `summary` (a short note
+   * the model writes) or `transcript` (the summary and the visible messages of the latest history
+   * page). Contact details from the form are always included.
+   */
+  readonly content?: "none" | "summary" | "transcript";
+  readonly limits?: HandoffLimits;
+}
 interface VoiceConfig {
   /** OpenAI transcription model, for example `gpt-transcribe`. Required: the library never assumes a model. */
   readonly model: string;
@@ -584,6 +732,17 @@ interface BotDefinition extends GuardrailOptions {
    * with it. Off when absent: askdare's page, which needs nothing from you.
    */
   readonly embedPath?: string | undefined;
+  /**
+   * Handoff to a person (ADR-0030); `true` for the defaults. Off when absent: no tool, no
+   * button. Needs `onHandoff` in `createChatHandler`.
+   */
+  readonly handoff?: boolean | HandoffConfig | undefined;
+  /**
+   * Forms the chat can show (ADR-0031), made with `defineForm`: at most 10, with distinct names.
+   * Forms the model may show add the reserved `show_form` tool and need `onLead` in
+   * `createChatHandler`.
+   */
+  readonly forms?: readonly Form[] | undefined;
 }
 /**
  * What `defineBot` returns. Pass it to `createChatHandler`, `getChatConfig` and `getEmbedConfig`;
@@ -600,7 +759,7 @@ interface BotHandle {
  * visitor's message.
  */
 declare function defineBot(definition: BotDefinition): BotHandle;
-export { AdminDashboard as A, PresetName as C, HumanChallenge as D, VisitorIdentity as E, AdminDashboardRequest as M, HumanCheckContext as O, defineTheme as S, ThemeVariants as T, ToolContext as _, BotLimits as a, ColorScheme as b, VoiceConfig as c, GuardContext as d, GuardHook as f, Tool as g, ModerationConfig as h, BotHandle as i, AdminDashboardHandler as j, HumanVerifier as k, WidgetConfig as l, GuardrailOptions as m, BotContext as n, BotSecurity as o, GuardVerdict as p, BotDefinition as r, KnowledgeConfig as s, AttachmentConfig as t, defineBot as u, ToolDefinition as v, ThemeTokens as w, ThemeDefinition as x, defineTool as y };
+export { HumanChallenge as A, AdminDashboardHandler as B, ColorScheme as C, ThemeTokens as D, PresetName as E, FormField as F, FormFieldType as I, defineForm as L, HumanVerifier as M, Form as N, ThemeVariants as O, FormDefinition as P, FormText as R, defineTool as S, defineTheme as T, AdminDashboardRequest as V, GuardrailOptions as _, BotLimits as a, ToolContext as b, HandoffConfig as c, VoiceConfig as d, WidgetConfig as f, GuardVerdict as g, GuardHook as h, BotHandle as i, HumanCheckContext as j, VisitorIdentity as k, HandoffLimits as l, GuardContext as m, BotContext as n, BotSecurity as o, defineBot as p, BotDefinition as r, HandoffAvailabilityContext as s, AttachmentConfig as t, KnowledgeConfig as u, ModerationConfig as v, ThemeDefinition as w, ToolDefinition as x, Tool as y, AdminDashboard as z };
 
 // ==== embed.d.ts ====
 
@@ -624,7 +783,7 @@ export declare function EmbedRoot({ config, toolRenderers, children }: EmbedRoot
 export type { EmbedChatConfig, EmbedRootProps };
 
 // ==== index.d.ts ====
-import { A as AdminDashboard, C as PresetName, D as HumanChallenge, E as VisitorIdentity, M as AdminDashboardRequest, O as HumanCheckContext, S as defineTheme, T as ThemeVariants, _ as ToolContext, a as BotLimits, b as ColorScheme, c as VoiceConfig, d as GuardContext, f as GuardHook, g as Tool, h as ModerationConfig, i as BotHandle, j as AdminDashboardHandler, k as HumanVerifier, l as WidgetConfig, m as GuardrailOptions, n as BotContext, o as BotSecurity, p as GuardVerdict, r as BotDefinition, s as KnowledgeConfig, t as AttachmentConfig, u as defineBot, v as ToolDefinition, w as ThemeTokens, x as ThemeDefinition, y as defineTool } from "./define-bot.js";
+import { A as HumanChallenge, B as AdminDashboardHandler, C as ColorScheme, D as ThemeTokens, E as PresetName, F as FormField, I as FormFieldType, L as defineForm, M as HumanVerifier, N as Form, O as ThemeVariants, P as FormDefinition, R as FormText, S as defineTool, T as defineTheme, V as AdminDashboardRequest, _ as GuardrailOptions, a as BotLimits, b as ToolContext, c as HandoffConfig, d as VoiceConfig, f as WidgetConfig, g as GuardVerdict, h as GuardHook, i as BotHandle, j as HumanCheckContext, k as VisitorIdentity, l as HandoffLimits, m as GuardContext, n as BotContext, o as BotSecurity, p as defineBot, r as BotDefinition, s as HandoffAvailabilityContext, t as AttachmentConfig, u as KnowledgeConfig, v as ModerationConfig, w as ThemeDefinition, x as ToolDefinition, y as Tool, z as AdminDashboard } from "./define-bot.js";
 import { $ as StoredItem, A as AdminStore, B as ERROR_CODES, C as AdminHandoffState, D as AdminRatingRecord, E as AdminRatingQuery, F as AdminTurnRecord, G as ConversationContext, J as ConversationPage, K as ConversationInfo, M as AdminSweepOptions, N as AdminTranscriptCitation, O as AdminRecordKey, P as AdminTranscriptRecord, Q as StoredCitation, S as AdminHandoffCounts, T as AdminRange, V as ErrorCode, W as CompactionModel, X as ConversationStoreCheck, Y as ConversationStore, Z as PositionedItem, _ as AdminConversationQuery, a as Embedder, b as AdminDayRow, c as KnowledgeCheck, d as KnowledgeIndex, et as StoredPart, f as Passage, g as AdminCheckOutcome, h as AdminBotDayRow, i as RateLimitStore, j as AdminStoredRating, k as AdminSource, l as KnowledgeChunk, m as SyncReport, n as TurnEventLog, o as Embeddings, p as SearchOptions, q as ConversationOwner, r as CounterHit, s as KnowledgeCallOptions, t as TurnEvent, tt as VersionConflictError, u as KnowledgeDocument, v as AdminConversationSummary, w as AdminPage, x as AdminDays, y as AdminCountEvent } from "./turn-log.js";
 /**
  * Admin records in this process's memory, for tests and local development. Every instance has its
@@ -637,111 +796,6 @@ export declare function memoryAdminStore(): AdminStore;
  * items statelessly.
  */
 export declare function memoryConversations(): ConversationStore;
-/**
- * A text the visitor reads: one string for every language, or a map by BCP 47 tag
- * (`{ en: 'Name', pl: 'Imię' }`), as the bot's `texts` are (ADR-0031).
- */
-type FormText = string | Readonly<Record<string, string>>;
-/** The field types, a closed set; each addition is a minor release with its validation rule. */
-declare const FORM_FIELD_TYPES: readonly ["text", "email", "phone", "select", "textarea", "consent"];
-type FormFieldType = (typeof FORM_FIELD_TYPES)[number];
-interface BaseField<Type extends FormFieldType> {
-  readonly type: Type;
-  /** `[a-z][a-z0-9_]{0,31}`, unique in the form: the key of the value in `onLead`. */
-  readonly name: string;
-  /** Shown above the field as plain text, at most 120 characters. */
-  readonly label: FormText;
-  /** For `consent`: the box must be ticked. Default `false`. */
-  readonly required?: boolean;
-  /**
-   * Whether the model sees this field's value after the form is sent, in a user message
-   * (ADR-0031). Default `false`: the model learns only that the form was sent. Mark fields the
-   * bot needs to go on helping (a topic, a product), not contact details.
-   */
-  readonly toModel?: boolean;
-}
-interface PlaceholderField {
-  /** Shown in the empty field, at most 120 characters. */
-  readonly placeholder?: FormText;
-}
-/** One line of text, at most 200 characters, or `maxLength`. */
-interface FormTextField extends BaseField<"text">, PlaceholderField {
-  readonly maxLength?: number;
-}
-/** An email address, at most 254 characters; the domain is lower-cased. */
-interface FormEmailField extends BaseField<"email">, PlaceholderField {}
-/** Digits, spaces, `+`, `-`, `(` and `)`, 6 to 20 characters. No country rules. */
-interface FormPhoneField extends BaseField<"phone">, PlaceholderField {}
-/** Several lines, at most 2,000 characters, or `maxLength`. */
-interface FormTextareaField extends BaseField<"textarea">, PlaceholderField {
-  readonly maxLength?: number;
-}
-/** One of 2 to 10 options; the visitor can send only a `value` given here. */
-interface FormSelectField extends BaseField<"select"> {
-  readonly options: readonly FormSelectOption[];
-}
-interface FormSelectOption {
-  /** What `onLead` gets, 1 to 100 characters, unique in the field. */
-  readonly value: string;
-  readonly label: FormText;
-}
-/** A checkbox with the site's own wording; it links the bot's `privacyUrl` when one is set. */
-interface FormConsentField extends BaseField<"consent"> {}
-/** A field of a form, from the closed set of types. */
-type FormField = FormTextField | FormEmailField | FormPhoneField | FormTextareaField | FormSelectField | FormConsentField;
-interface FormDefinition<Name extends string = string> {
-  /** `[a-z0-9_]{1,32}`, unique in the bot: what the model picks the form by. */
-  readonly name: Name;
-  /**
-   * For the model only, never sent to the browser: what the form is for and when to show it.
-   * Required unless `model` is `false`.
-   */
-  readonly description?: string;
-  /**
-   * Whether the model may show the form with the `show_form` tool. Default `true`. A form with
-   * `false` serves a handoff only (ADR-0030).
-   */
-  readonly model?: boolean;
-  /** Shown above the fields, at most 120 characters. */
-  readonly title: FormText;
-  /** 1 to 8 fields, in the order shown. */
-  readonly fields: readonly FormField[];
-  /** The button's text, at most 120 characters; the chat's own by default. */
-  readonly submit?: FormText;
-  /** Shown in place of the form once it is sent, at most 300 characters; the chat's own by default. */
-  readonly done?: FormText;
-}
-/** A checked, normalized field: defaults filled in, texts trimmed. */
-type FormFieldSpec = (FormTextField & FieldDefaults & {
-  readonly maxLength: number;
-}) | (FormEmailField & FieldDefaults & {
-  readonly maxLength: number;
-}) | (FormPhoneField & FieldDefaults & {
-  readonly maxLength: number;
-}) | (FormTextareaField & FieldDefaults & {
-  readonly maxLength: number;
-}) | (FormSelectField & FieldDefaults) | (FormConsentField & FieldDefaults);
-interface FieldDefaults {
-  readonly required: boolean;
-  readonly toModel: boolean;
-}
-/** A form a bot can show, as `defineForm` returns it. */
-interface Form<Name extends string = string> {
-  readonly name: Name;
-  /** Empty when `model` is `false` and none was given. */
-  readonly description: string;
-  readonly model: boolean;
-  readonly title: FormText;
-  readonly fields: readonly FormFieldSpec[];
-  readonly submit?: FormText | undefined;
-  readonly done?: FormText | undefined;
-}
-/**
- * Declares a form the bot can show in the chat (ADR-0031). The definition is checked here, at
- * startup: an invalid form throws with every reason, like an invalid bot. The visitor types every
- * value; askdare validates them on the server and passes them to `onLead`, storing none.
- */
-export declare function defineForm<const Name extends string>(definition: FormDefinition<Name>): Form<Name>;
 /**
  * What the embedder sees for a chunk, and what makes a passage readable on its own: the document
  * title and section above the text. Every index embeds the same input for the same chunk.
@@ -832,11 +886,11 @@ interface TurnstileOptions {
  * ```
  */
 export declare function turnstile(options: TurnstileOptions): HumanVerifier;
-export { type AdminBotDayRow, type AdminCheckOutcome, type AdminConversationQuery, type AdminConversationSummary, type AdminCountEvent, type AdminDashboard, type AdminDashboardHandler, type AdminDashboardRequest, type AdminDayRow, type AdminDays, type AdminHandoffCounts, type AdminHandoffState, type AdminPage, type AdminRange, type AdminRatingQuery, type AdminRatingRecord, type AdminRecordKey, type AdminSource, type AdminStore, type AdminStoredRating, type AdminSweepOptions, type AdminTranscriptCitation, type AdminTranscriptRecord, type AdminTurnRecord, type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type CompactionModel, type ConversationContext, type ConversationInfo, type ConversationOwner, type ConversationPage, type ConversationStore, type ConversationStoreCheck, type CounterHit, ERROR_CODES, type Embedder, type Embeddings, type ErrorCode, type Form, type FormDefinition, type FormField, type FormFieldType, type FormText, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type HumanChallenge, type HumanCheckContext, type HumanVerifier, type KnowledgeCallOptions, type KnowledgeCheck, type KnowledgeChunk, type KnowledgeConfig, type KnowledgeDocument, type KnowledgeIndex, type MemoryTurnLog, type MemoryTurnLogOptions, type ModerationConfig, type OpenAIEmbedderOptions, type Passage, type PositionedItem, type PresetName, type RateLimitStore, type SearchOptions, type StoredCitation, type StoredItem, type StoredPart, type SyncReport, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type TurnEvent, type TurnEventLog, type TurnstileOptions, VersionConflictError, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
+export { type AdminBotDayRow, type AdminCheckOutcome, type AdminConversationQuery, type AdminConversationSummary, type AdminCountEvent, type AdminDashboard, type AdminDashboardHandler, type AdminDashboardRequest, type AdminDayRow, type AdminDays, type AdminHandoffCounts, type AdminHandoffState, type AdminPage, type AdminRange, type AdminRatingQuery, type AdminRatingRecord, type AdminRecordKey, type AdminSource, type AdminStore, type AdminStoredRating, type AdminSweepOptions, type AdminTranscriptCitation, type AdminTranscriptRecord, type AdminTurnRecord, type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type CompactionModel, type ConversationContext, type ConversationInfo, type ConversationOwner, type ConversationPage, type ConversationStore, type ConversationStoreCheck, type CounterHit, ERROR_CODES, type Embedder, type Embeddings, type ErrorCode, type Form, type FormDefinition, type FormField, type FormFieldType, type FormText, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type HandoffAvailabilityContext, type HandoffConfig, type HandoffLimits, type HumanChallenge, type HumanCheckContext, type HumanVerifier, type KnowledgeCallOptions, type KnowledgeCheck, type KnowledgeChunk, type KnowledgeConfig, type KnowledgeDocument, type KnowledgeIndex, type MemoryTurnLog, type MemoryTurnLogOptions, type ModerationConfig, type OpenAIEmbedderOptions, type Passage, type PositionedItem, type PresetName, type RateLimitStore, type SearchOptions, type StoredCitation, type StoredItem, type StoredPart, type SyncReport, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type TurnEvent, type TurnEventLog, type TurnstileOptions, VersionConflictError, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineForm, defineTheme, defineTool };
 
 // ==== next.d.ts ====
 import { A as AdminStore, H as MessageEndReason, I as ChatCompactionReport, L as ChatTokenUsage, R as ChatToolCallReport, U as ChatForm, V as ErrorCode, Y as ConversationStore, i as RateLimitStore, n as TurnEventLog, z as ChatUsageReport } from "./turn-log.js";
-import { A as AdminDashboard, C as PresetName, E as VisitorIdentity, T as ThemeVariants, i as BotHandle } from "./define-bot.js";
+import { E as PresetName, O as ThemeVariants, i as BotHandle, k as VisitorIdentity, z as AdminDashboard } from "./define-bot.js";
 import "zod";
 /** What a visitor may attach, as the bot allows it. */
 interface ChatAttachments {
@@ -917,6 +971,41 @@ interface EmbedChatConfig extends ChatConfig {
   readonly allowedOrigins: readonly string[];
   /** `inline` inside an element of the host page, `floating` in the widget's panel. */
   readonly mode: "floating" | "inline";
+}
+/**
+ * One sent form, as `onLead` receives it (ADR-0031). `values` are what the visitor typed, validated
+ * and normalized: treat the report as personal data. askdare keeps none of it.
+ */
+interface ChatLeadReport {
+  /** A random ID for this submission: drop duplicates by it. */
+  readonly id: string;
+  readonly bot: string;
+  /** The form's name. */
+  readonly form: string;
+  readonly locale: string;
+  /** When the form was sent, in epoch milliseconds. */
+  readonly createdAt: number;
+  /** Every field of the form by name: text, or `true`/`false` for `consent`; `''` when left empty. */
+  readonly values: Readonly<Record<string, string | boolean>>;
+  /** The same pseudonym (HMAC) `onUsage`, `onFeedback` and `onHandoff` report. */
+  readonly visitor: string;
+  /** The signed-in user, verified (ADR-0009); absent for anonymous visitors. */
+  readonly identity?: VisitorIdentity | undefined;
+  /** The conversation in your conversation store. Never sent to the browser. */
+  readonly conversationId: string;
+  /**
+   * `model` for a form the model showed; `handoff` for a message left through a handoff's form,
+   * because nobody was available or the request could not be delivered.
+   */
+  readonly source: {
+    readonly kind: "model";
+  } | {
+    readonly kind: "handoff";
+    readonly reason: "visitor_asked" | "cannot_help" | "complaint" | "sensitive" | "sales";
+    readonly trigger: "model" | "visitor";
+    readonly delivered: false;
+    readonly why: "unavailable" | "failed";
+  };
 }
 /** One visible message of the conversation, in a report with `content: 'transcript'`. */
 interface ChatHandoffMessage {
@@ -1190,6 +1279,19 @@ interface ChatHandlerOptions {
    */
   readonly onTranscript?: (report: ChatTranscriptReport) => void | Promise<void>;
   /**
+   * Receives each request for a person (ADR-0030), such as `webhookHandoff()` or `emailHandoff()`.
+   * Awaited, with a 10-second deadline: what it does decides what the visitor sees, and a throw or
+   * the deadline means the request failed (`onError` gets the error's name only). Required when a
+   * bot turns `handoff` on. The report carries contact details: treat it as personal data.
+   */
+  readonly onHandoff?: (report: ChatHandoffReport) => void | Promise<void>;
+  /**
+   * Receives each sent form (ADR-0031) after the response, with the visitor's validated values.
+   * askdare stores none of them: keep them here. Required when a bot offers forms to the model. A
+   * throw goes to `onError` by the error's name only. Treat the report as personal data.
+   */
+  readonly onLead?: (report: ChatLeadReport) => void | Promise<void>;
+  /**
    * Serves the state gallery: `/embed/<bot>?gallery=<state>&preset=<preset>&scheme=<scheme>`
    * renders fixture states without calling the model. For development and visual tests; leave
    * it off in production.
@@ -1357,7 +1459,7 @@ export declare function embedPageHeaders(options: {
   readonly bots: readonly BotHandle[];
   readonly bot: string;
 }): EmbedPageHeader[];
-export type { ChatAttachments, ChatCompactionReport, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerAdminConsoleOptions, ChatHandlerAdminOptions, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlerResumeOptions, ChatHandlers, ChatHandoffMessage, ChatHandoffReport, ChatHumanCheck, ChatStyles, ChatSweepOptions, ChatSweepResult, ChatTokenUsage, ChatToolCallReport, ChatTranscriptCitation, ChatTranscriptReport, ChatUsageReport, ChatWidget, EmailHandoffOptions, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, HandoffEmail, OpenAIConversationsOptions, RouteHandler, TrustProxy, WebhookHandoffOptions };
+export type { ChatAttachments, ChatCompactionReport, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerAdminConsoleOptions, ChatHandlerAdminOptions, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlerResumeOptions, ChatHandlers, ChatHandoffMessage, ChatHandoffReport, ChatHumanCheck, ChatLeadReport, ChatStyles, ChatSweepOptions, ChatSweepResult, ChatTokenUsage, ChatToolCallReport, ChatTranscriptCitation, ChatTranscriptReport, ChatUsageReport, ChatWidget, EmailHandoffOptions, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, HandoffEmail, OpenAIConversationsOptions, RouteHandler, TrustProxy, WebhookHandoffOptions };
 
 // ==== react.d.ts ====
 

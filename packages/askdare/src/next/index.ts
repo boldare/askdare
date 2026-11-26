@@ -6,6 +6,7 @@ export type {
   ChatWidget,
   EmbedChatConfig,
 } from '../chat/config';
+export type { ChatLeadReport } from '../forms/lead-report';
 export type { EmailHandoffOptions, HandoffEmail } from '../handoff/email';
 export { emailHandoff } from '../handoff/email';
 export type { ChatHandoffMessage, ChatHandoffReport } from '../handoff/report';
