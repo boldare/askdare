@@ -30,7 +30,7 @@ Short records of decisions that are expensive to reverse. One decision per file,
 | [0024](0024-conversation-store.md) | Conversations stored outside OpenAI: the `ConversationStore` port | Accepted (spike S7, tasks 1, 2, a2, 3a, e1) |
 | [0025](0025-knowledge-index.md) | Retrieval we own: the `KnowledgeIndex` port and the `search_knowledge` tool | Accepted (spike S8, rerun in k2) |
 | [0026](0026-provider-path.md) | The provider path: one turn loop, provider profiles, then native adapters | Accepted (spikes S6a, S6b; 0.6 part built) |
-| [0027](0027-stream-resume.md) | Resuming an answer after a dropped connection | Accepted (spike S7, r1 to r3b; Vercel unchecked) |
+| [0027](0027-stream-resume.md) | Resuming an answer after a dropped connection | Accepted (spike S7, r1 to r3b; checked on Vercel) |
 | [0028](0028-react-budget-34-kb.md) | A 34 KB budget for the React entry, for Markdown fixes | Accepted |
 | [0029](0029-compaction-for-item-stores.md) | Compaction for conversations in our own store | Accepted (spike S9, task 4) |
 

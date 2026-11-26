@@ -102,7 +102,7 @@ When a visitor's connection drops in the middle of an answer, the chat can pick 
 
 - **The answer keeps running after its response closed.** askdare hands the rest of each turn to Next.js `after()`.
   - On **Heroku** and other long-running Node.js servers (`next start`), the process simply goes on. askdare's end-to-end tests check this against the production build.
-  - On **Vercel**, `after()` extends the function until the turn's work is done, within the route's `maxDuration`. Not yet checked on a deployment ([ADR-0027](adr/0027-stream-resume.md)).
+  - On **Vercel**, `after()` extends the function until the turn's work is done, within the route's `maxDuration`. Checked on a deployment with `upstashTurnLog()` ([ADR-0027](adr/0027-stream-resume.md)).
 - **The reconnect finds the answer's events.** The default log is per instance. With one Heroku dyno, that is enough. With several dynos, or on Vercel, use the Upstash database you already have for the limits:
 
   ```ts

@@ -192,7 +192,7 @@ export const { GET, POST, DELETE } = createChatHandler({
 });
 ```
 
-Both read `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` (or the `KV_REST_API_*` names the Vercel Marketplace sets). The log holds the answer's text for a few minutes, then it expires ([Privacy](privacy.md#turn-log)). Resume needs the turn to keep running after its response closed: checked on `next start` (Heroku), not yet on a Vercel deployment ([Deployment](deployment.md#resuming-answers)). More in the [Upstash add-on's README](../packages/askdare-upstash/README.md#resuming-answers-across-instances).
+Both read `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` (or the `KV_REST_API_*` names the Vercel Marketplace sets). The log holds the answer's text for a few minutes, then it expires ([Privacy](privacy.md#turn-log)). Resume needs the turn to keep running after its response closed: checked on `next start` (Heroku) and on a Vercel deployment ([Deployment](deployment.md#resuming-answers)). More in the [Upstash add-on's README](../packages/askdare-upstash/README.md#resuming-answers-across-instances).
 
 ## 6. Compact long conversations
 

@@ -30,7 +30,7 @@ S7's Postgres prototype worked (400 deltas written one by one in 186 ms, or in 2
 4. **The client** retries a stream that ends without `message.end` or `error` through `POST /resume` a few times with backoff, then reloads history. Text already shown stays; resumed events continue it without duplicates, since each carries its sequence number.
 5. **Keeping the turn alive:** a turn has to keep running after its response closes. The handler already has a `waitUntil` option. The implementing task verifies this on Vercel (`after()` or `waitUntil`) and on Heroku; a platform where it fails gets no resume, and the docs say so.
    - **Long-running Node.js (`next start`, as on Heroku):** verified by `e2e/resume.spec.ts` against the production build (r3a): a stream dropped mid-answer resumes with the rest, and the turn finishes upstream.
-   - **Vercel:** not yet verified. The turn's remaining work (the model call, the log's last flush, the hooks) is handed to Next.js `after()`, which on Vercel extends the function within `maxDuration`. Checking it needs a preview deployment with an Upstash database, which needs the maintainer's approval; until then `docs/deployment.md` says it is unchecked.
+   - **Vercel:** verified. The turn's remaining work (the model call, the log's last flush, the hooks) is handed to Next.js `after()`, which on Vercel extends the function within `maxDuration`. It was checked on 2026-11-26 on askdare.vercel.app (Vercel with `upstashTurnLog()`): streams cut after 1, 5, 12 and 30 text deltas each resumed with every event once, in order, ending `completed`, and the text matched the stored answer.
 6. **Privacy:** the log holds answer text for minutes. The implementations log nothing about the values they hold, and `docs/privacy.md` names the log and its time to live.
 7. **Public surface** (added to ADR-0006 when this is accepted):
    - `@boldare/askdare`: the `TurnEventLog` port with `TurnEvent`, and `memoryTurnLog` with `MemoryTurnLog` and `MemoryTurnLogOptions`;
@@ -63,9 +63,9 @@ S7's Postgres prototype worked (400 deltas written one by one in 186 ms, or in 2
 
 ### Evidence
 
-- `turnEventLogContract` passes for `memoryTurnLog()` and, against a fake Redis that runs the same two scripts, for `upstashTurnLog()` (r1, r2). Against a real Upstash database it runs only with `ASKDARE_TEST_UPSTASH=1`, which no 0.6 task ran: the Lua scripts and the 250 ms wake-up figure are unchecked against real Redis.
+- `turnEventLogContract` passes for `memoryTurnLog()` and, against a fake Redis that runs the same two scripts, for `upstashTurnLog()` (r1, r2). With `ASKDARE_TEST_UPSTASH=1` it also passed, wake-up check under 250 ms included, against Redis 7.4 behind Upstash's REST proxy (`serverless-redis-http`), and the scripts ran on Upstash itself in the Vercel check below. The contract itself hasn't been run against an Upstash database directly.
 - `e2e/resume.spec.ts` against the production build (`next start`): the protocol driven with `fetch` (r3a), then the widget and the chat inside a page finishing an answer whose stream was cut mid-answer, and taking it from the history when `/resume` answers `404` (r3b, 20 of 20 with `--repeat-each 5`).
-- Not checked: resume on Vercel with `upstashTurnLog()` (decision 5).
+- Resume on Vercel with `upstashTurnLog()` (decision 5): checked on 2026-11-26 on askdare.vercel.app (Vercel with `upstashTurnLog()`): streams cut after 1, 5, 12 and 30 text deltas each resumed with every event once, in order, ending `completed`, and the text matched the stored answer.
 
 ## Consequences
 
