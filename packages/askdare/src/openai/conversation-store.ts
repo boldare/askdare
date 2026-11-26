@@ -144,7 +144,7 @@ export function createOpenAIConversations(client: () => OpenAI): ConversationSto
         // No key: every bot's own checks already say so.
         return [];
       }
-      return [await checkConversations(openai)];
+      return [await checkConversations(openai, signal)];
     },
   };
   return withHistory(store, async (id, request) => {
