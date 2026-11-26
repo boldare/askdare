@@ -53,17 +53,46 @@ export function launcherLook(bot: Bot): LauncherLook {
   };
 }
 
+/**
+ * The look of a launcher whose bot the server can't name: a tag with only `data-bot`, or one whose
+ * `data-bot` differs from `?bot=`. The loader carries no fallbacks of its own (ADR-0033), so this is
+ * the blue chat icon with English texts that docs/embedding.md promises.
+ */
+export const DEFAULT_LOOK: LauncherLook = {
+  style: 'circle',
+  texts: {
+    en: {
+      label: 'Ask us',
+      open: 'Open chat',
+      close: 'Close chat',
+      unavailable: 'The chat couldn’t load. Please try again later.',
+      title: 'Chat',
+    },
+  },
+  accent: '#1f5fe0',
+  onAccent: '#ffffff',
+  orb: 'var(--a)',
+  initials: '',
+  light: '#ffffff',
+  dark: '#0a0f1c',
+  text: '#0d1526',
+  textDark: '#e8edf7',
+  scheme: 'auto',
+  radius: '18px',
+};
+
 /** The placeholder as the minifier left it, in whichever quotes it chose (it picks backticks too). */
 const QUOTED_PLACEHOLDER = new RegExp(`(['"\`])${LAUNCHER_PLACEHOLDER}\\1`);
 
 /**
  * The loader with the requested bot's launcher look inlined, and no other bot's: widget.js must
- * not list every bot. The whole quoted placeholder is replaced by a JSON string literal, which is
+ * not list every bot. The default look always comes along under '', for a `data-bot` the server
+ * didn't see. The whole quoted placeholder is replaced by a JSON string literal, which is
  * a valid JS string whatever it contains (quotes, backticks, `${`, `$&`), and the replacement is a
  * function so `String.replace` patterns in the values are not interpreted.
  */
 export function loaderWithLook(loaderJs: string, bot: Bot | undefined): string {
-  const looks = bot ? { [bot.id]: launcherLook(bot) } : {};
+  const looks = bot ? { [bot.id]: launcherLook(bot), '': DEFAULT_LOOK } : { '': DEFAULT_LOOK };
   const literal = JSON.stringify(JSON.stringify(looks))
     .replaceAll(' ', '\\u2028')
     .replaceAll(' ', '\\u2029');

@@ -6,7 +6,8 @@ import { createRequire } from 'node:module';
 import { basename, dirname, join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 
-const LOADER_BUDGET_BYTES = 5 * 1024;
+/** The host-page loader, gzipped, measured with the look placeholder (5.5 KB, ADR-0033). */
+const LOADER_BUDGET_BYTES = 5632;
 /** The iframe app, gzipped: Preact, the markdown lexer and our code (ADR-0001; was 174 KB on React). */
 const WIDGET_BUDGET_BYTES = 50 * 1024;
 const CSS_BUDGET_BYTES = 8 * 1024;

@@ -1,0 +1,235 @@
+/* askdare loader styles, minified at build time (ADR-0033). Short custom property names keep the
+   loader small: a accent, o text on accent, b orb, l and d panel background (light, dark), t and u
+   text on them, r panel radius; bg and fg are the surface and its text in the current scheme. */
+:host {
+  all: initial;
+  --bg: var(--l);
+  --fg: var(--t);
+}
+:host([data-askdare-scheme="dark"]) {
+  --bg: var(--d);
+  --fg: var(--u);
+}
+@media (prefers-color-scheme: dark) {
+  :host([data-askdare-scheme="auto"]) {
+    --bg: var(--d);
+    --fg: var(--u);
+  }
+}
+[part="launcher"] {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2147483000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 56px;
+  height: 56px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--a);
+  color: var(--o);
+  cursor: pointer;
+  font:
+    600 15px / 1 system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  box-shadow:
+    0 12px 32px -10px rgb(15 23 42 / 0.45),
+    0 2px 6px rgb(15 23 42 / 0.16);
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease;
+}
+[part="launcher"]:hover {
+  transform: translateY(-2px);
+}
+[part="launcher"]:focus-visible {
+  outline: 3px solid var(--a);
+  outline-offset: 3px;
+}
+.pill {
+  padding: 0 22px 0 6px;
+}
+.av {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--o);
+  color: var(--a);
+  font-size: 14px;
+}
+.av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* The orb launcher: the orb with its label, on the panel's background, so it reads as a chat. */
+.orb {
+  height: 60px;
+  padding: 0 22px 0 6px;
+  background: var(--bg);
+  color: var(--fg);
+  box-shadow:
+    0 14px 34px -12px var(--a),
+    0 2px 8px rgb(15 23 42 / 0.12),
+    0 0 0 1px rgb(15 23 42 / 0.06);
+}
+.ob {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--b);
+  box-shadow:
+    inset 0 -5px 12px rgb(0 0 0 / 0.18),
+    inset 0 4px 10px rgb(255 255 255 / 0.6);
+}
+.ob::after {
+  content: "";
+  position: absolute;
+  top: 12%;
+  left: 20%;
+  width: 36%;
+  height: 28%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, #fffe, #fff0);
+}
+/* The open launcher is a plain accent button, whatever its style. */
+[aria-expanded="true"] {
+  background: var(--a);
+  color: var(--o);
+}
+[aria-expanded="true"] .av,
+[aria-expanded="true"] .ob,
+[aria-expanded="true"] .lb {
+  display: none;
+}
+.pill[aria-expanded="true"],
+.orb[aria-expanded="true"] {
+  padding: 0;
+  width: 56px;
+}
+[part="panel"] {
+  position: fixed;
+  right: 24px;
+  bottom: 96px;
+  z-index: 2147483000;
+  width: min(400px, calc(100vw - 48px));
+  height: min(680px, calc(100dvh - 120px));
+  overflow: hidden;
+  border-radius: var(--r);
+  background: var(--bg);
+  box-shadow:
+    0 28px 70px -12px rgb(15 23 42 / 0.4),
+    0 0 0 1px rgb(15 23 42 / 0.06);
+  transform-origin: bottom right;
+  animation: in 0.34s cubic-bezier(0.3, 1.3, 0.5, 1);
+}
+/* Closing plays the opening backwards, faster, before the panel is hidden. */
+[part="panel"][data-closing] {
+  pointer-events: none;
+  animation: out 0.18s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+[part="panel"][hidden] {
+  display: none;
+}
+[part="unavailable"] {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 24px;
+  background: var(--l);
+  color: var(--t);
+  text-align: center;
+  font:
+    15px / 1.5 system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+}
+[part="panel"].solo {
+  bottom: 24px;
+}
+[part="panel"].inline {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  box-shadow: none;
+  animation: none;
+}
+iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+/* The icon turns as it swaps between chat and close; not on the first paint. */
+[data-turned] svg {
+  animation: turn 0.26s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+@keyframes in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.9);
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes out {
+  to {
+    opacity: 0;
+    transform: translateY(12px) scale(0.94);
+  }
+}
+@keyframes turn {
+  from {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.5);
+  }
+}
+@keyframes up {
+  from {
+    transform: translateY(100%);
+  }
+}
+@media (max-width: 480px) {
+  [part="panel"] {
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    border-radius: 0;
+    animation: up 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  [part="panel"][data-closing] {
+    animation: out 0.18s ease-in forwards;
+  }
+  [aria-expanded="true"][data-ready] {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [part="launcher"],
+  [part="panel"],
+  [part="panel"][data-closing],
+  svg,
+  [data-turned] svg {
+    transition: none;
+    animation: none;
+  }
+}
