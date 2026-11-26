@@ -353,6 +353,37 @@ function Forms() {
   );
 }
 
+describe('the gallery', () => {
+  it('shows the new states from fixtures alone: no handoff or form reaches a server', async () => {
+    const { FIXTURES } = await import('../widget-app/gallery');
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+    for (const state of ['handoff', 'form', 'form-errors'] as const) {
+      const { unmount } = render(
+        <ChatProvider store={createFixtureStore(testConfig(), FIXTURES[state])}>
+          <DefaultPanel />
+        </ChatProvider>,
+      );
+      const person = screen.queryByRole('button', { name: 'Talk to a person' });
+      if (person) fireEvent.click(person);
+      const form = document.querySelector('form[data-ask-part="form"]');
+      if (form) {
+        fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), {
+          target: { value: 'Anna' },
+        });
+        fireEvent.change(screen.getByRole('textbox', { name: 'Work email' }), {
+          target: { value: 'anna@example.com' },
+        });
+        fireEvent.click(screen.getByRole('checkbox'));
+        fireEvent.submit(form);
+      }
+      expect(person !== null || form !== null, state).toBe(true);
+      unmount();
+    }
+    expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
 describe('HandoffButton and HandoffStatus', () => {
   it('shows nothing for a bot without the button, or before the first answer', async () => {
     const server = fakeServer({});
