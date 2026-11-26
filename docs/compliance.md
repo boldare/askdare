@@ -10,7 +10,7 @@ Legal texts and OpenAI's terms were checked on 2026-11-21 against the sources at
 | --- | --- | --- |
 | [Telling visitors they talk to an AI](#1-telling-visitors-they-talk-to-an-ai) (AI Act, art. 50(1)) | A note under the message field, on by default | Keep it, word it, or turn it off when your page already says so |
 | [Personal data](#2-personal-data-gdpr) (GDPR) | By default, stores nothing on your server but rate-limit counters; sends a pseudonym, not an identity, to OpenAI; lets visitors delete their conversation; with [your own store](own-your-data.md), sweeps old conversations | Your privacy notice, the DPA with OpenAI, a retention policy for conversations |
-| [Data residency](#3-data-residency) | Uses OpenAI's global endpoints; can keep conversations and knowledge in your own database | Where your database runs, and whether OpenAI's processing of requests is acceptable |
+| [Data residency](#3-data-residency) | Uses OpenAI's global endpoint, or a regional one set in `OPENAI_BASE_URL`; can keep conversations and knowledge in your own database | Where your database runs, and whether OpenAI's processing of requests is acceptable |
 | [The conversation handle in the browser](#4-the-conversation-handle-in-the-browser) | Keeps it in the widget's iframe | Whether to show the chat inside your own pages |
 | [Accessibility](#5-accessibility) (European Accessibility Act) | Targets WCAG 2.2 AA | Your site's own conformance |
 | [Moderation and guardrails](#6-moderation-and-guardrails) | Opt-in OpenAI moderation, hooks to block or redact messages and answers, untrusted tool results | Which of them your bot needs, and what blocked visitors see |
@@ -87,7 +87,7 @@ OpenAI offers [data residency](https://developers.openai.com/api/docs/guides/dat
 - Models released on or after 5 March 2026 cost 10% more on data residency endpoints.
 - It covers Customer Content at rest for the endpoints OpenAI lists, and processing where the region supports it. System data, such as account and usage data, may still be stored and processed elsewhere.
 
-**What that means for askdare.** By default, askdare stores conversations with OpenAI's Conversations API (`/v1/conversations`), and OpenAI's list of endpoints eligible for data residency doesn't include it. A residency project therefore doesn't keep askdare's conversations in your region. askdare also uses OpenAI's global endpoint and isn't tested against regional ones.
+**What that means for askdare.** By default, askdare stores conversations with OpenAI's Conversations API (`/v1/conversations`), and OpenAI's list of endpoints eligible for data residency doesn't include it. A residency project therefore doesn't keep askdare's conversations in your region. askdare sends its requests to OpenAI's global endpoint unless `OPENAI_BASE_URL` names a regional one; [Regional OpenAI endpoints](deployment.md#regional-openai-endpoints) shows how, and what the EU endpoint covers. It hasn't yet run against a live EU project.
 
 If you need conversations stored in a given region, keep them in your own database, in that region, with `@boldare/askdare-postgres`, and the knowledge base with them. OpenAI then keeps no conversation and no response; it still receives the model requests, embeddings, dictations and moderation checks, and stores attached files until they expire. See [Own your data](own-your-data.md#what-stays-at-openai).
 

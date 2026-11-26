@@ -11,6 +11,7 @@ askdare runs wherever Next.js runs on Node.js. It needs no database: conversatio
 | `ASKDARE_MODEL` | If your config reads the model from it, as the `init` template does. |
 | `IDENTITY_SECRET` | Only for [signed-in visitors](identity.md). Shared with your site's backend, different from `CHAT_SECRET`. |
 | `KB_VECTOR_STORE_ID` | Only with a knowledge base. Vector stores belong to one OpenAI project, so run `kb sync` with the production key to get the production store. |
+| `OPENAI_BASE_URL` | Only for a [regional OpenAI endpoint](#regional-openai-endpoints), such as `https://eu.api.openai.com/v1`. Unset means OpenAI's global endpoint. |
 
 Set them in your host's settings, never in files you commit.
 
@@ -116,6 +117,39 @@ When a visitor's connection drops in the middle of an answer, the chat can pick 
   ```
 
 Where neither holds, the chat reloads the conversation instead, a few seconds after the drop, and shows the answer if it is finished by then; otherwise the answer shows the next time the chat loads. See [Troubleshooting](troubleshooting.md#the-chat-reconnects-in-the-middle-of-an-answer).
+
+## Regional OpenAI endpoints
+
+OpenAI offers [data residency](https://developers.openai.com/api/docs/guides/data-residency) per project: an eligible organisation creates a project in a region, such as Europe (EEA and Switzerland), and sends that project's requests to the regional domain. askdare needs no option for it: every OpenAI client it creates, in the app and in `kb sync`, reads `OPENAI_BASE_URL` when it is set, as the `openai` SDK does.
+
+```bash
+OPENAI_API_KEY=…                                # a key from the EU project
+OPENAI_BASE_URL=https://eu.api.openai.com/v1
+```
+
+- **The key and the domain go together.** Use a key from a project created in that region (or from a Global project with per-request data residency turned on). The region of a project can't be changed later.
+- **Leave `OPENAI_ORG_ID` and `OPENAI_PROJECT_ID` unset,** or set them to the regional project: the SDK sends them as headers, and OpenAI's own examples drop them for a regional key.
+- **Use a model the region processes.** Check the region's list of models and snapshots on OpenAI's page; it is shorter outside the United States and Europe.
+- **Sync the knowledge base again with the regional key.** A vector store belongs to one project, so the regional project needs its own: `kb sync` with both variables set prints its ID for `KB_VECTOR_STORE_ID`.
+- **Prices:** OpenAI charges 10 % more on regional endpoints for models released on or after 5 March 2026.
+
+What Europe covers, from OpenAI's page, checked on 2026-11-26:
+
+| askdare uses | Endpoint | Stored in the EU | Processed in the EU |
+| --- | --- | --- | --- |
+| Turns, compactions, suggested replies | `/v1/responses` | Yes | Yes, for the listed models |
+| Knowledge base search (`file_search`) | `/v1/responses` with File Search, `/v1/vector_stores` | Yes | Yes |
+| Attachments, `kb sync` uploads | `/v1/files` | Yes | Not applicable |
+| Dictation | `/v1/audio/transcriptions` | Yes | Yes |
+| Moderation | `/v1/moderations` | Yes | Yes |
+| Embeddings, with your own index | `/v1/embeddings` | Yes | Yes |
+| **Conversations, with the default store** | `/v1/conversations` | **Not listed** | **Not listed** |
+
+OpenAI's page doesn't list the Conversations API, so a residency project doesn't promise to keep askdare's default conversation store in the region. Where conversations must stay in the region, keep them in your own database with [`postgresConversations`](own-your-data.md): turns are then stateless (`store: false`) and use only the endpoints listed above. System data (account, usage and billing data) may be stored and processed outside the region on every endpoint.
+
+**Tested on 2026-11-26, with a key from a Global project** (no EU-residency project was available): `OPENAI_BASE_URL` sends askdare's requests to `eu.api.openai.com`, which lists the models, but refuses `/v1/responses` and `/v1/conversations` with **401** *"This endpoint is only accessible by projects with geography restrictions enabled."* So a key from the wrong project fails on the first message, although the same key works on the global endpoint. A unit test checks that askdare's client takes its base URL from `OPENAI_BASE_URL`.
+
+**Not tested yet:** a full run with a key from an EU-residency project, including whether the default conversation store works there. The live contract and smoke tests run it with the same two variables ([Live testing](live-testing.md#against-a-regional-endpoint)); the result goes here, with its date.
 
 ## Behind another proxy or CDN
 

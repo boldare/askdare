@@ -38,6 +38,20 @@ cd spikes/s1-openai && pnpm install --ignore-workspace && pnpm start   # spike S
 
 Both clean up what they create (conversations, files, vector stores).
 
+### Against a regional endpoint
+
+To check askdare against OpenAI's EU endpoint ([Regional OpenAI endpoints](deployment.md#regional-openai-endpoints)), use a key from a project created with EU data residency, capped like the one above, and a `SMOKE_MODEL` the region processes. Put both in `.env.smoke.local` as above, add the base URL, and run the conversation store contract and the gateway tests:
+
+```bash
+printf 'OPENAI_BASE_URL=https://eu.api.openai.com/v1\n' >> .env.smoke.local
+```
+
+```bash
+ASKDARE_CONTRACT_OPENAI=1 pnpm smoke
+```
+
+A run makes a handful of short model calls and a few file and conversation requests, well under 1 USD. Record the date and the result in [Deployment](deployment.md#regional-openai-endpoints). Remove the line again before the next run against the global project.
+
 ## 4. Afterwards
 
 - Revoke or rotate the key when you no longer need it.
