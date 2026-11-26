@@ -262,44 +262,53 @@ export const { GET, POST, DELETE } = createChatHandler({
 
 In `askdare.config.ts`, pass the same pool to the index: `pgvectorIndex({ embedder, indexId: 'support', pool: db })`.
 
-A transcript is personal data, as the conversation is. askdare calls no hook when a conversation is deleted, by the visitor or by a sweep, so give transcripts a retention of their own: the [next step](#8-sweep-old-conversations) deletes both.
+A transcript is personal data, as the conversation is. askdare calls no hook when a conversation is deleted, by the visitor or by a sweep, so give transcripts you keep yourself a retention of their own: the [next step](#8-sweep-old-conversations) deletes both. Transcripts in an admin store (`admin: { store, transcripts: true }`) are deleted with their conversation instead.
 
 ## 8. Sweep old conversations
 
-Choose how long you keep a conversation after its last message, and delete older ones on a schedule. `sweep(idleSince, limit)` deletes up to `limit` conversations idle since `idleSince` and returns them with the files their visitors attached. askdare can't schedule work, so a cron route or a scheduled job calls it.
+Choose how long you keep a conversation after its last message, and delete older ones on a schedule. The handlers `createChatHandler` returns have a `sweep()` for it: it deletes conversations idle for `idleDays` (default 30) with the files their visitors attached and, with an admin store, their admin records, then admin records older than `admin.retentionDays`. It works in bounded batches (`limit`, default 100 conversations) and answers `{ conversations, files, records, more }`, where `more` says a later call has work left. askdare can't schedule work, so a cron route or a scheduled job calls it.
+
+A route file may export only HTTP methods, so create the handlers in a module of their own, which the chat route and the cron route both import:
+
+```ts
+// lib/chat.ts
+import { createChatHandler } from '@boldare/askdare/next';
+import { postgresConversations } from '@boldare/askdare-postgres';
+import { bots } from '../askdare.config';
+import { db } from './db';
+
+export const chat = createChatHandler({ bots, conversations: postgresConversations({ pool: db }) });
+```
+
+```ts
+// app/api/chat/[...path]/route.ts
+import { chat } from '../../../../lib/chat';
+
+export const maxDuration = 300;
+export const { GET, POST, DELETE } = chat;
+```
 
 On Vercel, a cron route that Vercel calls with the `CRON_SECRET` you set in the project:
 
 ```ts
 // app/api/cron/sweep/route.ts
-import { postgresConversations } from '@boldare/askdare-postgres';
-import OpenAI from 'openai';
-import { db } from '../../../../lib/db';
+import { chat } from '../../../../lib/chat';
 
 const RETENTION_DAYS = 30;
-const BATCH = 100;
-const conversations = postgresConversations({ pool: db });
-const openai = new OpenAI();
 
 export async function GET(request: Request): Promise<Response> {
   const secret = process.env.CRON_SECRET;
   if (!secret || request.headers.get('authorization') !== `Bearer ${secret}`) {
     return new Response(null, { status: 401 });
   }
-  const idleSince = Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000;
-  let swept = 0;
-  // A bounded number of batches per run; the next run continues.
-  for (let batch = 0; batch < 20; batch += 1) {
-    const deleted = await conversations.sweep(idleSince, BATCH);
-    swept += deleted.length;
-    const fileIds = deleted.flatMap((conversation) => conversation.fileIds);
-    await Promise.allSettled(fileIds.map((fileId) => openai.files.delete(fileId)));
-    if (deleted.length < BATCH) break;
-  }
-  // Transcripts by age, so those of conversations the visitor deleted go too. (Conversations go by
-  // idle time: a conversation still in use keeps its turns, but its older transcripts go.)
-  await db.query('delete from chat_transcripts where created_at < $1', [new Date(idleSince)]);
-  return Response.json({ swept });
+  const result = await chat.sweep({ idleDays: RETENTION_DAYS, signal: request.signal });
+  // With step 7's own table: transcripts by age, so those of conversations the visitor deleted
+  // go too. (Conversations go by idle time: one still in use keeps its turns.)
+  await db.query('delete from chat_transcripts where created_at < $1', [
+    new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000),
+  ]);
+  // `more`: the next run continues.
+  return Response.json(result);
 }
 ```
 
@@ -307,7 +316,7 @@ export async function GET(request: Request): Promise<Response> {
 { "crons": [{ "path": "/api/cron/sweep", "schedule": "0 3 * * *" }] }
 ```
 
-That goes in `vercel.json`. Add `openai` to your dependencies for the file deletion, leave the route out of your `proxy.ts` matcher, and if you skipped step 7, drop the transcript line and use `postgresConversations()` without `db`. On Heroku, run the same loop from a script with [Heroku Scheduler](https://devcenter.heroku.com/articles/scheduler); the [add-on's README](../packages/askdare-postgres/README.md#retention) has one.
+That goes in `vercel.json`. Leave the route out of your `proxy.ts` matcher, and if you skipped step 7 or keep transcripts in an admin store (`admin.transcripts`), drop the transcript lines. On Heroku, call `chat.sweep()` from a script with [Heroku Scheduler](https://devcenter.heroku.com/articles/scheduler).
 
 To try it locally, set `RETENTION_DAYS` to `0` for one run, start the app with `CRON_SECRET` in `.env.local`, and call the route:
 
@@ -315,14 +324,15 @@ To try it locally, set `RETENTION_DAYS` to `0` for one run, start the app with `
 curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/sweep
 ```
 
-It answers `{"swept":1}` for one conversation, and the chat shows a new, empty conversation at its next reload. Set `RETENTION_DAYS` back before you deploy.
+It answers `{"conversations":1,"files":0,"records":0,"more":false}` for one conversation, and the chat shows a new, empty conversation at its next reload. Set `RETENTION_DAYS` back before you deploy.
 
 What the sweep covers, and what it doesn't:
 
 - **Idle time** counts from the database's clock, at each message. A turn in progress is never swept.
-- **Attachments** expire at OpenAI 30 days after upload anyway; with a retention of 30 days or more they are already gone. With a shorter one, delete them as above.
+- **Attachments** of a swept conversation are deleted at OpenAI with it; those of older conversations expire there 30 days after upload anyway.
 - **Compaction summaries** are part of the conversation and go with it.
-- **Anything else you keep,** such as ratings from `onFeedback`, needs its own retention, by conversation ID or by age.
+- **Admin records** (with `admin.store`) go with their conversation, and by age after `admin.retentionDays`; `askdare doctor` warns when older ones remain.
+- **Anything else you keep,** such as ratings from your own `onFeedback`, needs its own retention, by conversation ID or by age.
 - **Conversations from before the move** stay at OpenAI: the sweep only sees your database.
 
 ## 9. Deploy

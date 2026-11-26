@@ -283,9 +283,9 @@ The admin store keeps **no lead values and no handoff contents** in 0.7. [ADR-00
 
 ### 8. Access and headers
 
-**Two ways in;** at least one must be configured when `admin.console` is set, or `createChatHandler` throws:
+**Two ways in;** at least one must be configured when `admin.console` is set, or the console answers a setup error (checked on first use, like the other secrets, so `next build` never needs them; amended in c5):
 - **A secret.** `ADMIN_SECRET`: at least 32 characters, different from `CHAT_SECRET` and `IDENTITY_SECRET` (checked at the first request, as the other secrets are). It is a separate secret because it is typed into a browser, and `CHAT_SECRET` mints every token. The page keeps it in memory only.
-- **An identity allowlist.** `admin.console.allow: ['user-id', …]`, matched against `sub` of an identity JWT ([ADR-0009](0009-visitor-identity.md)) signed with `IDENTITY_SECRET`, with the audience `askdare-admin` and at most 10 minutes between `iat` and `exp`. The app's own admin page, behind its sign-in, signs one and links to `<basePath>/admin#identity=<jwt>`. The fragment reaches neither the server, nor logs, nor a `Referer`, and the console removes it from the address bar at once.
+- **An identity allowlist.** `admin.console.allow: ['user-id', …]`, matched against `sub` of an identity JWT ([ADR-0009](0009-visitor-identity.md)) signed with `IDENTITY_SECRET`, with the audience `askdare:admin` and at most 10 minutes between `iat` and `exp`. (Amended in c5 from `askdare-admin`, which a bot ID may equal: a colon keeps every chat identity token out.) The app's own admin page, behind its sign-in, signs one and links to `<basePath>/admin#identity=<jwt>`. The fragment reaches neither the server, nor logs, nor a `Referer`, and the console removes it from the address bar at once.
 
 **Sessions.** The page exchanges either credential at `POST admin/api/session` for an **admin token**: a JWE under `CHAT_SECRET`'s keys with its own type (`askdare-admin+jwt`) and audience, valid 15 minutes, held in memory, sent as `Authorization: Bearer` on every request. No cookies, no storage: a reload signs in again.
 - The token carries a fingerprint of `ADMIN_SECRET` or the allowlisted subject. Rotating the secret, or removing a user from `allow`, ends their sessions at the next request.

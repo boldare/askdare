@@ -1,0 +1,196 @@
+:root {
+  color-scheme: light dark;
+  --ac-bg: #f6f7f9;
+  --ac-card: #fff;
+  --ac-text: #1b1f24;
+  --ac-muted: #5b6470;
+  --ac-line: #d9dde3;
+  --ac-accent: #2457d6;
+  --ac-error: #b42318;
+  --ac-warn: #9a6700;
+  --ac-ok: #1a7f37;
+  font:
+    14px / 1.5 system-ui,
+    sans-serif;
+  background: var(--ac-bg);
+  color: var(--ac-text);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ac-bg: #101317;
+    --ac-card: #1a1e24;
+    --ac-text: #e6e9ee;
+    --ac-muted: #9aa3ae;
+    --ac-line: #2f353d;
+    --ac-accent: #7aa2ff;
+    --ac-error: #ff8a80;
+    --ac-warn: #f2c94c;
+    --ac-ok: #6fdc8c;
+  }
+}
+body {
+  margin: 0;
+  padding: 16px;
+}
+#askdare-console {
+  max-width: 960px;
+  margin: 0 auto;
+}
+h1,
+h2,
+h3 {
+  margin: 0 0 8px;
+  line-height: 1.25;
+}
+h1 {
+  font-size: 20px;
+}
+h2 {
+  font-size: 17px;
+}
+h3 {
+  font-size: 14px;
+  color: var(--ac-muted);
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+  background: var(--ac-card);
+  border: 1px solid var(--ac-line);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+button {
+  cursor: pointer;
+}
+button[aria-pressed="true"],
+button[type="submit"] {
+  border-color: var(--ac-accent);
+  color: var(--ac-accent);
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+textarea {
+  flex: 1;
+  min-width: 0;
+  resize: vertical;
+}
+.ac-card {
+  background: var(--ac-card);
+  border: 1px solid var(--ac-line);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+  overflow-wrap: anywhere;
+}
+.ac-signin {
+  max-width: 360px;
+  margin: 10vh auto;
+  display: grid;
+  gap: 12px;
+}
+.ac-signin label {
+  display: grid;
+  gap: 4px;
+}
+.ac-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.ac-header nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+.ac-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+.ac-pre {
+  white-space: pre-wrap;
+  background: var(--ac-bg);
+  padding: 8px;
+  border-radius: 6px;
+  margin: 0 0 12px;
+}
+.ac-fields {
+  margin: 0;
+}
+.ac-fields > div {
+  display: grid;
+  grid-template-columns: minmax(120px, 200px) 1fr;
+  gap: 8px;
+  padding: 2px 0;
+  border-top: 1px solid var(--ac-line);
+}
+.ac-fields dt {
+  color: var(--ac-muted);
+}
+.ac-fields dd {
+  margin: 0;
+}
+.ac-muted {
+  color: var(--ac-muted);
+}
+.ac-error {
+  color: var(--ac-error);
+}
+.ac-checks,
+.ac-lines {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+  display: grid;
+  gap: 6px;
+}
+.ac-checks .ac-fail strong,
+.ac-lines .ac-error {
+  color: var(--ac-error);
+}
+.ac-checks .ac-warn strong {
+  color: var(--ac-warn);
+}
+.ac-checks .ac-ok strong {
+  color: var(--ac-ok);
+}
+.ac-lines li {
+  white-space: pre-wrap;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--ac-bg);
+}
+.ac-lines .ac-user {
+  justify-self: end;
+  max-width: 85%;
+  border: 1px solid var(--ac-line);
+}
+.ac-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.ac-table th,
+.ac-table td {
+  text-align: left;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--ac-line);
+}
+@media (max-width: 600px) {
+  .ac-fields > div {
+    grid-template-columns: 1fr;
+  }
+  .ac-table {
+    display: block;
+    overflow-x: auto;
+  }
+}
