@@ -322,6 +322,11 @@ function formLists(): unknown[] {
     [{ ...CONTACT, name: 'x'.repeat(33) }],
     [{ ...CONTACT, done: 'x'.repeat(300) }],
     [{ ...CONTACT, done: 'x'.repeat(301) }],
+    // Characters, not UTF-16 units: 120 emoji are a valid title, 121 are not.
+    [{ ...CONTACT, title: '😀'.repeat(120) }],
+    [{ ...CONTACT, title: '😀'.repeat(121) }],
+    [{ ...CONTACT, title: '😀'.repeat(61), submit: '👋'.repeat(120), done: '✓'.repeat(300) }],
+    [{ name: 'bare', title: 'Call me', fields: [fieldOf('phone')] }],
     [CONTACT, CONTACT],
     [CONTACT, { ...CONTACT, name: 'callback' }],
     Array.from({ length: 11 }, (_, i) => ({ ...CONTACT, name: `form_${i}` })),
@@ -411,6 +416,7 @@ describe('handoff and forms on the wire', () => {
     const values = [
       errors,
       { email: 'error.form.somethingNew' },
+      { name: 'error.form.invalid' },
       { email: 'error.network' },
       { email: 'Please enter a valid email: anna@' },
       { email: 1 },
@@ -456,7 +462,7 @@ describe('the request schemas', () => {
       { ...body, values: { name: 1 } },
       { ...body, values: { name: null } },
       { ...body, values: { name: { first: 'Anna' } } },
-      { ...body, values: { name: 'x'.repeat(4001) } },
+      { ...body, values: { name: 'x'.repeat(8193) } },
       { ...body, values: { 'first name': 'Anna' } },
       { ...body, values: Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`f${i}`, 'x'])) },
       { botId: 'support', resumeToken: 'r.t', form: 'h.f' },

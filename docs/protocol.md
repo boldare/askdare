@@ -209,10 +209,10 @@ The bot's public configuration (`GET /config/<bot>` and the chat document) carri
 }
 ```
 
-- **A form:** `name` (`[a-z0-9_]`, 1 to 32 characters), `title`, `fields`, `submit` (the button) and `done` (shown in place of the form once it is sent).
+- **A form:** `name` (`[a-z0-9_]`, 1 to 32 characters), `title`, `fields`, and optionally `submit` (the button) and `done` (shown in place of the form once it is sent). Without them, the chat shows its own `form.submit` and `form.done` texts.
 - **A field:** `name` (a letter, then letters, digits, `_` or `-`, at most 64 characters, distinct in its form), `type`, `label` and `required`. One to eight per form.
 - **Types:** `text` (at most 200 characters), `email` (254), `phone` (20), `textarea` (2,000), `select` and `consent` (a checkbox; `required` means it must be ticked). The four text types may have a `placeholder` and a lower `maxLength`. A `select` always has `options`: two to ten `{ "value", "label" }` with distinct values. Keys that don't belong to a field's type are ignored; an unknown type makes the whole list invalid.
-- **Lengths** are UTF-16 code units, as JavaScript's `length` counts them: titles, labels, placeholders, option labels and `submit` 1 to 120, `done` 1 to 300, option values 1 to 200.
+- **Lengths** count characters (Unicode code points, so an emoji is one, as `[...text].length` counts them), for the texts here and for `maxLength`: titles, labels, placeholders, option labels and `submit` 1 to 120, `done` 1 to 300, option values 1 to 200.
 - **Plain text.** Render every text as text, never as Markdown or HTML. A `consent` field links the bot's `privacyUrl` when the disclosure has one.
 
 ### The `form` event
@@ -228,7 +228,7 @@ After a reload, `POST /history` returns them as `forms: [{ "callId", "name", "pu
 
 ### Sending a form
 
-`POST /forms` takes `{ "botId", "resumeToken", "form", "values" }` with the `Bearer` token: `form` is the handle, and `values` an object by field name, with a string for each field and `true` or `false` for a `consent`. At most eight values, each string at most 4,000 characters; the form's own limits are checked after that. Nothing in the body names the form or the conversation: the handle does.
+`POST /forms` takes `{ "botId", "resumeToken", "form", "values" }` with the `Bearer` token: `form` is the handle, and `values` an object by field name, with a string for each field and `true` or `false` for a `consent`. At most eight values, each string at most 8,192 characters; the form's own limits are checked after that and answer with field errors. Nothing in the body names the form or the conversation: the handle does.
 
 ```json
 {
@@ -240,7 +240,7 @@ After a reload, `POST /history` returns them as `forms: [{ "callId", "name", "pu
 ```
 
 - **Sent:** `200` with `{ "state": "sent" }`. A handoff's form adds the handoff's final state, `{ "state": "sent", "handoff": "sent" }`. Show `done`, or the handoff's state, in place of the form. A submission runs no model turn; the model learns the form was sent with the next message.
-- **Refused fields:** `400` with `invalid_input` and `fields`, one error key per refused field. It never echoes a value. The keys are `error.form.required`, `error.form.email`, `error.form.phone`, `error.form.tooLong` and `error.form.option`; a later version may add others of the form `error.form.<name>`, which a client shows as a generic error for the field.
+- **Refused fields:** `400` with `invalid_input` and `fields`, one error key per refused field. It never echoes a value. The keys are `error.form.required`, `error.form.email`, `error.form.phone`, `error.form.tooLong`, `error.form.option` and `error.form.invalid` (a value of the wrong type, or with control or invisible characters); a later version may add others of the form `error.form.<name>`, which a client shows as a generic error for the field.
 
   ```json
   {

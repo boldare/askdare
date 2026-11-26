@@ -6,6 +6,9 @@ import type { HandoffState } from './handoff';
  * `defineForm` (src/forms/); the server maps a definition onto these shapes for the visitor's
  * language. Nothing here is for the model: a form's `description`, `toModel` and `model` never
  * reach the client.
+ *
+ * Lengths of texts and values count characters (Unicode code points, `[...text].length`), as
+ * `defineForm`, zod's `max` and the form's validation do. An emoji is one character.
  */
 
 /** A form's name, unique in its bot. */
@@ -28,7 +31,7 @@ export const FORM_FIELD_TYPES = [
 export type FormFieldType = (typeof FORM_FIELD_TYPES)[number];
 
 /**
- * The longest value of each type that takes text, in UTF-16 code units, and so the highest
+ * The longest value of each type that takes text, in characters, and so the highest
  * `maxLength` a field of that type may have.
  */
 export const FORM_FIELD_MAX_LENGTH: Readonly<
@@ -64,7 +67,7 @@ export const MAX_FORM_HANDLE = 4096;
  * The longest text value `POST /forms` takes at all. Each field's own limit is checked by the
  * form's validation, which answers with a field error; this only bounds the request.
  */
-export const MAX_FORM_VALUE = 4000;
+export const MAX_FORM_VALUE = 8192;
 
 /** Error keys of fields in a refused submission. Clients show unknown keys as a generic error. */
 export const FORM_ERROR_KEYS = [
@@ -73,6 +76,8 @@ export const FORM_ERROR_KEYS = [
   'error.form.phone',
   'error.form.tooLong',
   'error.form.option',
+  // A value of the wrong type, or with control or invisible characters.
+  'error.form.invalid',
 ] as const;
 /** Any field error key, including ones a later version adds. */
 export const FORM_ERROR_KEY: RegExp = /^error\.form\.[a-zA-Z]{1,32}$/;
@@ -108,10 +113,10 @@ export interface ChatForm {
   readonly title: string;
   /** 1 to 8, distinct names. */
   readonly fields: readonly ChatFormField[];
-  /** The submit button. */
-  readonly submit: string;
-  /** Shown in place of the form once it is sent. */
-  readonly done: string;
+  /** The submit button. Absent: the chat's own `form.submit` text. */
+  readonly submit?: string | undefined;
+  /** Shown in place of the form once it is sent. Absent: the chat's own `form.done` text. */
+  readonly done?: string | undefined;
 }
 
 /** A form under an answer in `POST /history`. */

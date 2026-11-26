@@ -57,13 +57,9 @@ const toolUi = z.object(toolUiFields).refine(isToolUi, TOOL_UI_RULE);
 /** Handoff (ADR-0030) and forms (ADR-0031). */
 const handoffState = z.enum(HANDOFF_STATES);
 const formName = z.string().regex(FORM_NAME);
-/**
- * Text of 1 to `max` UTF-16 code units, as JavaScript's `length` and the browser's check count
- * them (zod's own `max` counts differently). A form text one side refuses would drop every form.
- */
-const units = (max: number) =>
-  z.string().refine((value) => value.length > 0 && value.length <= max, `1 to ${max} characters`);
-const formHandle = units(MAX_FORM_HANDLE);
+/** Form texts count characters (code points), as zod's `max` and `defineForm` do. */
+const formText = (max: number) => z.string().min(1).max(max);
+const formHandle = z.string().min(1).max(MAX_FORM_HANDLE);
 const formPurpose = z.enum(FORM_PURPOSES);
 /** Whether no two items have the same value at `key`. */
 const distinct =
@@ -73,7 +69,7 @@ const distinct =
 
 /** The fields of a form's description, by type; fields of another type are dropped. */
 const fieldName = z.string().regex(FORM_FIELD_NAME);
-const formLabel = units(MAX_FORM_LABEL);
+const formLabel = formText(MAX_FORM_LABEL);
 const textField = (type: keyof typeof FORM_FIELD_MAX_LENGTH) =>
   z.object({
     name: fieldName,
@@ -96,7 +92,7 @@ const formField = z.discriminatedUnion('type', [
     options: z
       .array(
         z.object({
-          value: units(MAX_FORM_OPTION_VALUE),
+          value: formText(MAX_FORM_OPTION_VALUE),
           label: formLabel,
         }),
       )
@@ -123,8 +119,8 @@ export const chatFormsSchema: z.ZodType<readonly ChatForm[]> = z
         .min(1)
         .max(MAX_FORM_FIELDS)
         .refine(distinct('name'), 'distinct field names'),
-      submit: formLabel,
-      done: units(MAX_FORM_DONE),
+      submit: formLabel.optional(),
+      done: formText(MAX_FORM_DONE).optional(),
     }),
   )
   .min(1)

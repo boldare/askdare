@@ -61,7 +61,13 @@ const formName = (value: unknown): value is string =>
 const formHandle = (value: unknown): value is string => text(value, 1, MAX_FORM_HANDLE);
 const fieldName = (value: unknown): value is string =>
   typeof value === 'string' && FORM_FIELD_NAME.test(value);
-const label = (value: unknown): value is string => text(value, 1, MAX_FORM_LABEL);
+/** Form texts count characters (code points), as the server does: an emoji is one. */
+const chars = (value: unknown, max: number): value is string =>
+  typeof value === 'string' &&
+  value.length > 0 &&
+  value.length <= max * 2 &&
+  [...value].length <= max;
+const label = (value: unknown): value is string => chars(value, MAX_FORM_LABEL);
 
 /** Each item mapped, or undefined when one is invalid, the count is off or a key repeats. */
 function listOf<T>(
@@ -139,7 +145,7 @@ function formFieldOf(value: unknown): ChatFormField | undefined {
       MIN_FORM_OPTIONS,
       MAX_FORM_OPTIONS,
       (option) =>
-        record(option) && text(option['value'], 1, MAX_FORM_OPTION_VALUE) && label(option['label'])
+        record(option) && chars(option['value'], MAX_FORM_OPTION_VALUE) && label(option['label'])
           ? { value: option['value'], label: option['label'] }
           : undefined,
       (option) => option.value,
@@ -163,23 +169,20 @@ function formFieldOf(value: unknown): ChatFormField | undefined {
 }
 
 function formOf(value: unknown): ChatForm | undefined {
-  if (
-    !record(value) ||
-    !formName(value['name']) ||
-    !label(value['title']) ||
-    !label(value['submit']) ||
-    !text(value['done'], 1, MAX_FORM_DONE)
-  ) {
+  if (!record(value) || !formName(value['name']) || !label(value['title'])) {
     return undefined;
   }
+  const { submit, done } = value;
+  if (submit !== undefined && !label(submit)) return undefined;
+  if (done !== undefined && !chars(done, MAX_FORM_DONE)) return undefined;
   const fields = listOf(value['fields'], 1, MAX_FORM_FIELDS, formFieldOf, (field) => field.name);
   return fields
     ? {
         name: value['name'],
         title: value['title'],
         fields,
-        submit: value['submit'],
-        done: value['done'],
+        ...(submit === undefined ? {} : { submit }),
+        ...(done === undefined ? {} : { done }),
       }
     : undefined;
 }
