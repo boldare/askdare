@@ -25,7 +25,7 @@ askdare is the website chatbot a team owns in code: self-hosted in their Next.js
 
 ## 0.6.x: patches
 
-What the 0.6 review left open and fits in a patch, from "Known gaps" below, done in parallel before the 0.7 tasks and merged into `main`: h1, resume after sign-in (#192); h2, no rating for a replaced answer (#196); h3, `doctor`'s store timeout (#193); h4, an index for the Postgres compaction lookup (#190); h5, regional endpoints documented (#194). Two pieces stay open in "Known gaps": the chat-client half of h1, and a contract run against the EU endpoint, which needs a key from an EU-residency project. The merged patches ship in the next 0.6.x release.
+What the 0.6 review left open and fits in a patch, from "Known gaps" below, done in parallel before the 0.7 tasks and merged into `main`: h1, resume after sign-in (#192); h2, no rating for a replaced answer (#196); h3, `doctor`'s store timeout (#193); h4, an index for the Postgres compaction lookup (#190); h5, regional endpoints documented (#194); h6, the chat-client half of h1: the live stream no longer hands back an anonymous resume token after sign-in. One piece stays open in "Known gaps": a contract run against the EU endpoint, which needs a key from an EU-residency project. The merged patches ship in the next 0.6.x release.
 
 ## 0.7: support-grade
 
@@ -65,7 +65,6 @@ What 0.6 leaves open, found by its tasks and reviews. Each line names where it g
 
 **Privacy and security** (low-confidence notes from the `release/0.6` security review, worth a closer look):
 - **Transcripts outlive a deleted conversation:** deleting one calls no hook, so a transcript an app keeps through `onTranscript` stays until the app sweeps it. 0.7, with the admin store ([ADR-0016](docs/adr/0016-admin.md)); an `onConversationDeleted` hook is the fallback if that slips (task c5).
-- **An answer's live stream can hand back an anonymous resume token** when the visitor signs in while it streams and it doesn't drop; the chat client stores it in the user's place, where it outlives sign-out until the next answer. `POST /resume` no longer replays it (0.6.x, h1); the rest is a chat-client fix. 0.6.x.
 
 **Smaller items:**
 - "Reconnecting…" can stay visible after a successful resume until the next text or status event. 0.7, in task c2, once b1 has made room in the React entry.
