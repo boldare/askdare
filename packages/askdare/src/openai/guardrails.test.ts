@@ -5,6 +5,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { type BotDefinition, createBot } from '../bot/define-bot';
 import { guardNote } from '../conversations/guard-notes';
+import { historyReader } from '../conversations/provider-history';
 import type { ModelGateway } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
 import { decodeEvent, SseParser } from '../protocol/sse';
@@ -229,6 +230,14 @@ describe('history after a guardrail', () => {
     expect(replaced?.ui).toBeUndefined();
     serve([message('msg_2', 'assistant', 'Two slots.'), ...turn]);
     expect((await read()).at(-1)?.id).toBe('msg_1');
+  });
+
+  it('rates only the answers the visitor saw as final: never a replacement', async () => {
+    serve([message('rep_1', 'assistant', 'Call me at [phone].'), ...SETTLED]);
+    const read = historyReader(conversations.store);
+    for (const checked of [true, false]) {
+      expect((await read?.('conv_h', { checked }))?.rated).toEqual(['msg_2']);
+    }
   });
 
   it("keeps today's history for bots without output checks: no note needed", async () => {

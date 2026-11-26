@@ -2,7 +2,7 @@ import { expect } from 'vitest';
 import type { RepliesReader, UiReader } from '../../gateway';
 import type { HistoryMessage } from '../../protocol/history';
 import { guardNote } from '../guard-notes';
-import { historyFromItems } from '../history';
+import { historyFromItems, historyPageFromItems } from '../history';
 import type { StoredItem } from '../port';
 import type {
   HistoryPage,
@@ -100,6 +100,10 @@ export async function expectWholeTurnPages(
     const messages: HistoryMessage[] = pages.toReversed().flatMap((page) => page.messages);
     // Every turn once, cards per answer and settled answers as in the whole conversation.
     expect(messages).toEqual(historyFromItems(stored, request));
+    // The same answers can be rated, page by page as at once.
+    expect(pages.toReversed().flatMap((page) => page.rated ?? [])).toEqual(
+      historyPageFromItems(stored, request).rated,
+    );
     for (const page of pages) expect(page.messages[0]?.role).toBe('user');
     // Options on the latest answer only.
     expect(messages.filter((message) => message.replies)).toEqual([messages.at(-1)]);

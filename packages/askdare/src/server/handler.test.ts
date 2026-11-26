@@ -1365,6 +1365,7 @@ describe('feedback', () => {
           { id: 'msg_q1', role: 'user', text: 'Hi', citations: [], attachments: 0 },
           { id: 'msg_a1', role: 'assistant', text: 'Hello!', citations: [], attachments: 0 },
         ],
+        rated: ['msg_a1'],
       })),
       gateway: () => ({
         ...gateway,
@@ -1820,6 +1821,70 @@ describe('an item store (stateless turns)', () => {
       ),
     );
     expect(intruder.status).toBe(404);
+  });
+
+  it('rates a replaced answer neither while it streams nor after a reload (ADR-0022)', async () => {
+    const guardedBot = createBot({
+      id: 'guarded',
+      model: 'test-model',
+      instructions: 'Be brief.',
+      onOutput: (text) =>
+        /\d{3}-\d{4}/.test(text)
+          ? { action: 'redact', text: text.replace(/\d{3}-\d{4}/, '[phone]') }
+          : { action: 'allow' },
+    });
+    const guarded = createRequestHandler({
+      bots: [guardedBot],
+      basePath: '/api/chat',
+      assets,
+      conversations: memoryConversations(),
+      gateway: () => ({
+        ...gateway,
+        runTurn: async (request) => {
+          const text = request.text.includes('phone') ? 'Call 555-0100.' : 'Hello!';
+          const answer = newItemId();
+          await request.conversations.append(request.conversationId, [
+            visitorItem(request),
+            { id: answer, type: 'message', role: 'assistant', parts: [{ type: 'text', text }] },
+          ]);
+          request.emit({ type: 'text.delta', messageId: request.messageId, delta: text });
+          const { reason, usage } = await gateway.runTurn({ ...request, emit: () => {} });
+          return { reason, usage, answerItemId: answer };
+        },
+      }),
+      tokens: async () => tokens,
+      limits: createLimits({ store: memoryStore() }),
+      clientIp: () => 'test',
+      onError: () => {},
+      onFeedback: () => {},
+    });
+    const headers = {
+      authorization: `Bearer ${(await tokens.issueAccess('guarded', OWNER)).token}`,
+    };
+    const ask = async (text: string, resumeToken?: string) =>
+      events(await guarded(post('/messages', { botId: 'guarded', text, resumeToken }, headers)));
+    const first = await ask('Hi');
+    const created = first.find((event) => event.type === 'conversation.created');
+    if (created?.type !== 'conversation.created') throw new Error('no conversation');
+    const second = await ask('Your phone?', created.resumeToken);
+    const end = (turn: ProtocolEvent[]) => turn.find((event) => event.type === 'message.end');
+    expect(end(first)).toHaveProperty('feedback');
+    expect(end(second)).not.toHaveProperty('feedback');
+
+    const history = await guarded(
+      post('/history', { botId: 'guarded', resumeToken: created.resumeToken }, headers),
+    );
+    const { messages } = (await history.json()) as {
+      messages: { role: string; text: string; feedback?: unknown }[];
+    };
+    expect(
+      messages.map(({ role, text, feedback }) => [role, text, feedback !== undefined]),
+    ).toEqual([
+      ['user', 'Hi', false],
+      ['assistant', 'Hello!', true],
+      ['user', 'Your phone?', false],
+      ['assistant', 'Call [phone].', false],
+    ]);
   });
 });
 

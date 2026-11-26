@@ -112,7 +112,7 @@ When a bot has `voice` enabled, `POST /transcriptions` takes a recording as the 
 
 ## Feedback
 
-When the app sets `onFeedback` and the bot allows it, every answer comes with a rating handle: in `message.end` while it streams, and on assistant messages in `POST /history`. A handle is `{ "handle", "key" }`:
+When the app sets `onFeedback` and the bot allows it, every answer comes with a rating handle: in `message.end` while it streams, and on the same answers in `POST /history`. An answer that output checks replaced has none, after a reload either ([ADR-0022](adr/0022-guardrails-implementation.md)). A handle is `{ "handle", "key" }`:
 
 - `handle` is opaque and encrypted, bound to the bot and to the visitor or signed-in user. It holds the conversation and the answer, which the client never sees.
 - `key` is a hex string that stays the same for the answer across reloads, so a client can remember the visitor's own rating.
