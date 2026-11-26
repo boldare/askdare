@@ -742,6 +742,88 @@ describe('ChatClient.identify', () => {
     expect(storage.get('askdare:support:resume:k-ada')).toBe('resume-adopted');
   });
 
+  /** A stream that sends `first`, then `rest` once `release` is called. */
+  function heldStream(
+    first: readonly ProtocolEvent[],
+    rest: readonly ProtocolEvent[],
+  ): { body: ReadableStream<Uint8Array>; release: () => void } {
+    let release = (): void => {};
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(encodeComment('ok')));
+        for (const event of first) controller.enqueue(encoder.encode(encodeEvent(event)));
+        release = () => {
+          for (const event of rest) controller.enqueue(encoder.encode(encodeEvent(event)));
+          controller.close();
+        };
+      },
+    });
+    return { body, release: () => release() };
+  }
+
+  it('keeps the token the sign-in gave, not the anonymous one the live stream ends with', async () => {
+    const storage = memoryStorage();
+    storage.set('askdare:support:resume', 'resume-anonymous');
+    let signedIn = false;
+    const stream = heldStream(
+      [{ type: 'message.start', messageId: 'm1' }],
+      [{ type: 'message.end', messageId: 'm1', reason: 'completed', resumeToken: 'resume-turn' }],
+    );
+    const { fetch } = fakeFetch({
+      session: () =>
+        signedIn
+          ? session({ identified: true, identityKey: 'k-ada', resumeToken: 'resume-adopted' })
+          : session(),
+      messages: () => new Response(stream.body, { headers: streamHeaders }),
+    });
+    const chat = client(fetch, storage);
+    let start = (): void => {};
+    const started = new Promise<void>((resolve) => {
+      start = resolve;
+    });
+    const sent = chat.send({ text: 'Hi' }, (event) => {
+      if (event.type === 'message.start') start();
+    });
+    await started;
+    signedIn = true;
+    await chat.identify('ada.jwt.token');
+    stream.release();
+    await sent;
+    expect(storage.get('askdare:support:resume:k-ada')).toBe('resume-adopted');
+    // Nor in the anonymous place, which the adopted conversation left.
+    expect(storage.get('askdare:support:resume')).toBeUndefined();
+  });
+
+  it('keeps no anonymous conversation the live stream creates after the sign-in', async () => {
+    const storage = memoryStorage();
+    let signedIn = false;
+    const stream = heldStream(
+      [{ type: 'user.ack', messageId: 'u1' }],
+      [
+        { type: 'conversation.created', resumeToken: 'resume-turn' },
+        { type: 'message.start', messageId: 'm1' },
+        { type: 'message.end', messageId: 'm1', reason: 'completed', resumeToken: 'resume-turn' },
+      ],
+    );
+    const { fetch } = fakeFetch({
+      session: () => (signedIn ? session({ identified: true, identityKey: 'k-ada' }) : session()),
+      messages: () => new Response(stream.body, { headers: streamHeaders }),
+    });
+    const chat = client(fetch, storage);
+    let start = (): void => {};
+    const started = new Promise<void>((resolve) => {
+      start = resolve;
+    });
+    const sent = chat.send({ text: 'Hi' }, () => start());
+    await started;
+    signedIn = true;
+    await chat.identify('ada.jwt.token');
+    stream.release();
+    await sent;
+    expect(storage.get('askdare:support:resume:k-ada')).toBeUndefined();
+    expect(chat.hasConversation()).toBe(false);
+  });
+
   it("never sends a request with the previous user's session once they sign out", async () => {
     let failSignOut = false;
     let access = 'access-ada';

@@ -438,12 +438,23 @@ export class ChatClient {
         ...(resumeToken ? { resumeToken } : {}),
       });
     };
+    // Where the request's session keeps the conversation: the tokens the turn hands back were
+    // issued for that session, so a sign-in or sign-out meanwhile must not get them.
+    let key = '';
     // `tries` counts the attempts in a row that brought nothing new; `resumes` all of them, so a
     // connection that keeps dropping can't run into the server's limit of resumes.
     for (let tries = 0, resumes = 0; ; ) {
       const from = seq;
       try {
-        const response = await this.#authorized('POST', path, request, signal);
+        const response = await this.#authorized(
+          'POST',
+          path,
+          () => {
+            key = this.#resumeKey();
+            return request();
+          },
+          signal,
+        );
         // A resume the server can't serve (404: the answer's events are gone): try the history.
         if (answer && !response.ok) return lost;
         if (!response.ok || !response.body) {
@@ -456,6 +467,7 @@ export class ChatClient {
         }
         const stalled = await this.#readStream(
           response.body,
+          key,
           (event, id) => {
             // Each event has its number in the turn: one seen before came again on a resume.
             if (id > 0) {
@@ -640,6 +652,7 @@ export class ChatClient {
 
   async #readStream(
     body: ReadableStream<Uint8Array>,
+    key: string,
     onEvent: (event: ProtocolEvent, id: number) => void,
     signal: AbortSignal | undefined,
   ): Promise<boolean> {
@@ -667,10 +680,11 @@ export class ChatClient {
         for (const raw of parser.push(decoder.decode(value, { stream: true }))) {
           const result = decodeEvent(raw);
           if (!result.ok) continue;
-          if (result.event.type === 'conversation.created') {
-            this.#options.storage.set(this.#resumeKey(), result.event.resumeToken);
-          } else if (result.event.type === 'message.end' && result.event.resumeToken) {
-            this.#options.storage.set(this.#resumeKey(), result.event.resumeToken);
+          if (result.event.type === 'conversation.created' || result.event.type === 'message.end') {
+            const token = result.event.resumeToken;
+            // Issued for whoever sent the message: ignored once someone else is signed in, who
+            // keeps the conversation the sign-in gave them (or none).
+            if (token && key === this.#resumeKey()) this.#options.storage.set(key, token);
           } else if (result.event.type === 'error' && result.event.code === 'not_found') {
             this.reset(); // the conversation is gone (e.g. deleted by retention): start a new one
           }
