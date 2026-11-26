@@ -84,7 +84,7 @@ The same check reports every invalid setting as `Invalid bot "<id>": <setting> <
 | Explanation | Cause |
 | --- | --- |
 | `OPENAI_API_KEY is not set. Add it to .env.local (or your host's environment) and restart the app.` | The key is missing where the app runs |
-| `OpenAI rejected the API key (401). Check OPENAI_API_KEY and the key's project permissions.` (or `403`) | The key is wrong, revoked, or a restricted key lacks a permission |
+| `OpenAI rejected the API key (401). Check OPENAI_API_KEY and the key's project permissions.` (or `403`) | The key is wrong, revoked, or a restricted key lacks a permission. With `OPENAI_BASE_URL` set to a regional endpoint, the key isn't from a project with data residency in that region ([Regional OpenAI endpoints](deployment.md#regional-openai-endpoints)) |
 | `The bot's model doesn't exist or this OpenAI project can't use it: …` | A typo in the model, a retired model, or a model outside the project's allowlist |
 | No explanation | `ASKDARE_DISABLED` is `true`; see [The kill switch](#the-kill-switch) |
 

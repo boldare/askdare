@@ -147,7 +147,9 @@ What Europe covers, from OpenAI's page, checked on 2026-11-26:
 
 OpenAI's page doesn't list the Conversations API, so a residency project doesn't promise to keep askdare's default conversation store in the region. Where conversations must stay in the region, keep them in your own database with [`postgresConversations`](own-your-data.md): turns are then stateless (`store: false`) and use only the endpoints listed above. System data (account, usage and billing data) may be stored and processed outside the region on every endpoint.
 
-**Tested:** not yet against a live EU project (2026-11-26: no EU-residency key available). A unit test checks that askdare's OpenAI client takes its base URL from `OPENAI_BASE_URL`, and the live contract and smoke tests run against a regional endpoint with the same two variables ([Live testing](live-testing.md#against-a-regional-endpoint)). The result goes here, with its date, once they have run.
+**Tested on 2026-11-26, with a key from a Global project** (no EU-residency project was available): `OPENAI_BASE_URL` sends askdare's requests to `eu.api.openai.com`, which lists the models, but refuses `/v1/responses` and `/v1/conversations` with **401** *"This endpoint is only accessible by projects with geography restrictions enabled."* So a key from the wrong project fails on the first message, although the same key works on the global endpoint. A unit test checks that askdare's client takes its base URL from `OPENAI_BASE_URL`.
+
+**Not tested yet:** a full run with a key from an EU-residency project, including whether the default conversation store works there. The live contract and smoke tests run it with the same two variables ([Live testing](live-testing.md#against-a-regional-endpoint)); the result goes here, with its date.
 
 ## Behind another proxy or CDN
 
