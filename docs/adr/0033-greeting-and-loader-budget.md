@@ -20,14 +20,16 @@ Spike S10 measured the room:
 
 ### 1. The loader gets smaller first, with the same behavior (l1)
 
-In this order, each measured in the findings:
+In this order, steps 1 to 5 measured in the findings:
 1. Its CSS moves to `loader.css`, imported with `?inline`, so Vite minifies it with Lightning CSS. `vite.loader.config.ts` sets `build.cssTarget` to the supported browsers (Chrome and Edge 111, Firefox 121, Safari 16.4).
 2. The panel's surface colors per scheme are declared once, as `--bg` and `--fg` on `:host`.
 3. The `<style>` fallback for Safari before 16.4 goes; every supported browser has constructed stylesheets.
 4. `fill` attributes that draw nothing go from the icons.
 5. The server always inlines a look: the bot's, or a default one under `''` for a script tag with only `data-bot` or an unknown bot. The loader drops its own fallback colors and texts.
 
-That takes it from 5,052 B to 4,648 B. Console warnings keep their wording, the `doctor` hint included.
+6. The launcher's icons are built with `createElementNS` instead of `innerHTML`. Today the loader throws on a page that enforces Trusted Types (`require-trusted-types-for 'script'`), so the launcher never appears there. The spike didn't measure this change; l1 reports its size.
+
+Steps 1 to 5 take it from 5,052 B to 4,648 B. Console warnings keep their wording, the `doctor` hint included.
 
 ### 2. The budget becomes 5,632 bytes (5.5 KB)
 
@@ -55,16 +57,25 @@ That takes it from 5,052 B to 4,648 B. Console warnings keep their wording, the 
 - It is drawn from a `data-unread` attribute on the launcher, by `[data-unread]::after`, and shows `9+` above nine. A site restyles it with `::part(launcher)::after`.
 - The count is visual only. The launcher's accessible name gains the `launcher.unread` text ("Ask us, Open chat, new messages"), so no plural rules ship in the loader.
 - A site with its own trigger (`data-launcher="none"`) counts the same events with `askdare('on', 'message.received', …)`.
-- **Handoff (ADR-0030):** a human agent's reply must reach the page as `message.received`, or the badge misses it.
+- **Human replies:** in 0.7 a handoff goes out by email (ADR-0030), so no human reply arrives in the chat. Once live chat exists (0.9), a human's reply in the chat must reach the page as `message.received`, or the badge misses it.
 
 ## Consequences
 
-- l1 is a patch release with no visible change. It needs the server's default look in `server/launcher.ts`, unit tests that inline a look, and new visual baselines (Lightning CSS reorders declarations).
+- l1 is a patch release with no visible change, except that the launcher now appears on pages that enforce Trusted Types. It needs the server's default look in `server/launcher.ts`, unit tests that inline a look, and new visual baselines (Lightning CSS reorders declarations).
 - l2 adds public API (ADR-0006): the bot option, two events, `data-greeting`, and the three texts. Minor changeset.
 - Visitors download about 143 B more on every page, and a bot with a greeting adds its texts to the inlined look (about 110 B for English and Polish).
 - A visitor who ignores the greeting sees it again on the next page, after the delay. That is the price of not storing anything before they act.
 - The greeting can cover a focused control in the bottom-right corner until it is dismissed (WCAG 2.4.11). l2's e2e checks this on the site demo.
 - The budget keeps meaning something only if the rule in decision 2 holds.
+
+## Settled with the maintainer (2026-11-26)
+
+The spike's recommendations, all accepted:
+- **Budget:** the loader's budget rises to 5,632 B (decision 2).
+- **Greeting:** drawn by the loader, off by default (decision 3), not in an iframe or a second script.
+- **Storage:** one `sessionStorage` flag, and ADR-0005's rule becomes "nothing written before the visitor acts on the widget" (decision 3).
+- **Badge:** drawn with CSS from `message.received`, with no new bridge message (decision 4).
+- **Trusted Types:** the icon fix goes into l1 (decision 1, step 6).
 
 ## Alternatives considered
 

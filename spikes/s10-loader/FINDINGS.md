@@ -80,7 +80,7 @@ It also keeps the badge honest for sites that open the chat from their own butto
 
 The attribute version is the cheapest, and a site can restyle it with `::part(launcher)::after`. The launcher's accessible name gains the bot's `unread` text ("Ask us, Open chat, new messages"). The count is visual only (`9+` above nine), so no plural rules ship in the loader.
 
-**One dependency:** the badge counts what arrives as `message.received`. A reply from a human agent after a handoff (ADR-0030, 0.7) must reach the page as `message.received` too, or the badge misses exactly the messages it matters most for. That is for x1 and c1/c2 to settle.
+**One dependency, for 0.9:** the badge counts what arrives as `message.received`. In 0.7 a handoff goes out by email (ADR-0030), so no human reply arrives in the chat. Once live chat exists (0.9), a human's reply in the chat must reach the page as `message.received` too, or the badge misses exactly the messages it matters most for.
 
 The iframe exists only after the first open, so the badge can only appear after the visitor has opened the chat on this page. That is the case it is for: an answer, or an agent's reply, that arrives after the visitor closed the panel.
 
@@ -102,8 +102,8 @@ As built and checked in the spike:
 
 ## Also found
 
-- **The loader breaks under Trusted Types** (pre-existing). It sets the launcher's icons with `innerHTML`, which throws on a page with `require-trusted-types-for 'script'`, so the launcher never mounts there. Building the two SVGs with `createElementNS` would fix it; not measured here.
-- **`docs/support.md` says the loader is "about 3 KB"**; it is 5,052 B today. `ROADMAP.md` and ADR-0018 say 5,016 B. l1 updates `docs/support.md`.
+- **The loader breaks under Trusted Types** (pre-existing). It sets the launcher's icons with `innerHTML`, which throws on a page with `require-trusted-types-for 'script'`, so the launcher never mounts there. Building the two SVGs with `createElementNS` fixes it; l1 does that (settled with the maintainer). Not measured here.
+- **`docs/support.md` says the loader is "about 3 KB"**; it is 5,052 B today. `ROADMAP.md` and ADR-0018 say 5,016 B. l1 corrects all three.
 - **Lightning CSS reorders declarations** and rewrites colors and `max-width` media queries to range syntax (`width<=480px`), which all supported browsers read. Visual baselines should still be rerun in l1.
 
 ## Files
