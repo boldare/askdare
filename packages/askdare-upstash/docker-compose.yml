@@ -1,0 +1,25 @@
+# Redis behind Upstash's REST proxy (serverless-redis-http), for this package's tests. Host port
+# 54380, so it never clashes with a local Redis or the Postgres containers.
+#   docker compose -f packages/askdare-upstash/docker-compose.yml up -d --wait
+#   ASKDARE_TEST_UPSTASH=1 UPSTASH_REDIS_REST_URL=http://127.0.0.1:54380 \
+#     UPSTASH_REDIS_REST_TOKEN=askdare-local-token pnpm test
+name: askdare-upstash
+services:
+  redis:
+    image: redis:7.4-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+  rest:
+    image: hiett/serverless-redis-http:0.0.10
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: askdare-local-token
+      SRH_CONNECTION_STRING: redis://redis:6379
+    ports:
+      - "127.0.0.1:54380:80"
+    depends_on:
+      redis:
+        condition: service_healthy

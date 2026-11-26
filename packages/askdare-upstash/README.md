@@ -83,6 +83,28 @@ Upstash's REST API can't block until a stream grows, so a reader that waits for 
 | `url`, `token`, `redis`, `prefix` | as for `upstashStore` | The same connection options. |
 | `pollMs` | `150` | How often a waiting reader checks for new events, in ms. |
 
+## Admin records
+
+`upstashAdminStore()` keeps the admin console's records (ADR-0032) in the same database, for sites with no SQL database: usage per turn, ratings, transcripts when they are on, and daily counts of handoffs and leads (counts only, never their values). The `admin` option of `createChatHandler` writes them, deletes them with their conversation and sweeps them.
+
+```ts
+import { upstashAdminStore } from '@boldare/askdare-upstash';
+
+createChatHandler({
+  bots,
+  admin: { store: upstashAdminStore({ retentionDays: 30 }), retentionDays: 30 },
+});
+```
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `url`, `token`, `redis`, `prefix` | as above | Keys go under `<prefix>admin:`. |
+| `retentionDays` | `30` | A conversation's records also expire this many days after its latest record. Use the same value as `admin.retentionDays`. |
+
+Every dashboard query is answered from counters, sorted sets and summaries kept when a record is written, so no read scans the database; each write and read is one atomic script. Key names hold a hash of the conversation ID, never the ID, a visitor or any content.
+
+Retention is the handlers' `sweep()`, called on a schedule: it deletes records older than `admin.retentionDays`, and daily totals older than 400 days. The expiry times are a backstop for when it doesn't run: a conversation's keys expire `retentionDays` after its latest record, and daily totals 400 days after their day. Conversations with equal tokens and equal latest activity are ordered by the hash of their ID.
+
 ## Requirements
 
 `@boldare/askdare` in the range of its peer dependency (each askdare release brings a matching add-on release), `@upstash/redis` 1.35 or later, and Node.js 22 or later.
