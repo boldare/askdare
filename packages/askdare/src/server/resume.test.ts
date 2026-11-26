@@ -1,3 +1,4 @@
+import { SignJWT } from 'jose';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { createBot } from '../bot/define-bot';
 import { fakeConversations } from '../conversations/testing/fake-store';
@@ -9,6 +10,7 @@ import { decodeEvent, SseParser } from '../protocol/sse';
 import { memoryTurnLog } from '../resume/memory-turn-log';
 import { RESUME_GRACE_MS } from '../resume/turn-key';
 import type { TurnEventLog } from '../resume/turn-log';
+import { createIdentityVerifier } from '../security/identity';
 import { createTokenService, type TokenService } from '../security/tokens';
 import type { EmbedAssets } from './embed-page';
 import { createRequestHandler, type RequestHandler } from './handler';
@@ -16,6 +18,8 @@ import { createRequestHandler, type RequestHandler } from './handler';
 const APP = 'https://app.example.com';
 const BASE = `${APP}/api/chat`;
 const TURN_TIMEOUT_MS = 5_000;
+const IDENTITY_SECRET = 'cmVzdW1lLWlkZW50aXR5LXNlY3JldC0xMjM0NTY3ODkw';
+const identityVerifier = createIdentityVerifier({ secret: IDENTITY_SECRET });
 
 const assets: EmbedAssets = {
   loaderJs: '',
@@ -94,6 +98,7 @@ const handlerWith = (resume: TurnEventLog | undefined): RequestHandler =>
     limits: createLimits({ store: memoryStore() }),
     clientIp: () => 'test',
     onError: () => {},
+    identity: () => identityVerifier,
     resume,
   });
 
@@ -241,12 +246,87 @@ describe('POST /resume', () => {
     const rest = await frames(await resume(auth, { resumeToken, messageId, after: end.id - 2 }));
     expect(rest).toEqual(seen.slice(-2));
 
+    // From the start: the same events, with a handle issued for this request in place of the logged one.
     const all = await frames(await resume(auth, { resumeToken, messageId, after: 0 }));
-    expect(all).toEqual(seen);
+    const withoutHandles = (list: readonly Frame[]) =>
+      list.map(({ id, event }) =>
+        event.type === 'conversation.created'
+          ? { id, event: { ...event, resumeToken: '' } }
+          : { id, event },
+      );
+    expect(withoutHandles(all)).toEqual(withoutHandles(seen));
 
     const started = Date.now();
     expect(await frames(await resume(auth, { resumeToken, messageId, after: end.id }))).toEqual([]);
     expect(Date.now() - started).toBeLessThan(1_000);
+  });
+
+  it('hands a visitor who signed in during the answer their own handle, never the anonymous one', async () => {
+    const sign = (sub: string): Promise<string> =>
+      new SignJWT({})
+        .setProtectedHeader({ alg: 'HS256' })
+        .setSubject(sub)
+        .setAudience('support')
+        .setIssuedAt()
+        .setExpirationTime('10m')
+        .sign(new TextEncoder().encode(IDENTITY_SECRET));
+    const session = async (body: Record<string, unknown>) =>
+      (await (await handler(post('/session', { botId: 'support', ...body }))).json()) as {
+        accessToken: string;
+        resumable: boolean;
+        resumeToken?: string;
+      };
+
+    // An anonymous visitor's conversation; its next answer is the one they sign in during.
+    const anonymous = await session({});
+    const first = await startTurn({ authorization: `Bearer ${anonymous.accessToken}` });
+    const open = holdNextTurn();
+    const drop = new AbortController();
+    const seen = await frames(
+      await handler(
+        post(
+          '/messages',
+          { botId: 'support', text: 'Count to four', resumeToken: first.resumeToken },
+          { authorization: `Bearer ${anonymous.accessToken}` },
+          drop.signal,
+        ),
+      ),
+      ({ event }) => event.type === 'text.delta',
+      drop,
+    );
+    const started = seen.find(({ event }) => event.type === 'message.start')?.event;
+    if (started?.type !== 'message.start') throw new Error('the turn did not start');
+    await sleep(150);
+
+    // They sign in while it streams: the conversation is adopted. Then the stream drops.
+    const signedIn = await session({
+      accessToken: anonymous.accessToken,
+      resumeToken: first.resumeToken,
+      identityToken: await sign('ada'),
+    });
+    expect(signedIn.resumeToken).toBeDefined();
+    const response = await resume(
+      { authorization: `Bearer ${signedIn.accessToken}` },
+      {
+        resumeToken: signedIn.resumeToken as string,
+        messageId: started.messageId,
+        after: seen.at(-1)?.id ?? 0,
+      },
+    );
+    const reading = frames(response);
+    await sleep(50);
+    open();
+    const end = (await reading).at(-1)?.event;
+    if (end?.type !== 'message.end' || !end.resumeToken) throw new Error('no handle at the end');
+
+    // The handle the answer ended with is the user's: it leaves with them at sign-out.
+    expect((await tokens.verifyResume(end.resumeToken, 'support')).identityKey).toBeDefined();
+    const signedOut = await session({
+      accessToken: signedIn.accessToken,
+      resumeToken: end.resumeToken,
+      identityToken: null,
+    });
+    expect(signedOut.resumable).toBe(false);
   });
 
   it('answers 404 for another visitor’s conversation and for an answer of another conversation', async () => {

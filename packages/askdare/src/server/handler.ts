@@ -1029,9 +1029,11 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     if (!ownsConversation(info, bot.id, grant)) throw conversationGone();
     let messages = history.messages;
     if (feedbackOn(bot)) {
+      // The same answers as the stream rated: never one a guardrail replaced (ADR-0022).
+      const rated = new Set(history.rated);
       messages = await Promise.all(
         messages.map(async (message) =>
-          message.role === 'assistant' && ANSWER_ITEM_ID.test(message.id)
+          message.role === 'assistant' && rated.has(message.id) && ANSWER_ITEM_ID.test(message.id)
             ? {
                 ...message,
                 feedback: await feedbackHandle(tokens, bot, owner, conversationId, message.id),
@@ -1054,7 +1056,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
    * history.
    */
   const resumeAnswer = async (request: Request): Promise<Response> => {
-    const { body, bot, conversationId, grant, tokens } = await ownedConversation(
+    const { body, bot, conversationId, grant, tokens, owner } = await ownedConversation(
       request,
       resumeBody,
       (owner, visitorId) => config.limits.checkResume(owner, visitorId),
@@ -1081,11 +1083,19 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     if (!ownsConversation(info, bot.id, grant) || known === undefined) {
       throw new AskdareError('not_found');
     }
+    // The handles the turn logged name whoever started it: a visitor who signed in since gets
+    // their own, as `sendMessage` would issue it now.
+    const { token: resumeToken } = await tokens.issueResume(bot.id, {
+      visitorId: owner.visitorId,
+      conversationId,
+      identityKey: owner.key,
+    });
     const stream = resumeStream({
       log,
       turnId,
       after: body.after,
       known,
+      resumeToken,
       maxDurationMs: bot.limits.turnTimeoutMs,
       signal: request.signal,
       heartbeatIntervalMs: config.heartbeatIntervalMs,

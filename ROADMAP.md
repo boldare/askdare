@@ -25,7 +25,7 @@ askdare is the website chatbot a team owns in code: self-hosted in their Next.js
 
 ## 0.6.x: patches
 
-What the 0.6 review left open and fits in a patch, from "Known gaps" below: h1 (resume after sign-in), h2 (rating a replaced answer), h3 (`doctor`'s store timeout), h4 (an index for the Postgres compaction lookup) and h5 (regional endpoints). They were done in parallel before the 0.7 tasks; each has its own pull request to `main`, so they have no task files here, and each removes its line from "Known gaps" when it merges.
+What the 0.6 review left open and fits in a patch, from "Known gaps" below, done in parallel before the 0.7 tasks and merged into `main`: h1, resume after sign-in (#192); h2, no rating for a replaced answer (#196); h3, `doctor`'s store timeout (#193); h4, an index for the Postgres compaction lookup (#190); h5, regional endpoints documented (#194). Two pieces stay open in "Known gaps": the chat-client half of h1, and a contract run against the EU endpoint, which needs a key from an EU-residency project. The merged patches ship in the next 0.6.x release.
 
 ## 0.7: support-grade
 
@@ -60,17 +60,15 @@ What 0.6 leaves open, found by its tasks and reviews. Each line names where it g
 
 **Data that still reaches or stays at OpenAI** ([own your data](docs/own-your-data.md#what-stays-at-openai)):
 - **Attachments** are stored in OpenAI Files until they expire (30 days) or the conversation is deleted, and Files isn't eligible for Zero Data Retention. This is the one exception to "nothing kept at OpenAI" with your own store and ZDR. Next step: a file store port with an S3-compatible add-on, so attachments are sent inline and kept in your own bucket. Later, after 0.7.
-- **Regional endpoints.** Model requests go to OpenAI's global endpoint; askdare isn't tested against the EU or other regional endpoints. Test it and document the base URL. 0.6.x, as a doc and a contract run.
+- **Regional endpoints: no live run yet.** `OPENAI_BASE_URL` points every askdare client at a regional endpoint, and [Deployment](docs/deployment.md#regional-openai-endpoints) says what OpenAI's EU endpoint covers (everything askdare calls except the default Conversations API). Probed on 2026-11-26 with a Global project's key: the EU host routes, but answers 401 on responses and conversations without a residency project. The full contract and smoke run still waits for a key from an EU-residency project, which needs OpenAI's sales team ([Live testing](docs/live-testing.md#against-a-regional-endpoint)). 0.6.x, as soon as a key is available.
 - **No model request without OpenAI** until another provider path exists. 0.9 ([ADR-0026](docs/adr/0026-provider-path.md)).
 
 **Privacy and security** (low-confidence notes from the `release/0.6` security review, worth a closer look):
 - **Transcripts outlive a deleted conversation:** deleting one calls no hook, so a transcript an app keeps through `onTranscript` stays until the app sweeps it. 0.7, with the admin store ([ADR-0016](docs/adr/0016-admin.md)); an `onConversationDeleted` hook is the fallback if that slips (task c5).
-- **The resume log can replay an anonymous resume token** to the same browser when the visitor signs in during an answer. 0.6.x.
-- **A replaced answer can be rated after a reload,** though not while it streams. 0.6.x.
+- **An answer's live stream can hand back an anonymous resume token** when the visitor signs in while it streams and it doesn't drop; the chat client stores it in the user's place, where it outlives sign-out until the next answer. `POST /resume` no longer replays it (0.6.x, h1); the rest is a chat-client fix. 0.6.x.
 
 **Smaller items:**
 - "Reconnecting…" can stay visible after a successful resume until the next text or status event. 0.7, in task c2, once b1 has made room in the React entry.
-- `doctor`'s check of the OpenAI store ignores its 10-second limit. 0.6.x.
 - A message sent at the moment a compaction is stored gets a "please wait" error (documented in [ADR-0029](docs/adr/0029-compaction-for-item-stores.md)). Later.
 - No sweep helper in core: a site's cron route deletes files with the `openai` SDK itself ([own your data](docs/own-your-data.md)). 0.7, with the admin store; ADR-0032 (task x3) decides whether core gets one.
 
@@ -115,11 +113,11 @@ New ADRs written at the same time take numbers reserved in their task files (003
 | Lane | What runs in it | Hot files |
 |---|---|---|
 | Organization | The roadmap and `tasks/` | No |
-| Hygiene | 0.6.x-h1, h2 and h3 on `main`; 0.7-b1 | h1 and h2 (`server/handler.ts`, one after the other) |
+| Hygiene | 0.6.x patches on `main`; 0.7-b1 | No |
 | CI | Workflows, visual baselines, the starter check; 0.7-e1 | No |
 | Decisions | ADRs 0030 to 0033 (0.7-x1, x2, x3), accepted or amended by the tasks that build them; 0.7-z1 | No |
 | Spikes | 0.7-x4 (S10, the loader) | No |
-| Docs | 0.6.x-h5; 0.7-d1 | No |
+| Docs | 0.7-d1 | No |
 | Ports | New modules inside `packages/askdare` that no hot file reaches yet: 0.7-p1 (`handoff/`), p2 (`admin/`), p3 (`forms/`) | No |
 | Add-ons | 0.7-a1 (`askdare-postgres/src/admin/`), a2 (`askdare-upstash/src/admin/`), a3 (the new `askdare-admin` package) | No |
 | Loader | 0.7-l1, l2: `embed/loader.ts`, which no other task changes | l1 alone; l2 also `bot/define-bot.ts` |
@@ -129,7 +127,6 @@ New ADRs written at the same time take numbers reserved in their task files (003
 
 ```text
 Ready now:  x1 + x2 (together) · x3 · x4 · b1
-h1 ─────────────→ h2                    (0.6.x, on main, already done; c3 and c5 need them merged)
 x1 ─────────────→ p1
 x2 ─────────────→ p3
 x3 ─────────────→ p2
@@ -137,7 +134,7 @@ x4 ─────────────→ l1
 x1 + x2 ────────→ c1
 c1 + b1 ────────→ c2
 p2 ─────────────→ a1 · a2 · a3
-p2 + h2 ────────→ c5                    (not at the same time as c3: both change handler.ts)
+p2 ─────────────→ c5                    (not at the same time as c3: both change handler.ts)
 c2 + p1 + p3 ───→ c3
 c3 + b1 ────────→ c4
 c4 ─────────────→ e1
@@ -148,4 +145,4 @@ everything ─────→ z1
 
 The critical path is x1/x2 → c1 → c2 → c3 → c4 → l2 → d1 → z1, through Core. Admin (x3 → p2 → a1 · a2 · a3 · c5) and the loader (x4 → l1) run beside it. At the widest point, six lanes work at once: Hygiene, Decisions, Spikes, Ports, Add-ons and Core.
 
-**Branches.** 0.6.x patches land on `main` with `--no-ff` and ship as they are ready. Every 0.7 task targets the integration branch `release/0.7` until the release ([RELEASING.md](RELEASING.md)). The maintainer creates `release/0.7` from `main` before the first 0.7 pull request, and merges `main` into it after h1 and h2, before c3 or c5 starts.
+**Branches.** 0.6.x patches land on `main` with `--no-ff` and ship as they are ready. Every 0.7 task targets the integration branch `release/0.7` until the release ([RELEASING.md](RELEASING.md)). The maintainer creates `release/0.7` from `main` before the first 0.7 pull request; `main` already has the 0.6.x patches that change `server/handler.ts`.
