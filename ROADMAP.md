@@ -33,7 +33,7 @@ The features buyers compare against Intercom Fin and Chatbase. Planned on 2026-1
 - **Handoff to a human** (ADR-0030): a `handoff` tool, a "connecting you" state in the chat, and an `onHandoff` hook. Email and webhook first; live agent chat stays with the 0.9 adapters.
 - **Forms in the chat** (ADR-0031): leads into `onLead`, with fields defined on the server and validated there, built on reply options and tool cards. A handoff with nobody available falls back to a form.
 - **Admin** (ADR-0016, extended by ADR-0032): stage 1, the console with no database, then stage 2, `@boldare/askdare-admin` on an `AdminStore` port with Postgres and Upstash implementations, with transcripts, ratings, unanswered questions, cost per conversation and resolution rate. Deleting a conversation, by the visitor or a sweep, then deletes its transcripts and ratings too; 0.6 calls no hook on delete.
-- **Proactive greeting and an unread badge** (ADR-0033). The loader is at 5,016 of its 5,120 bytes (gzipped), so spike S10 first measures how to make it smaller or move logic into the iframe. The React entry is near its 34 KB budget too (ADR-0028), so task b1 makes room before the new UI.
+- **Proactive greeting and an unread badge** (ADR-0033). The loader is at 5,016 of its 5,120 bytes (gzipped), so spike S10 first measures how to make it smaller or move logic into the iframe. The React entry needs no room made first: task b1 measured it on 2026-11-26 (`scripts/react-size.mjs`, `release/0.7` at a70bbf8) at 31,678 of 34,816 bytes for the whole entry, 11,311 of 12,288 for the headless case (`Root` and `useChat`) and 12,074 of 14,336 for the embed, after `marked` was cut to its lexer in 0.6.x. The headless case, with 977 bytes left, is the tight one: c2's state grows it, and size work in `chat/store.ts` and `chat/chat-client.ts` found under 400 bytes without dropping behavior, since gzip already absorbs their repetition.
 
 ## 0.8: quality and reach
 
@@ -68,7 +68,7 @@ What 0.6 leaves open, found by its tasks and reviews. Each line names where it g
 - **An answer's live stream can hand back an anonymous resume token** when the visitor signs in while it streams and it doesn't drop; the chat client stores it in the user's place, where it outlives sign-out until the next answer. `POST /resume` no longer replays it (0.6.x, h1); the rest is a chat-client fix. 0.6.x.
 
 **Smaller items:**
-- "Reconnecting…" can stay visible after a successful resume until the next text or status event. 0.7, in task c2, once b1 has made room in the React entry.
+- "Reconnecting…" can stay visible after a successful resume until the next text or status event. 0.7, in task c2.
 - A message sent at the moment a compaction is stored gets a "please wait" error (documented in [ADR-0029](docs/adr/0029-compaction-for-item-stores.md)). Later.
 - No sweep helper in core: a site's cron route deletes files with the `openai` SDK itself ([own your data](docs/own-your-data.md)). 0.7, with the admin store; ADR-0032 (task x3) decides whether core gets one.
 
@@ -113,7 +113,7 @@ New ADRs written at the same time take numbers reserved in their task files (003
 | Lane | What runs in it | Hot files |
 |---|---|---|
 | Organization | The roadmap and `tasks/` | No |
-| Hygiene | 0.6.x patches on `main`; 0.7-b1 | No |
+| Hygiene | 0.6.x patches on `main` | No |
 | CI | Workflows, visual baselines, the starter check; 0.7-e1 | No |
 | Decisions | ADRs 0030 to 0033 (0.7-x1, x2, x3), accepted or amended by the tasks that build them; 0.7-z1 | No |
 | Spikes | 0.7-x4 (S10, the loader) | No |
@@ -126,17 +126,17 @@ New ADRs written at the same time take numbers reserved in their task files (003
 **The 0.7 order.** A task starts when everything before its arrow is merged; tasks on one line run side by side.
 
 ```text
-Ready now:  x1 + x2 (together) · x3 · x4 · b1
+Ready now:  x1 + x2 (together) · x3 · x4
 x1 ─────────────→ p1
 x2 ─────────────→ p3
 x3 ─────────────→ p2
 x4 ─────────────→ l1
 x1 + x2 ────────→ c1
-c1 + b1 ────────→ c2
+c1 ─────────────→ c2
 p2 ─────────────→ a1 · a2 · a3
 p2 ─────────────→ c5                    (not at the same time as c3: both change handler.ts)
 c2 + p1 + p3 ───→ c3
-c3 + b1 ────────→ c4
+c3 ─────────────→ c4
 c4 ─────────────→ e1
 l1 + c4 ────────→ l2
 c4 + c5 + a3 + l2 → d1
