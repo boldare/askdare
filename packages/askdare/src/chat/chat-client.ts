@@ -1,5 +1,5 @@
 import type { ErrorCode, ProtocolEvent } from '../protocol/events';
-import type { HistoryMessage } from '../protocol/history';
+import type { HistoryResponse } from '../protocol/history';
 import { decodeEvent, SseParser } from '../protocol/sse';
 import { parseHistory } from '../protocol/validate';
 import { PROTOCOL_HEADER, PROTOCOL_VERSION } from '../protocol/version';
@@ -31,7 +31,7 @@ export interface ChatClientOptions {
   readonly watchdogMs?: number;
   /**
    * Looks up a dictionary text (the visitor's language) for an error key; undefined when there is
-   * none, which keeps the English message.
+   * none, which keeps the server's message (or, for the client's own errors, shows the key).
    */
   readonly translate?: (
     key: string,
@@ -93,6 +93,20 @@ const json = (value: unknown): RequestBody => ({
 });
 
 const RENEW_MARGIN_SECONDS = 30;
+
+/** Waits `ms`, or less when the signal aborts. */
+const pause = (ms: number, signal?: AbortSignal): Promise<void> =>
+  new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
+  });
 
 type ErrorEvent = Extract<ProtocolEvent, { type: 'error' }>;
 
@@ -167,9 +181,12 @@ export class ChatClient {
     }
   }
 
-  /** A client-side error: the dictionary text for `key`, else the English message. */
-  #error(code: ErrorCode, key: string, english: string): ErrorEvent {
-    return { type: 'error', code, key, message: this.#options.translate?.(key) ?? english };
+  /**
+   * A client-side error with the dictionary text for `key`. The chat's dictionary has every key,
+   * so the key itself shows only when a client was made without one.
+   */
+  #error(code: ErrorCode, key: string): ErrorEvent {
+    return { type: 'error', code, key, message: this.#options.translate?.(key) ?? key };
   }
 
   /** A server error in the visitor's language when it carries a known key. */
@@ -233,22 +250,31 @@ export class ChatClient {
     return this.#options.storage.get(this.#resumeKey()) !== undefined;
   }
 
-  /** Loads the visible part of the stored conversation; empty when there is none or it is gone. */
-  async loadHistory(signal?: AbortSignal): Promise<readonly HistoryMessage[]> {
+  /**
+   * Loads a page of the stored conversation: the latest, or with `before` the page before the one
+   * that gave it. The latest is empty when there is no conversation or it is gone. Throws on other
+   * failures, with the status as `cause` (400: the server refused `before`; 404 for an older page:
+   * the conversation is gone, and is forgotten).
+   */
+  async loadHistory(signal?: AbortSignal, before?: string): Promise<HistoryResponse> {
     const resumeToken = this.#options.storage.get(this.#resumeKey());
-    if (!resumeToken) return [];
+    if (!resumeToken) return { messages: [] };
     const response = await this.#authorized(
       'POST',
       '/history',
-      () => json({ botId: this.#options.botId, resumeToken }),
+      // JSON leaves `before` out when it is undefined: the latest page.
+      () => json({ botId: this.#options.botId, resumeToken, before }),
       signal,
     );
-    if (response.status === 404) {
-      this.reset();
-      return [];
+    if (response.status === 404) this.reset();
+    // Gone while older messages show: the caller must say so, not show an empty start.
+    if (response.status === 404 && !before) return { messages: [] };
+    if (!response.ok) {
+      throw new Error(`History request failed with ${response.status}`, {
+        cause: response.status,
+      });
     }
-    if (!response.ok) throw new Error(`History request failed with ${response.status}`);
-    return parseHistory(await response.json())?.messages ?? [];
+    return parseHistory(await response.json()) ?? { messages: [] };
   }
 
   /** Deletes the conversation on the server (best effort) and forgets it in this browser. */
@@ -344,11 +370,7 @@ export class ChatClient {
       ) {
         return {
           ok: false,
-          message: this.#error(
-            'upstream_error',
-            'error.uploadFailed',
-            'The file could not be uploaded.',
-          ).message,
+          message: this.#error('upstream_error', 'error.uploadFailed').message,
         };
       }
       return { ok: true, file: { id: uploaded.id, kind: uploaded.kind, name: uploaded.name } };
@@ -377,73 +399,105 @@ export class ChatClient {
         ? { ok: true, text: body.text }
         : {
             ok: false,
-            message: this.#error(
-              'upstream_error',
-              'error.transcriptionFailed',
-              'The recording could not be transcribed.',
-            ).message,
+            message: this.#error('upstream_error', 'error.transcriptionFailed').message,
           };
     } catch (error) {
       return { ok: false, message: this.#failure(error, 'upstream_error').message };
     }
   }
 
+  /**
+   * Sends a message and reports its answer's events. A stream that ends before the answer does is
+   * resumed after its last event (ADR-0027): up to three attempts in a row that bring nothing new,
+   * with backoff, and `onRetry` called before each. Resolves to the error to show when the answer
+   * was lost on the way, which the caller may still find in the history; other problems arrive as
+   * `error` events.
+   */
   async send(
     message: OutgoingMessage,
     onEvent: (event: ProtocolEvent) => void,
     signal?: AbortSignal,
-  ): Promise<void> {
+    onRetry?: () => void,
+  ): Promise<ErrorEvent | undefined> {
     const context = message.context !== this.#sentContext ? message.context : undefined;
-    try {
-      const response = await this.#authorized(
-        'POST',
-        '/messages',
-        () => {
-          const resumeToken = this.#options.storage.get(this.#resumeKey());
-          return json({
-            botId: this.#options.botId,
-            text: message.text,
-            locale: this.#locale,
-            ...(message.attachments?.length ? { attachments: message.attachments } : {}),
-            ...(context ? { context } : {}),
-            ...(resumeToken ? { resumeToken } : {}),
-          });
-        },
-        signal,
-      );
-      if (!response.ok || !response.body) {
-        onEvent(await this.#errorFromResponse(response));
-        return;
-      }
-      if (response.headers.get(PROTOCOL_HEADER) !== String(PROTOCOL_VERSION)) {
-        onEvent(
-          this.#error(
-            'bot_unavailable',
-            'error.updated',
-            'The assistant was updated. Please reload the page.',
-          ),
+    const { botId } = this.#options;
+    /** The answer's ID once it starts, and the sequence number of the last event received. */
+    let answer: string | undefined;
+    let seq = 0;
+    let ended = false;
+    let lost = this.#connectionError('upstream_error');
+    let path = '/messages';
+    let request = (): RequestBody => {
+      const resumeToken = this.#options.storage.get(this.#resumeKey());
+      return json({
+        botId,
+        text: message.text,
+        locale: this.#locale,
+        ...(message.attachments?.length ? { attachments: message.attachments } : {}),
+        ...(context ? { context } : {}),
+        ...(resumeToken ? { resumeToken } : {}),
+      });
+    };
+    // `tries` counts the attempts in a row that brought nothing new; `resumes` all of them, so a
+    // connection that keeps dropping can't run into the server's limit of resumes.
+    for (let tries = 0, resumes = 0; ; ) {
+      const from = seq;
+      try {
+        const response = await this.#authorized('POST', path, request, signal);
+        // A resume the server can't serve (404: the answer's events are gone): try the history.
+        if (answer && !response.ok) return lost;
+        if (!response.ok || !response.body) {
+          onEvent(await this.#errorFromResponse(response));
+          return;
+        }
+        if (response.headers.get(PROTOCOL_HEADER) !== String(PROTOCOL_VERSION)) {
+          onEvent(this.#error('bot_unavailable', 'error.updated'));
+          return;
+        }
+        const stalled = await this.#readStream(
+          response.body,
+          (event, id) => {
+            // Each event has its number in the turn: one seen before came again on a resume.
+            if (id > 0) {
+              if (id <= seq) return;
+              seq = id;
+            }
+            if (event.type === 'message.start') {
+              answer = event.messageId;
+              // The turn reached the model, so the conversation now holds this context.
+              if (context) this.#sentContext = context;
+            }
+            ended ||= event.type === 'message.end' || event.type === 'error';
+            onEvent(event);
+          },
+          signal,
         );
-        return;
+        if (ended || signal?.aborted) return;
+        if (stalled) {
+          lost = this.#error('timeout', 'error.stalled');
+        }
+      } catch (error) {
+        if (signal?.aborted) return;
+        if (error instanceof SessionRefused) {
+          onEvent(error.event);
+          return;
+        }
       }
-      await this.#readStream(
-        response.body,
-        (event) => {
-          // The turn reached the model, so the conversation now holds this context.
-          if (event.type === 'message.start' && context) this.#sentContext = context;
-          onEvent(event);
-        },
-        signal,
-      );
-    } catch (error) {
+      if (seq > from) tries = 0;
+      // Without the answer's ID nothing can be resumed.
+      if (!answer || ++tries > 3 || ++resumes > 10) return lost;
+      onRetry?.();
+      await pause(500 * 4 ** (tries - 1), signal);
       if (signal?.aborted) return;
-      onEvent(
-        this.#failure(
-          error,
-          error instanceof DOMException && error.name === 'TimeoutError'
-            ? 'timeout'
-            : 'upstream_error',
-        ),
-      );
+      const messageId = answer;
+      path = '/resume';
+      request = () =>
+        json({
+          botId,
+          resumeToken: this.#options.storage.get(this.#resumeKey()),
+          messageId,
+          after: seq,
+        });
     }
   }
 
@@ -554,13 +608,7 @@ export class ChatClient {
     try {
       return await this.#options.humanToken();
     } catch {
-      throw new SessionRefused(
-        this.#error(
-          'unauthorized',
-          'error.humanCheck',
-          'We couldn’t confirm you’re human. Please try again.',
-        ),
-      );
+      throw new SessionRefused(this.#error('unauthorized', 'error.humanCheck'));
     }
   }
 
@@ -570,7 +618,7 @@ export class ChatClient {
   }
 
   #connectionError(code: ErrorCode): ErrorEvent {
-    return this.#error(code, 'error.connection', 'Connection problem. Please try again.');
+    return this.#error(code, 'error.connection');
   }
 
   async #errorFromResponse(response: Response, forgetMissing = true): Promise<ErrorEvent> {
@@ -587,18 +635,14 @@ export class ChatClient {
     });
     return result.ok && result.event.type === 'error'
       ? this.#localize(result.event)
-      : this.#error(
-          'upstream_error',
-          'error.upstream_error',
-          'The assistant is temporarily unavailable. Please try again.',
-        );
+      : this.#error('upstream_error', 'error.upstream_error');
   }
 
   async #readStream(
     body: ReadableStream<Uint8Array>,
-    onEvent: (event: ProtocolEvent) => void,
+    onEvent: (event: ProtocolEvent, id: number) => void,
     signal: AbortSignal | undefined,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const reader = body.getReader();
     const decoder = new TextDecoder();
     const parser = new SseParser();
@@ -630,14 +674,13 @@ export class ChatClient {
           } else if (result.event.type === 'error' && result.event.code === 'not_found') {
             this.reset(); // the conversation is gone (e.g. deleted by retention): start a new one
           }
-          onEvent(result.event.type === 'error' ? this.#localize(result.event) : result.event);
+          onEvent(
+            result.event.type === 'error' ? this.#localize(result.event) : result.event,
+            Number(raw.id),
+          );
         }
       }
-      if (stalled) {
-        onEvent(
-          this.#error('timeout', 'error.stalled', 'The connection stalled. Please try again.'),
-        );
-      }
+      return stalled;
     } finally {
       clearTimeout(timer);
       signal?.removeEventListener('abort', onAbort);

@@ -7,11 +7,24 @@ const askdareReact = {
   replacement: fileURLToPath(new URL('./packages/askdare/src/react/headless.ts', import.meta.url)),
 };
 
+// The contract suites, as add-ons import them, without building the package first.
+const askdareTesting = {
+  find: /^@boldare\/askdare\/testing$/,
+  replacement: fileURLToPath(new URL('./packages/askdare/src/testing/index.ts', import.meta.url)),
+};
+
+// The core entry for add-ons, from the same source as the suites: a class such as
+// VersionConflictError is then one class, as it is between the built entries.
+const askdare = {
+  find: /^@boldare\/askdare$/,
+  replacement: fileURLToPath(new URL('./packages/askdare/src/index.ts', import.meta.url)),
+};
+
 export default defineConfig({
   test: {
     projects: [
       {
-        resolve: { alias: [askdareReact] },
+        resolve: { alias: [askdareReact, askdareTesting, askdare] },
         test: {
           name: 'unit',
           include: ['packages/*/src/**/*.test.{ts,tsx}'],

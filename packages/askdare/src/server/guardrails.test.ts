@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { type BotDefinition, createBot } from '../bot/define-bot';
+import { guardNoteAction } from '../conversations/guard-notes';
+import { type FakeConversations, fakeConversations } from '../conversations/testing/fake-store';
 import { AskdareError } from '../errors';
 import type {
   AnswerVerdict,
@@ -12,6 +14,7 @@ import type {
 import type { ProtocolEvent } from '../protocol/events';
 import { decodeEvent, SseParser } from '../protocol/sse';
 import { type StreamTurnOptions, streamTurn } from './stream-turn';
+import type { ChatTranscriptReport } from './transcript-report';
 
 const COMPLETED: TurnResult = {
   reason: 'completed',
@@ -29,8 +32,26 @@ const BASE: BotDefinition = { id: 'support', model: 'test-model', instructions: 
 interface FakeGateway extends ModelGateway {
   readonly turns: TurnRequest[];
   readonly moderated: ModerationRequest[];
+  /** What the turn noted in the conversation (ADR-0022), read back from the appended items. */
   readonly settled: AnswerVerdict[];
   readonly created: number;
+  readonly conversations: FakeConversations;
+}
+
+/** The verdicts that notes appended to a conversation record. */
+function verdictsOf(appended: FakeConversations['appended']): AnswerVerdict[] {
+  return appended.flatMap(({ items }): AnswerVerdict[] => {
+    const [note, replacement] = items;
+    const action =
+      note?.type === 'message' && note.role === 'developer' && note.parts[0]?.type === 'text'
+        ? guardNoteAction(note.parts[0].text)
+        : undefined;
+    if (action === 'replaced') {
+      const part = replacement?.type === 'message' ? replacement.parts[0] : undefined;
+      return [{ action, text: part?.type === 'text' ? part.text : '' }];
+    }
+    return action ? [{ action }] : [];
+  });
 }
 
 /** A gateway whose turn streams `chunks`, and whose moderation flags texts containing "bad". */
@@ -40,23 +61,20 @@ function fakeGateway(
 ): FakeGateway {
   const turns: TurnRequest[] = [];
   const moderated: ModerationRequest[] = [];
-  const settled: AnswerVerdict[] = [];
-  let created = 0;
+  const conversations = fakeConversations();
   return {
     turns,
     moderated,
-    settled,
+    get settled() {
+      return verdictsOf(conversations.appended);
+    },
     get created() {
-      return created;
+      return conversations.created.length;
     },
-    createConversation: async () => {
-      created += 1;
-      return 'conv_new';
-    },
-    deleteConversation: async () => {},
+    conversations,
     uploadFile: async () => 'file-1',
+    deleteFiles: async () => {},
     transcribe: async () => ({ text: '', seconds: 0 }),
-    listMessages: async () => [],
     diagnose: async () => [],
     runTurn: async (request) => {
       turns.push(request);
@@ -72,22 +90,21 @@ function fakeGateway(
       const hits = request.input.some((text) => text.includes('bad'));
       return { flagged: hits, categories: hits ? ['harassment'] : [] };
     },
-    settleAnswer: async (_id, verdict) => {
-      settled.push(verdict);
-    },
     ...overrides,
   };
 }
 
 async function run(
   definition: Partial<BotDefinition>,
-  gateway: ModelGateway,
+  gateway: FakeGateway,
   overrides: Partial<StreamTurnOptions> = {},
 ): Promise<{ events: ProtocolEvent[]; errors: AskdareError[] }> {
   let id = 0;
   const errors: AskdareError[] = [];
   const stream = streamTurn({
     gateway,
+    conversations: gateway.conversations,
+    owner: 'visitor:visitor-1',
     bot: createBot({ ...BASE, ...definition }),
     text: 'Hello',
     context: { locale: 'en' },
@@ -162,6 +179,8 @@ describe('a bot without guardrails', () => {
     });
     const stream = streamTurn({
       gateway,
+      conversations: gateway.conversations,
+      owner: 'visitor:v',
       bot: createBot(BASE),
       text: 'Hi',
       context: { locale: 'en' },
@@ -324,6 +343,8 @@ describe('onOutput', () => {
     });
     const stream = streamTurn({
       gateway,
+      conversations: gateway.conversations,
+      owner: 'visitor:v',
       bot: createBot({ ...BASE, onOutput: () => undefined }),
       text: 'Hi',
       context: { locale: 'en' },
@@ -446,11 +467,10 @@ describe('onOutput', () => {
 
   it('still ends the turn when noting the verdict fails', async () => {
     const log = errorSpy();
-    const gateway = fakeGateway(['x'], {
-      settleAnswer: async () => {
-        throw new Error('down');
-      },
-    });
+    const gateway = fakeGateway(['x']);
+    gateway.conversations.append = async () => {
+      throw new Error('down');
+    };
     const { events } = await run({ onOutput: () => ({ action: 'block' }) }, gateway);
     expect(errorOf(events)?.code).toBe('content_blocked');
     expect(log).toHaveBeenCalledWith(
@@ -615,5 +635,91 @@ describe('one turn at a time per conversation', () => {
     });
     expect(errorOf(events)).toMatchObject({ code: 'rate_limited', key: 'error.rate_limited' });
     expect(gateway.turns).toEqual([]);
+  });
+});
+
+describe('the transcript (onTranscript)', () => {
+  /** Runs one turn and returns what the transcript hook received once the turn's work ended. */
+  async function transcribed(
+    definition: Partial<BotDefinition>,
+    gateway: FakeGateway,
+    overrides: Partial<StreamTurnOptions> = {},
+  ): Promise<ChatTranscriptReport[]> {
+    const reports: ChatTranscriptReport[] = [];
+    let work: Promise<unknown> | undefined;
+    await run(definition, gateway, {
+      transcript: (report) => {
+        reports.push(report);
+      },
+      waitUntil: (promise) => {
+        work = promise;
+      },
+      ...overrides,
+    });
+    await work;
+    return reports;
+  }
+
+  it('has the text onInput redacted, never the original', async () => {
+    const reports = await transcribed(
+      { onInput: (text) => ({ action: 'redact', text: text.replace(/\d{4}-\d{4}/, '[card]') }) },
+      fakeGateway(),
+      { text: 'My card is 1234-5678' },
+    );
+    expect(reports).toMatchObject([{ input: 'My card is [card]', answer: 'Hello there.' }]);
+    expect(JSON.stringify(reports)).not.toContain('1234-5678');
+  });
+
+  it('is not called for a message blocked before the model saw it', async () => {
+    const reports = await transcribed({ onInput: () => ({ action: 'block' }) }, fakeGateway());
+    expect(reports).toEqual([]);
+  });
+
+  it('has an allowed answer as it was, with its ID', async () => {
+    const reports = await transcribed({ onOutput: () => undefined }, fakeGateway());
+    expect(reports).toMatchObject([
+      {
+        answer: 'Hello there.',
+        citations: [{ index: 1, title: 'Doc' }],
+        check: 'allowed',
+        itemId: 'msg_answer',
+        reason: 'completed',
+      },
+    ]);
+  });
+
+  it('has the replacement of a replaced answer, with its sources and without the ID', async () => {
+    const reports = await transcribed(
+      { onOutput: (text) => ({ action: 'redact', text: text.replace(/\d{3}-\d{4}/, '[phone]') }) },
+      fakeGateway(['Call me at ', '555-0100.']),
+    );
+    expect(reports).toHaveLength(1);
+    expect(reports[0]).toMatchObject({
+      answer: 'Call me at [phone].',
+      citations: [{ index: 1, title: 'Doc' }],
+      check: 'replaced',
+    });
+    expect(reports[0]).not.toHaveProperty('itemId');
+    expect(JSON.stringify(reports)).not.toContain('555-0100');
+  });
+
+  it('has no answer for a withheld one, whichever check withheld it', async () => {
+    const blocking = await transcribed({ onOutput: () => ({ action: 'block' }) }, fakeGateway());
+    const moderated = await transcribed(
+      { moderation: { model: 'omni-moderation-latest', check: 'output' } },
+      fakeGateway(['A bad answer.']),
+    );
+    for (const reports of [blocking, moderated]) {
+      expect(reports).toHaveLength(1);
+      expect(reports[0]).toMatchObject({
+        input: 'Hello',
+        answer: undefined,
+        citations: [],
+        check: 'withheld',
+        reason: 'completed',
+      });
+      expect(reports[0]).not.toHaveProperty('itemId');
+    }
+    expect(JSON.stringify(moderated)).not.toContain('bad answer');
   });
 });

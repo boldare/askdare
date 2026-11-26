@@ -1,9 +1,10 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'tsdown';
+import { markedLexerOnly } from './scripts/marked-lexer-only.ts';
 
 export default defineConfig([
   {
-    entry: { index: 'src/index.ts', next: 'src/next/index.ts' },
+    entry: { index: 'src/index.ts', next: 'src/next/index.ts', testing: 'src/testing/index.ts' },
     format: 'esm',
     // Stable chunk names, so the API snapshot (scripts/api-snapshot.mjs) compares like with like.
     hash: false,
@@ -37,8 +38,10 @@ export default defineConfig([
     },
     // marked is bundled, so the XSS tests check exactly the version users run; react is the app's.
     deps: { neverBundle: [/^react($|\/)/], alwaysBundle: ['marked'] },
-    // In a chunk of its own: marked has module-level state a bundler can't drop from react.js, and
-    // a headless page that never renders Markdown shouldn't ship it (`sideEffects: false`).
+    // Only marked's Lexer is used: its default instance and `marked()` go (ADR-0017's room).
+    plugins: [markedLexerOnly],
+    // In a chunk of its own: a headless page that never renders Markdown shouldn't ship it
+    // (`sideEffects: false`).
     outputOptions: {
       advancedChunks: { groups: [{ name: 'react-marked', test: /node_modules[\\/]marked/ }] },
     },

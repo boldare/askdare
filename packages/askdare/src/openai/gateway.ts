@@ -1,68 +1,20 @@
-import OpenAI, { BadRequestError, NotFoundError, toFile } from 'openai';
+import { BadRequestError, toFile } from 'openai';
 import type { ModelGateway } from '../gateway';
-import { attachedFileIds, deleteFiles, FILE_TTL_SECONDS } from './attachments';
+import { deleteFiles, FILE_TTL_SECONDS } from './attachments';
+import { createOpenAIClient, type OpenAIClientOptions } from './client';
+import { compactConversation } from './compaction';
 import { diagnoseBot } from './diagnose';
 import { fromOpenAIError } from './errors';
-import { moderate, settleAnswer } from './guardrails';
-import { listHistory } from './history';
+import { moderate } from './guardrails';
 import { runTurn } from './turn';
 
-export interface OpenAIGatewayOptions {
-  readonly apiKey: string;
-  /** Override for tests or proxies. */
-  readonly baseURL?: string;
-  /** Per-request timeout for the SDK. Default 60 s; the turn deadline is enforced separately. */
-  readonly timeoutMs?: number;
-  /** SDK retries for failed requests before streaming starts. Default 2. */
-  readonly maxRetries?: number;
-  /** Custom fetch, for example to route through a proxy. Defaults to the global fetch. */
-  readonly fetch?: typeof fetch;
-}
+export type OpenAIGatewayOptions = OpenAIClientOptions;
 
-/** The default {@link ModelGateway}: OpenAI Responses API with conversations stored by OpenAI (ADR-0003). */
+/** The default {@link ModelGateway}: the OpenAI Responses API (ADR-0002). */
 export function createOpenAIGateway(options: OpenAIGatewayOptions): ModelGateway {
-  const client = new OpenAI({
-    apiKey: options.apiKey,
-    ...(options.baseURL === undefined ? {} : { baseURL: options.baseURL }),
-    ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
-    timeout: options.timeoutMs ?? 60_000,
-    maxRetries: options.maxRetries ?? 2,
-  });
+  const client = createOpenAIClient(options);
 
   return {
-    async createConversation({ botId, visitorId }, signal) {
-      try {
-        const conversation = await client.conversations.create(
-          { metadata: { askdare_bot: botId, askdare_visitor: visitorId } },
-          signal ? { signal } : undefined,
-        );
-        return conversation.id;
-      } catch (error) {
-        throw fromOpenAIError(
-          error,
-          signal?.reason instanceof DOMException && signal.reason.name === 'TimeoutError',
-        );
-      }
-    },
-
-    async deleteConversation(conversationId, deleteOptions) {
-      try {
-        // Collected first: once the conversation is gone, its items can no longer be listed.
-        // A failed listing must not keep the conversation alive; its files then simply expire.
-        const fileIds = deleteOptions?.withFiles
-          ? await attachedFileIds(client, conversationId).catch((error: unknown) => {
-              if (error instanceof NotFoundError) throw error;
-              return [];
-            })
-          : [];
-        await client.conversations.delete(conversationId);
-        await deleteFiles(client, fileIds);
-      } catch (error) {
-        if (error instanceof NotFoundError) return;
-        throw fromOpenAIError(error, false);
-      }
-    },
-
     async uploadFile({ bytes, filename, mime, signal }) {
       try {
         const file = await client.files.create(
@@ -79,13 +31,7 @@ export function createOpenAIGateway(options: OpenAIGatewayOptions): ModelGateway
       }
     },
 
-    async listMessages(conversationId, signal, replies, ui, checked) {
-      try {
-        return await listHistory(client, conversationId, signal, replies, ui, checked);
-      } catch (error) {
-        throw fromOpenAIError(error, false);
-      }
-    },
+    deleteFiles: (fileIds) => deleteFiles(client, fileIds),
 
     async transcribe({ bytes, filename, mime, model, languages, signal }) {
       const create = async (hints: readonly string[]) => {
@@ -117,19 +63,13 @@ export function createOpenAIGateway(options: OpenAIGatewayOptions): ModelGateway
 
     runTurn: (request) => runTurn(client, request),
 
+    compact: (request) => compactConversation(client, request),
+
     diagnose: (request) => diagnoseBot(client, request),
 
     async moderate(request) {
       try {
         return await moderate(client, request);
-      } catch (error) {
-        throw fromOpenAIError(error, false);
-      }
-    },
-
-    async settleAnswer(conversationId, verdict, signal) {
-      try {
-        await settleAnswer(client, conversationId, verdict, signal);
       } catch (error) {
         throw fromOpenAIError(error, false);
       }

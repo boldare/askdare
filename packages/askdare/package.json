@@ -53,6 +53,10 @@
       "types": "./dist/embed.d.ts",
       "default": "./dist/embed.js"
     },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    },
     "./package.json": "./package.json"
   },
   "types": "./dist/index.d.ts",

@@ -2,6 +2,9 @@ import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { ModelGateway } from '../gateway';
+import { fakeEmbedder } from '../knowledge/fake-embedder';
+import { memoryKnowledgeIndex, memoryKnowledgeStore } from '../knowledge/memory-index';
+import type { KnowledgeIndex } from '../knowledge/port';
 import { createOpenAIGateway } from './gateway';
 import { OPENAI_TEST_BASE_URL } from './testing/msw';
 
@@ -32,12 +35,6 @@ const healthy = [
   ),
   http.post(url('/responses'), () =>
     HttpResponse.json({ id: 'resp_1', object: 'response', status: 'completed', output: [] }),
-  ),
-  http.post(url('/conversations'), () =>
-    HttpResponse.json({ id: 'conv_doc', object: 'conversation', created_at: 0, metadata: {} }),
-  ),
-  http.delete(url('/conversations/:id'), () =>
-    HttpResponse.json({ id: 'conv_doc', object: 'conversation.deleted', deleted: true }),
   ),
   http.get(url('/vector_stores/:id'), ({ params }) =>
     HttpResponse.json({
@@ -70,14 +67,42 @@ describe('diagnose', () => {
     expect(calls).toEqual([
       'GET /models/gpt-test',
       'POST /responses',
-      'POST /conversations',
-      'DELETE /conversations/conv_doc',
       'GET /vector_stores/vs_kb',
       'GET /models/transcribe-test',
       'POST /audio/transcriptions',
       'POST /files',
       'DELETE /files/file-doc',
     ]);
+  });
+
+  it("reports the bot's own index through its diagnose()", async () => {
+    server.use(...healthy);
+    const index = memoryKnowledgeIndex({ embedder: fakeEmbedder(), store: memoryKnowledgeStore() });
+    const checks = await gateway.diagnose({
+      model: 'gpt-test',
+      knowledgeIndex: index,
+      attachments: false,
+    });
+    expect(checks.slice(-1)).toEqual([
+      {
+        status: 'fail',
+        title: 'Knowledge index: Never synced: run `askdare kb sync`.',
+        fix: 'Run `npx @boldare/askdare kb sync <folder> --index <id>` with the embedder the bot uses.',
+      },
+    ]);
+    const broken: KnowledgeIndex = {
+      ...index,
+      diagnose: () => Promise.reject(new Error('connect ECONNREFUSED')),
+    };
+    const failed = await gateway.diagnose({
+      model: 'gpt-test',
+      knowledgeIndex: broken,
+      attachments: false,
+    });
+    expect(failed.at(-1)).toEqual({
+      status: 'fail',
+      title: 'The knowledge index could not be checked.',
+    });
   });
 
   it('warns about a chat or transcription model with a shutdown date and keeps checking', async () => {
@@ -213,7 +238,6 @@ describe('diagnose', () => {
   it('names the missing model, store and permissions', async () => {
     server.use(
       http.get(url('/models/gpt-test'), () => error(404, 'model_not_found')),
-      http.post(url('/conversations'), () => error(403, 'insufficient_permissions')),
       http.get(url('/vector_stores/:id'), () => error(404, 'not_found')),
       http.post(url('/files'), () => error(429, 'insufficient_quota')),
       ...healthy,
@@ -222,31 +246,11 @@ describe('diagnose', () => {
     const titles = checks.filter((check) => check.status === 'fail').map((check) => check.title);
     expect(titles).toEqual([
       "Model gpt-test isn't available to this OpenAI project.",
-      'The key may not create conversations.',
       "Vector store vs_kb doesn't exist in this OpenAI project.",
       'The OpenAI project is out of credit or reached its spend limit.',
     ]);
     // No response is attempted with a model the project doesn't have.
     expect(calls).not.toContain('POST /responses');
-  });
-
-  it('tries again to delete the test conversation when the first delete fails', async () => {
-    let deletes = 0;
-    server.use(
-      http.delete(url('/conversations/:id'), () => {
-        deletes += 1;
-        return deletes === 1 ? error(500, 'server_error') : HttpResponse.json({ deleted: true });
-      }),
-      ...healthy,
-    );
-    const checks = await gateway.diagnose({ model: 'gpt-test', attachments: false });
-    expect(checks).toContainEqual(
-      expect.objectContaining({
-        status: 'fail',
-        title: 'Could not delete conversations (HTTP 500, server_error).',
-      }),
-    );
-    expect(deletes).toBe(2);
   });
 
   it('warns about an empty knowledge base and skips features the bot does not use', async () => {

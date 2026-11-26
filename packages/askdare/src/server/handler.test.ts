@@ -2,6 +2,13 @@ import { SignJWT } from 'jose';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { createBot } from '../bot/define-bot';
+import { newItemId, visitorItem } from '../conversations/items';
+import { memoryConversations } from '../conversations/memory';
+import { ownerOf } from '../conversations/owner';
+import type { ConversationOwner } from '../conversations/port';
+import type { HistoryReader } from '../conversations/provider-history';
+import { type FakeConversations, fakeConversations } from '../conversations/testing/fake-store';
+import { longConversation } from '../conversations/testing/long-conversation';
 import { AskdareError } from '../errors';
 import type {
   DiagnoseRequest,
@@ -14,6 +21,8 @@ import { createLimits } from '../limits/limits';
 import { memoryStore } from '../limits/store';
 import { doctorReportSchema } from '../protocol/doctor';
 import type { ProtocolEvent } from '../protocol/events';
+import type { HistoryResponse } from '../protocol/history';
+import { historyResponseSchema } from '../protocol/schemas';
 import { decodeEvent, SseParser } from '../protocol/sse';
 import { createIdentityVerifier } from '../security/identity';
 import { createTokenService, type TokenService } from '../security/tokens';
@@ -115,17 +124,18 @@ const docsBot = createBot({
 let tokens: TokenService;
 let handler: RequestHandler;
 const turns: TurnRequest[] = [];
-const deleted: { id: string; withFiles: boolean | undefined }[] = [];
+/** Who owns each conversation, shared by every fake store here (ADR-0024). */
+const owners = new Map<string, ConversationOwner>();
 const uploads: { filename: string; mime: string; size: number }[] = [];
 const transcriptions: TranscriptionRequest[] = [];
 let failTranscriptions = false;
 const diagnoses: DiagnoseRequest[] = [];
 const repliesReaders: (RepliesReader | undefined)[] = [];
 
+const deletedFiles: string[] = [];
 const gateway: ModelGateway = {
-  createConversation: async () => 'conv_1',
-  deleteConversation: async (id, options) => {
-    deleted.push({ id, withFiles: options?.withFiles });
+  deleteFiles: async (fileIds) => {
+    deletedFiles.push(...fileIds);
   },
   transcribe: async (request) => {
     if (failTranscriptions) throw new AskdareError('upstream_error');
@@ -135,10 +145,6 @@ const gateway: ModelGateway = {
   uploadFile: async ({ bytes, filename, mime }) => {
     uploads.push({ filename, mime, size: bytes.byteLength });
     return `file-${uploads.length}`;
-  },
-  listMessages: async (id, _signal, replies) => {
-    repliesReaders.push(replies);
-    return [{ id: 'm1', role: 'user', text: `history of ${id}`, citations: [], attachments: 0 }];
   },
   diagnose: async (request) => {
     diagnoses.push(request);
@@ -160,13 +166,43 @@ const gateway: ModelGateway = {
   },
 };
 
+/** A store whose conversations are all in `owners`, reading `history` for `POST /history`. */
+const storeWith = (history?: HistoryReader): FakeConversations =>
+  fakeConversations({
+    id: 'conv_1',
+    owners,
+    fileIds: (id) => (id === 'conv_f' ? ['file-f1', 'file-f2'] : []),
+    ...(history ? { history } : {}),
+  });
+const conversations = storeWith(async (id, { replies }) => {
+  repliesReaders.push(replies);
+  return {
+    messages: [{ id: 'm1', role: 'user', text: `history of ${id}`, citations: [], attachments: 0 }],
+  };
+});
+
 beforeAll(async () => {
-  tokens = await createTokenService({ secret: 'aGFuZGxlci10ZXN0cy1zZWNyZXQtMTIzNDU2Nzg5MA' });
+  const issued = await createTokenService({ secret: 'aGFuZGxlci10ZXN0cy1zZWNyZXQtMTIzNDU2Nzg5MA' });
+  // A resume token the tests issue themselves names a conversation the store must know: it is
+  // recorded as its visitor's, as if they had started it. Tests of foreign owners set `owners`.
+  tokens = {
+    ...issued,
+    issueResume: async (botId, grant) => {
+      if (!owners.has(grant.conversationId)) {
+        owners.set(grant.conversationId, {
+          botId,
+          owner: ownerOf(grant.visitorId, grant.identityKey),
+        });
+      }
+      return issued.issueResume(botId, grant);
+    },
+  };
   handler = createRequestHandler({
     bots: [bot, filesBot, docsBot, voiceBot, tightVoiceBot, multilingualBot, secretiveBot],
     basePath: '/api/chat',
     assets,
     gateway: () => gateway,
+    conversations,
     tokens: async () => tokens,
     limits: createLimits({ store: memoryStore() }),
     clientIp: (request) => request.headers.get('x-test-ip') ?? 'test',
@@ -222,6 +258,7 @@ describe('static routes', () => {
       bots: [bot],
       basePath: '/api/chat',
       assets,
+      conversations,
       gateway: () => gateway,
       tokens: async () => tokens,
       limits: createLimits({ store: memoryStore() }),
@@ -299,6 +336,7 @@ describe('static routes', () => {
         ],
         basePath: '/api/chat',
         assets,
+        conversations,
         gateway: () => gateway,
         tokens: async () => tokens,
         limits: createLimits({ store: memoryStore() }),
@@ -340,6 +378,7 @@ describe('static routes', () => {
             bots: [createBot({ id: 'own', model: 'm', instructions: 'x', embedPath })],
             basePath: '/api/chat',
             assets,
+            conversations,
             gateway: () => gateway,
             tokens: async () => tokens,
             limits: createLimits({ store: memoryStore() }),
@@ -435,6 +474,7 @@ describe('GET /config/<bot>', () => {
       bots: [texts, fixed],
       basePath: '/api/chat',
       assets,
+      conversations,
       gateway: () => gateway,
       tokens: async () => tokens,
       limits: createLimits({ store: memoryStore() }),
@@ -808,6 +848,7 @@ describe('limits', () => {
       ],
       basePath: '/api/chat',
       assets,
+      conversations,
       gateway: () => gateway,
       tokens: async () => tokens,
       limits: createLimits({ store: memoryStore() }),
@@ -832,6 +873,7 @@ describe('limits', () => {
       bots: [bot],
       basePath: '/api/chat',
       assets,
+      conversations,
       gateway: () => {
         throw new AskdareError('bot_unavailable', { cause: 'OPENAI_API_KEY is not configured.' });
       },
@@ -855,6 +897,7 @@ describe('limits', () => {
       bots: [bot],
       basePath: '/api/chat',
       assets,
+      conversations,
       gateway: () => gateway,
       tokens: async () => tokens,
       limits: createLimits({ store: memoryStore(), disabled: () => true }),
@@ -1054,13 +1097,13 @@ describe('conversation history and deletion', () => {
       bots: [booking],
       basePath: '/api/chat',
       assets,
-      gateway: () => ({
-        ...gateway,
-        listMessages: async (_id, _signal, replies) => {
-          const offered = replies?.([
-            { name: 'find_slots', arguments: '{}', output: '{"slots":["9:00","11:00"]}' },
-          ]);
-          return [
+      gateway: () => gateway,
+      conversations: storeWith(async (_id, { replies }) => {
+        const offered = replies?.([
+          { name: 'find_slots', arguments: '{}', output: '{"slots":["9:00","11:00"]}' },
+        ]);
+        return {
+          messages: [
             {
               id: 'msg_a',
               role: 'assistant',
@@ -1069,8 +1112,8 @@ describe('conversation history and deletion', () => {
               attachments: 0,
               ...(offered ? { replies: offered } : {}),
             },
-          ];
-        },
+          ],
+        };
       }),
       tokens: async () => tokens,
       limits: createLimits({ store: memoryStore() }),
@@ -1100,19 +1143,19 @@ describe('conversation history and deletion', () => {
         ],
         basePath: '/api/chat',
         assets,
-        gateway: () => ({
-          ...gateway,
-          listMessages: async (_id, _signal, _replies, reader) => {
-            readers.push(reader);
-            const cards = reader?.([
-              {
-                callId: 'c1',
-                name: 'find_slots',
-                arguments: '{}',
-                output: '{"slots":["9:00"],"cost":3}',
-              },
-            ]);
-            return [
+        gateway: () => gateway,
+        conversations: storeWith(async (_id, { ui: reader }) => {
+          readers.push(reader);
+          const cards = reader?.([
+            {
+              callId: 'c1',
+              name: 'find_slots',
+              arguments: '{}',
+              output: '{"slots":["9:00"],"cost":3}',
+            },
+          ]);
+          return {
+            messages: [
               {
                 id: 'msg_a',
                 role: 'assistant',
@@ -1121,8 +1164,8 @@ describe('conversation history and deletion', () => {
                 attachments: 0,
                 ...(cards?.length ? { ui: cards } : {}),
               },
-            ];
-          },
+            ],
+          };
         }),
         tokens: async () => tokens,
         limits: createLimits({ store: memoryStore() }),
@@ -1160,12 +1203,10 @@ describe('conversation history and deletion', () => {
       bots: [both],
       basePath: '/api/chat',
       assets,
-      gateway: () => ({
-        ...gateway,
-        listMessages: async (_id, _signal, replies) => {
-          readers.push(replies);
-          return [];
-        },
+      gateway: () => gateway,
+      conversations: storeWith(async (_id, { replies }) => {
+        readers.push(replies);
+        return { messages: [] };
       }),
       tokens: async () => tokens,
       limits: createLimits({ store: memoryStore() }),
@@ -1213,6 +1254,75 @@ describe('conversation history and deletion', () => {
     expect(response.status).toBe(404);
   });
 
+  describe("a store record that doesn't match the token (ADR-0024)", () => {
+    const visitor = `v_${'5e'.repeat(16)}`;
+    /** A valid token for `id`, whose stored record names `owner` instead. */
+    async function foreign(id: string, owner: ConversationOwner) {
+      owners.set(id, owner);
+      const resume = await tokens.issueResume('support', {
+        visitorId: visitor,
+        conversationId: id,
+      });
+      const access = (await tokens.issueAccess('support', visitor)).token;
+      return { resumeToken: resume.token, auth: { authorization: `Bearer ${access}` } };
+    }
+    const cases = [
+      ['another visitor', { botId: 'support', owner: `visitor:v_${'6f'.repeat(16)}` }],
+      ['another bot', { botId: 'docs', owner: `visitor:${visitor}` }],
+      ['a signed-in user', { botId: 'support', owner: 'user:someone-else' }],
+    ] as const;
+
+    it.each(cases)("answers a message to %s's conversation as unknown", async (_, owner) => {
+      const id = `conv_msg_${cases.findIndex(([, each]) => each === owner)}`;
+      const { resumeToken, auth } = await foreign(id, owner);
+      const before = turns.length;
+      const response = await handler(
+        post('/messages', { botId: 'support', text: 'Hi', resumeToken }, auth),
+      );
+      const stream = await events(response);
+      expect(stream.find((event) => event.type === 'error')).toMatchObject({
+        code: 'not_found',
+        key: 'error.conversationGone',
+      });
+      expect(turns.length).toBe(before);
+    });
+
+    it.each(cases)("answers the history of %s's conversation as unknown", async (_, owner) => {
+      const id = `conv_h_${cases.findIndex(([, each]) => each === owner)}`;
+      const { resumeToken, auth } = await foreign(id, owner);
+      const response = await handler(post('/history', { botId: 'support', resumeToken }, auth));
+      expect(response.status).toBe(404);
+      expect(await response.json()).toMatchObject({ error: { key: 'error.conversationGone' } });
+    });
+
+    it.each(cases)("leaves %s's conversation alone on delete", async (_, owner) => {
+      const id = `conv_d_${cases.findIndex(([, each]) => each === owner)}`;
+      const { resumeToken, auth } = await foreign(id, owner);
+      const response = await handler(
+        new Request(`${BASE}/conversation`, {
+          method: 'DELETE',
+          headers: {
+            'content-type': 'application/json',
+            origin: APP,
+            host: 'app.example.com',
+            ...auth,
+          },
+          body: JSON.stringify({ botId: 'support', resumeToken }),
+        }),
+      );
+      expect(response.status).toBe(204);
+      expect(conversations.deleted).not.toContain(id);
+    });
+
+    it('answers a deleted conversation the same way', async () => {
+      const { resumeToken, auth } = await foreign('conv_gone', { botId: 'support', owner: '' });
+      owners.delete('conv_gone');
+      const response = await handler(post('/history', { botId: 'support', resumeToken }, auth));
+      expect(response.status).toBe(404);
+      expect(await response.json()).toMatchObject({ error: { key: 'error.conversationGone' } });
+    });
+  });
+
   it('deletes an owned conversation', async () => {
     const { resumeToken, auth } = await grant(OWNER);
     const response = await handler(
@@ -1228,7 +1338,7 @@ describe('conversation history and deletion', () => {
       }),
     );
     expect(response.status).toBe(204);
-    expect(deleted).toContainEqual({ id: 'conv_hist', withFiles: false });
+    expect(conversations.deleted).toContain('conv_hist');
   });
 });
 
@@ -1250,12 +1360,14 @@ describe('feedback', () => {
       bots: [bot, quietBot],
       basePath: '/api/chat',
       assets,
-      gateway: () => ({
-        ...gateway,
-        listMessages: async () => [
+      conversations: storeWith(async () => ({
+        messages: [
           { id: 'msg_q1', role: 'user', text: 'Hi', citations: [], attachments: 0 },
           { id: 'msg_a1', role: 'assistant', text: 'Hello!', citations: [], attachments: 0 },
         ],
+      })),
+      gateway: () => ({
+        ...gateway,
         runTurn: async (request) => ({
           ...(await gateway.runTurn(request)),
           answerItemId: 'msg_a1',
@@ -1615,6 +1727,171 @@ describe('attachments', () => {
       }),
     );
     expect(response.status).toBe(204);
-    expect(deleted).toContainEqual({ id: 'conv_f', withFiles: true });
+    expect(conversations.deleted).toContain('conv_f');
+    expect(deletedFiles).toEqual(['file-f1', 'file-f2']);
+  });
+});
+
+describe('an item store (stateless turns)', () => {
+  const OWNER = `v_${'5e'.repeat(16)}`;
+  const INTRUDER = `v_${'6f'.repeat(16)}`;
+  const reports: ChatFeedbackReport[] = [];
+  const pending: Promise<unknown>[] = [];
+  let items: RequestHandler;
+
+  beforeAll(() => {
+    items = createRequestHandler({
+      bots: [bot],
+      basePath: '/api/chat',
+      assets,
+      conversations: memoryConversations(),
+      // Writes what a stateless turn writes: the visitor's message, then the answer.
+      gateway: () => ({
+        ...gateway,
+        runTurn: async (request) => {
+          const answer = newItemId();
+          await request.conversations.append(request.conversationId, [
+            visitorItem(request),
+            {
+              id: answer,
+              type: 'message',
+              role: 'assistant',
+              parts: [{ type: 'text', text: 'Hello!' }],
+            },
+          ]);
+          return { ...(await gateway.runTurn(request)), answerItemId: answer };
+        },
+      }),
+      tokens: async () => tokens,
+      limits: createLimits({ store: memoryStore() }),
+      clientIp: () => 'test',
+      onError: () => {},
+      onFeedback: (report) => {
+        reports.push(report);
+      },
+      waitUntil: (work) => pending.push(work),
+    });
+  });
+
+  const auth = async (visitorId: string) => ({
+    authorization: `Bearer ${(await tokens.issueAccess('support', visitorId)).token}`,
+  });
+
+  it('shows the history of an owned conversation, each answer rated by its stored ID', async () => {
+    const turn = await events(
+      await items(post('/messages', { botId: 'support', text: 'Hi' }, await auth(OWNER))),
+    );
+    const created = turn.find((event) => event.type === 'conversation.created');
+    const end = turn.find((event) => event.type === 'message.end');
+    if (created?.type !== 'conversation.created' || end?.type !== 'message.end' || !end.feedback) {
+      throw new Error('no conversation or no feedback handle');
+    }
+    const history = await items(
+      post('/history', { botId: 'support', resumeToken: created.resumeToken }, await auth(OWNER)),
+    );
+    const { messages } = (await history.json()) as {
+      messages: { id: string; role: string; text: string; feedback?: { key: string } }[];
+    };
+    expect(messages.map((message) => [message.role, message.text])).toEqual([
+      ['user', 'Hi'],
+      ['assistant', 'Hello!'],
+    ]);
+    expect(messages[1]?.id).toMatch(/^itm_/);
+    expect(messages[1]?.feedback?.key).toBe(end.feedback.key);
+
+    reports.length = 0;
+    const rating = await items(
+      post(
+        '/feedback',
+        { botId: 'support', feedback: end.feedback.handle, rating: 'up' },
+        await auth(OWNER),
+      ),
+    );
+    await Promise.all(pending);
+    expect(rating.status).toBe(204);
+    expect(reports).toMatchObject([{ rating: 'up', itemId: messages[1]?.id }]);
+
+    // Another visitor's session can't read it, even with the handle.
+    const intruder = await items(
+      post(
+        '/history',
+        { botId: 'support', resumeToken: created.resumeToken },
+        await auth(INTRUDER),
+      ),
+    );
+    expect(intruder.status).toBe(404);
+  });
+});
+
+describe('history pages (ADR-0024, decision 7)', () => {
+  const OWNER = `v_${'7a'.repeat(16)}`;
+  const store = memoryConversations();
+  let paged: RequestHandler;
+
+  beforeAll(() => {
+    paged = createRequestHandler({
+      bots: [bot],
+      basePath: '/api/chat',
+      assets,
+      conversations: store,
+      gateway: () => gateway,
+      tokens: async () => tokens,
+      limits: createLimits({ store: memoryStore() }),
+      clientIp: () => 'test',
+      onError: () => {},
+    });
+  });
+
+  /** A long conversation of OWNER's, and its resume token. */
+  const started = async (): Promise<string> => {
+    const conversationId = await store.create({ botId: 'support', owner: `visitor:${OWNER}` });
+    await store.append(conversationId, longConversation(41));
+    return (await tokens.issueResume('support', { visitorId: OWNER, conversationId })).token;
+  };
+  const read = async (resumeToken: string, before?: string): Promise<Response> =>
+    paged(
+      post(
+        '/history',
+        { botId: 'support', resumeToken, ...(before === undefined ? {} : { before }) },
+        { authorization: `Bearer ${(await tokens.issueAccess('support', OWNER)).token}` },
+      ),
+    );
+
+  it('answers the latest page without a cursor, then each older one, every turn once', async () => {
+    const resumeToken = await started();
+    const pages: HistoryResponse[] = [];
+    let before: string | undefined;
+    do {
+      const response = await read(resumeToken, before);
+      expect(response.status).toBe(200);
+      const page = historyResponseSchema.parse(await response.json());
+      pages.push(page);
+      before = page.before;
+    } while (before && pages.length < 20);
+    expect(pages.length).toBeGreaterThan(2);
+    expect(pages.at(-1)?.before).toBeUndefined();
+    for (const page of pages) expect(page.messages[0]?.role).toBe('user');
+    const ids = pages.toReversed().flatMap((page) => page.messages.map((message) => message.id));
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids.filter((id) => id.startsWith('itm_u'))).toHaveLength(41);
+    // Opaque: no store cursor or item ID shows through.
+    expect(pages[0]?.before).not.toMatch(/itm_|^\d+$/);
+  });
+
+  it("refuses a cursor from another conversation, even the same visitor's", async () => {
+    const first = await started();
+    const second = await started();
+    const cursor = historyResponseSchema.parse(await (await read(second)).json()).before;
+    expect(cursor).toBeDefined();
+    const response = await read(first, cursor);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: { code: 'invalid_input' } });
+  });
+
+  it('refuses a forged cursor or a raw store cursor', async () => {
+    const resumeToken = await started();
+    for (const before of ['100', 'itm_u20', 'eyJhbGciOiJkaXIifQ..x.y.z']) {
+      expect((await read(resumeToken, before)).status).toBe(400);
+    }
   });
 });

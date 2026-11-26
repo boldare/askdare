@@ -4,13 +4,15 @@ import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { type BotDefinition, createBot } from '../bot/define-bot';
+import { guardNote } from '../conversations/guard-notes';
 import type { ModelGateway } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
 import { decodeEvent, SseParser } from '../protocol/sse';
 import { streamTurn } from '../server/stream-turn';
 import { defineTool, readToolReplies, readToolUi } from '../tools/define-tool';
+import { unwrapToolOutput } from '../tools/outputs';
 import { createOpenAIGateway } from './gateway';
-import { guardNote, unwrapToolOutput } from './guardrails';
+import { testConversations } from './testing/conversations';
 import {
   type FixtureEvent,
   OPENAI_TEST_BASE_URL,
@@ -21,6 +23,7 @@ import {
 
 const server = setupServer();
 let gateway: ModelGateway;
+const conversations = testConversations();
 beforeAll(() => {
   server.listen({ onUnhandledFrame: 'error' });
   gateway = createOpenAIGateway({
@@ -88,9 +91,9 @@ describe('settleAnswer', () => {
         return HttpResponse.json({ object: 'list', data: [], has_more: false });
       }),
     );
-    await gateway.settleAnswer?.('conv_1', { action: 'allowed' });
-    await gateway.settleAnswer?.('conv_1', { action: 'withheld' });
-    await gateway.settleAnswer?.('conv_1', { action: 'replaced', text: 'Call me at [phone].' });
+    await conversations.settle('conv_1', { action: 'allowed' });
+    await conversations.settle('conv_1', { action: 'withheld' });
+    await conversations.settle('conv_1', { action: 'replaced', text: 'Call me at [phone].' });
     expect(bodies).toEqual([
       { items: [{ role: 'developer', content: guardNote('allowed') }] },
       { items: [{ role: 'developer', content: guardNote('withheld') }] },
@@ -129,7 +132,7 @@ describe('history after a guardrail', () => {
       ),
     );
   const visible = async (checked: boolean) =>
-    (await gateway.listMessages('conv_h', undefined, undefined, undefined, checked)).map(
+    (await conversations.listMessages('conv_h', undefined, undefined, undefined, checked)).map(
       ({ id, text }) => `${id}: ${text}`,
     );
 
@@ -202,7 +205,7 @@ describe('history after a guardrail', () => {
       message('msg_1', 'user', 'Book'),
     ];
     const read = () =>
-      gateway.listMessages(
+      conversations.listMessages(
         'conv_h',
         undefined,
         (calls) => readToolReplies([slots], calls),
@@ -241,8 +244,8 @@ describe('history after a guardrail', () => {
       'msg_3: And?',
       'msg_4: Fine.',
     ]);
-    expect(await gateway.listMessages('conv_h')).toEqual(
-      await gateway.listMessages('conv_h', undefined, undefined, undefined, false),
+    expect(await conversations.listMessages('conv_h')).toEqual(
+      await conversations.listMessages('conv_h', undefined, undefined, undefined, false),
     );
   });
 
@@ -288,7 +291,7 @@ describe('history after a guardrail', () => {
       },
       message('msg_1', 'user', 'Book'),
     ]);
-    const messages = await gateway.listMessages('conv_h', undefined, (calls) =>
+    const messages = await conversations.listMessages('conv_h', undefined, (calls) =>
       readToolReplies([slots], calls),
     );
     expect(messages.at(-1)?.replies).toEqual(['Book 9:00']);
@@ -335,6 +338,7 @@ describe("toolResults: 'untrusted'", () => {
     await gateway.runTurn({
       bot: createBot({ ...BASE, tools: [lookup], ...definition }),
       conversationId: 'conv_t',
+      conversations: conversations.store,
       text: 'Look it up',
       context: { locale: 'en' },
       safetyIdentifier: 'a'.repeat(64),
@@ -383,6 +387,7 @@ describe("toolResults: 'untrusted'", () => {
     await gateway.runTurn({
       bot: createBot({ ...BASE, toolResults: 'untrusted' }),
       conversationId: 'conv_t',
+      conversations: conversations.store,
       text: 'Hi',
       context: { locale: 'en' },
       safetyIdentifier: 'a'.repeat(64),
@@ -432,6 +437,8 @@ describe('output checks on a recorded stream', () => {
     );
     const stream = streamTurn({
       gateway,
+      conversations: conversations.store,
+      owner: 'visitor:v',
       bot: createBot({ ...BASE, ...definition }),
       text: 'Describe the sea.',
       context: { locale: 'en' },

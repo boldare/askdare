@@ -98,7 +98,7 @@ export function activityFor(event: ProtocolEvent, t: Translate): string | null |
   if (event.type === 'reasoning') return event.state === 'started' ? t('status.thinking') : null;
   if (event.type === 'tool.status')
     return event.state === 'running'
-      ? event.name === 'file_search'
+      ? event.name === 'file_search' || event.name === 'search_knowledge'
         ? t('status.searching')
         : t('status.tool', { name: event.name })
       : null;

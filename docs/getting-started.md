@@ -130,4 +130,5 @@ mkdir -p .claude/skills && cp -R node_modules/@boldare/askdare/skills/askdare .c
 | Let visitors rate answers | [Answer ratings](feedback.md) |
 | Track costs per turn, or trace with OpenTelemetry | [Observability](observability.md) |
 | Deploy to Vercel or Heroku | [Deployment](deployment.md) |
+| Keep conversations and knowledge in your own Postgres | [Own your data](own-your-data.md) |
 | Open the chat to the public | [Going public](going-public.md) |

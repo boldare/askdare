@@ -1,7 +1,16 @@
 import type { Bot, BotContext } from '../bot/define-bot';
 import { checksInput, checksOutput } from '../bot/guardrails';
+import { settledAnswerItems } from '../conversations/guard-notes';
+import { conversationGone } from '../conversations/owner';
+import type { ConversationInfo, ConversationStore } from '../conversations/port';
 import { AskdareError, forLog, TurnAbortedError, toAskdareError } from '../errors';
-import type { ModelGateway, TokenUsage, ToolCallRecord, TurnAttachment } from '../gateway';
+import type {
+  CompactionResult,
+  ModelGateway,
+  TokenUsage,
+  ToolCallRecord,
+  TurnAttachment,
+} from '../gateway';
 import type {
   ErrorCode,
   FeedbackHandle,
@@ -12,12 +21,25 @@ import { normalizeReplies } from '../protocol/replies';
 import { encodeComment, encodeEvent } from '../protocol/sse';
 import { MAX_TOOL_UI } from '../protocol/tool-ui';
 import { PROTOCOL_HEADER, PROTOCOL_VERSION } from '../protocol/version';
+import { turnKey, turnLogTtl } from '../resume/turn-key';
+import type { TurnEventLog } from '../resume/turn-log';
+import { type TurnLogWriter, turnLogWriter } from '../resume/turn-log-writer';
 import { addUsage, ZERO_USAGE } from '../usage';
 import { blockedError, type GuardOptions, guardInput, guardOutput } from './guardrails';
-import type { ChatUsageReport } from './usage-report';
+import type { ChatTranscriptCitation, ChatTranscriptReport } from './transcript-report';
+import type { ChatCompactionReport, ChatUsageReport } from './usage-report';
 
 export interface StreamTurnOptions {
   readonly gateway: ModelGateway;
+  /** Where the conversation lives (ADR-0024). */
+  readonly conversations: ConversationStore;
+  /** Who a new conversation belongs to: `visitor:<id>` or `user:<key>` (ADR-0009). */
+  readonly owner: string;
+  /**
+   * Whether a resumed conversation belongs to this bot and session, from what the store says
+   * about it. A conversation that doesn't, or no longer exists, ends the turn with `not_found`.
+   */
+  readonly owns?: ((info: ConversationInfo | undefined) => boolean) | undefined;
   readonly bot: Bot;
   /** Already validated user message; empty when only files are sent. */
   readonly text: string;
@@ -49,6 +71,14 @@ export interface StreamTurnOptions {
    * the turn's `waitUntil` work; whatever it throws is caught.
    */
   readonly report?: ((report: ChatUsageReport) => void | Promise<void>) | undefined;
+  /**
+   * Receives the turn's transcript once the stream has ended, for the `onTranscript` hook: the
+   * visitor's text after `onInput` and the answer they saw after output checks. Called once for
+   * each turn whose answer finished, withheld ones included; never for a turn that failed or
+   * stopped before that. Awaited inside the turn's `waitUntil` work; whatever it throws goes to
+   * `onError` by its error's name only, since it may hold content.
+   */
+  readonly transcript?: ((report: ChatTranscriptReport) => void | Promise<void>) | undefined;
   /** Issues the rating handle of the answer; absent when the bot's answers can't be rated. */
   readonly issueFeedback?:
     | ((conversationId: string, itemId: string) => Promise<FeedbackHandle>)
@@ -63,6 +93,19 @@ export interface StreamTurnOptions {
     | undefined;
   /** Holds the budget for one more model call before a tool round; see `TurnRequest`. */
   readonly reserveCall?: (() => Promise<boolean>) | undefined;
+  /**
+   * Holds the budget for a compaction after the turn, which rereads `inputTokens`; resolves to its
+   * settlement, or undefined when a budget can't cover it. Absent means it is covered.
+   */
+  readonly reserveCompaction?:
+    | ((inputTokens: number) => Promise<{ settle(usage: TokenUsage): Promise<void> } | undefined>)
+    | undefined;
+  /**
+   * Where the turn's events go, numbered, so a visitor whose connection dropped can resume the
+   * answer with `POST /resume` (ADR-0027). Logged once the conversation is known, under
+   * `turnKey()`; without a log, frames still carry their sequence numbers.
+   */
+  readonly resume?: TurnEventLog | undefined;
   /** Server-side reporting hook. Receives client-safe errors with internals in `cause`. */
   readonly onError?: ((error: AskdareError) => void) | undefined;
   /** Development only: a setup error's description, shown in the chat instead of the generic one. */
@@ -88,6 +131,12 @@ function logError(error: AskdareError): void {
   console.error(`[askdare] turn failed: ${error.code}`, forLog(error.cause));
 }
 
+/**
+ * How long a compaction after a turn may take in all: the store reads and writes, and the request,
+ * which the gateway bounds at a minute.
+ */
+const COMPACTION_DEADLINE_MS = 90_000;
+
 /** Events that carry the answer's content, held back while output checks run (docs/guardrails.md). */
 const HELD: ReadonlySet<ProtocolEvent['type']> = new Set(['text.delta', 'citation', 'tool.ui']);
 
@@ -110,7 +159,7 @@ export function hookError(error: unknown): string {
  * still streams. A blocked answer never reaches the client (ADR-0019).
  */
 export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Array> {
-  const { bot, gateway } = options;
+  const { bot, gateway, conversations } = options;
   const generateId = options.generateId ?? defaultId;
   const reportError = options.onError ?? logError;
   let closed = false;
@@ -126,7 +175,30 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           closed = true;
         }
       };
-      const emit = (event: ProtocolEvent): void => write(encodeEvent(event));
+      // Every event is numbered, for the frame's `id:`, and logged once the turn's key is known,
+      // also after the visitor left: a resumed stream continues from the log (ADR-0027).
+      let seq = 0;
+      let logged: TurnLogWriter | undefined;
+      const unlogged: ProtocolEvent[] = [];
+      const record = (event: ProtocolEvent): number => {
+        seq += 1;
+        if (logged) logged.write(event);
+        else if (options.resume) unlogged.push(event);
+        return seq;
+      };
+      // What the visitor saw of the answer, for the transcript; kept only when there is a hook.
+      const shown: string[] = [];
+      const citations: ChatTranscriptCitation[] = [];
+      const emit = (event: ProtocolEvent): void => {
+        if (options.transcript) {
+          if (event.type === 'text.delta') shown.push(event.delta);
+          else if (event.type === 'citation') {
+            const { index, title, url } = event;
+            citations.push({ index, title, ...(url === undefined ? {} : { url }) });
+          }
+        }
+        write(encodeEvent(event, record(event)));
+      };
       const holding = checksOutput(bot.guardrails);
       const held: ProtocolEvent[] = [];
       // At most four UI payloads per answer, each call once, whatever the gateway sends (ADR-0017).
@@ -150,6 +222,7 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         else emit(event);
       };
       const finish = (): void => {
+        endedAt ??= Date.now();
         clearInterval(heartbeat);
         if (closed) return;
         closed = true;
@@ -170,6 +243,8 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
 
       // What the turn did, for its report.
       const startedAt = Date.now();
+      // When the stream closed: the report's duration leaves out the compaction after it.
+      let endedAt: number | undefined;
       let conversationId = options.conversationId;
       let ran = false;
       let steps = 0;
@@ -181,6 +256,40 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
       let outcome: ChatUsageReport['outcome'] = 'completed';
       let errorCode: ErrorCode | undefined;
       let release: (() => Promise<void>) | undefined;
+      // What the visitor sent, after `onInput`, and what the checks did with the answer.
+      let input = '';
+      let verdict: ChatTranscriptReport['check'];
+      let answerItemId: string | undefined;
+      // A compaction after the turn (ADR-0029): due once the turn's last model call read
+      // `compactAt` tokens, at the conversation's version after everything the turn wrote.
+      let safetyIdentifier: string | undefined;
+      let version: number | undefined;
+      let compactionDue = false;
+      let compaction: ChatCompactionReport | undefined;
+
+      /**
+       * Starts logging the turn's events under the answer's key, with those sent so far. Appends
+       * get a signal of their own: the turn's deadline would refuse the `timeout` error that ends
+       * a turn that ran out of time.
+       */
+      const startLog = async (id: string, messageId: string): Promise<void> => {
+        const log = options.resume;
+        if (!log) return;
+        const ttlMs = turnLogTtl(bot.limits.turnTimeoutMs);
+        const key = await turnKey(options.pseudonym, bot.id, id, messageId);
+        logged = turnLogWriter(log, key, {
+          ttlMs,
+          signal: AbortSignal.timeout(ttlMs),
+          onError: (error) => {
+            // The name only: the error may quote what was being written, which is answer text.
+            const message = `The turn log failed, so this answer can't be resumed: ${hookError(error)}.`;
+            if (options.onError) options.onError(new AskdareError('internal_error', { message }));
+            else console.error(`[askdare] ${message}`);
+          },
+        });
+        for (const event of unlogged) logged.write(event);
+        unlogged.length = 0;
+      };
 
       const guard: GuardOptions = {
         bot,
@@ -192,6 +301,14 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
       const run = async (): Promise<void> => {
         // Nothing has been spent upstream yet.
         if (visitorLeft()) return;
+        // Both up front: the answer's ID names the turn in the log from its first event on.
+        const ackId = generateId();
+        const messageId = generateId();
+        if (conversationId !== undefined && options.owns) {
+          const info = await conversations.info(conversationId, deadline);
+          if (!options.owns(info)) throw conversationGone();
+        }
+        if (conversationId !== undefined) await startLog(conversationId, messageId);
         if (conversationId !== undefined && options.lockConversation) {
           release = await options.lockConversation(conversationId);
         }
@@ -199,31 +316,35 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         const text = checksInput(bot.guardrails)
           ? await guardInput(options.text, options.pageContext, guard)
           : options.text;
+        input = text;
         if (visitorLeft()) return;
         if (conversationId === undefined) {
-          conversationId = await gateway.createConversation(
-            { botId: bot.id, visitorId: options.visitorId },
+          conversationId = await conversations.create(
+            { botId: bot.id, owner: options.owner },
             deadline,
           );
           // Before its handle leaves the server, so no other turn can reach it first.
           if (options.lockConversation) release = await options.lockConversation(conversationId);
           const resumeToken = await options.issueResumeToken(conversationId);
+          await startLog(conversationId, messageId);
           if (visitorLeft()) {
             // They never received its handle, so nobody could reach or delete it later.
-            await gateway.deleteConversation(conversationId);
+            await conversations.delete(conversationId);
             return;
           }
           emit({ type: 'conversation.created', resumeToken });
         }
         if (visitorLeft()) return;
-        emit({ type: 'user.ack', messageId: generateId() });
-        const messageId = generateId();
+        emit({ type: 'user.ack', messageId: ackId });
         emit({ type: 'message.start', messageId });
-        const safetyIdentifier = await options.pseudonym(subject);
+        // From here the client can resume, so the turn is in the log at once, not 100 ms later.
+        void logged?.flush();
+        safetyIdentifier = await options.pseudonym(subject);
         ran = true;
         const result = await gateway.runTurn({
           bot,
           conversationId,
+          conversations,
           text,
           attachments: options.attachments ?? [],
           pageContext: options.pageContext,
@@ -243,9 +364,19 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
           onToolCall: (call) => tools.push(call),
         });
         finishReason = result.reason;
+        answerItemId = result.answerItemId;
+        version = result.version;
         options.settle?.(result.usage, conversationId, lastInput ?? result.usage.inputTokens);
         const proposed = result.replies && normalizeReplies(result.replies);
         const released = holding ? await releaseAnswer(conversationId, proposed ?? []) : 'allowed';
+        // Only an item store reports a version, so only its conversations compact.
+        const { compactAt } = bot.limits;
+        compactionDue =
+          compactAt !== undefined &&
+          version !== undefined &&
+          result.compactionStopped !== true &&
+          lastInput !== undefined &&
+          lastInput >= compactAt;
         const replies = released === 'allowed' ? proposed : undefined;
         // A resumed conversation gets a fresh handle: its 30 days count from the last message.
         // Best effort: the old handle stays valid until it expires.
@@ -281,21 +412,36 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
       ): Promise<'allowed' | 'replaced'> => {
         const answer = held.flatMap((event) => (event.type === 'text.delta' ? [event.delta] : []));
         const outcome = await guardOutput(answer.join(''), replies, guard);
-        const noted = (
-          gateway.settleAnswer?.(
+        verdict =
+          outcome.action === 'allow'
+            ? 'allowed'
+            : outcome.action === 'redact'
+              ? 'replaced'
+              : 'withheld';
+        const noted = conversations
+          .append(
             id,
-            outcome.action === 'allow'
-              ? { action: 'allowed' }
-              : outcome.action === 'redact'
-                ? { action: 'replaced', text: outcome.text }
-                : { action: 'withheld' },
-            deadline,
-          ) ?? Promise.resolve()
-        ).catch((error: unknown) => {
-          console.error(
-            `[askdare] could not note the checked answer in the conversation, so a reload hides it: ${hookError(error)}`,
+            settledAnswerItems(
+              outcome.action === 'allow'
+                ? { action: 'allowed' }
+                : outcome.action === 'redact'
+                  ? { action: 'replaced', text: outcome.text }
+                  : { action: 'withheld' },
+            ),
+            { signal: deadline },
+          )
+          .then(
+            (next) => {
+              // The note is part of the turn: a compaction comes after it.
+              if (version !== undefined) version = next;
+            },
+            (error: unknown) => {
+              version = undefined;
+              console.error(
+                `[askdare] could not note the checked answer in the conversation, so a reload hides it: ${hookError(error)}`,
+              );
+            },
           );
-        });
         if (outcome.action === 'block') {
           await noted;
           throw blockedError(outcome, 'output');
@@ -314,6 +460,65 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         return outcome.action === 'redact' ? 'replaced' : 'allowed';
       };
 
+      /**
+       * Compacts the conversation when the turn made it due (ADR-0029): after the stream closed and
+       * the conversation's lock was released, so neither the visitor nor their next turn waits for
+       * it. Its budget is held first and settled with what it used; a failure is reported, and the
+       * next turn that reaches `compactAt` tries again.
+       */
+      const compact = async (): Promise<void> => {
+        const id = conversationId;
+        const at = version;
+        if (
+          !compactionDue ||
+          !gateway.compact ||
+          id === undefined ||
+          at === undefined ||
+          safetyIdentifier === undefined
+        ) {
+          return;
+        }
+        const started = Date.now();
+        let result: CompactionResult | undefined;
+        try {
+          const held = options.reserveCompaction
+            ? await options.reserveCompaction(lastInput ?? 0)
+            : undefined;
+          if (options.reserveCompaction && !held) {
+            result = { outcome: 'skipped', usage: ZERO_USAGE };
+            return;
+          }
+          result = await gateway.compact({
+            bot,
+            conversationId: id,
+            conversations,
+            context: options.context,
+            safetyIdentifier,
+            version: at,
+            signal: AbortSignal.timeout(COMPACTION_DEADLINE_MS),
+          });
+          await held?.settle(result.usage).catch((error: unknown) => {
+            console.error(
+              `[askdare] could not settle the compaction's budget: ${hookError(error)}`,
+            );
+          });
+        } catch (error) {
+          reportError(
+            new AskdareError('internal_error', {
+              message: 'The conversation could not be compacted; a later turn tries again.',
+              // The gateway's own error keeps what the provider said, redacted, as its cause.
+              cause: error instanceof AskdareError ? (error.cause ?? error) : error,
+            }),
+          );
+        } finally {
+          compaction = {
+            outcome: result?.outcome ?? 'failed',
+            usage: result?.usage ?? ZERO_USAGE,
+            durationMs: Date.now() - started,
+          };
+        }
+      };
+
       /** Hands the report to the hook once the stream is closed, so it never delays the answer. */
       const sendReport = async (): Promise<void> => {
         if (!options.report || (!ran && errorCode === undefined)) return;
@@ -326,16 +531,54 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
               : undefined,
             visitor: await options.pseudonym(subject),
             startedAt,
-            durationMs: Date.now() - startedAt,
+            durationMs: (endedAt ?? Date.now()) - startedAt,
             outcome,
             ...(finishReason ? { finishReason } : {}),
             ...(errorCode ? { errorCode } : {}),
             usage,
             steps,
             tools,
+            ...(compaction ? { compaction } : {}),
           });
         } catch (error) {
           console.error(`[askdare] the onUsage hook failed: ${hookError(error)}`);
+        }
+      };
+
+      /**
+       * Hands the transcript to the hook once the stream is closed, for a turn whose answer
+       * finished. An answer the checks never released counts as withheld: the visitor didn't see
+       * it, and history hides it (ADR-0022).
+       */
+      const sendTranscript = async (): Promise<void> => {
+        if (!options.transcript || finishReason === undefined || conversationId === undefined) {
+          return;
+        }
+        const check = holding ? (verdict ?? 'withheld') : undefined;
+        const withheld = check === 'withheld';
+        try {
+          await options.transcript({
+            bot: bot.id,
+            visitor: await options.pseudonym(subject),
+            ...(options.context.identity ? { identity: options.context.identity } : {}),
+            conversationId,
+            // Only an answer shown as it was keeps its ID, like the rating handle.
+            ...(answerItemId && (check === undefined || check === 'allowed')
+              ? { itemId: answerItemId }
+              : {}),
+            startedAt,
+            input,
+            attachments: options.attachments?.length ?? 0,
+            answer: withheld ? undefined : shown.join(''),
+            citations: withheld ? [] : citations,
+            ...(check ? { check } : {}),
+            reason: finishReason,
+          });
+        } catch (error) {
+          // The name only: a hook that stores transcripts may fail with their content in its message.
+          const message = `The onTranscript hook failed: ${hookError(error)}.`;
+          if (options.onError) options.onError(new AskdareError('internal_error', { message }));
+          else console.error(`[askdare] ${message}`);
         }
       };
 
@@ -363,11 +606,16 @@ export function streamTurn(options: StreamTurnOptions): ReadableStream<Uint8Arra
         })
         .finally(finish)
         .then(async () => {
-          await release?.().catch((error: unknown) => {
-            console.error(`[askdare] could not release the conversation: ${hookError(error)}`);
-          });
+          await Promise.all([
+            // The rest of the turn's events, for a visitor who resumes; never rejects.
+            logged?.flush(),
+            release?.().catch((error: unknown) => {
+              console.error(`[askdare] could not release the conversation: ${hookError(error)}`);
+            }),
+          ]);
         })
-        .then(sendReport);
+        // The usage report waits for the compaction, which it reports; the transcript doesn't.
+        .then(() => Promise.all([compact().then(sendReport), sendTranscript()]));
       try {
         options.waitUntil?.(work);
       } catch {

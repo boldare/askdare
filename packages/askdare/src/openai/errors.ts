@@ -5,6 +5,7 @@ import {
   APIUserAbortError,
   NotFoundError,
 } from 'openai';
+import { conversationGone } from '../conversations/owner';
 import { AskdareError, loggableMessage, TurnAbortedError } from '../errors';
 
 /** What OpenAI said, for logs and the developer: status, code, request ID and a loggable message. */
@@ -51,13 +52,7 @@ export function fromOpenAIError(error: unknown, deadlineExceeded: boolean): Erro
     // conversation answers 404 "Conversation with id '…' not found". Only the latter resets the chat.
     if (error.code === 'model_not_found')
       return new AskdareError('bot_unavailable', { cause: redacted(error) });
-    if (/conversation/i.test(error.message)) {
-      return new AskdareError('not_found', {
-        message: 'This conversation is no longer available.',
-        key: 'error.conversationGone',
-        cause: redacted(error),
-      });
-    }
+    if (/conversation/i.test(error.message)) return conversationGone(redacted(error));
     return new AskdareError('upstream_error', { cause: redacted(error) });
   }
   if (error instanceof APIError) {

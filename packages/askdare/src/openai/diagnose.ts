@@ -1,6 +1,7 @@
 import type OpenAI from 'openai';
 import { APIConnectionError, APIError, toFile } from 'openai';
 import type { DiagnoseRequest } from '../gateway';
+import { knowledgeChecks } from '../knowledge/diagnose';
 import type { DoctorCheck } from '../protocol/doctor';
 
 /** Doctor requests fail fast instead of retrying: the operator is waiting at a terminal. */
@@ -126,9 +127,35 @@ async function checkModel(client: OpenAI, model: string, use: string): Promise<D
 }
 
 /**
+ * Whether the key can create and delete conversations: `openaiConversations().diagnose()`, so
+ * `askdare doctor` asks it only of apps whose conversations OpenAI keeps. A store that keeps the
+ * items never calls the Conversations API, which isn't eligible for zero data retention.
+ */
+export async function checkConversations(client: OpenAI): Promise<DoctorCheck> {
+  let conversationId: string | undefined;
+  try {
+    conversationId = (
+      await client.conversations.create({ metadata: { askdare_doctor: 'true' } }, OPTIONS)
+    ).id;
+    await client.conversations.delete(conversationId, OPTIONS);
+    return { status: 'ok', title: 'The key can create and delete conversations.' };
+  } catch (error) {
+    if (conversationId !== undefined) {
+      // Second chance, so the empty test conversation doesn't stay forever.
+      await client.conversations.delete(conversationId, OPTIONS).catch(() => undefined);
+    }
+    return failed(
+      conversationId === undefined ? 'create conversations' : 'delete conversations',
+      failureOf(error),
+      'Give the key write access to conversations; chat history lives there.',
+    );
+  }
+}
+
+/**
  * Live checks for `askdare doctor`, each the cheapest request that proves a feature works with
- * this key: a 16-token response, a conversation and a file that are deleted straight away, and
- * one second of silence for dictation.
+ * this key: a 16-token response, a file that is deleted straight away, and one second of silence
+ * for dictation. The conversation store checks itself (`checkConversations`).
  */
 export async function diagnoseBot(
   client: OpenAI,
@@ -156,29 +183,12 @@ export async function diagnoseBot(
     }
   }
 
-  let conversationId: string | undefined;
-  try {
-    conversationId = (
-      await client.conversations.create({ metadata: { askdare_doctor: 'true' } }, OPTIONS)
-    ).id;
-    await client.conversations.delete(conversationId, OPTIONS);
-    checks.push({ status: 'ok', title: 'The key can create and delete conversations.' });
-  } catch (error) {
-    checks.push(
-      failed(
-        conversationId === undefined ? 'create conversations' : 'delete conversations',
-        failureOf(error),
-        'Give the key write access to conversations; chat history lives there.',
-      ),
-    );
-    if (conversationId !== undefined) {
-      // Second chance, so the empty test conversation doesn't stay forever.
-      await client.conversations.delete(conversationId, OPTIONS).catch(() => undefined);
-    }
-  }
-
   if (request.vectorStoreId !== undefined) {
     checks.push(await checkVectorStore(client, request.vectorStoreId));
+  }
+
+  if (request.knowledgeIndex !== undefined) {
+    checks.push(...(await knowledgeChecks(request.knowledgeIndex)));
   }
 
   if (request.transcriptionModel !== undefined) {

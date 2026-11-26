@@ -1,25 +1,5 @@
-// ==== embed.d.ts ====
-
-import { f as EmbedChatConfig, i as ToolRenderers } from "./tool-results.js";
-import { ReactElement, ReactNode } from "react";
-interface EmbedRootProps {
-  /** From `getEmbedConfig()` in the page's Server Component. */
-  readonly config: EmbedChatConfig;
-  /** Your components for tools' results, by tool name, as on `Root` (ADR-0017). */
-  readonly toolRenderers?: ToolRenderers | undefined;
-  readonly children?: ReactNode;
-}
-/**
- * `Root` for your own page in the widget's iframe (ADR-0018): the page at a bot's `embedPath`.
- * It connects to the loader on the embedding site exactly as askdare's own iframe does: the
- * visitor's identity, `askdare('configure')`, the events for `askdare('on')`, hiding and closing
- * the panel, and language switches. Put `DefaultChat`, an ejected copy of it or your own markup
- * inside; `DefaultChat` then owns the document and shows a close button. Render one per page.
- */
-export declare function EmbedRoot({ config, toolRenderers, children }: EmbedRootProps): ReactElement;
-export type { EmbedChatConfig, EmbedRootProps };
-
-// ==== events.d.ts ====
+// ==== define-bot.d.ts ====
+import { E as KnowledgeIndex } from "./turn-log.js";
 import { z } from "zod";
 /**
  * Every text the widget shows. The keys are public API (ADR-0008): override any of them with
@@ -44,9 +24,13 @@ declare const EN: {
   readonly "status.thinking": "Thinking…";
   readonly "status.searching": "Searching documents…";
   readonly "status.tool": "Using {name}…";
+  readonly "status.reconnecting": "Reconnecting…";
   readonly "status.typing": "The assistant is typing";
   readonly "message.sources": "Sources";
   readonly "message.replies": "Suggested replies";
+  readonly "history.earlier": "Show earlier messages";
+  readonly "history.loading": "Loading earlier messages…";
+  readonly "history.loaded": "Earlier messages loaded.";
   readonly "feedback.label": "Rate this answer";
   readonly "feedback.up": "Helpful";
   readonly "feedback.down": "Not helpful";
@@ -79,6 +63,7 @@ declare const EN: {
   readonly "error.humanCheck": "We couldn’t confirm you’re human. Please try again.";
   readonly "error.connection": "Connection problem. Please try again.";
   readonly "error.history": "Could not load the previous conversation.";
+  readonly "error.earlier": "Could not load earlier messages.";
   readonly "error.updated": "The assistant was updated. Please reload the page.";
   readonly "error.stalled": "The connection stalled. Please try again.";
   readonly "error.uploadFailed": "The file could not be uploaded.";
@@ -408,6 +393,15 @@ interface BotLimits {
   readonly voiceSecondsPerDay?: number;
   /** Seconds of speech transcribed per client IP per UTC day. Default 600. */
   readonly voiceSecondsPerIpPerDay?: number;
+  /**
+   * Compacts a conversation once a model call of a turn reads this many input tokens: after the
+   * turn, in the background, OpenAI summarises it into one opaque item, and the next turns replay
+   * from there (ADR-0029). Between 20 000 and 272 000. Off by default.
+   *
+   * Only with a conversation store that keeps the items, such as `@boldare/askdare-postgres`;
+   * `openaiConversations()` never compacts.
+   */
+  readonly compactAt?: number;
 }
 interface BotSecurity {
   /**
@@ -422,12 +416,27 @@ interface BotSecurity {
    */
   readonly humanVerifier?: HumanVerifier | undefined;
 }
-interface KnowledgeConfig {
+/**
+ * Where the bot's documents are searched (ADR-0025): an OpenAI vector store with hosted file
+ * search, or the bot's own index through the `search_knowledge` tool. One or the other.
+ */
+type KnowledgeConfig = {
   /** Vector store filled by `askdare kb sync`, usually `process.env.KB_VECTOR_STORE_ID`. */
   readonly vectorStoreId: string;
+  readonly index?: never;
   /** Chunks the model reads per search: more grounds answers better but costs input tokens. Default 5. */
   readonly maxResults?: number;
-}
+} | {
+  /**
+   * The bot's own index, such as `pgvectorIndex({ embedder, indexId })` from
+   * `@boldare/askdare-postgres`, filled by `askdare kb sync --index`. The model searches it with
+   * the `search_knowledge` tool and cites passages as it does with a vector store.
+   */
+  readonly index: KnowledgeIndex;
+  readonly vectorStoreId?: never;
+  /** Passages the model reads per search: more grounds answers better but costs input tokens. Default 5. */
+  readonly maxResults?: number;
+};
 interface AttachmentConfig {
   /** PNG, JPEG, WebP and GIF. The widget downsizes photos and strips their metadata. Default true. */
   readonly images?: boolean;
@@ -525,7 +534,10 @@ interface BotDefinition extends GuardrailOptions {
    * gets no more trust than what visitors type. Off by default.
    */
   readonly pageContext?: boolean;
-  /** Documents the model searches with OpenAI file search and cites in its answers. */
+  /**
+   * Documents the model searches and cites in its answers: an OpenAI vector store (file search) or
+   * the bot's own index (the `search_knowledge` tool).
+   */
   readonly knowledge?: KnowledgeConfig | undefined;
   /**
    * Lets visitors attach images and PDFs. Off when absent. Files go to OpenAI (purpose
@@ -562,41 +574,102 @@ interface BotHandle {
  * visitor's message.
  */
 declare function defineBot(definition: BotDefinition): BotHandle;
-/** Result of incrementing a fixed-window counter. */
-interface CounterHit {
-  /** Counter value after the increment. */
-  readonly count: number;
-  /** Milliseconds until the window resets. */
-  readonly resetMs: number;
+export { PresetName as C, HumanChallenge as D, VisitorIdentity as E, HumanCheckContext as O, defineTheme as S, ThemeVariants as T, ToolContext as _, BotLimits as a, ColorScheme as b, VoiceConfig as c, GuardContext as d, GuardHook as f, Tool as g, ModerationConfig as h, BotHandle as i, HumanVerifier as k, WidgetConfig as l, GuardrailOptions as m, BotContext as n, BotSecurity as o, GuardVerdict as p, BotDefinition as r, KnowledgeConfig as s, AttachmentConfig as t, defineBot as u, ToolDefinition as v, ThemeTokens as w, ThemeDefinition as x, defineTool as y };
+
+// ==== embed.d.ts ====
+
+import { f as EmbedChatConfig, i as ToolRenderers } from "./tool-results.js";
+import { ReactElement, ReactNode } from "react";
+interface EmbedRootProps {
+  /** From `getEmbedConfig()` in the page's Server Component. */
+  readonly config: EmbedChatConfig;
+  /** Your components for tools' results, by tool name, as on `Root` (ADR-0017). */
+  readonly toolRenderers?: ToolRenderers | undefined;
+  readonly children?: ReactNode;
 }
 /**
- * Shared counter storage behind rate limits and budgets. The in-memory default works for a single
- * instance; multi-instance deployments (Vercel, several dynos) need a shared store such as
- * `@boldare/askdare-upstash`. Implementations must be atomic per key.
+ * `Root` for your own page in the widget's iframe (ADR-0018): the page at a bot's `embedPath`.
+ * It connects to the loader on the embedding site exactly as askdare's own iframe does: the
+ * visitor's identity, `askdare('configure')`, the events for `askdare('on')`, hiding and closing
+ * the panel, and language switches. Put `DefaultChat`, an ejected copy of it or your own markup
+ * inside; `DefaultChat` then owns the document and shows a close button. Render one per page.
  */
-interface RateLimitStore {
-  /**
-   * Adds `amount` to `key`, starting a `windowMs` window if none is open. `0` reads without
-   * changing; negative amounts refund.
-   */
-  hit(key: string, windowMs: number, amount: number): Promise<CounterHit>;
-  /** True for stores that are shared across server instances. */
-  readonly shared: boolean;
-}
-/** Stable error codes sent to clients. The accompanying message never contains internals. */
-declare const ERROR_CODES: readonly ["invalid_input", "unauthorized", "session_expired", "not_found", "rate_limited", "budget_exceeded", "bot_unavailable", "content_blocked", "timeout", "upstream_error", "internal_error"];
-type ErrorCode = (typeof ERROR_CODES)[number];
-declare const MESSAGE_END_REASONS: readonly ["completed", "max_steps", "max_output_tokens", "timeout", "content_filter", "aborted"];
-type MessageEndReason = (typeof MESSAGE_END_REASONS)[number];
-export { ThemeVariants as A, ToolDefinition as C, defineTheme as D, ThemeDefinition as E, HumanChallenge as M, HumanCheckContext as N, PresetName as O, HumanVerifier as P, ToolContext as S, ColorScheme as T, GuardHook as _, RateLimitStore as a, ModerationConfig as b, BotDefinition as c, BotSecurity as d, KnowledgeConfig as f, GuardContext as g, defineBot as h, CounterHit as i, VisitorIdentity as j, ThemeTokens as k, BotHandle as l, WidgetConfig as m, ErrorCode as n, AttachmentConfig as o, VoiceConfig as p, MessageEndReason as r, BotContext as s, ERROR_CODES as t, BotLimits as u, GuardVerdict as v, defineTool as w, Tool as x, GuardrailOptions as y };
+export declare function EmbedRoot({ config, toolRenderers, children }: EmbedRootProps): ReactElement;
+export type { EmbedChatConfig, EmbedRootProps };
 
 // ==== index.d.ts ====
-import { A as ThemeVariants, C as ToolDefinition, D as defineTheme, E as ThemeDefinition, M as HumanChallenge, N as HumanCheckContext, O as PresetName, P as HumanVerifier, S as ToolContext, T as ColorScheme, _ as GuardHook, a as RateLimitStore, b as ModerationConfig, c as BotDefinition, d as BotSecurity, f as KnowledgeConfig, g as GuardContext, h as defineBot, i as CounterHit, j as VisitorIdentity, k as ThemeTokens, l as BotHandle, m as WidgetConfig, n as ErrorCode, o as AttachmentConfig, p as VoiceConfig, s as BotContext, t as ERROR_CODES, u as BotLimits, v as GuardVerdict, w as defineTool, x as Tool, y as GuardrailOptions } from "./events.js";
+import { C as PresetName, D as HumanChallenge, E as VisitorIdentity, O as HumanCheckContext, S as defineTheme, T as ThemeVariants, _ as ToolContext, a as BotLimits, b as ColorScheme, c as VoiceConfig, d as GuardContext, f as GuardHook, g as Tool, h as ModerationConfig, i as BotHandle, k as HumanVerifier, l as WidgetConfig, m as GuardrailOptions, n as BotContext, o as BotSecurity, p as GuardVerdict, r as BotDefinition, s as KnowledgeConfig, t as AttachmentConfig, u as defineBot, v as ToolDefinition, w as ThemeTokens, x as ThemeDefinition, y as defineTool } from "./define-bot.js";
+import { C as KnowledgeCheck, D as Passage, E as KnowledgeIndex, O as SearchOptions, S as KnowledgeCallOptions, T as KnowledgeDocument, _ as StoredItem, b as Embedder, c as CompactionModel, d as ConversationOwner, f as ConversationPage, g as StoredCitation, h as PositionedItem, i as ErrorCode, k as SyncReport, l as ConversationContext, m as ConversationStoreCheck, n as TurnEventLog, o as CounterHit, p as ConversationStore, r as ERROR_CODES, s as RateLimitStore, t as TurnEvent, u as ConversationInfo, v as StoredPart, w as KnowledgeChunk, x as Embeddings, y as VersionConflictError } from "./turn-log.js";
+/**
+ * Conversations in this process's memory, for tests and local development. Every instance has its
+ * own, and a restart forgets them, so production warns. It is an item store: turns replay its
+ * items statelessly.
+ */
+export declare function memoryConversations(): ConversationStore;
+/**
+ * What the embedder sees for a chunk, and what makes a passage readable on its own: the document
+ * title and section above the text. Every index embeds the same input for the same chunk.
+ */
+export declare function embeddingInput(document: Pick<KnowledgeDocument, "title">, chunk: Pick<KnowledgeChunk, "section" | "text">): string;
+/**
+ * What every `KnowledgeIndex.sync` checks before it changes anything: unique paths, http(s) URLs,
+ * well-formed hashes, source IDs derived from them, and no source ID shared by two different chunks
+ * (a 48-bit prefix collision would make a citation resolve to the wrong passage). The same chunk in
+ * two places is fine: it is the same text under the same title and section.
+ */
+export declare function checkKnowledgeDocuments(documents: readonly KnowledgeDocument[]): void;
+interface OpenAIEmbedderOptions {
+  /** The embedding model. Required: the library names no model IDs. */
+  readonly model: string;
+  /** Vector size, sent as `dimensions`; part of the embedder's ID and of the index's schema. */
+  readonly dimensions: number;
+  /** Defaults to `OPENAI_API_KEY`, read on the first call. */
+  readonly apiKey?: string;
+  /** Override for tests or proxies. */
+  readonly baseURL?: string;
+  /** Per-request timeout for the SDK. Default 60 s. */
+  readonly timeoutMs?: number;
+  /** SDK retries for a failed request. Default 2. */
+  readonly maxRetries?: number;
+  /** Custom fetch, for example to route through a proxy. */
+  readonly fetch?: typeof fetch;
+  /** Inputs per request, 1 to 2048. Default 256. */
+  readonly batchSize?: number;
+}
+/**
+ * Embeddings from OpenAI for a knowledge index (ADR-0025, decision 3), with the OpenAI key the site
+ * already has, on any model path. Batched, abortable, and checked: one vector of `dimensions` per input.
+ */
+export declare function openaiEmbedder(options: OpenAIEmbedderOptions): Embedder;
 /**
  * Version of the SSE wire protocol between the askdare server and its clients.
  * Bumped on any breaking change to event names or payloads (ADR-0006).
  */
 export declare const PROTOCOL_VERSION: 1;
+interface MemoryTurnLogOptions {
+  /** Clock in ms, for tests. */
+  readonly now?: () => number;
+  /** Upper bound on turns held, running or recently finished. Default 1 000. */
+  readonly maxTurns?: number;
+  /** Upper bound on events held across all turns. Default 100 000. */
+  readonly maxEvents?: number;
+  /** Upper bound on one turn's events; a longer turn can no longer be resumed. Default 5 000. */
+  readonly maxEventsPerTurn?: number;
+}
+/** The in-process log, with what it holds (for tests and diagnostics). */
+interface MemoryTurnLog extends TurnEventLog {
+  /** Turns held, including those that grew past `maxEventsPerTurn`. */
+  readonly turns: number;
+  /** Events held across all turns. */
+  readonly events: number;
+}
+/**
+ * Per-process turn events (ADR-0027), the default log. A reconnect resumes only when it reaches
+ * the same instance. Bounded in time (each turn's time to live, with expired turns dropped every
+ * minute), in turns and in events: when full, it drops the turns written least recently, whose
+ * visitors then reload history instead of resuming.
+ */
+export declare function memoryTurnLog(options?: MemoryTurnLogOptions): MemoryTurnLog;
 interface TurnstileOptions {
   /** The widget's site key from the Cloudflare dashboard. Public: browsers receive it. */
   readonly siteKey: string;
@@ -623,10 +696,11 @@ interface TurnstileOptions {
  * ```
  */
 export declare function turnstile(options: TurnstileOptions): HumanVerifier;
-export { type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type CounterHit, ERROR_CODES, type ErrorCode, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type HumanChallenge, type HumanCheckContext, type HumanVerifier, type KnowledgeConfig, type ModerationConfig, type PresetName, type RateLimitStore, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type TurnstileOptions, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
+export { type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type CompactionModel, type ConversationContext, type ConversationInfo, type ConversationOwner, type ConversationPage, type ConversationStore, type ConversationStoreCheck, type CounterHit, ERROR_CODES, type Embedder, type Embeddings, type ErrorCode, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type HumanChallenge, type HumanCheckContext, type HumanVerifier, type KnowledgeCallOptions, type KnowledgeCheck, type KnowledgeChunk, type KnowledgeConfig, type KnowledgeDocument, type KnowledgeIndex, type MemoryTurnLog, type MemoryTurnLogOptions, type ModerationConfig, type OpenAIEmbedderOptions, type Passage, type PositionedItem, type PresetName, type RateLimitStore, type SearchOptions, type StoredCitation, type StoredItem, type StoredPart, type SyncReport, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type TurnEvent, type TurnEventLog, type TurnstileOptions, VersionConflictError, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
 
 // ==== next.d.ts ====
-import { A as ThemeVariants, O as PresetName, a as RateLimitStore, j as VisitorIdentity, l as BotHandle, n as ErrorCode, r as MessageEndReason } from "./events.js";
+import { C as PresetName, E as VisitorIdentity, T as ThemeVariants, i as BotHandle } from "./define-bot.js";
+import { a as MessageEndReason, i as ErrorCode, n as TurnEventLog, p as ConversationStore, s as RateLimitStore } from "./turn-log.js";
 /** What a visitor may attach, as the bot allows it. */
 interface ChatAttachments {
   readonly images: boolean;
@@ -713,6 +787,24 @@ interface EmbedChatConfig extends ChatConfig {
  * Never expose `next start` without a proxy in front: the client then controls these headers.
  */
 type TrustProxy = "auto" | "vercel" | "heroku" | number;
+interface OpenAIConversationsOptions {
+  /**
+   * The key of the OpenAI project the conversations live in. Default `process.env.OPENAI_API_KEY`,
+   * read on first use.
+   */
+  readonly apiKey?: string;
+}
+/**
+ * Conversations stored by OpenAI's Conversations API, askdare's default (ADR-0003). A provider
+ * store: the model's items are recorded during each turn, so `context()` returns a reference and
+ * askdare appends only what the server writes itself, such as notes of output checks. No database
+ * is needed; OpenAI keeps the conversations until they are deleted, and they can't be swept.
+ *
+ * ```ts
+ * createChatHandler({ bots, conversations: openaiConversations() });
+ * ```
+ */
+export declare function openaiConversations(options?: OpenAIConversationsOptions): ConversationStore;
 /** One rating, as `onFeedback` receives it (ADR-0012). */
 interface ChatFeedbackReport {
   readonly bot: string;
@@ -727,10 +819,62 @@ interface ChatFeedbackReport {
   readonly visitor: string;
   /** The signed-in user, verified (ADR-0009); absent for anonymous visitors. */
   readonly identity?: VisitorIdentity | undefined;
-  /** The OpenAI conversation, for your own review of it. Never sent to the browser. */
+  /** The conversation in your conversation store, for your review. Never sent to the browser. */
   readonly conversationId: string;
-  /** The OpenAI ID of the rated answer within the conversation. */
+  /**
+   * The rated answer's ID within the conversation: OpenAI's `msg_…` ID with
+   * `openaiConversations()`, the store's `itm_…` ID with a store that keeps the items.
+   */
   readonly itemId: string;
+}
+/** One source of an answer, as the visitor saw it under the answer. */
+interface ChatTranscriptCitation {
+  /** The 1-based marker shown in the answer's text as `[n]`. */
+  readonly index: number;
+  readonly title: string;
+  readonly url?: string | undefined;
+}
+/**
+ * One finished turn, as `onTranscript` receives it (ADR-0016): what the visitor sent and the
+ * answer they saw. It is the only report that carries message content, so treat all of it as
+ * personal data.
+ */
+interface ChatTranscriptReport {
+  readonly bot: string;
+  /**
+   * A pseudonym (HMAC) of the signed-in user's ID, or of the visitor's: the same value `onUsage`
+   * and `onFeedback` report.
+   */
+  readonly visitor: string;
+  /** The signed-in user, verified (ADR-0009); absent for anonymous visitors. */
+  readonly identity?: VisitorIdentity | undefined;
+  /** The conversation in your conversation store, as `onFeedback` gets it. Never sent to the browser. */
+  readonly conversationId: string;
+  /**
+   * The answer's ID in the conversation: the `itemId` `onFeedback` gets when the visitor rates
+   * it. Absent for a replaced or withheld answer, and when the store reported none.
+   */
+  readonly itemId?: string | undefined;
+  /** When the turn started, in epoch milliseconds: the same value `onUsage` reports for it. */
+  readonly startedAt: number;
+  /**
+   * What the visitor sent, as the model received it: after `onInput` redacted it. Empty when
+   * they sent only files.
+   */
+  readonly input: string;
+  /** How many files the visitor attached. Their names and contents are not included. */
+  readonly attachments: number;
+  /**
+   * The answer the visitor saw: the replacement when output checks replaced it, undefined when
+   * they withheld it. Reply options and tool cards are not included.
+   */
+  readonly answer: string | undefined;
+  /** The sources shown with the answer; empty for a withheld one. */
+  readonly citations: readonly ChatTranscriptCitation[];
+  /** What output checks decided (ADR-0022); absent for bots without them. */
+  readonly check?: "allowed" | "replaced" | "withheld" | undefined;
+  /** Why the answer ended. */
+  readonly reason: MessageEndReason;
 }
 /** Tokens one turn used, summed over its model calls, as OpenAI reports them. */
 interface ChatTokenUsage {
@@ -750,6 +894,25 @@ interface ChatToolCallReport {
   readonly startedAt: number;
   readonly durationMs: number;
   readonly outcome: "ok" | "error" | "timeout";
+}
+/**
+ * The compaction after a turn (ADR-0029), when one was due: the turn's last model call read at
+ * least `limits.compactAt` input tokens in a conversation store that keeps the items. Its usage is
+ * apart from the turn's own.
+ */
+interface ChatCompactionReport {
+  /**
+   * - `compacted`: the summary was stored, and the next turns replay from it;
+   * - `conflict`: the visitor wrote again before it was stored, so it was dropped; a later turn
+   *   compacts again;
+   * - `skipped`: no request was made: a budget couldn't cover it, or the conversation stopped
+   *   compacting because each summary left too large a floor;
+   * - `failed`: the request failed or returned no summary; a later turn tries again.
+   */
+  readonly outcome: "compacted" | "conflict" | "skipped" | "failed";
+  /** What the compaction request used, as OpenAI reported it; zero when none finished. */
+  readonly usage: ChatTokenUsage;
+  readonly durationMs: number;
 }
 /**
  * One chat turn, as `onUsage` receives it (ADR-0012). It carries counters, timings and
@@ -780,6 +943,11 @@ interface ChatUsageReport {
   /** Model calls in the turn: one, plus one after each round of tool calls. */
   readonly steps: number;
   readonly tools: readonly ChatToolCallReport[];
+  /**
+   * The compaction after the turn, when one was due (`limits.compactAt`). The report then comes
+   * once it has ended, up to a minute and a half after the turn.
+   */
+  readonly compaction?: ChatCompactionReport | undefined;
 }
 interface ChatHandlerOptions {
   readonly bots: readonly BotHandle[];
@@ -799,10 +967,21 @@ interface ChatHandlerOptions {
   readonly identitySecret?: string;
   readonly limits?: ChatHandlerLimitsOptions;
   /**
+   * Where conversations are stored (ADR-0024). Default `openaiConversations()`: OpenAI keeps them,
+   * with no database of yours. Chosen on the server only; the widget never picks it.
+   */
+  readonly conversations?: ConversationStore;
+  /**
+   * Resuming an answer after a dropped connection (ADR-0027): each turn writes its events to a
+   * log for a few minutes, and a client that lost its stream continues it from there.
+   */
+  readonly resume?: ChatHandlerResumeOptions;
+  /**
    * Called for every server error (status 500 and up), for an error that ends a streamed answer,
-   * and once a day when a bot-wide or the global budget runs out, for your monitoring, such as Sentry.
-   * Defaults to one `console.error` line with a pointer to the troubleshooting guide. Never
-   * receives message contents or API keys. May be async; nothing it throws reaches the request.
+   * once a day when a bot-wide or the global budget runs out, and when `onTranscript` throws, for
+   * your monitoring, such as Sentry. Defaults to one `console.error` line with a pointer to the
+   * troubleshooting guide. Never receives message contents or API keys. May be async; nothing it
+   * throws reaches the request.
    */
   readonly onError?: (report: ChatErrorReport) => void | Promise<void>;
   /**
@@ -818,6 +997,14 @@ interface ChatHandlerOptions {
    * askdare stores no ratings: keep them here. May be async; nothing it throws reaches the chat.
    */
   readonly onFeedback?: (report: ChatFeedbackReport) => void | Promise<void>;
+  /**
+   * Called once per chat turn whose answer finished, after it has streamed, with what the visitor
+   * sent (after `onInput`) and the answer they saw (after output checks), to keep your own
+   * transcripts. The only hook that receives message content: treat it as personal data. Off
+   * unless set. May be async; nothing it throws reaches the chat, and `onError` gets its error's
+   * name, never its message.
+   */
+  readonly onTranscript?: (report: ChatTranscriptReport) => void | Promise<void>;
   /**
    * Serves the state gallery: `/embed/<bot>?gallery=<state>&preset=<preset>&scheme=<scheme>`
    * renders fixture states without calling the model. For development and visual tests; leave
@@ -853,6 +1040,15 @@ interface ChatHandlerLimitsOptions {
    * keeps the in-memory store. Default `false`.
    */
   readonly requireSharedStore?: boolean;
+}
+interface ChatHandlerResumeOptions {
+  /**
+   * Where turns keep their events, for the turn timeout plus a minute after the last one. Defaults
+   * to `memoryTurnLog()`, per instance: a reconnect that reaches another instance reloads the
+   * history instead. With several instances, use a shared log such as `upstashTurnLog()` from
+   * `@boldare/askdare-upstash`.
+   */
+  readonly log?: TurnEventLog;
 }
 type RouteHandler = (request: Request) => Promise<Response>;
 interface ChatHandlers {
@@ -940,7 +1136,7 @@ export declare function embedPageHeaders(options: {
   readonly bots: readonly BotHandle[];
   readonly bot: string;
 }): EmbedPageHeader[];
-export type { ChatAttachments, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlers, ChatHumanCheck, ChatStyles, ChatTokenUsage, ChatToolCallReport, ChatUsageReport, ChatWidget, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, RouteHandler, TrustProxy };
+export type { ChatAttachments, ChatCompactionReport, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlerResumeOptions, ChatHandlers, ChatHumanCheck, ChatStyles, ChatTokenUsage, ChatToolCallReport, ChatTranscriptCitation, ChatTranscriptReport, ChatUsageReport, ChatWidget, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, OpenAIConversationsOptions, RouteHandler, TrustProxy };
 
 // ==== react.d.ts ====
 
@@ -1065,11 +1261,19 @@ interface PendingFile {
  */
 type ChatPhase = "starting" | "loading" | "ready";
 type Dictation = "idle" | "recording" | "transcribing";
+/**
+ * Whether the stored conversation has older messages than those shown: `more` (load them with
+ * `actions.loadEarlier()`), `loading` while they load, or `none` (the start is shown, or there is
+ * no stored conversation).
+ */
+type Earlier = "none" | "more" | "loading";
 interface ChatState {
   readonly phase: ChatPhase;
   /** A turn, or deleting the conversation, is under way. */
   readonly busy: boolean;
   readonly messages: readonly ChatMessage[];
+  /** Older messages of the stored conversation, loaded a page at a time from the newest. */
+  readonly earlier: Earlier;
   readonly draft: string;
   readonly error: string | undefined;
   /** What the assistant is doing while no text streams, such as searching documents. */
@@ -1147,9 +1351,13 @@ declare const EN: {
   readonly "status.thinking": "Thinking…";
   readonly "status.searching": "Searching documents…";
   readonly "status.tool": "Using {name}…";
+  readonly "status.reconnecting": "Reconnecting…";
   readonly "status.typing": "The assistant is typing";
   readonly "message.sources": "Sources";
   readonly "message.replies": "Suggested replies";
+  readonly "history.earlier": "Show earlier messages";
+  readonly "history.loading": "Loading earlier messages…";
+  readonly "history.loaded": "Earlier messages loaded.";
   readonly "feedback.label": "Rate this answer";
   readonly "feedback.up": "Helpful";
   readonly "feedback.down": "Not helpful";
@@ -1182,6 +1390,7 @@ declare const EN: {
   readonly "error.humanCheck": "We couldn’t confirm you’re human. Please try again.";
   readonly "error.connection": "Connection problem. Please try again.";
   readonly "error.history": "Could not load the previous conversation.";
+  readonly "error.earlier": "Could not load earlier messages.";
   readonly "error.updated": "The assistant was updated. Please reload the page.";
   readonly "error.stalled": "The connection stalled. Please try again.";
   readonly "error.uploadFailed": "The file could not be uploaded.";
@@ -1237,6 +1446,11 @@ interface ChatActions {
   cancelDictation(): void;
   /** Deletes the conversation and starts with an empty chat. */
   newConversation(): Promise<void>;
+  /**
+   * Loads the page of older messages before those shown, while `state.earlier` is `more`, and
+   * puts it above them.
+   */
+  loadEarlier(): Promise<void>;
   /**
    * Rates an answer by its message id: 👍, 👎, or null to take the rating back. After 👎 the chat
    * asks what went wrong (`state.commenting`); pass the answer as `comment` with the same rating.
@@ -1370,10 +1584,10 @@ interface MarkdownProps {
 export declare const Markdown: NamedExoticComponent<MarkdownProps>;
 type MessagesProps = ComponentProps<"div">;
 /**
- * The conversation, following the latest message as it streams. Holds the welcome, the
- * `MessageList` and the `Status`. It is a log but not a live region: text growing inside a node is
- * read in fragments or not at all, so a finished answer is announced once, through a status region
- * next to it.
+ * The conversation, following the latest message as it streams. Holds the welcome, `LoadEarlier`,
+ * the `MessageList` and the `Status`. It is a log but not a live region: text growing inside a node
+ * is read in fragments or not at all, so a finished answer is announced once, through a status
+ * region next to it. Older messages loaded above keep the visitor's place, and are announced there.
  */
 export declare function Messages({ ref, ...props }: MessagesProps): ReactElement;
 interface MessageListProps {
@@ -1382,6 +1596,15 @@ interface MessageListProps {
 }
 /** Renders its children for every message worth showing. Has no element of its own. */
 export declare function MessageList({ children }: MessageListProps): ReactElement;
+type LoadEarlierProps = ComponentProps<"button">;
+/**
+ * Loads the conversation's older messages, a page at a time: a button for the top of `Messages`,
+ * shown while there are any (`state.earlier`). It also loads them when the visitor scrolls up to
+ * it. While they load it keeps focus, with `data-loading`. Focus stays on it, in view, with the
+ * older messages under it; when the conversation's start is reached and it goes away, the oldest
+ * message takes focus.
+ */
+export declare function LoadEarlier({ ref, children, onClick, ...props }: LoadEarlierProps): ReactElement | null;
 type MessageProps = ComponentProps<"div">;
 /**
  * One message, with `data-role` and `data-status`. The message primitives read only their own
@@ -1465,7 +1688,144 @@ interface RootProps {
  * take what `askdare('identify')` and `askdare('configure')` take, checked the same way.
  */
 export declare function Root({ config, identity, context, greeting, starters, onEvent, toolRenderers, children }: RootProps): ReactElement;
-export { type AttachButtonProps, type Chat, type ChatActions, type ChatAttachments, type ChatBot, type ChatConfig, type ChatEvent, type ChatEventListener, type ChatEventType, type ChatHumanCheck, type ChatMessage, type ChatPhase, type ChatState, type ChatStyles, type ChatWidget, type Citation, type CitationsProps, type ComposerProps, type DefaultChatComponents, type DefaultChatProps, type DictateButtonProps, type Dictation, type DisclosureProps, type ErrorMessageProps, type FeedbackButtonProps, type FilesProps, type Frame, type HumanCheckProps, type InputProps, Link, type LinkProps, type MarkdownProps, type MessageFilesProps, type MessageListProps, type MessageProps, type MessageTextProps, type MessagesProps, type PanelProps, type PendingFile, type QuickRepliesProps, type Rating, type RecorderProps, type RootProps, type SendProps, type SentFile, type StatusProps, type ThemeProps, type ToolRendererProps, type ToolRenderers, ToolResults, type ToolResultsProps, type ToolUi, type Translate };
+export { type AttachButtonProps, type Chat, type ChatActions, type ChatAttachments, type ChatBot, type ChatConfig, type ChatEvent, type ChatEventListener, type ChatEventType, type ChatHumanCheck, type ChatMessage, type ChatPhase, type ChatState, type ChatStyles, type ChatWidget, type Citation, type CitationsProps, type ComposerProps, type DefaultChatComponents, type DefaultChatProps, type DictateButtonProps, type Dictation, type DisclosureProps, type Earlier, type ErrorMessageProps, type FeedbackButtonProps, type FilesProps, type Frame, type HumanCheckProps, type InputProps, Link, type LinkProps, type LoadEarlierProps, type MarkdownProps, type MessageFilesProps, type MessageListProps, type MessageProps, type MessageTextProps, type MessagesProps, type PanelProps, type PendingFile, type QuickRepliesProps, type Rating, type RecorderProps, type RootProps, type SendProps, type SentFile, type StatusProps, type ThemeProps, type ToolRendererProps, type ToolRenderers, ToolResults, type ToolResultsProps, type ToolUi, type Translate };
+
+// ==== testing.d.ts ====
+import { E as KnowledgeIndex, T as KnowledgeDocument, b as Embedder, n as TurnEventLog, p as ConversationStore, s as RateLimitStore } from "./turn-log.js";
+/**
+ * The parts of a test runner the contract suites use. Vitest's and Jest's `describe`, `it` and
+ * `expect` fit, so `@boldare/askdare/testing` depends on no runner.
+ */
+interface ContractRunner {
+  readonly describe: (name: string, body: () => void) => void;
+  readonly it: (name: string, body: () => Promise<void>, timeout?: number) => void;
+  readonly expect: ContractExpect;
+}
+/** The assertions the contract suites make. */
+type ContractExpect = (actual: unknown) => {
+  toBe(expected: unknown): void;
+  toEqual(expected: unknown): void;
+  toBeInstanceOf(expected: abstract new (...args: never[]) => unknown): void;
+  toHaveLength(length: number): void;
+  toBeGreaterThan(expected: number): void;
+};
+interface KnowledgeIndexContractOptions extends ContractRunner {
+  /** Of the fake embedder; set it for an index with fixed dimensions. Default 64. */
+  readonly dimensions?: number | undefined;
+}
+/**
+ * Opens the index `indexId` with `embedder`. Two calls with the same index ID must see the same
+ * data, as two server instances on one database do. Each test uses fresh index IDs and clears them.
+ */
+type OpenKnowledgeIndex = (options: {
+  readonly indexId: string;
+  readonly embedder: Embedder;
+}) => KnowledgeIndex | Promise<KnowledgeIndex>;
+/**
+ * Behaviour every `KnowledgeIndex` must have (ADR-0025), with a deterministic fake embedder. Used
+ * by the in-memory index and by adapters such as `pgvectorIndex`, so they stay interchangeable.
+ * Runner-agnostic: pass your test runner's `describe`, `it` and `expect`:
+ *
+ * ```ts
+ * import { knowledgeIndexContract } from '@boldare/askdare/testing';
+ * import { describe, expect, it } from 'vitest';
+ *
+ * knowledgeIndexContract('my index', ({ indexId, embedder }) => myIndex({ indexId, embedder }), {
+ *   describe,
+ *   it,
+ *   expect,
+ * });
+ * ```
+ */
+export declare function knowledgeIndexContract(name: string, openIndex: OpenKnowledgeIndex, options: KnowledgeIndexContractOptions): void;
+interface ChunkOptions {
+  readonly maxTokens?: number;
+}
+interface KnowledgeDocumentInput {
+  /** POSIX path relative to the knowledge folder. */
+  readonly path: string;
+  /** SHA-256 (hex) of the file's bytes. */
+  readonly sha256: string;
+  readonly title: string;
+  readonly url: string | undefined;
+  /** Extracted text (`extractKnowledgeText`). */
+  readonly text: string;
+}
+/** Chunks an extracted document and gives every chunk its hash and source ID. */
+export declare function knowledgeDocument(input: KnowledgeDocumentInput, options?: ChunkOptions): KnowledgeDocument;
+interface FakeEmbedderOptions {
+  /** Default 64; set it to the column size of an index with fixed dimensions. */
+  readonly dimensions?: number;
+  /** Default `fake:bag-of-words:<dimensions>`; change it to test an embedder switch. */
+  readonly id?: string;
+}
+/**
+ * A deterministic, offline embedder for tests and the contract suite: a hashed bag of words,
+ * normalized, so texts sharing words are close. One token per word. Honors the abort signal.
+ */
+export declare function fakeEmbedder(options?: FakeEmbedderOptions): Embedder;
+/** Your test runner's `describe`, `it` and `expect`, and the suite's options. */
+interface TurnEventLogContractOptions extends ContractRunner {
+  /** The time to live in the expiry tests. Default 1 000 ms; Redis needs whole milliseconds. */
+  readonly ttlMs?: number;
+  /**
+   * Lets at least `ms` pass for the log. Default: real time. A log with a test clock advances it
+   * instead.
+   */
+  readonly elapse?: (ms: number) => Promise<void>;
+}
+/**
+ * Behaviour every `TurnEventLog` must have, for the in-memory log and for add-ons (for example
+ * `@boldare/askdare-upstash`), so they stay interchangeable. Each test uses turns of its own with a
+ * short time to live, so whatever it writes expires soon, also after a failure. Runner-agnostic,
+ * as the other suites: pass your runner's `describe`, `it` and `expect` with the options.
+ */
+export declare function turnEventLogContract(name: string, create: () => TurnEventLog, options: TurnEventLogContractOptions): void;
+interface ConversationStoreContractOptions extends ContractRunner {
+  /**
+   * `items` (default) for stores that keep the items themselves and replay them; `provider` for
+   * stores whose model provider keeps them (OpenAI Conversations), which have no versions.
+   */
+  readonly kind?: "items" | "provider" | undefined;
+  /** Items written for the paging test. Default 250; smaller for stores with network costs. */
+  readonly pagingItems?: number | undefined;
+  /** Page size in the paging test. Default 100. */
+  readonly pageSize?: number | undefined;
+  /** Two real file IDs, for stores that check them on append (OpenAI refuses unknown ones). */
+  readonly files?: (() => Promise<readonly [string, string]>) | undefined;
+  /** An ID the store has never issued. Default: a random UUID, or `conv_does_not_exist` for `provider`. */
+  readonly unknownId?: string | undefined;
+  /** Per-test timeout in milliseconds, for stores behind a network. Default: the runner's. */
+  readonly timeoutMs?: number | undefined;
+}
+/**
+ * The behaviour every `ConversationStore` must have (ADR-0024). Run it from your store's tests with
+ * your runner's `describe`, `it` and `expect`:
+ *
+ * ```ts
+ * import { conversationStoreContract } from '@boldare/askdare/testing';
+ * import { describe, expect, it } from 'vitest';
+ *
+ * conversationStoreContract('my store', () => myStore(), { describe, it, expect });
+ * ```
+ *
+ * Every conversation a test creates is deleted when it ends, also when it fails.
+ */
+export declare function conversationStoreContract(name: string, createStore: () => ConversationStore, options: ConversationStoreContractOptions): void;
+/**
+ * The behaviour every `RateLimitStore` must have, so the in-memory store and add-ons such as
+ * `@boldare/askdare-upstash` stay interchangeable. Run it with your runner's `describe`, `it` and
+ * `expect`:
+ *
+ * ```ts
+ * import { rateLimitStoreContract } from '@boldare/askdare/testing';
+ * import { describe, expect, it } from 'vitest';
+ *
+ * rateLimitStoreContract('my store', () => myStore(), { describe, it, expect });
+ * ```
+ */
+export declare function rateLimitStoreContract(name: string, create: () => RateLimitStore, runner: ContractRunner): void;
+export type { ContractExpect, ContractRunner, ConversationStoreContractOptions, FakeEmbedderOptions, KnowledgeDocumentInput, KnowledgeIndexContractOptions, OpenKnowledgeIndex, TurnEventLogContractOptions };
 
 // ==== tool-results.d.ts ====
 
@@ -1608,3 +1968,452 @@ type LinkProps = Omit<ComponentProps<"a">, "href" | "target" | "rel"> & {
  */
 declare function Link({ href, children, ...props }: LinkProps): ReactElement;
 export { ToolResults as a, ChatConfig as c, ChatWidget as d, EmbedChatConfig as f, ToolRenderers as i, ChatHumanCheck as l, ThemeVariants as m, LinkProps as n, ToolResultsProps as o, PresetName as p, ToolRendererProps as r, ChatAttachments as s, Link as t, ChatStyles as u };
+
+// ==== turn-log.d.ts ====
+/**
+ * The retrieval port of ADR-0025: what a bot's own knowledge index is, with no OpenAI or database
+ * types. Every model path and every adapter (in-memory, pgvector, community ones) speaks only these.
+ * Server-side only: the client never chooses an index (ADR-0004).
+ */
+/**
+ * One piece of a document: within one section, at most about 350 tokens. Core chunks every
+ * document (`knowledgeDocument`), so every index stores the same chunks.
+ */
+interface KnowledgeChunk {
+  /** What the model cites: `k` and the first 12 hex characters of `sha256`. Stable across syncs and turns. */
+  readonly sourceId: string;
+  /** The heading trail inside the document, such as "Pricing › Billing"; undefined before the first heading. */
+  readonly section: string | undefined;
+  readonly text: string;
+  /** SHA-256 (hex) over the document title, the section and the text: the embedding cache key. */
+  readonly sha256: string;
+}
+/** One file of the knowledge folder, extracted and chunked. Built by `askdare kb sync`, never at runtime. */
+interface KnowledgeDocument {
+  /** POSIX path relative to the knowledge folder: the document's identity in the index. */
+  readonly path: string;
+  /** SHA-256 (hex) of the file's bytes: an unchanged file is skipped. */
+  readonly sha256: string;
+  readonly title: string;
+  /** http(s) only; the only link a citation may carry. */
+  readonly url: string | undefined;
+  /** In document order. */
+  readonly chunks: readonly KnowledgeChunk[];
+}
+/** What one `sync` did. */
+interface SyncReport {
+  readonly added: readonly string[];
+  readonly changed: readonly string[];
+  readonly removed: readonly string[];
+  /** Documents whose file hash, title and URL were already in the index. */
+  readonly unchanged: number;
+  /** Distinct chunks embedded in this run. */
+  readonly embeddedChunks: number;
+  /** Chunks of added or changed documents whose embedding the index already had. */
+  readonly reusedChunks: number;
+  readonly embeddingTokens: number;
+}
+/** A chunk with its document, as search and citations see it. `text` is untrusted third-party content. */
+interface Passage {
+  readonly sourceId: string;
+  readonly path: string;
+  readonly title: string;
+  readonly url: string | undefined;
+  readonly section: string | undefined;
+  readonly text: string;
+  /** Relevance from `search`, higher is better; absent from `passage()`. */
+  readonly score?: number;
+}
+interface SearchOptions {
+  readonly maxResults: number;
+  readonly signal?: AbortSignal;
+}
+interface KnowledgeCallOptions {
+  readonly signal?: AbortSignal;
+}
+/**
+ * One finding of `diagnose`, for `askdare doctor`. Every index reports `knowledge.synced` and
+ * `knowledge.embedder`; adapters add their own, such as `knowledge.pgvector`.
+ */
+interface KnowledgeCheck {
+  readonly id: string;
+  readonly ok: boolean;
+  /** Counts, versions and what to do. Never document text. */
+  readonly detail: string;
+}
+/** A bot's knowledge. One database may hold many bots' indexes, each under its own index ID. */
+interface KnowledgeIndex {
+  /**
+   * Makes the index mirror `documents`, the whole folder. Idempotent: an unchanged file is skipped,
+   * and only chunks whose hash the index doesn't have are embedded. Each document is written
+   * atomically. Refuses documents that `checkKnowledgeDocuments` refuses, before changing anything.
+   */
+  sync(documents: readonly KnowledgeDocument[], options?: KnowledgeCallOptions): Promise<SyncReport>;
+  /** The best passages first, each with a score. */
+  search(query: string, options: SearchOptions): Promise<readonly Passage[]>;
+  /** Resolves a cited source ID from this turn or an earlier one; undefined once the chunk is gone. */
+  passage(sourceId: string, options?: KnowledgeCallOptions): Promise<Passage | undefined>;
+  /** Removes everything this index holds. */
+  clear(options?: KnowledgeCallOptions): Promise<void>;
+  diagnose(options?: KnowledgeCallOptions): Promise<readonly KnowledgeCheck[]>;
+}
+interface Embeddings {
+  /** One vector per input, in input order, each `dimensions` long. */
+  readonly vectors: readonly (readonly number[])[];
+  readonly tokens: number;
+}
+/** Turns text into vectors. Separate from the index, so the site picks the key and the model. */
+interface Embedder {
+  /**
+   * Provider, model and dimensions, such as `openai:<model>:1536`. Stored with the index: a
+   * different ID makes the next sync embed everything again.
+   */
+  readonly id: string;
+  readonly dimensions: number;
+  embed(texts: readonly string[], options?: KnowledgeCallOptions): Promise<Embeddings>;
+}
+/**
+ * The `ConversationStore` port (ADR-0024): where conversations live. `openaiConversations()` keeps
+ * them at OpenAI (the default), `memoryConversations()` in memory for tests, and add-ons such as
+ * `@boldare/askdare-postgres` in a database. Nothing here depends on a model provider: the mapping
+ * between stored items and a provider's items lives with that provider (ADR-0002).
+ */
+/** Who may resume, read and delete a conversation (ADR-0009). */
+interface ConversationOwner {
+  readonly botId: string;
+  /**
+   * `visitor:<id>` for an anonymous visitor, `user:<hmac>` for a signed-in user. Opaque to the
+   * store: it stores and returns the string, and the server compares it.
+   */
+  readonly owner: string;
+}
+/** A stored conversation, as `info()` describes it. */
+interface ConversationInfo extends ConversationOwner {
+  readonly id: string;
+  /** Epoch milliseconds. */
+  readonly createdAt: number;
+  /** Epoch milliseconds of the last append; retention counts from here. */
+  readonly updatedAt: number;
+  /** Sequence number of the last item, 0 while empty. `append`'s `expect` compares with it. */
+  readonly version: number;
+}
+/** Where a cited passage came from, stored with the text that cites it (ADR-0024, decision 8). */
+interface StoredCitation {
+  readonly title: string;
+  readonly url?: string | undefined;
+  /** The knowledge source's ID, when the passage came from the bot's knowledge base. */
+  readonly sourceId?: string | undefined;
+}
+/** One part of a stored message. */
+type StoredPart = {
+  readonly type: "text";
+  readonly text: string;
+  readonly citations?: readonly StoredCitation[] | undefined;
+} | {
+  readonly type: "page_context";
+  readonly text: string;
+} | {
+  readonly type: "file";
+  readonly fileId: string;
+  readonly kind: "image" | "pdf";
+  readonly name?: string | undefined;
+} | {
+  readonly type: "refusal";
+  readonly text: string;
+};
+/**
+ * One conversation item. Its `id` is chosen by the writer and unique within the conversation; a
+ * store that assigns its own IDs (OpenAI) may return others.
+ */
+type StoredItem = {
+  readonly id: string;
+  readonly type: "message";
+  readonly role: "user" | "assistant" | "developer";
+  /** Assistant text written before a tool call is `commentary`; the answer is `final_answer`. */
+  readonly phase?: "commentary" | "final_answer" | undefined;
+  readonly parts: readonly StoredPart[];
+} | {
+  readonly id: string;
+  readonly type: "call";
+  readonly callId: string;
+  readonly name: string;
+  /** JSON, as the model wrote it. */
+  readonly arguments: string;
+} | {
+  readonly id: string;
+  readonly type: "call_output";
+  readonly callId: string;
+  readonly output: string;
+} | {
+  readonly id: string;
+  readonly type: "native";
+  readonly provider: string;
+  readonly family?: string | undefined;
+  /**
+   * What the item is, for a store that must recognise it without reading `data`. A
+   * `compaction` item stands for everything before it: the replay window starts at the latest
+   * one of the model's provider and family (ADR-0029). Absent for other state.
+   */
+  readonly kind?: "compaction" | undefined;
+  readonly data: unknown;
+};
+/** A stored item with its position in the conversation. */
+type PositionedItem = StoredItem & {
+  /**
+   * The item's position: 1 for the first item of the conversation, one more per item. A provider
+   * store that can't number its items (OpenAI) counts within the page only.
+   */
+  readonly seq: number;
+  /** Epoch milliseconds of the append that wrote it; 0 when the store doesn't know. */
+  readonly at: number;
+};
+/** The model a conversation is replayed to: a compaction item of another one is ignored. */
+interface CompactionModel {
+  readonly provider: string;
+  readonly family: string;
+}
+/** What the next model call reads to continue a conversation. */
+type ConversationContext = {
+  readonly kind: "provider";
+  readonly provider: string;
+  readonly ref: string;
+  readonly version: number;
+} | {
+  readonly kind: "items";
+  readonly items: readonly PositionedItem[];
+  readonly version: number;
+};
+/** One page of a conversation's items. */
+interface ConversationPage {
+  /** Oldest first. */
+  readonly items: readonly PositionedItem[];
+  /** Pass as `before` for the next older page; absent at the start of the conversation. */
+  readonly before?: string | undefined;
+}
+/** One finding of a store's `diagnose()`, shown by `askdare doctor`. Never contains secrets. */
+interface ConversationStoreCheck {
+  readonly status: "ok" | "warn" | "fail";
+  readonly title: string;
+  /** What to do about a warning or failure. */
+  readonly fix?: string | undefined;
+}
+/**
+ * Thrown by `append` when the conversation is no longer at the `expect`ed version: another turn
+ * wrote first. Nothing of the refused append is stored.
+ */
+declare class VersionConflictError extends Error {
+  readonly expected: number;
+  readonly actual: number;
+  constructor(expected: number, actual: number);
+}
+/**
+ * Where conversations live (ADR-0024). Every method that takes an ID answers an unknown or deleted
+ * conversation the same way: `info` with `undefined`, `delete` with no files, the others by
+ * throwing. Implementations never log stored content.
+ */
+interface ConversationStore {
+  /** Stable name for logs and diagnostics, such as `openai-conversations` or `postgres`. */
+  readonly name: string;
+  /** Creates an empty conversation and returns its ID. */
+  create(owner: ConversationOwner, signal?: AbortSignal): Promise<string>;
+  /** The conversation's bot and owner, which the server compares with the resume token's. */
+  info(id: string, signal?: AbortSignal): Promise<ConversationInfo | undefined>;
+  /**
+   * What the next model call reads. An item store returns the latest `maxItems` items at most,
+   * cut forward to a visitor message so a turn is never split. With `model`, the items start at
+   * the latest `compaction` item of that provider and family instead, when it is later than that
+   * cut (ADR-0029).
+   */
+  context(id: string, options?: {
+    readonly maxItems?: number | undefined;
+    /** The model that reads the items, whose compaction items may start the window. */
+    readonly model?: CompactionModel | undefined;
+    readonly signal?: AbortSignal | undefined;
+  }): Promise<ConversationContext>;
+  /**
+   * Appends items in order, all or none. With `expect`, throws {@link VersionConflictError} unless
+   * the conversation is still at that version. Resolves to the new version. An item ID already in
+   * the conversation is refused.
+   */
+  append(id: string, items: readonly StoredItem[], options?: {
+    readonly expect?: number | undefined;
+    readonly signal?: AbortSignal | undefined;
+  }): Promise<number>;
+  /** The newest items before `before` (all when absent), oldest first. `before` is opaque. */
+  page(id: string, options?: {
+    readonly before?: string | undefined;
+    readonly limit?: number | undefined;
+    readonly signal?: AbortSignal | undefined;
+  }): Promise<ConversationPage>;
+  /**
+   * Deletes the conversation and returns the IDs of the files its visitor attached, for the
+   * server to delete. Deleting an unknown conversation is not an error.
+   */
+  delete(id: string, signal?: AbortSignal): Promise<{
+    readonly fileIds: readonly string[];
+  }>;
+  /**
+   * Retention: deletes up to `limit` conversations with no append since `idleSince` (epoch
+   * milliseconds) and returns them, so the caller deletes their files too. Absent on stores that
+   * can't list their conversations (OpenAI). An aborted `signal` stops it before it deletes more.
+   */
+  sweep?(idleSince: number, limit: number, signal?: AbortSignal): Promise<readonly {
+    readonly id: string;
+    readonly fileIds: readonly string[];
+  }[]>;
+  /** Small live checks for `askdare doctor`, such as a reachable database with the right schema. */
+  diagnose?(signal?: AbortSignal): Promise<readonly ConversationStoreCheck[]>;
+}
+/** Result of incrementing a fixed-window counter. */
+interface CounterHit {
+  /** Counter value after the increment. */
+  readonly count: number;
+  /** Milliseconds until the window resets. */
+  readonly resetMs: number;
+}
+/**
+ * Shared counter storage behind rate limits and budgets. The in-memory default works for a single
+ * instance; multi-instance deployments (Vercel, several dynos) need a shared store such as
+ * `@boldare/askdare-upstash`. Implementations must be atomic per key.
+ */
+interface RateLimitStore {
+  /**
+   * Adds `amount` to `key`, starting a `windowMs` window if none is open. `0` reads without
+   * changing; negative amounts refund.
+   */
+  hit(key: string, windowMs: number, amount: number): Promise<CounterHit>;
+  /** True for stores that are shared across server instances. */
+  readonly shared: boolean;
+}
+/** Stable error codes sent to clients. The accompanying message never contains internals. */
+declare const ERROR_CODES: readonly ["invalid_input", "unauthorized", "session_expired", "not_found", "rate_limited", "budget_exceeded", "bot_unavailable", "content_blocked", "timeout", "upstream_error", "internal_error"];
+type ErrorCode = (typeof ERROR_CODES)[number];
+declare const MESSAGE_END_REASONS: readonly ["completed", "max_steps", "max_output_tokens", "timeout", "content_filter", "aborted"];
+type MessageEndReason = (typeof MESSAGE_END_REASONS)[number];
+interface ConversationCreatedEvent {
+  readonly type: "conversation.created";
+  /** Signed handle that lets this visitor resume the conversation. Never a raw OpenAI ID. */
+  readonly resumeToken: string;
+}
+interface UserAckEvent {
+  readonly type: "user.ack";
+  readonly messageId: string;
+}
+interface MessageStartEvent {
+  readonly type: "message.start";
+  readonly messageId: string;
+}
+interface ReasoningEvent {
+  readonly type: "reasoning";
+  readonly messageId: string;
+  readonly state: "started" | "done";
+}
+interface TextDeltaEvent {
+  readonly type: "text.delta";
+  readonly messageId: string;
+  readonly delta: string;
+}
+interface CitationEvent {
+  readonly type: "citation";
+  readonly messageId: string;
+  /** 1-based marker shown in the text as [n]. */
+  readonly index: number;
+  readonly title: string;
+  readonly url?: string | undefined;
+}
+interface ToolStatusEvent {
+  readonly type: "tool.status";
+  readonly messageId: string;
+  readonly callId: string;
+  readonly name: string;
+  readonly state: "running" | "done" | "error";
+}
+/**
+ * A tool's result as the visitor may see it, for a component the site registered (ADR-0017). Sent
+ * right after the call's `tool.status` `done`, never for a failed call, at most four per answer.
+ * `data` is plain JSON of at most 8 KB, as the tool's `ui` function returned it.
+ */
+interface ToolUiEvent {
+  readonly type: "tool.ui";
+  readonly messageId: string;
+  readonly callId: string;
+  readonly name: string;
+  readonly data: unknown;
+}
+/**
+ * Options the visitor can click under this answer instead of typing (ADR-0015). Sent at most
+ * once, before `message.end`: one to four distinct, trimmed, one-line texts of up to 80
+ * characters, without links. A client shows them as plain text, never as Markdown.
+ */
+interface RepliesEvent {
+  readonly type: "replies";
+  readonly messageId: string;
+  readonly items: readonly string[];
+}
+/** What the client needs to rate one answer (ADR-0012). */
+interface FeedbackHandle {
+  /** Opaque; sent back to `POST /feedback`. */
+  readonly handle: string;
+  /** Stable for the answer across reloads, so the client can remember its rating. Hex. */
+  readonly key: string;
+}
+interface MessageEndEvent {
+  readonly type: "message.end";
+  readonly messageId: string;
+  readonly reason: MessageEndReason;
+  /**
+   * A fresh handle for a resumed conversation, so an active conversation stays reachable for 30
+   * days after its last message rather than its first.
+   */
+  readonly resumeToken?: string | undefined;
+  /** Present when visitors may rate this bot's answers. */
+  readonly feedback?: FeedbackHandle | undefined;
+}
+interface ErrorEvent {
+  readonly type: "error";
+  readonly code: ErrorCode;
+  /** English fallback. */
+  readonly message: string;
+  readonly retryAfterMs?: number | undefined;
+  /** Dictionary key for the visitor's language, with its placeholders. */
+  readonly key?: string | undefined;
+  readonly params?: Readonly<Record<string, string | number>> | undefined;
+}
+type ProtocolEvent = ConversationCreatedEvent | UserAckEvent | MessageStartEvent | ReasoningEvent | TextDeltaEvent | CitationEvent | ToolStatusEvent | ToolUiEvent | RepliesEvent | MessageEndEvent | ErrorEvent;
+/** A protocol event of a running turn, with its place in the turn. */
+interface TurnEvent {
+  /** 1-based and increasing within a turn; the SSE `id:` of the event's frame. */
+  readonly seq: number;
+  /** A protocol event, never a raw provider event (ADR-0002). */
+  readonly event: ProtocolEvent;
+}
+/**
+ * Short-lived storage for the protocol events of running turns, so a visitor whose connection
+ * dropped can resume the answer (ADR-0027). A turn's events are kept for the time to live given on
+ * its last append, then they are gone. The in-memory default works for a single instance;
+ * deployments on several instances need a shared log such as `@boldare/askdare-upstash`.
+ *
+ * Implementations log nothing about the events they hold: they contain answer text.
+ */
+interface TurnEventLog {
+  /**
+   * Appends `events` to the turn and keeps the turn for `ttlMs` from now. Sequence numbers must
+   * increase and come after the turn's last one; otherwise the append throws. Appending to a turn
+   * starts it.
+   */
+  append(turnId: string, events: readonly TurnEvent[], ttlMs: number, signal?: AbortSignal): Promise<void>;
+  /**
+   * The turn's events after `afterSeq`, in order (`0` for all of them). `undefined` when the turn
+   * is unknown, has expired or can no longer be resumed: the client then reloads history.
+   */
+  read(turnId: string, afterSeq: number, signal?: AbortSignal): Promise<readonly TurnEvent[] | undefined>;
+  /**
+   * Like `read`, but when no event after `afterSeq` exists yet, waits up to `timeoutMs` for an
+   * append and answers with what it brought. An empty array means the wait timed out or `signal`
+   * was aborted. `undefined` as for `read`.
+   */
+  wait(turnId: string, afterSeq: number, timeoutMs: number, signal?: AbortSignal): Promise<readonly TurnEvent[] | undefined>;
+  /** True for logs that are shared across server instances. */
+  readonly shared: boolean;
+}
+export { KnowledgeCheck as C, Passage as D, KnowledgeIndex as E, SearchOptions as O, KnowledgeCallOptions as S, KnowledgeDocument as T, StoredItem as _, MessageEndReason as a, Embedder as b, CompactionModel as c, ConversationOwner as d, ConversationPage as f, StoredCitation as g, PositionedItem as h, ErrorCode as i, SyncReport as k, ConversationContext as l, ConversationStoreCheck as m, TurnEventLog as n, CounterHit as o, ConversationStore as p, ERROR_CODES as r, RateLimitStore as s, TurnEvent as t, ConversationInfo as u, StoredPart as v, KnowledgeChunk as w, Embeddings as x, VersionConflictError as y };

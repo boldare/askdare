@@ -1,8 +1,8 @@
 # ADR-0027: Resuming an answer after a dropped connection
 
-- **Status:** Proposed
+- **Status:** Accepted on 2026-11-25 (task z1), as built by r1, r2, r3a and r3b (below). Decision 5's check on Vercel is still open: it needs a preview deployment, and is a step before 0.6 is released.
 - **Date:** 2026-11-23
-- **Evidence:** spike S7, question 6 and probe p5 ([findings](../../spikes/s7-store/FINDINGS.md)).
+- **Evidence:** spike S7, question 6 and probe p5 ([findings](../../spikes/s7-store/FINDINGS.md)); the tasks' tests (below).
 
 ## Context
 
@@ -20,7 +20,7 @@ S7's Postgres prototype worked (400 deltas written one by one in 186 ms, or in 2
    - the turn writes them in batches (a flush every few events or milliseconds, the exact numbers set by the implementing task), never one write per delta.
 2. **Implementations:**
    - `memoryTurnLog()`, the default: bounded in size and time. A reconnect resumes only when it reaches the same instance; otherwise the client falls back to reloading history, which is today's behaviour.
-   - `upstashTurnLog({ redis })` in `@boldare/askdare-upstash`, next to the rate-limit store: a Redis stream per turn (`XADD`, `XRANGE`, `EXPIRE`). If the REST client can't block, `wait` polls at a short interval; the task measures which.
+   - `upstashTurnLog({ redis })` in `@boldare/askdare-upstash`, next to the rate-limit store: a Redis stream per turn (`XADD`, `XRANGE`, `PEXPIRE`), entry IDs `<seq>-0`, each append and each read one `EVAL` (the sequence check, the batch and the expiry are atomic). Upstash's REST API doesn't support `XREAD BLOCK` (its Redis compatibility page: streams are supported "except blocking versions of XREAD and XREADGROUP"), so `wait` polls, by default every 150 ms (`pollMs`). The writer flushes at most every 100 ms, so a resumed reader sees a batch at most 150 ms plus one round trip after it is written: under about 250 ms while the database is in the app's region (round trips of tens of ms), at about 7 commands a second per waiting reader. Not yet measured against a real database: the add-on's tests have a gated latency check (`ASKDARE_TEST_UPSTASH=1`).
    - Postgres (an unlogged table with batched flushes) is not in 0.6. The port lets a site that runs only Postgres add it later.
    - Chosen in `createChatHandler({ resume: { log } })`, on the server only.
 3. **Protocol (additive within v1):**
@@ -29,8 +29,43 @@ S7's Postgres prototype worked (400 deltas written one by one in 186 ms, or in 2
    - The turn is found from the conversation in the visitor's resume token, never from the request alone. A turn of another conversation, or one whose events expired, answers `404` with `not_found`; the client then reloads history.
 4. **The client** retries a stream that ends without `message.end` or `error` through `POST /resume` a few times with backoff, then reloads history. Text already shown stays; resumed events continue it without duplicates, since each carries its sequence number.
 5. **Keeping the turn alive:** a turn has to keep running after its response closes. The handler already has a `waitUntil` option. The implementing task verifies this on Vercel (`after()` or `waitUntil`) and on Heroku; a platform where it fails gets no resume, and the docs say so.
+   - **Long-running Node.js (`next start`, as on Heroku):** verified by `e2e/resume.spec.ts` against the production build (r3a): a stream dropped mid-answer resumes with the rest, and the turn finishes upstream.
+   - **Vercel:** not yet verified. The turn's remaining work (the model call, the log's last flush, the hooks) is handed to Next.js `after()`, which on Vercel extends the function within `maxDuration`. Checking it needs a preview deployment with an Upstash database, which needs the maintainer's approval; until then `docs/deployment.md` says it is unchecked.
 6. **Privacy:** the log holds answer text for minutes. The implementations log nothing about the values they hold, and `docs/privacy.md` names the log and its time to live.
-7. **Public surface** (added to ADR-0006 when this is accepted): the `TurnEventLog` port, `memoryTurnLog`, the `resume` option of `createChatHandler`, `upstashTurnLog`, the turn log suite in `@boldare/askdare/testing`, the `id:` field of event frames and `POST /resume`.
+7. **Public surface** (added to ADR-0006 when this is accepted):
+   - `@boldare/askdare`: the `TurnEventLog` port with `TurnEvent`, and `memoryTurnLog` with `MemoryTurnLog` and `MemoryTurnLogOptions`;
+   - `@boldare/askdare/next`: the `resume: { log }` option of `createChatHandler`, typed `ChatHandlerResumeOptions`;
+   - `@boldare/askdare/testing`: `turnEventLogContract` and `TurnEventLogContractOptions` (called as `(name, create, { describe, it, expect, ttlMs?, elapse? })` since z1, like the other suites);
+   - `@boldare/askdare-upstash`: `upstashTurnLog` and `UpstashTurnLogOptions`;
+   - the protocol: the `id:` field of event frames and `POST /resume`.
+
+   The batching writer stays internal: only the server writes turns.
+
+### As built (r3a)
+
+- **The turn's key** in the log is an HMAC (the token service's pseudonym key) of the bot, the conversation and the answer's `messageId`. `POST /resume` derives it from the conversation in the verified resume token and the `messageId` in the body, so another conversation's answer can't be named, and a shared log holds no conversation IDs.
+- **Numbering:** every event of `POST /messages` is numbered from 1, frames included when there is no log. Logging starts once the conversation is known, with any events sent before it, and goes on after the visitor left. The log is flushed right after `message.start` (the first moment a client can resume) and at the end of the turn inside `waitUntil`. With output checks, only what was released to the visitor is logged.
+- **Time to live:** the bot's `turnTimeoutMs` plus one minute, refreshed by each batch.
+- **A failed append** is tried twice more, the same batch in order (after 200 and 400 ms), so a passing error doesn't leave the log short of the answer's end. After that the writer stops logging the turn, and a resume of it ends without `message.end` after the bot's turn timeout; the client then reloads history.
+- **`POST /resume`** checks same origin, the access token, the resume token's owner, the conversation store's owner and its own rate limit (30 per visitor per minute). It reads from the event before `after`, so a client that already saw `message.end` or `error` gets an empty stream at once. It then waits for live events until the answer ends, the events expire (the stream ends, and the next attempt answers `404`), or the bot's turn timeout passes.
+
+### As built (r3b)
+
+- **The client** (`chat/chat-client.ts`) keeps the last event `id` and the answer's `messageId`, and ignores an event whose `id` isn't above the last one. A stream that ends without `message.end` or `error`, fails, or trips the 45 s watchdog is resumed after 0.5, 2 and 8 s: three attempts in a row that bring nothing new, ten in all for one answer, well under the server's 30 per minute. A turn the chat aborted itself is never resumed.
+- **Giving up:** any status other than `200` from `/resume` (a `404` doesn't forget the conversation), the attempts running out, or a drop before `message.start`. The store then loads the latest history page and replaces only what follows the visitor's last message, so older pages and the oldest message shown stay. It does so only when the page's last visitor message is the one sent and its answer isn't the one shown before it; otherwise the chat shows the connection error as before.
+- **The status** is the existing `activity`, set to `status.reconnecting` and announced politely by `Status`: no new state field or React code.
+- **Size:** about 420 bytes gzipped. The room came from:
+  - a missing `/* @__PURE__ */` on `memo()` in `markdown.tsx`, which kept the Markdown renderer in headless pages (−1.2 KB);
+  - the client's English fallbacks for its own errors, which never showed because the store always passes the bot's full dictionary;
+  - the React build cutting the bundled marked down to its classes (`scripts/marked-lexer-only.ts`): we use only `Lexer`, but marked's default instance and `marked()` kept its Parser and Renderer in the entry (about −3.1 KB). `src/marked-lexer-only.test.ts` checks that the cut Lexer reads markdown exactly as marked's.
+- **Measuring:** `react-size.mjs` gzips with Node's zlib. Official Node builds (CI) bundle zlib 1.3.1; a Node linked against an older system zlib (1.2.12) measured this entry 112 B smaller from the same bytes. CI's figure is the one that counts.
+- **Checked by** unit tests of the client and the store, and `e2e/resume.spec.ts`: the widget and the chat inside a page finish an answer whose stream was cut mid-answer, and take it from the history when `/resume` answers `404`.
+
+### Evidence
+
+- `turnEventLogContract` passes for `memoryTurnLog()` and, against a fake Redis that runs the same two scripts, for `upstashTurnLog()` (r1, r2). Against a real Upstash database it runs only with `ASKDARE_TEST_UPSTASH=1`, which no 0.6 task ran: the Lua scripts and the 250 ms wake-up figure are unchecked against real Redis.
+- `e2e/resume.spec.ts` against the production build (`next start`): the protocol driven with `fetch` (r3a), then the widget and the chat inside a page finishing an answer whose stream was cut mid-answer, and taking it from the history when `/resume` answers `404` (r3b, 20 of 20 with `--repeat-each 5`).
+- Not checked: resume on Vercel with `upstashTurnLog()` (decision 5).
 
 ## Consequences
 

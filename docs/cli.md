@@ -10,7 +10,7 @@ npx @boldare/askdare <command> [options]
 | --- | --- |
 | [`init`](#init) | Adds askdare to the app: a bot config, the route, `.env.local` and the chat script. |
 | [`doctor`](#doctor) | Checks the project, its environment and the running app. |
-| [`kb sync <folder>`](#kb-sync) | Makes an OpenAI vector store mirror a folder of documents. |
+| [`kb sync <folder>`](#kb-sync) | Makes an OpenAI vector store, or your own knowledge index in Postgres, mirror a folder of documents. |
 | [`add ui`](#add-ui) | Copies the chat's default look into the app as your own React components. |
 | [`-v`, `--version`](#version-and-help) | Prints the installed version. |
 | [`-h`, `--help`](#version-and-help) | Prints the usage. |
@@ -115,8 +115,10 @@ Without `--env-file`, `doctor` reads the environment the way `next dev` does: va
 | --- | --- | --- |
 | Model | The bot's model is available to the OpenAI project. A key that may not look up models gives a warning instead. So does a model OpenAI has announced a shutdown for: the warning gives the date from the OpenAI API and links to the [deprecations page](https://developers.openai.com/api/docs/deprecations), which names the replacement. | List models: Read |
 | Responses | The key can create a 16-token response with the bot's model. | Responses API: Write |
-| Conversations | The key can create and delete a conversation. | Write access to conversations |
-| Knowledge base | Only with `knowledge`: the vector store exists in the project and hasn't expired. A store without searchable documents, or with documents still indexing or failed, gives a warning. | Vector Stores: Read |
+| Conversations | Only with `openaiConversations()`, the default: the key can create and delete a conversation. | Write access to conversations |
+| Knowledge base | Only with `knowledge.vectorStoreId`: the vector store exists in the project and hasn't expired. A store without searchable documents, or with documents still indexing or failed, gives a warning. | Vector Stores: Read |
+| Knowledge index | Only with `knowledge.index`: the index's own checks, such as `pgvectorIndex`'s: the database answers, pgvector and the schema are there, the index was synced, and with the bot's embedder. | |
+| Conversation store | Only with a store that checks itself, such as `postgresConversations()`: the database answers and its schema is current. | |
 | Voice input | Only with `voice`: the transcription model is available, and the key can transcribe one second of silence. A transcription model with an announced shutdown gives a warning with the date, like the bot's model. | Model capabilities: Request |
 | Attachments | Only with `attachments`: the key can upload and delete a small file. | Files: Write |
 | Headers | `widget.js?bot=<id>` answers with JavaScript, and the chat page answers without a redirect, without `X-Frame-Options` and with exactly one `frame-ancestors`. It lists the sites that may embed the chat, and warns when something sets cookies. | |
@@ -170,12 +172,13 @@ For an app that isn't on your machine, `doctor` skips the local `OPENAI_API_KEY`
 
 ## kb sync
 
-Makes an OpenAI vector store mirror a folder of documents, for the bot's knowledge base. Re-running without changes does nothing.
+Makes an OpenAI vector store, or your own knowledge index in Postgres, mirror a folder of documents, for the bot's knowledge base. Re-running without changes does nothing.
 
 ```bash
 npx @boldare/askdare kb sync knowledge
 npx @boldare/askdare kb sync knowledge --dry-run
 npx @boldare/askdare kb sync knowledge --store vs_… --env-file .env.production.local
+npx @boldare/askdare kb sync knowledge --index support
 ```
 
 | Option | Default | What it does |
@@ -183,6 +186,9 @@ npx @boldare/askdare kb sync knowledge --store vs_… --env-file .env.production
 | `<folder>` | | The folder to mirror. Exactly one. |
 | `--store <vs_…>` | `KB_VECTOR_STORE_ID` | The vector store to sync. Without either, `kb sync` creates a store, except with `--dry-run`. |
 | `--name <name>` | `askdare knowledge` | The name of a newly created store. |
+| `--index <id>` | | Syncs your own index with this ID instead of a vector store. See [To your own index](#to-your-own-index). |
+| `--embedding-model <model>` | `ASKDARE_EMBEDDING_MODEL` | With `--index`: the OpenAI embedding model. Required; there is no default model. |
+| `--dimensions <n>` | `ASKDARE_EMBEDDING_DIMENSIONS` | With `--index`: the size of the vectors. Required. |
 | `--env-file <path>` | `.env.local` and `.env` in the current folder, when present | Loads environment variables from this file. Variables in your shell win. |
 | `--dry-run` | off | Shows what would change, without changing anything. |
 | `-h`, `--help` | | Prints the usage of `kb sync`. |
@@ -207,6 +213,35 @@ Synced: 2 added, 0 retagged, 1 removed, 12 unchanged.
 ```
 
 A file that fails to upload is listed as `Failed: <path> (<reason>)`, and the rest of the sync goes on.
+
+### To your own index
+
+With `--index <id>`, `kb sync` keeps the documents, their chunks and their embeddings in your own Postgres, with `pgvectorIndex` from `@boldare/askdare-postgres`, instead of in an OpenAI vector store. One database holds many indexes; use the bot's ID as the index ID.
+
+```bash
+npm install @boldare/askdare-postgres
+npx askdare-postgres migrate
+npx @boldare/askdare kb sync knowledge --index support --embedding-model <model> --dimensions 1536
+```
+
+Run `askdare-postgres migrate` first, and run the first sync of an index as the database user that ran it: that sync creates the index's vector index on tables that user owns. Two syncs of one index at the same time run one after the other.
+
+It needs `OPENAI_API_KEY` for the embeddings and `DATABASE_URL` for the database, from the environment or the same env files. The model and the size must be the ones the bot's `openaiEmbedder` uses; setting `ASKDARE_EMBEDDING_MODEL` and `ASKDARE_EMBEDDING_DIMENSIONS` once keeps the two in step. `--store` and `--name` don't go with `--index`.
+
+- It reads `.md`, `.markdown`, `.mdx`, `.txt`, `.html` and `.htm`. Other files, PDFs and `.json` included, are skipped with a warning; the vector store still takes them.
+- Each document is split into chunks of about 350 tokens, within one section. Only chunks the index doesn't have yet are embedded: an unchanged file is skipped, an edited file re-embeds only its changed chunks, and a renamed file re-embeds nothing when its title comes from front matter or `askdare.kb.json`. A title taken from the file name changes with it, and the title is part of every chunk.
+- Another embedding model or size makes the next sync embed everything again.
+- Each document is written in one transaction, so a search never sees half of it.
+- `--dry-run` reads and chunks the folder and lists what it would sync. It needs no key, database or add-on, and changes nothing.
+
+```text
+Loaded .env.local.
+Synced to the index "support": 1 added, 1 changed, 0 removed, 10 unchanged.
+Embedded 3 chunks (812 tokens), reused 2 chunks.
+  + pricing.md
+  ~ guides/billing.md
+Warning: skipped 1 file the index can't read (it reads .md, .markdown, .mdx, .txt, .html and .htm): guides/handbook.pdf
+```
 
 ## add ui
 
@@ -254,6 +289,6 @@ npx @boldare/askdare --help
 | `doctor` | No problems. Warnings don't count. | At least one `✗` problem. |
 | `kb sync` | Done, or nothing to do. | At least one file failed to upload. |
 | `add ui` | Done. | The folder isn't a Next.js app with React, `--dir` is outside it, or a file is already there. |
-| All | | An unknown command or option, or a missing or invalid value, such as a `--url` without `https` or no `OPENAI_API_KEY` for `kb sync`. The usage is printed with the error. Any other error is printed as `askdare: <message>`. |
+| All | | An unknown command or option, or a missing or invalid value, such as a `--url` without `https`, no `OPENAI_API_KEY` for `kb sync`, or `kb sync --index` without `@boldare/askdare-postgres` installed. The usage is printed with the error. Any other error is printed as `askdare: <message>`. |
 
 `doctor` exits with `1` while there is a problem, so you can run it in CI after a deploy.

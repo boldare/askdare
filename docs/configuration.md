@@ -109,10 +109,11 @@ Put no secrets in instructions. Assume visitors can make the model reveal them.
 
 | Field | Type | Default | Rules |
 | --- | --- | --- | --- |
-| `vectorStoreId` | `string` | required | A vector store ID: `vs_` followed by letters, digits, `_` or `-`. Usually `process.env.KB_VECTOR_STORE_ID`. |
+| `vectorStoreId` | `string` | one of the two | A vector store ID: `vs_` followed by letters, digits, `_` or `-`. Usually `process.env.KB_VECTOR_STORE_ID`. The model searches it with OpenAI's file search. |
+| `index` | `KnowledgeIndex` | one of the two | Your own index, such as `pgvectorIndex({ embedder, indexId })` from `@boldare/askdare-postgres`. The model searches it with the built-in `search_knowledge` tool. |
 | `maxResults` | `number` | `5` | Whole number, 1–50. Chunks the model reads per search. More costs more input tokens. |
 
-Fill the store with `npx @boldare/askdare kb sync`. See [Knowledge base](knowledge-base.md).
+A bot has `vectorStoreId` or `index`, not both. Fill either with `npx @boldare/askdare kb sync` (`--index <id>` for your own). See [Knowledge base](knowledge-base.md) and [Own your data](own-your-data.md).
 
 ### Attachments
 
@@ -227,6 +228,7 @@ Limits bound what visitors can cost ([ADR-0004](adr/0004-threat-model.md)). Ever
 | `transcriptionsPerVisitorPerHour` | `30` | Dictations per visitor per hour | 1–1,000 |
 | `voiceSecondsPerDay` | `3600` | Seconds of speech transcribed per UTC day, across all visitors | 60 or more |
 | `voiceSecondsPerIpPerDay` | `600` | Seconds of speech transcribed per client IP per UTC day | 60 or more |
+| `compactAt` | unset | Input tokens of a turn's last model call at which askdare compacts the conversation after the turn. Only with a store that keeps the items; see [Compaction](#compaction). | 20,000–272,000 |
 
 What happens at a limit:
 
@@ -234,6 +236,7 @@ What happens at a limit:
 - **Token budgets** answer `budget_exceeded` until midnight UTC. Before each model call, askdare reserves an estimate against `dailyTokens`, `dailyTokensPerIp` and the handler's `globalDailyTokens`. The estimate covers the conversation so far, the new message, `maxOutputTokens`, attached files and file search results. A bot with tools reserves the next call before each tool round, and answers without tools when a budget can't hold it. When the turn ends, the real usage replaces the estimate: input read from the prompt cache counts as a tenth of a token, close to its price, and everything else, cache writes included, as a whole token. The estimate counts the conversation so far as whole tokens, in case the cache has gone cold. A turn that fails or is cut off keeps the estimate charged.
 - **Speech budgets** reserve `voice.maxSeconds` per dictation, then charge the duration OpenAI reports. When one is spent, dictation answers `budget_exceeded` until midnight UTC.
 - **`maxInputChars`** rejects a longer message with `invalid_input`.
+- **`compactAt`** reserves the compaction's estimate against the same token budgets after the turn, and skips the compaction when they can't hold it.
 
 A few limits are fixed:
 
@@ -241,10 +244,33 @@ A few limits are fixed:
 | --- | --- |
 | Session renewals by a returning visitor | 12 per visitor per hour |
 | History reads and deletions | 20 per visitor per minute |
+| Resumed answers (`POST /resume`) | 30 per visitor per minute |
 | Dictations transcribing at once | 2 per client IP and 10 per bot |
 | `npx @boldare/askdare doctor` runs | 3 per minute for the whole app |
 
 Per-IP limits depend on reading the client IP correctly. See [`trustProxy`](#trustproxy).
+
+#### Compaction
+
+A conversation in a store that keeps the items, such as `@boldare/askdare-postgres`, is replayed in full on every model call. That costs more the longer it gets, and every token counts against the budgets. With `limits.compactAt` set, askdare compacts it once a turn's last model call reads that many input tokens ([ADR-0029](adr/0029-compaction-for-item-stores.md)):
+
+```ts
+defineBot({
+  id: 'support',
+  model: process.env.ASKDARE_MODEL!,
+  instructions: '…',
+  limits: { compactAt: 40_000 },
+});
+```
+
+- **After the turn, in the background.** Once the answer has streamed and the conversation is free, askdare sends OpenAI one request with the conversation and a `compaction_trigger`. It uses the bot's model, instructions and tools, so it reads the prompt cache the turn just wrote. The visitor never waits for it: it takes a few seconds to about 15. It needs the platform to keep work alive after a response (`after()` on Vercel, which `createChatHandler` uses). If it can't, nothing breaks; the conversation is just not compacted.
+- **What is stored.** OpenAI returns one compaction item: an encrypted summary of the conversation that only OpenAI can read. askdare appends it to the conversation and changes nothing else, so history, paging and deletion work as before. The next turns replay from that item instead of from the start.
+- **Opaque, and its quality is OpenAI's.** askdare can't read or test the summary. In spike S9 the visitor's facts and the `[id]` citations of earlier answers survived five compactions in a row, but nuance may not. If the visitor writes again before the compaction is stored, it is dropped, and a later turn compacts again.
+- **A floor that rises.** Each summary covers the one before it, so the conversation's floor grows a little with each compaction. When the first model call after a compaction already reads more than half of `compactAt`, that conversation stops compacting and replays in full from there.
+- **Another model family** (for example after you change `model` from one GPT generation to the next) can't read the summary, so it replays the full conversation.
+- **Not with `openaiConversations()`**, the default store: OpenAI keeps those conversations, and askdare never compacts them (spikes S5 and S5b). `createChatHandler` warns at startup when a bot sets `compactAt` with it.
+
+What it saves and costs is in [Costs](costs.md#long-conversations-and-compaction). The compaction's usage reaches `onUsage` as its own entry, apart from the turn's.
 
 ### Widget
 
@@ -272,7 +298,7 @@ The text defaults come from the built-in dictionary of the configured language. 
 
 ## `createChatHandler`
 
-`createChatHandler(options: ChatHandlerOptions): ChatHandlers` returns `GET`, `POST` and `DELETE` for the catch-all route. Its types are exported from `@boldare/askdare/next`: `ChatHandlerOptions`, `ChatHandlerLimitsOptions`, `ChatErrorReport`, `ChatUsageReport`, `ChatTokenUsage`, `ChatToolCallReport`, `ChatFeedbackReport`, `TrustProxy`, `ChatHandlers` and `RouteHandler`.
+`createChatHandler(options: ChatHandlerOptions): ChatHandlers` returns `GET`, `POST` and `DELETE` for the catch-all route. Its types are exported from `@boldare/askdare/next`: `ChatHandlerOptions`, `ChatHandlerLimitsOptions`, `ChatHandlerResumeOptions`, `ChatErrorReport`, `ChatUsageReport`, `ChatTokenUsage`, `ChatToolCallReport`, `ChatFeedbackReport`, `ChatTranscriptReport`, `ChatTranscriptCitation`, `TrustProxy`, `ChatHandlers` and `RouteHandler`. `openaiConversations` and `OpenAIConversationsOptions` come from there too.
 
 | Option | Type | Default | Notes |
 | --- | --- | --- | --- |
@@ -283,12 +309,15 @@ The text defaults come from the built-in dictionary of the configured language. 
 | `previousSecrets` | `readonly string[]` | `process.env.CHAT_SECRET_PREVIOUS`, split at commas | Former secrets that still verify tokens during a rotation. Each follows the same rule as `secret`. See [Going public](going-public.md#2-secrets-and-environment). |
 | `identitySecret` | `string` | `process.env.IDENTITY_SECRET` | Checks identity tokens from your site's backend. Same rule as `secret`, and it must differ from it. Without one, identity is off. See [Signed-in visitors](identity.md). |
 | `limits` | `ChatHandlerLimitsOptions` | see [Handler limits](#handler-limits) | The counter store, the client IP and a budget across bots. |
+| `conversations` | `ConversationStore` | `openaiConversations()` | Where conversations are stored. The default keeps them at OpenAI, with the handler's `openaiApiKey`; `openaiConversations({ apiKey })` takes its own key. A store that keeps the items itself, such as `memoryConversations()` or `@boldare/askdare-postgres`, runs each turn statelessly (`store: false`). See [Custom stores](custom-store.md#conversation-store). |
+| `resume` | `ChatHandlerResumeOptions` | in memory, per process | Where answers being written are kept for a few minutes, so a visitor whose connection drops can resume one. See [`resume`](#resume). |
 | `onError` | `(report: ChatErrorReport) => void \| Promise<void>` | one `console.error` line | Your error reporting. See [`onError`](#onerror). |
 | `onUsage` | `(report: ChatUsageReport) => void \| Promise<void>` | none | Each turn's tokens, timings and tool calls, for cost tracking and tracing. See [`onUsage`](#onusage). |
 | `onFeedback` | `(report: ChatFeedbackReport) => void \| Promise<void>` | none | Visitors' ratings of answers. Without it, answers can't be rated. See [`onFeedback`](#onfeedback). |
+| `onTranscript` | `(report: ChatTranscriptReport) => void \| Promise<void>` | none | Each finished turn's message and answer, to keep your own transcripts. The only hook with message content. See [`onTranscript`](#ontranscript). |
 | `gallery` | `boolean` | `false` | Serves the state gallery. See [`gallery`](#gallery). |
 
-A wrong `basePath`, a duplicate bot ID or an empty `bots` list throws a `TypeError` when the route loads. A missing key or a missing or weak secret doesn't stop the route from loading. Instead, requests that need it answer `bot_unavailable`, and `onError` receives the reason. In development (`next dev`), the chat itself says what to fix.
+A wrong `basePath`, a duplicate bot ID, an empty `bots` list or an unsupported conversation store throws a `TypeError` when the route loads. A missing key or a missing or weak secret doesn't stop the route from loading. Instead, requests that need it answer `bot_unavailable`, and `onError` receives the reason. In development (`next dev`), the chat itself says what to fix.
 
 ### Handler limits
 
@@ -296,10 +325,32 @@ A wrong `basePath`, a duplicate bot ID or an empty `bots` list throws a `TypeErr
 
 | Option | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `store` | `RateLimitStore` | in memory, per process | Counter storage for rate limits and budgets. With more than one instance, use a shared store such as `@boldare/askdare-upstash`. See [Custom rate-limit store](custom-store.md). |
+| `store` | `RateLimitStore` | in memory, per process | Counter storage for rate limits and budgets. With more than one instance, use a shared store such as `@boldare/askdare-upstash`. See [Custom stores](custom-store.md#rate-limit-store). |
 | `trustProxy` | `'auto' \| 'vercel' \| 'heroku' \| number` | `'auto'` | How to read the client IP behind your proxy. |
 | `globalDailyTokens` | `number` | unlimited | Input plus output tokens per UTC day, across all bots of this handler, counted like `dailyTokens`. Reaching it answers `budget_exceeded`. |
 | `requireSharedStore` | `boolean` | `false` | `true` makes `createChatHandler` throw as the route loads unless `store` is shared (`shared: true`), instead of only warning in production. For example `process.env.NODE_ENV === 'production'`, so development keeps the in-memory store. Note that `next build` loads the route with `NODE_ENV=production`. |
+
+### `resume`
+
+When a visitor's connection drops in the middle of an answer, the answer goes on being written on the server, and the chat can pick it up where it stopped instead of losing it ([ADR-0027](adr/0027-stream-resume.md)). For that, every answer's events also go to a turn log while it streams.
+
+```ts
+import { upstashTurnLog } from '@boldare/askdare-upstash';
+
+export const { GET, POST, DELETE } = createChatHandler({
+  bots,
+  resume: { log: upstashTurnLog() },
+});
+```
+
+| Option | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `log` | `TurnEventLog` | `memoryTurnLog()` | Where answers' events are kept. The default keeps them in the server's memory, so an answer resumes only when the reconnect reaches the same instance; otherwise the chat reloads the conversation, as it does without resume. With several instances, use `upstashTurnLog()` from `@boldare/askdare-upstash`, or your own log (see [Custom stores](custom-store.md#turn-event-log)). |
+
+- **How long:** each answer's events are kept for the bot's `turnTimeoutMs` plus one minute after its last event, then they are gone. See [Privacy](privacy.md#turn-log).
+- **What it costs:** a few writes per answer, batched every 100 ms or 20 events, never one per word.
+- **Where it works:** the answer has to keep running after its response closed. askdare keeps it alive with Next.js `after()`, so this works where a turn already outlives a visitor who leaves. See [Deployment](deployment.md#resuming-answers).
+- `memoryTurnLog()` and the `TurnEventLog` type come from `@boldare/askdare`; `turnEventLogContract` from `@boldare/askdare/testing` checks your own log.
 
 ### `trustProxy`
 
@@ -318,7 +369,7 @@ See [Deployment](deployment.md#behind-another-proxy-or-cdn) for setups with a CD
 
 ### `onError`
 
-`onError` receives server errors (status 500 and up), any error that ends an answer while it streams, and once a day a `budget_exceeded` report when a bot's or the global budget runs out (never a single visitor's). Use it for your monitoring. It never receives message contents or API keys. It may be async: askdare keeps the function alive until it finishes, and anything it throws is logged by its error's name and never reaches the request.
+`onError` receives server errors (status 500 and up), any error that ends an answer while it streams, once a day a `budget_exceeded` report when a bot's or the global budget runs out (never a single visitor's), and an `internal_error` when [`onTranscript`](#ontranscript) throws. Use it for your monitoring. It never receives message contents or API keys. It may be async: askdare keeps the function alive until it finishes, and anything it throws is logged by its error's name and never reaches the request.
 
 ```ts
 import * as Sentry from '@sentry/nextjs';
@@ -374,6 +425,7 @@ It may be async. askdare calls it after the stream has closed, so it never delay
 | `usage` | `ChatTokenUsage` | `inputTokens`, `cachedInputTokens`, `cacheWriteTokens`, `outputTokens` and `reasoningTokens`, summed over the turn's model calls. Cached and cache-write tokens are part of the input; reasoning tokens are part of the output. |
 | `steps` | `number` | Model calls in the turn: one, plus one after each round of tool calls. |
 | `tools` | `ChatToolCallReport[]` | One per function call: `name`, `startedAt`, `durationMs` and `outcome` (`ok`, `error` or `timeout`). |
+| `compaction` | `ChatCompactionReport \| undefined` | Only when the turn made a [compaction](#compaction) due: its `usage` (as above, apart from the turn's), `durationMs`, and `outcome`: `compacted`; `conflict` (the visitor wrote again first, so it was dropped); `skipped` (a budget couldn't hold it, or the conversation stopped compacting); or `failed`. The report then comes once the compaction has ended. |
 
 The pseudonyms change when `CHAT_SECRET` rotates. A turn that fails mid-stream reports the usage askdare saw, which can be less than what OpenAI bills; [Costs](costs.md) explains the difference.
 
@@ -405,6 +457,57 @@ It may be async, like `onUsage`, and nothing it throws reaches the chat. A bot h
 | `itemId` | `string` | The OpenAI ID of the rated answer within that conversation. |
 
 A visitor can rate only answers in their own conversations: each answer carries an encrypted handle bound to the visitor, or to the signed-in user, and the bot. Ratings are limited to 20 per minute per visitor.
+
+### `onTranscript`
+
+`onTranscript` hands you each turn as the visitor saw it, so you can keep your own transcripts: for review, export, analysis or a retention policy of your own ([ADR-0016](adr/0016-admin.md)). It works with every conversation store. It is off unless you set it, and it is the only hook that receives message content.
+
+```ts
+export const { GET, POST, DELETE } = createChatHandler({
+  bots,
+  onTranscript: async ({ bot, visitor, conversationId, itemId, startedAt, input, answer, check }) => {
+    await db.insert(transcripts).values({
+      bot,
+      visitor,
+      conversationId,
+      itemId,
+      at: new Date(startedAt),
+      input,
+      answer,
+      check,
+    });
+  },
+});
+```
+
+**When it runs.** Once per turn whose answer finished, after the answer has streamed and the stream has closed, so it never delays an answer. askdare keeps the function alive until it finishes (Next.js `after`). A slow hook doesn't hold the conversation either: the visitor can send the next message while it runs. It isn't called for a message that `onInput` or moderation blocked, or for a turn that failed or stopped before its answer finished (`onUsage` still reports those). An answer that output checks withheld is reported, without its text. A visitor who closes the chat mid-answer still gets a transcript: the answer is finished and stored in the conversation all the same.
+
+**What it receives.** What the visitor sent and what they saw, never more:
+
+- the message **after** `onInput`: when the hook redacts it, you get the redacted text, the same text the model and the conversation got;
+- the answer **after** output checks ([Guardrails](guardrails.md)): the replacement when `onOutput` replaced it, nothing for a withheld answer;
+- not the instructions, page context, file names or contents, tool calls, tool results, reasoning, reply options or tool cards.
+
+**When it throws.** Nothing it throws reaches the chat, and the other hooks still run. askdare reports the failure to `onError` as an `internal_error` whose message names only the error's class, such as `The onTranscript hook failed: Error.`, never its message, because an error from a database insert can quote the values it was given. Without `onError`, that is one `console.error` line. The transcript of that turn is lost, so catch errors inside the hook when you need to retry or know more.
+
+**Personal data.** A transcript is what the visitor typed, so it can hold anything: names, addresses, health details. askdare doesn't store it; you do. Cover it in your privacy notice and keep it no longer than you need. A visitor who starts a new conversation deletes the old one from the conversation store, but askdare calls no hook when that happens, so your transcript outlives it: set a retention period, and keep transcripts by `conversationId` and `visitor` so you can find and delete them when someone asks. See [Privacy](privacy.md#transcripts).
+
+`ChatTranscriptReport`:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `bot` | `string` | The bot's ID. |
+| `visitor` | `string` | The same pseudonym `onUsage` and `onFeedback` report, so transcripts, costs and ratings line up. |
+| `identity` | `VisitorIdentity` | The signed-in user, verified ([Signed-in visitors](identity.md)). Absent for anonymous visitors. |
+| `conversationId` | `string` | The conversation in your conversation store: the same ID `onFeedback` gets. Never sent to the browser. |
+| `itemId` | `string` | The answer's ID in the conversation, the `itemId` `onFeedback` gets when the visitor rates it. Absent for a replaced or withheld answer, and when the store reported none. |
+| `startedAt` | `number` | When the turn started, in epoch milliseconds: the same value as in its `onUsage` report. |
+| `input` | `string` | What the visitor sent, after `onInput`. Empty when they sent only files. |
+| `attachments` | `number` | How many files the visitor attached. |
+| `answer` | `string \| undefined` | The answer the visitor saw, with its `[n]` source markers. The replacement when output checks replaced it; `undefined` when they withheld it. |
+| `citations` | `ChatTranscriptCitation[]` | The sources shown with the answer: `index` (the `[n]` marker), `title` and `url` when there is one. Empty for a withheld answer. |
+| `check` | `'allowed' \| 'replaced' \| 'withheld'` | What output checks decided. Absent for bots without them. |
+| `reason` | `string` | Why the answer ended: `completed`, `max_steps`, `max_output_tokens` or `content_filter`. |
 
 ### `gallery`
 
@@ -465,8 +568,8 @@ The library doesn't read these. `npx @boldare/askdare init`, the starter and the
 
 | Variable | Notes |
 | --- | --- |
-| `UPSTASH_REDIS_REST_URL` | Default for the `url` option of `upstashStore()`. |
-| `UPSTASH_REDIS_REST_TOKEN` | Default for the `token` option of `upstashStore()`. |
+| `UPSTASH_REDIS_REST_URL` | Default for the `url` option of `upstashStore()` and `upstashTurnLog()`. |
+| `UPSTASH_REDIS_REST_TOKEN` | Default for the `token` option of `upstashStore()` and `upstashTurnLog()`. |
 | `KV_REST_API_URL` | Used when `UPSTASH_REDIS_REST_URL` isn't set. |
 | `KV_REST_API_TOKEN` | Used when `UPSTASH_REDIS_REST_TOKEN` isn't set. |
 
@@ -476,7 +579,7 @@ A database from the Vercel Marketplace (Upstash for Redis) sets the `KV_` names 
 
 | To… | Read |
 | --- | --- |
-| Count limits in your own database | [Custom rate-limit store](custom-store.md) |
+| Count limits in your own database, or build a conversation store | [Custom stores](custom-store.md) |
 | Set secrets and limits before launch | [Going public](going-public.md) |
 | Deploy to Vercel or Heroku | [Deployment](deployment.md) |
 | Change texts, language or CSS | [Styling](styling.md) |

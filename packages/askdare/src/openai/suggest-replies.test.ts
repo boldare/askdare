@@ -8,6 +8,7 @@ import type { ProtocolEvent } from '../protocol/events';
 import { defineTool } from '../tools/define-tool';
 import { readSuggestedReplies, SUGGEST_REPLIES } from '../tools/suggest-replies';
 import { createOpenAIGateway } from './gateway';
+import { testConversations } from './testing/conversations';
 import {
   type FixtureEvent,
   OPENAI_TEST_BASE_URL,
@@ -19,6 +20,7 @@ import {
 // Model-suggested reply options (ADR-0015, variant A): the built-in `suggest_replies` tool.
 const server = setupServer();
 let gateway: ModelGateway;
+const conversations = testConversations();
 beforeAll(() => {
   server.listen({ onUnhandledFrame: 'error' });
   gateway = createOpenAIGateway({
@@ -149,6 +151,7 @@ async function run(
   const result = await gateway.runTurn({
     bot,
     conversationId: 'conv_1',
+    conversations: conversations.store,
     text: 'Is there a free plan?',
     context: { locale: 'en' },
     safetyIdentifier: 'h'.repeat(64),

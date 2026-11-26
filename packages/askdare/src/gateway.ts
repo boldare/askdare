@@ -1,8 +1,9 @@
 import type { AttachmentKind } from './attachments/files';
 import type { Bot, BotContext } from './bot/define-bot';
+import type { ConversationStore } from './conversations/port';
+import type { KnowledgeIndex } from './knowledge/port';
 import type { DoctorCheck } from './protocol/doctor';
 import type { MessageEndReason, ProtocolEvent } from './protocol/events';
-import type { HistoryMessage } from './protocol/history';
 import type { ToolUi } from './protocol/tool-ui';
 
 export interface TokenUsage {
@@ -30,11 +31,6 @@ export interface ToolCallRecord {
   readonly startedAt: number;
   readonly durationMs: number;
   readonly outcome: 'ok' | 'error' | 'timeout';
-}
-
-export interface ConversationMetadata {
-  readonly botId: string;
-  readonly visitorId: string;
 }
 
 /** A file from a verified attachment handle, never an ID taken from the client. */
@@ -71,6 +67,12 @@ export interface TranscriptionResult {
 export interface TurnRequest {
   readonly bot: Bot;
   readonly conversationId: string;
+  /**
+   * Where the conversation lives. A provider store records the model's items itself, and the turn
+   * appends only what the server writes; an item store gets every item and is replayed statelessly
+   * (ADR-0024).
+   */
+  readonly conversations: ConversationStore;
   /** May be empty when the message only carries attachments. */
   readonly text: string;
   readonly attachments?: readonly TurnAttachment[];
@@ -99,13 +101,56 @@ export interface TurnRequest {
 export interface TurnResult {
   readonly reason: MessageEndReason;
   readonly usage: TokenUsage;
-  /** The provider's ID of the answer visitors see, for rating it; absent if there was none. */
+  /**
+   * The ID of the answer visitors see, for rating it: the stored item's in an item store, the
+   * provider's otherwise. Absent if there was none.
+   */
   readonly answerItemId?: string | undefined;
   /**
    * Options proposed for the visitor's next message (ADR-0015), as the source gave them; the
    * server cleans them up before sending.
    */
   readonly replies?: readonly string[] | undefined;
+  /**
+   * The conversation's version after the turn's last append, in an item store; absent when the
+   * provider keeps the conversation. A compaction after the turn expects it (ADR-0029).
+   */
+  readonly version?: number | undefined;
+  /**
+   * True when the conversation stopped compacting, because the floor a compaction left was too
+   * high (ADR-0029, decision 7): no compaction is reserved or attempted after the turn.
+   */
+  readonly compactionStopped?: boolean | undefined;
+}
+
+/** Compacts a conversation in an item store after a turn (ADR-0029). */
+export interface CompactionRequest {
+  readonly bot: Bot;
+  readonly conversationId: string;
+  readonly conversations: ConversationStore;
+  /** The turn's context, for the bot's instructions: the same prompt prefix, so the cache holds. */
+  readonly context: BotContext;
+  /** The turn's `safety_identifier`. */
+  readonly safetyIdentifier: string;
+  /**
+   * The conversation's version after the turn. When anything was written since, nothing is
+   * compacted, and the compaction item is appended only at this version.
+   */
+  readonly version: number;
+  readonly signal: AbortSignal;
+}
+
+export interface CompactionResult {
+  /**
+   * - `compacted`: the compaction item was stored, and the next turn replays from it;
+   * - `conflict`: the conversation changed first, so nothing was stored; the next turn may try again;
+   * - `skipped`: no request was made: the store keeps no items, or the conversation stopped
+   *   compacting (ADR-0029, decision 7);
+   * - `failed`: the model returned no compaction item.
+   */
+  readonly outcome: 'compacted' | 'conflict' | 'skipped' | 'failed';
+  /** What the compaction request used; zero when none was made. */
+  readonly usage: TokenUsage;
 }
 
 /**
@@ -157,49 +202,32 @@ export type AnswerVerdict =
 export interface DiagnoseRequest {
   readonly model: string;
   readonly vectorStoreId?: string | undefined;
+  /** The bot's own index (ADR-0025): its `diagnose()` checks join the report. */
+  readonly knowledgeIndex?: KnowledgeIndex | undefined;
   readonly transcriptionModel?: string | undefined;
   readonly attachments: boolean;
 }
 
 /**
  * Everything the server needs from the model provider. The OpenAI implementation lives in
- * `src/openai/`; nothing else may depend on the `openai` package (ADR-0002).
+ * `src/openai/`; nothing else may depend on the `openai` package (ADR-0002). Conversations live
+ * in a `ConversationStore` (ADR-0024).
  */
 export interface ModelGateway {
-  createConversation(metadata: ConversationMetadata, signal?: AbortSignal): Promise<string>;
-  /** Deletes the conversation and, with `withFiles`, the files its visitor attached. */
-  deleteConversation(
-    conversationId: string,
-    options?: { readonly withFiles?: boolean },
-  ): Promise<void>;
   /** Stores a visitor's file as model input and returns its ID. Files expire after 30 days. */
   uploadFile(upload: UploadRequest): Promise<string>;
+  /** Deletes visitors' files, such as those of a deleted conversation. Best effort. */
+  deleteFiles(fileIds: readonly string[]): Promise<void>;
   /** Turns recorded speech into text. Nothing is stored. */
   transcribe(request: TranscriptionRequest): Promise<TranscriptionResult>;
-  /**
-   * Visible messages of a conversation, oldest first; the latest answer with its options, and
-   * every answer with its turn's UI payloads.
-   */
-  listMessages(
-    conversationId: string,
-    signal?: AbortSignal,
-    replies?: RepliesReader,
-    ui?: UiReader,
-    /** For bots with output checks: show only answers a note settled (ADR-0022). */
-    checked?: boolean,
-  ): Promise<readonly HistoryMessage[]>;
   runTurn(request: TurnRequest): Promise<TurnResult>;
+  /**
+   * Summarises a conversation in an item store into one compaction item, after a turn and off the
+   * visitor's path (ADR-0029). Absent: conversations are never compacted.
+   */
+  compact?(request: CompactionRequest): Promise<CompactionResult>;
   /** Classifies texts for `moderation` (ADR-0019). Absent: moderation is unavailable and skipped. */
   moderate?(request: ModerationRequest): Promise<ModerationResult>;
-  /**
-   * Records what output checks decided about the latest answer, so the history shows only answers
-   * that passed, or their replacement, and the model doesn't repeat a withheld one (ADR-0022).
-   */
-  settleAnswer?(
-    conversationId: string,
-    verdict: AnswerVerdict,
-    signal?: AbortSignal,
-  ): Promise<void>;
   /** Small live requests that show whether the key, model and stores work (`askdare doctor`). */
   diagnose(request: DiagnoseRequest): Promise<readonly DoctorCheck[]>;
 }

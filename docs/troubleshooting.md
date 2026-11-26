@@ -42,6 +42,7 @@ Some texts come from the widget itself, without a server code:
 | "The chat couldn’t load. Please try again later." | [The chat doesn't load](#the-chat-doesnt-load) |
 | "The assistant was updated. Please reload the page." | [The assistant was updated](#the-assistant-was-updated) |
 | "The connection stalled. Please try again." | [Answers are cut off or time out](#answers-are-cut-off-or-time-out) |
+| "Reconnecting…" | [The chat reconnects in the middle of an answer](#the-chat-reconnects-in-the-middle-of-an-answer) |
 | "Could not load the previous conversation." | [The conversation is gone](#the-conversation-is-gone) |
 
 ## Model is required
@@ -321,7 +322,19 @@ A PDF that passes these checks can still be refused with `budget_exceeded`; see 
 
 On Heroku, use `--keepAliveTimeout 95000` in the `Procfile` ([Deployment](deployment.md#heroku)).
 
-**"The connection stalled. Please try again."** The widget received nothing for 45 seconds, although the server sends a heartbeat every 15 seconds. Something between the browser and the app buffers the stream. Turn off buffering of `text/event-stream` for `/api/chat`; askdare already sends `X-Accel-Buffering: no` for nginx.
+**"The connection stalled. Please try again."** The widget received nothing for 45 seconds, although the server sends a heartbeat every 15 seconds, and couldn't resume the answer either. Something between the browser and the app buffers the stream. Turn off buffering of `text/event-stream` for `/api/chat`; askdare already sends `X-Accel-Buffering: no` for nginx.
+
+## The chat reconnects in the middle of an answer
+
+**You see** "Reconnecting…" under an answer, and then the rest of it. Or the answer stops and "Connection problem. Please try again." appears.
+
+**Why:** the connection dropped while the answer was being written: a train tunnel, a phone switching networks, a proxy that closes long requests, or a stream the watchdog gave up on after 45 seconds of silence. The answer goes on on the server, and the chat picks it up after the last part it received ([Protocol: Resuming an answer](protocol.md#resuming-an-answer)):
+
+1. It asks `POST /api/chat/resume` for the rest, after half a second, then 2 and 8 seconds while nothing new comes, and at most ten times for one answer.
+2. When the server no longer has the answer's events (`404`), the attempts run out, or resumes hit their rate limit (`429`), it reloads the conversation and shows the answer from there, once it is finished.
+3. Only when the answer isn't in the conversation yet does it show the connection problem. The answer shows the next time the chat loads. The chat also shows it when the stored answer is word for word the one before it, because it can't tell that from a conversation that doesn't have the new answer yet.
+
+**Fix:** if answers are often taken from the conversation instead of resumed, the reconnect doesn't find the answer's events. With several instances, or on Vercel, use `upstashTurnLog()` from `@boldare/askdare-upstash` ([Configuration: `resume`](configuration.md#resume)), and make sure the turn outlives its response on your host ([Deployment: Resuming answers](deployment.md#resuming-answers)). If the connection drops at the same point every time, look for a proxy timeout, as under [Answers are cut off or time out](#answers-are-cut-off-or-time-out).
 
 ## OpenAI fails
 

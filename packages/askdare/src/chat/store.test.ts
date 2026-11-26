@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ProtocolEvent } from '../protocol/events';
+import type { HistoryMessage, HistoryResponse } from '../protocol/history';
 import type { ChatEvent } from './events';
 import { createFixtureStore } from './fixture-store';
 import type { Recording } from './recorder';
@@ -195,6 +197,37 @@ describe('createChatStore', () => {
     store.identify('b.b.b');
     await until(store, (state) => state.messages[0]?.id === 'msg_b');
     expect(store.getSnapshot().messages).toHaveLength(1);
+  });
+
+  it('stops an answer still streaming when the identity changes', async () => {
+    const storage = memoryStorage();
+    storage.set('askdare:support:resume:user-b', 'resume-b');
+    // The answer has begun, and its end never comes.
+    const server = fakeServer({
+      holdAnswer: true,
+      answer: (text) => echo(text).slice(0, 3),
+      identityKey: (token) => (token === 'b.b.b' ? 'user-b' : 'user-a'),
+      history: [
+        { id: 'msg_b', role: 'assistant', text: "B's answer", citations: [], attachments: 0 },
+      ],
+    });
+    const events: ChatEvent[] = [];
+    const store = createChatStore(testConfig(), { client: testClient(server, storage) });
+    store.onEvent((event) => events.push(event));
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    const sending = store.actions.send('Anonymous question');
+    await until(store, (state) => state.messages.at(-1)?.status === 'streaming');
+
+    store.identify('b.b.b');
+    await sending;
+    await until(store, (state) => state.messages[0]?.id === 'msg_b');
+    expect(store.getSnapshot()).toMatchObject({ busy: false, activity: null, error: undefined });
+    expect(store.getSnapshot().messages.map((message) => message.id)).toEqual(['msg_b']);
+    expect(events.filter((event) => event.type === 'message.received')).toMatchObject([
+      { outcome: 'stopped' },
+    ]);
+    expect(server.requests.filter((request) => request.path === '/resume')).toEqual([]);
   });
 
   it('is idempotent across start() and stop(), as Strict Mode runs effects twice', async () => {
@@ -527,6 +560,398 @@ describe('createChatStore', () => {
     await store.actions.send('How much?');
     const message = server.requests.find((request) => request.path === '/messages');
     expect(message?.body['context']).toBe('Pricing page');
+  });
+});
+
+describe('a dropped answer', () => {
+  const said = (id: string, role: 'user' | 'assistant', text: string): HistoryMessage => ({
+    id,
+    role,
+    text,
+    citations: [],
+    attachments: 0,
+  });
+  /** The answer's start and its first words, then the stream drops. */
+  const dropped = (text: string): readonly ProtocolEvent[] => echo(text).slice(0, 3);
+
+  function storeWith(options: Parameters<typeof fakeServer>[0], stored?: boolean) {
+    const storage = memoryStorage();
+    if (stored) storage.set('askdare:support:resume', 'resume-1');
+    const server = fakeServer(options);
+    const store = createChatStore(testConfig(), { client: testClient(server, storage) });
+    const received: ChatEvent[] = [];
+    store.onEvent((event) => received.push(event));
+    const activities: (string | null)[] = [];
+    store.subscribe(() => activities.push(store.getSnapshot().activity));
+    return { server, store, received, activities };
+  }
+  const shown = (state: ChatState) =>
+    state.messages.map(({ id, role, text, status }) => ({ id, role, text, status }));
+
+  it('resumes after the last event, says so quietly, and shows each word once', async () => {
+    const { server, store, received, activities } = storeWith({
+      answer: dropped,
+      resume: () => [
+        { type: 'text.delta', messageId: 'msg_1', delta: '!' },
+        { type: 'message.end', messageId: 'msg_1', reason: 'completed' },
+      ],
+    });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.send('Hi');
+
+    expect(server.requests.find((request) => request.path === '/resume')?.body).toEqual({
+      botId: 'support',
+      resumeToken: 'resume-1',
+      messageId: 'msg_1',
+      after: 3,
+    });
+    expect(activities).toContain('Reconnecting…');
+    expect(store.getSnapshot()).toMatchObject({ busy: false, activity: null, error: undefined });
+    expect(shown(store.getSnapshot())).toEqual([
+      { id: 'local_1', role: 'user', text: 'Hi', status: 'done' },
+      { id: 'msg_1', role: 'assistant', text: 'You said: Hi!', status: 'done' },
+    ]);
+    expect(received.at(-1)).toMatchObject({ type: 'message.received', outcome: 'completed' });
+  });
+
+  it('takes the answer from the history when it can no longer be resumed', async () => {
+    const { server, store, received } = storeWith({
+      answer: dropped,
+      // `/resume` answers 404: the server no longer has the answer's events.
+      historyPage: () => ({
+        messages: [said('h1', 'user', 'Hi'), said('h2', 'assistant', 'The whole answer.')],
+      }),
+    });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.send('Hi');
+
+    expect(server.requests.map((request) => request.path)).toEqual([
+      '/session',
+      '/messages',
+      '/resume',
+      '/history',
+    ]);
+    expect(store.getSnapshot()).toMatchObject({ busy: false, activity: null, error: undefined });
+    // The visitor's own message stays as it was shown; the answer is the history's.
+    expect(shown(store.getSnapshot())).toEqual([
+      // Under the id it streamed with, so it is the same element and is announced once done.
+      { id: 'local_1', role: 'user', text: 'Hi', status: 'done' },
+      { id: 'msg_1', role: 'assistant', text: 'The whole answer.', status: 'done' },
+    ]);
+    expect(received.at(-1)).toMatchObject({ type: 'message.received', outcome: 'completed' });
+  });
+
+  it('keeps older pages above when it takes the answer from the history', async () => {
+    let sent = false;
+    const { store } = storeWith(
+      {
+        answer: (text) => {
+          sent = true;
+          return dropped(text).slice(1);
+        },
+        historyPage: (before) =>
+          before === 'c1'
+            ? { messages: [said('m1', 'user', 'First'), said('m2', 'assistant', 'One.')] }
+            : {
+                messages: [
+                  said('m3', 'user', 'Second'),
+                  said('m4', 'assistant', 'Two.'),
+                  ...(sent ? [said('m5', 'user', 'Third'), said('m6', 'assistant', 'Three.')] : []),
+                ],
+                before: 'c1',
+              },
+      },
+      true,
+    );
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.loadEarlier();
+    await store.actions.send('Third');
+
+    expect(shown(store.getSnapshot()).map(({ id }) => id)).toEqual([
+      'm1',
+      'm2',
+      'm3',
+      'm4',
+      'local_1',
+      'msg_1',
+    ]);
+    expect(store.getSnapshot()).toMatchObject({ earlier: 'none', error: undefined });
+  });
+
+  it("shows the problem when the history doesn't have the answer yet", async () => {
+    // The visitor asks the same as last time: the history's turn is the earlier one.
+    const { store, received } = storeWith(
+      {
+        answer: dropped,
+        history: [said('m1', 'user', 'Hi'), said('m2', 'assistant', 'Hello!')],
+      },
+      true,
+    );
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.send('Hi');
+
+    expect(store.getSnapshot()).toMatchObject({
+      busy: false,
+      error: 'Connection problem. Please try again.',
+    });
+    expect(shown(store.getSnapshot())).toEqual([
+      { id: 'm1', role: 'user', text: 'Hi', status: 'done' },
+      { id: 'm2', role: 'assistant', text: 'Hello!', status: 'done' },
+      { id: 'local_1', role: 'user', text: 'Hi', status: 'done' },
+      { id: 'msg_1', role: 'assistant', text: 'You said: Hi', status: 'error' },
+    ]);
+    expect(received.slice(-2)).toMatchObject([
+      { type: 'error', code: 'upstream_error' },
+      { type: 'message.received', outcome: 'failed' },
+    ]);
+  });
+});
+
+describe('earlier messages', () => {
+  const message = (id: string, role: 'user' | 'assistant' = 'user'): HistoryMessage => ({
+    id,
+    role,
+    text: `Text of ${id}`,
+    citations: [],
+    attachments: 0,
+  });
+  /** A conversation of three pages: the latest, the one before (`c1`) and the oldest (`c2`). */
+  const PAGES: Readonly<Record<string, HistoryResponse>> = {
+    latest: { messages: [message('m5'), message('m6', 'assistant')], before: 'c1' },
+    c1: { messages: [message('m3'), message('m4', 'assistant')], before: 'c2' },
+    c2: { messages: [message('m1'), message('m2', 'assistant')] },
+  };
+  const pages = (before: string | undefined): HistoryResponse =>
+    PAGES[before ?? 'latest'] ?? { messages: [] };
+
+  function storeWith(options: Parameters<typeof fakeServer>[0]) {
+    const storage = memoryStorage();
+    storage.set('askdare:support:resume', 'resume-1');
+    const server = fakeServer(options);
+    const store = createChatStore(testConfig(), { client: testClient(server, storage) });
+    return { server, store, storage };
+  }
+  const ids = (state: ChatState): string[] => state.messages.map((item) => item.id);
+  const cursors = (server: ReturnType<typeof fakeServer>): unknown[] =>
+    server.requests.filter((r) => r.path === '/history').map((r) => r.body['before']);
+
+  it('has none without a stored conversation, or when it fits on one page', async () => {
+    const fresh = createChatStore(testConfig(), { client: testClient(fakeServer()) });
+    expect(fresh.getServerSnapshot().earlier).toBe('none');
+    fresh.start();
+    await until(fresh, (state) => state.phase === 'ready');
+    expect(fresh.getSnapshot().earlier).toBe('none');
+
+    const { store, server } = storeWith({ history: [message('m1')] });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    expect(store.getSnapshot().earlier).toBe('none');
+    await store.actions.loadEarlier();
+    expect(cursors(server)).toEqual([undefined]);
+  });
+
+  it('puts older pages above, back to the start of the conversation', async () => {
+    const { store, server } = storeWith({ historyPage: pages });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    expect(store.getSnapshot()).toMatchObject({ earlier: 'more' });
+    expect(ids(store.getSnapshot())).toEqual(['m5', 'm6']);
+
+    const loading = store.actions.loadEarlier();
+    expect(store.getSnapshot().earlier).toBe('loading');
+    // A second call while a page loads asks for nothing.
+    await store.actions.loadEarlier();
+    await loading;
+    expect(store.getSnapshot().earlier).toBe('more');
+    expect(ids(store.getSnapshot())).toEqual(['m3', 'm4', 'm5', 'm6']);
+
+    await store.actions.loadEarlier();
+    expect(store.getSnapshot().earlier).toBe('none');
+    expect(ids(store.getSnapshot())).toEqual(['m1', 'm2', 'm3', 'm4', 'm5', 'm6']);
+    expect(store.getSnapshot().messages[0]).toMatchObject({ status: 'done', text: 'Text of m1' });
+    await store.actions.loadEarlier();
+    expect(cursors(server)).toEqual([undefined, 'c1', 'c2']);
+  });
+
+  it('keeps messages sent meanwhile below the older page', async () => {
+    let release = (): void => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const { store } = storeWith({
+      historyPage: async (before) => {
+        if (before) await held;
+        return pages(before);
+      },
+    });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    const loading = store.actions.loadEarlier();
+    await store.actions.send('New question');
+    release();
+    await loading;
+    expect(store.getSnapshot().messages.map((item) => item.text)).toEqual([
+      'Text of m3',
+      'Text of m4',
+      'Text of m5',
+      'Text of m6',
+      'New question',
+      'You said: New question',
+    ]);
+  });
+
+  it('shows an error and lets the visitor try the same page again', async () => {
+    let fail = true;
+    const { store, server } = storeWith({
+      historyPage: (before) =>
+        before && fail
+          ? Response.json({ error: { code: 'internal_error' } }, { status: 500 })
+          : pages(before),
+    });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.loadEarlier();
+    expect(store.getSnapshot()).toMatchObject({
+      earlier: 'more',
+      error: 'Could not load earlier messages.',
+    });
+    fail = false;
+    await store.actions.loadEarlier();
+    expect(store.getSnapshot()).toMatchObject({ earlier: 'more', error: undefined });
+    expect(cursors(server)).toEqual([undefined, 'c1', 'c1']);
+  });
+
+  it('stops paging when the server refuses the cursor', async () => {
+    const { store, storage } = storeWith({
+      historyPage: (before) =>
+        before
+          ? Response.json(
+              { error: { code: 'invalid_input', key: 'error.history' } },
+              { status: 400 },
+            )
+          : pages(before),
+    });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.loadEarlier();
+    expect(store.getSnapshot()).toMatchObject({
+      earlier: 'none',
+      error: 'Could not load earlier messages.',
+    });
+    expect(ids(store.getSnapshot())).toEqual(['m5', 'm6']);
+    // The conversation itself stays.
+    expect(storage.get('askdare:support:resume')).toBe('resume-1');
+  });
+
+  it('says so and stops paging when the conversation is gone', async () => {
+    const { store, storage } = storeWith({
+      historyPage: (before) =>
+        before ? Response.json({ error: { code: 'not_found' } }, { status: 404 }) : pages(before),
+    });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.loadEarlier();
+    expect(store.getSnapshot()).toMatchObject({
+      earlier: 'none',
+      error: 'This conversation is no longer available.',
+    });
+    // The next message starts a new conversation, as after any 404.
+    expect(storage.get('askdare:support:resume')).toBeUndefined();
+  });
+
+  it("keeps an error the visitor hasn't acted on while a page loads", async () => {
+    const { store } = storeWith({
+      historyPage: pages,
+      answer: () => [{ type: 'error', code: 'rate_limited', message: 'Too many messages.' }],
+    });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    await store.actions.send('Question');
+    await store.actions.loadEarlier();
+    expect(store.getSnapshot()).toMatchObject({ earlier: 'more', error: 'Too many messages.' });
+  });
+
+  it('drops a page that arrives after a new conversation started', async () => {
+    let release = (): void => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const { store } = storeWith({
+      historyPage: async (before) => {
+        if (before) await held;
+        return pages(before);
+      },
+    });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    const loading = store.actions.loadEarlier();
+    await store.actions.newConversation();
+    expect(store.getSnapshot()).toMatchObject({ earlier: 'none', messages: [] });
+    release();
+    await loading;
+    expect(store.getSnapshot()).toMatchObject({ earlier: 'none', messages: [] });
+  });
+
+  it("never pages into the previous visitor's conversation after a sign-in", async () => {
+    let release = (): void => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const storage = memoryStorage();
+    storage.set('askdare:support:resume', 'resume-anonymous');
+    storage.set('askdare:support:resume:user-b', 'resume-b');
+    const server = fakeServer({
+      identityKey: () => 'user-b',
+      historyPage: async (before, resumeToken) => {
+        if (resumeToken === 'resume-b') return { messages: [message('b1')] };
+        if (before) await held;
+        return pages(before);
+      },
+    });
+    const store = createChatStore(testConfig(), { client: testClient(server, storage) });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    // The anonymous conversation has older pages; one is on its way when the visitor signs in.
+    const loading = store.actions.loadEarlier();
+    store.identify('b.b.b');
+    await until(store, (state) => state.messages[0]?.id === 'b1');
+    release();
+    await loading;
+    expect(ids(store.getSnapshot())).toEqual(['b1']);
+    expect(store.getSnapshot().earlier).toBe('none');
+    await store.actions.loadEarlier();
+    expect(cursors(server)).toEqual([undefined, 'c1', undefined]);
+  });
+
+  it('can load the same page again after stop() and start()', async () => {
+    let release = (): void => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let hold = true;
+    const { store, server } = storeWith({
+      historyPage: async (before) => {
+        if (before && hold) await held;
+        return pages(before);
+      },
+    });
+    store.start();
+    await until(store, (state) => state.phase === 'ready');
+    const loading = store.actions.loadEarlier();
+    store.stop();
+    expect(store.getSnapshot().earlier).toBe('more');
+    hold = false;
+    release();
+    await loading;
+    expect(ids(store.getSnapshot())).toEqual(['m5', 'm6']);
+    store.start();
+    await store.actions.loadEarlier();
+    expect(ids(store.getSnapshot())).toEqual(['m3', 'm4', 'm5', 'm6']);
+    expect(cursors(server)).toEqual([undefined, 'c1', 'c1']);
   });
 });
 

@@ -17,10 +17,43 @@ export type {
   GuardVerdict,
   ModerationConfig,
 } from './bot/guardrails';
+export { memoryConversations } from './conversations/memory';
+export type {
+  CompactionModel,
+  ConversationContext,
+  ConversationInfo,
+  ConversationOwner,
+  ConversationPage,
+  ConversationStore,
+  ConversationStoreCheck,
+  PositionedItem,
+  StoredCitation,
+  StoredItem,
+  StoredPart,
+} from './conversations/port';
+export { VersionConflictError } from './conversations/port';
+export { checkKnowledgeDocuments, embeddingInput } from './knowledge/check';
+export type {
+  Embedder,
+  Embeddings,
+  KnowledgeCallOptions,
+  KnowledgeCheck,
+  KnowledgeChunk,
+  KnowledgeDocument,
+  KnowledgeIndex,
+  Passage,
+  SearchOptions,
+  SyncReport,
+} from './knowledge/port';
 export type { CounterHit, RateLimitStore } from './limits/store';
+export type { OpenAIEmbedderOptions } from './openai/embedder';
+export { openaiEmbedder } from './openai/embedder';
 export type { ErrorCode } from './protocol/events';
 export { ERROR_CODES } from './protocol/events';
 export { PROTOCOL_VERSION } from './protocol/version';
+export type { MemoryTurnLog, MemoryTurnLogOptions } from './resume/memory-turn-log';
+export { memoryTurnLog } from './resume/memory-turn-log';
+export type { TurnEvent, TurnEventLog } from './resume/turn-log';
 export type {
   HumanChallenge,
   HumanCheckContext,

@@ -18,6 +18,7 @@ Every path sits under the route's base path: `/api/chat` by default, or `basePat
 | `POST /session` | None | Starts or renews a visitor's session and answers an access token ([Identity](#identity)) |
 | `POST /messages` | Access token | Sends a message and answers with the event stream ([Events](#events)) |
 | `POST /history` | Access token | The visible messages of the visitor's conversation |
+| `POST /resume` | Access token | The rest of an answer whose stream dropped, as an event stream ([Resuming an answer](#resuming-an-answer)) |
 | `POST /feedback` | Access token | Rates one answer ([Feedback](#feedback)) |
 | `DELETE /conversation` | Access token | Deletes the visitor's conversation, and its files when the bot accepts attachments |
 | `POST /attachments` | Access token | Uploads one file ([Attachments](#attachments)) |
@@ -25,10 +26,47 @@ Every path sits under the route's base path: `/api/chat` by default, or `basePat
 | `POST /doctor` | Doctor token | Checks the setup for `askdare doctor` ([Diagnostics](#diagnostics)) |
 
 - **`POST /messages`** takes `{ "botId", "text", "resumeToken"?, "attachments"?, "context"?, "locale"? }`. Without `resumeToken`, the server starts a new conversation and sends `conversation.created`. `locale` is the visitor's language tag, passed to the bot's instructions.
-- **`POST /history`** takes `{ "botId", "resumeToken" }` and answers `{ "messages": [{ "id", "role", "text", "citations", "attachments", "feedback"?, "replies"?, "ui"? }] }`, where `attachments` is a count, `feedback` is the answer's rating handle (see [Feedback](#feedback)), `replies` are the options of the latest answer (see [Reply options](#reply-options)) and `ui` are the tool payloads of an answer (see [Tool UI](#tool-ui)).
-- **`DELETE /conversation`** takes the same body and answers `204` with no body.
+- **`POST /history`** takes `{ "botId", "resumeToken", "before"? }` and answers `{ "messages": [{ "id", "role", "text", "citations", "attachments", "feedback"?, "replies"?, "ui"? }], "before"? }`, where `attachments` is a count, `feedback` is the answer's rating handle (see [Feedback](#feedback)), `replies` are the options of the latest answer (see [Reply options](#reply-options)) and `ui` are the tool payloads of an answer (see [Tool UI](#tool-ui)). It answers one page of the conversation, oldest message first (see [History pages](#history-pages)).
+- **`POST /resume`** takes `{ "botId", "resumeToken", "messageId", "after" }` and answers an event stream: the answer's events after `after`, then the live ones (see [Resuming an answer](#resuming-an-answer)).
+- **`DELETE /conversation`** takes `{ "botId", "resumeToken" }` and answers `204` with no body.
 - **`GET /config/<bot>`** answers the same public configuration the chat document carries: texts, greeting, starters, theme variants and the other widget settings, never the model, instructions, tools or vector stores. For a bot with `locale: 'auto'`, `?lang=` picks the language; without it, the browser's `Accept-Language` does, then English. A bot with a fixed locale ignores `lang`. An invalid tag answers `400` with `invalid_input`, an unknown bot `404`. Responses are cached for five minutes (`no-cache` in development) and vary by `Accept-Language`. `Content-Language` names the language the texts are written in, for the chat document's `lang`: the visitor's when the bot has texts for it, else English for a language without a built-in dictionary.
 - **Same origin only.** Every `POST` and `DELETE` except `/doctor` refuses cross-site requests with `401`. The API serves the chat's own iframe, which runs on the same origin.
+
+## History pages
+
+A long conversation comes back in pages of whole turns, newest page first ([ADR-0024](adr/0024-conversation-store.md), decision 7):
+
+- **The latest page.** Without `before`, `POST /history` answers the latest page, as it did before paging. Clients that never send `before` keep working and see the latest page only.
+- **Older pages.** When older messages exist, the answer has `before`. Send it back as `before`, with the same `botId` and `resumeToken`, for the page before. The oldest page has no `before`.
+- **Whole turns.** A page is about 100 stored items and is extended back to the visitor message that starts its oldest turn, so a turn (a visitor message and the answers to it) is never split between pages. Each page starts with a visitor message, except the oldest when the conversation starts otherwise, and except after a single turn of more than about 800 stored items (hundreds of tool calls), which is split rather than read without end.
+- **What pages carry.** Every answer has its own cards (`ui`) and rating handle on whichever page it is. Only the latest answer has `replies`, so only the latest page can. With output checks, an answer shows on its page only once it is settled ([ADR-0022](adr/0022-guardrails-implementation.md)).
+- **The cursor.** `before` is opaque, at most 4,096 characters, and valid as long as a resume token (30 days by default), for its conversation only. A cursor that is forged, expired or from another conversation, even the same visitor's, answers `400` with `invalid_input` and the key `error.history`; load the latest page again. The resume token still decides who may read the conversation: a cursor grants nothing on its own.
+- **Between pages.** New turns land on the latest page and don't shift older pages, so a client keeps the cursors it has while the conversation goes on.
+
+Older clients ignore `before` in the answer, so paging is additive in protocol version 1.
+
+## Resuming an answer
+
+A visitor's connection can drop in the middle of an answer: a train tunnel, a phone switching networks, a proxy timeout. The answer goes on being written on the server, and the client can pick it up where it stopped ([ADR-0027](adr/0027-stream-resume.md)).
+
+- **Sequence numbers.** Every event frame of `POST /messages` and `POST /resume` carries an SSE `id:` with the event's sequence number in its turn: 1 for the turn's first event, then one more for each event, without gaps. Comments (`: ok`, `: ping`) carry none. Keep the `id` of the last event you received.
+- **The request.** `POST /resume` takes `{ "botId", "resumeToken", "messageId", "after" }`: the conversation's resume token, the `messageId` of the answer's `message.start`, and `after`, the last sequence number received (`0` for none). `messageId` is 1 to 128 characters; `after` is a whole number from `0`. The client reads the answer with `fetch`, as it does `POST /messages`, so there is no `Last-Event-ID` header.
+- **The answer.** An event stream with the same headers and framing as `POST /messages`: the answer's events after `after` in order, then the live ones as the server writes them, until `message.end` or `error`. Each event comes once, with the sequence number it had on the first stream, so appending what arrives to what was shown continues the answer without duplicates. When `after` is already the answer's `message.end` or `error`, the stream ends at once, empty.
+- **A stream that ends without `message.end` or `error`.** The answer's events expired or could no longer be kept, the answer ran out of time without ending, or the connection dropped again. Resume again; a `404` then says the answer can't be resumed.
+- **`404` with `not_found`.** The answer is unknown, its events expired (a few minutes after the answer's last event: the bot's turn timeout plus one minute), the conversation isn't the visitor's or no longer exists, the resume token is invalid, or the server keeps no turn log. Reload the history instead: a finished answer is there.
+- **Who can resume.** The answer is found from the conversation in the resume token, never from the request alone, and the token must belong to the visitor or signed-in user of the access token. A `messageId` from another conversation, even the same visitor's, answers `404`.
+- **Before `message.start`.** Without its `messageId`, a client can't resume. Reload the history.
+- **Where it works.** The answer resumes when the reconnect reaches a server that has its events: with the default in-memory log, the same instance; with a shared log such as `upstashTurnLog()`, any. See [Configuration](configuration.md#resume).
+- **Rate limit.** 30 resumes per visitor per minute, then `429` with `rate_limited`.
+
+What askdare's own chat does, in the widget, inside a page and with the headless API:
+
+- **When.** A stream of `POST /messages` or `POST /resume` that ends without `message.end` or `error`: the connection dropped, it failed, or the watchdog gave up. A turn the chat stopped itself (the chat unmounted, or switched languages) is not resumed.
+- **How often.** After half a second, then 2 and 8 seconds: three attempts in a row that bring nothing new, at most ten for one answer, so a connection that keeps dropping stays well under the rate limit. Meanwhile the chat's status says "Reconnecting…" (`status.reconnecting`), which screen readers hear politely.
+- **Duplicates.** Events whose `id` is not above the last one received are ignored, so text already shown is never shown twice.
+- **Giving up.** On any answer other than `200` (`404`, `429` or another), after the attempts, or without a `messageId`, it loads the latest page of the history. When the history's last turn is the visitor's message with an answer after it, that answer replaces the one shown; otherwise the chat shows the connection problem, and the answer shows on the next load.
+
+Older clients ignore the `id:` field, and the endpoint is new, so resuming is additive in protocol version 1.
 
 ## Transport
 
@@ -39,7 +77,7 @@ Every path sits under the route's base path: `/api/chat` by default, or `basePat
   - `Cache-Control: no-cache, no-transform`
   - `X-Accel-Buffering: no`
   - `x-askdare-protocol: 1`
-- **Framing:** one event per frame, `event: <type>` followed by `data: <json>` and a blank line. The JSON always repeats `type`.
+- **Framing:** one event per frame: `id: <sequence number>`, then `event: <type>`, then `data: <json>`, then a blank line. The JSON always repeats `type`. The `id` is the event's sequence number in its turn, for [resuming](#resuming-an-answer).
 - **First byte:** the server sends a comment (`: ok`) before contacting OpenAI. Heroku requires a first byte within 30 s.
 - **Heartbeat:** a `: ping` comment every 15 s, on a timer that is independent of model output. Heroku closes connections after 55 s without bytes.
 
@@ -163,12 +201,12 @@ Error responses outside the stream have the same fields, inside `error`:
 
 | Status | Code | When |
 | --- | --- | --- |
-| `200` | | Success. For `POST /messages`, the stream has started, and later failures arrive as an `error` event |
+| `200` | | Success. For `POST /messages` and `POST /resume`, the stream has started, and later failures arrive as an `error` event |
 | `204` | | `DELETE /conversation` succeeded, also when the conversation was already gone |
 | `400` | `invalid_input` | The body is not what the endpoint expects (wrong `Content-Type`, malformed JSON, a JSON body over 256 KB), or the message, file or recording is refused, including when it is too large |
 | `401` | `unauthorized` | The `Bearer` token is missing or invalid, or the request is cross-site |
 | `401` | `session_expired` | The access token expired; renew it with `POST /session` and retry |
-| `404` | `not_found` | An unknown path, bot or asset; a resume token that is invalid or belongs to someone else; a conversation that no longer exists |
+| `404` | `not_found` | An unknown path, bot or asset; a resume token that is invalid or belongs to someone else; a conversation that no longer exists; an answer that can't be resumed |
 | `429` | `rate_limited` | A rate limit was reached, the conversation reached `maxTurns`, or another dictation is still being transcribed |
 | `429` | `budget_exceeded` | A daily token or speech budget is spent |
 | `500` | `internal_error` | Unexpected server error |
@@ -185,6 +223,7 @@ An error response with `retryAfterMs` also has a `Retry-After` header, in whole 
 | `POST /session` | `200`, `400`, `401`, `404`, `429`, `503` |
 | `POST /messages` | `200`, `400`, `401`, `404`, `429`, `503` |
 | `POST /history` | `200`, `400`, `401`, `404`, `429`, `502`, `503`, `504` |
+| `POST /resume` | `200`, `400`, `401`, `404`, `429`, `502`, `503`, `504` |
 | `DELETE /conversation` | `204`, `400`, `401`, `404`, `429`, `502`, `503`, `504` |
 | `POST /attachments`, `POST /transcriptions` | `200`, `400`, `401`, `404`, `429`, `502`, `503`, `504` |
 | `POST /doctor` | `200`, `401`, `429`, `503` |
@@ -193,7 +232,7 @@ Any endpoint can also answer `500`.
 
 ## Protocol version
 
-`PROTOCOL_VERSION`, exported from `@boldare/askdare`, is the version of this protocol: `1`. Every event stream (`POST /messages` answered with `200`) carries it in the `x-askdare-protocol` response header. Other responses don't have this header.
+`PROTOCOL_VERSION`, exported from `@boldare/askdare`, is the version of this protocol: `1`. Every event stream (`POST /messages` or `POST /resume` answered with `200`) carries it in the `x-askdare-protocol` response header. Other responses don't have this header.
 
 The widget compares the header with the version it was built with. On a mismatch, it doesn't read the stream and shows `error.updated` ("The assistant was updated. Please reload the page.").
 
@@ -201,7 +240,8 @@ The widget compares the header with the version it was built with. On a mismatch
 
 - **Tolerate the unknown.** Ignore unknown event types and unknown fields. Newer servers may add them within the same protocol version.
 - **Check the version.** Compare `x-askdare-protocol` with the version the client supports. On a mismatch, show a "please reload" state.
-- **Run a watchdog.** If no bytes (events or comments) arrive for 45 s, abort and re-fetch the conversation history.
+- **Run a watchdog.** If no bytes (events or comments) arrive for 45 s, abort, then [resume the answer](#resuming-an-answer) or re-fetch the conversation history.
+- **Resume, don't retry.** A stream that drops mid-answer is resumed with `POST /resume`, never sent again with `POST /messages`, which would start a second turn.
 - **Render text safely.** Treat `text.delta` content as untrusted markdown and sanitize it before rendering.
 
 ## Versioning

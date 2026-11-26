@@ -1,7 +1,9 @@
 // The .js suffix: Next.js has no exports map, so plain Node ESM can't resolve `next/server`.
 import { after } from 'next/server.js';
 import { isBasePath } from '../base-path';
-import { type BotHandle, botOf } from '../bot/define-bot';
+import { type BotHandle, botOf, compactionWarnings } from '../bot/define-bot';
+import type { ConversationStore } from '../conversations/port';
+import { historyReader } from '../conversations/provider-history';
 import { AskdareError, forLog } from '../errors';
 import type { ModelGateway } from '../gateway';
 import {
@@ -19,14 +21,18 @@ import {
 import { getClientIp, type TrustProxy } from '../limits/client-ip';
 import { createLimits } from '../limits/limits';
 import { memoryStore, type RateLimitStore } from '../limits/store';
+import { openaiConversations } from '../openai/conversations';
 import { createOpenAIGateway } from '../openai/gateway';
 import type { ErrorCode } from '../protocol/events';
+import { memoryTurnLog } from '../resume/memory-turn-log';
+import type { TurnEventLog } from '../resume/turn-log';
 import { createIdentityVerifier, type IdentityVerifier } from '../security/identity';
 import { createTokenService, type TokenService } from '../security/tokens';
 import { explain, TROUBLESHOOTING } from '../server/explain';
 import type { ChatFeedbackReport } from '../server/feedback-report';
 import { createRequestHandler } from '../server/handler';
 import { hookError } from '../server/stream-turn';
+import type { ChatTranscriptReport } from '../server/transcript-report';
 import type { ChatUsageReport } from '../server/usage-report';
 
 export interface ChatHandlerOptions {
@@ -47,10 +53,21 @@ export interface ChatHandlerOptions {
   readonly identitySecret?: string;
   readonly limits?: ChatHandlerLimitsOptions;
   /**
+   * Where conversations are stored (ADR-0024). Default `openaiConversations()`: OpenAI keeps them,
+   * with no database of yours. Chosen on the server only; the widget never picks it.
+   */
+  readonly conversations?: ConversationStore;
+  /**
+   * Resuming an answer after a dropped connection (ADR-0027): each turn writes its events to a
+   * log for a few minutes, and a client that lost its stream continues it from there.
+   */
+  readonly resume?: ChatHandlerResumeOptions;
+  /**
    * Called for every server error (status 500 and up), for an error that ends a streamed answer,
-   * and once a day when a bot-wide or the global budget runs out, for your monitoring, such as Sentry.
-   * Defaults to one `console.error` line with a pointer to the troubleshooting guide. Never
-   * receives message contents or API keys. May be async; nothing it throws reaches the request.
+   * once a day when a bot-wide or the global budget runs out, and when `onTranscript` throws, for
+   * your monitoring, such as Sentry. Defaults to one `console.error` line with a pointer to the
+   * troubleshooting guide. Never receives message contents or API keys. May be async; nothing it
+   * throws reaches the request.
    */
   readonly onError?: (report: ChatErrorReport) => void | Promise<void>;
   /**
@@ -66,6 +83,14 @@ export interface ChatHandlerOptions {
    * askdare stores no ratings: keep them here. May be async; nothing it throws reaches the chat.
    */
   readonly onFeedback?: (report: ChatFeedbackReport) => void | Promise<void>;
+  /**
+   * Called once per chat turn whose answer finished, after it has streamed, with what the visitor
+   * sent (after `onInput`) and the answer they saw (after output checks), to keep your own
+   * transcripts. The only hook that receives message content: treat it as personal data. Off
+   * unless set. May be async; nothing it throws reaches the chat, and `onError` gets its error's
+   * name, never its message.
+   */
+  readonly onTranscript?: (report: ChatTranscriptReport) => void | Promise<void>;
   /**
    * Serves the state gallery: `/embed/<bot>?gallery=<state>&preset=<preset>&scheme=<scheme>`
    * renders fixture states without calling the model. For development and visual tests; leave
@@ -103,6 +128,16 @@ export interface ChatHandlerLimitsOptions {
    * keeps the in-memory store. Default `false`.
    */
   readonly requireSharedStore?: boolean;
+}
+
+export interface ChatHandlerResumeOptions {
+  /**
+   * Where turns keep their events, for the turn timeout plus a minute after the last one. Defaults
+   * to `memoryTurnLog()`, per instance: a reconnect that reaches another instance reloads the
+   * history instead. With several instances, use a shared log such as `upstashTurnLog()` from
+   * `@boldare/askdare-upstash`.
+   */
+  readonly log?: TurnEventLog;
 }
 
 export type RouteHandler = (request: Request) => Promise<Response>;
@@ -181,6 +216,14 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
       '[askdare] Rate limits are kept in memory, per instance. With more than one instance, use a shared store such as @boldare/askdare-upstash.',
     );
   }
+  const turnLog = options.resume?.log ?? memoryTurnLog();
+  const conversations =
+    options.conversations ??
+    openaiConversations(options.openaiApiKey === undefined ? {} : { apiKey: options.openaiApiKey });
+  const bots = options.bots.map(botOf);
+  for (const warning of compactionWarnings(bots, historyReader(conversations) !== undefined)) {
+    console.warn(`[askdare] ${warning}`);
+  }
   const trustProxy = options.limits?.trustProxy ?? 'auto';
   const development = process.env['NODE_ENV'] === 'development';
   const onError = guard('onError', options.onError);
@@ -205,12 +248,14 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
     error instanceof TypeError ? new AskdareError('bot_unavailable', { cause: error }) : error;
 
   const handle = createRequestHandler({
-    bots: options.bots.map(botOf),
+    bots,
     basePath,
     // A turn outlives a visitor who disconnects; on serverless hosts this keeps the function alive.
     waitUntil: keepAlive,
     onUsage: guard('onUsage', options.onUsage),
     onFeedback: guard('onFeedback', options.onFeedback),
+    // Not guarded: a failure goes to onError, by its error's name, from inside the turn.
+    onTranscript: options.onTranscript,
     assets: {
       loaderJs: LOADER_JS,
       widgetJs: WIDGET_JS,
@@ -229,6 +274,8 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
     // In development the chat says what is wrong with the setup; in production, never.
     explain: development ? explain : undefined,
     sharedLimits: store.shared,
+    conversations,
+    resume: turnLog,
     gateway: () =>
       (gateway ??= createOpenAIGateway({
         apiKey: required(options.openaiApiKey ?? process.env['OPENAI_API_KEY'], 'OPENAI_API_KEY'),

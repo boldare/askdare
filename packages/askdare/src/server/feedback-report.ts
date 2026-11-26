@@ -14,8 +14,11 @@ export interface ChatFeedbackReport {
   readonly visitor: string;
   /** The signed-in user, verified (ADR-0009); absent for anonymous visitors. */
   readonly identity?: VisitorIdentity | undefined;
-  /** The OpenAI conversation, for your own review of it. Never sent to the browser. */
+  /** The conversation in your conversation store, for your review. Never sent to the browser. */
   readonly conversationId: string;
-  /** The OpenAI ID of the rated answer within the conversation. */
+  /**
+   * The rated answer's ID within the conversation: OpenAI's `msg_…` ID with
+   * `openaiConversations()`, the store's `itm_…` ID with a store that keeps the items.
+   */
   readonly itemId: string;
 }

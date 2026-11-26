@@ -23,20 +23,20 @@ askdare is the website chatbot a team owns in code: self-hosted in their Next.js
 
 ## 0.6: own your data
 
-The foundation that admin, handoff, data residency and other providers all need: conversations and knowledge stored outside OpenAI. Spikes S6a, S6b, S7 and S8 ran first; their findings are in [ADR-0024](docs/adr/0024-conversation-store.md) to [ADR-0027](docs/adr/0027-stream-resume.md) (Proposed), and the work is in [`tasks/`](tasks/README.md) as `0.6-*.md`.
-- **A `ConversationStore` port** (ADR-0024): OpenAI Conversations stays the default, with no database; `memoryConversations()` for tests; a Postgres add-on, `@boldare/askdare-postgres`. With a store of your own, turns replay the history with `store: false`, so nothing stays at OpenAI: zero-data-retention and EU-resident setups work. Ownership is checked against the store, old conversations can be swept, and the `onTranscript` hook (ADR-0016) lands too.
+The foundation that admin, handoff, data residency and other providers all need: conversations and knowledge stored outside OpenAI. Spikes S6a, S6b, S7 and S8 ran first; their findings are in [ADR-0024](docs/adr/0024-conversation-store.md) to [ADR-0027](docs/adr/0027-stream-resume.md), accepted with the work that built them; [ADR-0006](docs/adr/0006-support-matrix-and-versioning.md) lists the public surface.
+- **A `ConversationStore` port** (ADR-0024): OpenAI Conversations stays the default, with no database; `memoryConversations()` for tests; a Postgres add-on, `@boldare/askdare-postgres`. With a store of your own, turns replay the history with `store: false`, so OpenAI keeps no copy of the conversation (only abuse-monitoring logs, which ZDR turns off, and attachments in Files): zero-data-retention setups work, and conversations stay in your database's region. Ownership is checked against the store, old conversations can be swept, and the `onTranscript` hook (ADR-0016) lands too.
 - **A retrieval port** (ADR-0025): OpenAI vector stores stay the default; pgvector in the same add-on, behind a `search_knowledge` tool that works on every model path, with citations on today's protocol. `askdare kb sync` syncs the same folder to either. Markdown, MDX, text and HTML on the own path; PDFs later.
 - **Both are split out of `ModelGateway`** (ADR-0026), so a second provider (0.9) only has to run turns. No new provider in 0.6.
 - **History beyond the latest 100 items,** paged by turn.
 - **Resuming an answer after a dropped connection** (ADR-0027): a separate `TurnEventLog` port, in memory by default and on Upstash for sites with several instances.
-- **Compaction for conversations in your own store** ([ADR-0029](docs/adr/0029-compaction-for-item-stores.md), Proposed): opt-in `limits.compactAt`. Once a turn gets that large, askdare compacts the conversation in the background, so the following turns replay a few thousand tokens. Spike S9 measured 27–56 % lower cost over a 50-turn conversation, with facts and citations kept. The OpenAI Conversations default gets no compaction.
+- **Compaction for conversations in your own store** ([ADR-0029](docs/adr/0029-compaction-for-item-stores.md)): opt-in `limits.compactAt`. Once a turn gets that large, askdare compacts the conversation in the background, so the following turns replay a few thousand tokens. Spike S9 measured 27–56 % lower cost over a 50-turn conversation, with facts and citations kept. The OpenAI Conversations default gets no compaction.
 
 ## 0.7: support-grade
 
 The features buyers compare against Intercom Fin and Chatbase.
 - **Handoff to a human:** a `handoff` tool, a "connecting you" state in the chat, and an `onHandoff` hook. Email and webhook first.
 - **Forms in the chat:** leads into `onLead`, with validated fields, built on reply options and tool cards.
-- **Admin** (ADR-0016): stage 1, the console with no database, then stage 2, `@boldare/askdare-admin` on the 0.6 store, with transcripts, ratings, unanswered questions, cost per conversation and resolution rate.
+- **Admin** (ADR-0016): stage 1, the console with no database, then stage 2, `@boldare/askdare-admin` on the 0.6 store, with transcripts, ratings, unanswered questions, cost per conversation and resolution rate. Deleting a conversation, by the visitor or a sweep, then deletes its transcripts and ratings too; 0.6 calls no hook on delete.
 - **Proactive greeting and an unread badge.** The loader is at 5,016 of its 5,120 bytes (gzipped), so this starts by making it smaller or moving logic into the iframe.
 
 ## 0.8: quality and reach
@@ -57,6 +57,27 @@ The features buyers compare against Intercom Fin and Chatbase.
 ## 1.0: stable
 
 API freeze, a support policy and a migration guide from 0.x. We cut 1.0 once two or three teams have run 0.7 or later in production and two minors have shipped without breaking the API.
+
+## Known gaps
+
+What 0.6 leaves open, found by its tasks and reviews. Each line names where it goes; a release that takes one moves it into its own section.
+
+**Data that still reaches or stays at OpenAI** ([own your data](docs/own-your-data.md#what-stays-at-openai)):
+- **Attachments** are stored in OpenAI Files until they expire (30 days) or the conversation is deleted, and Files isn't eligible for Zero Data Retention. This is the one exception to "nothing kept at OpenAI" with your own store and ZDR. Next step: a file store port with an S3-compatible add-on, so attachments are sent inline and kept in your own bucket. Later, after 0.7.
+- **Regional endpoints.** Model requests go to OpenAI's global endpoint; askdare isn't tested against the EU or other regional endpoints. Test it and document the base URL. 0.6.x, as a doc and a contract run.
+- **No model request without OpenAI** until another provider path exists. 0.9 ([ADR-0026](docs/adr/0026-provider-path.md)).
+
+**Privacy and security** (low-confidence notes from the `release/0.6` security review, worth a closer look):
+- **Transcripts outlive a deleted conversation:** deleting one calls no hook, so a transcript an app keeps through `onTranscript` stays until the app sweeps it. 0.7, with the admin store ([ADR-0016](docs/adr/0016-admin.md)); an `onConversationDeleted` hook is the fallback if that slips.
+- **The resume log can replay an anonymous resume token** to the same browser when the visitor signs in during an answer. 0.6.x.
+- **A replaced answer can be rated after a reload,** though not while it streams. 0.6.x.
+
+**Smaller items:**
+- "Reconnecting…" can stay visible after a successful resume until the next text or status event. 0.6.x, once the React entry has room.
+- `doctor`'s check of the OpenAI store ignores its 10-second limit. 0.6.x.
+- The compaction lookup in Postgres has no index; fine at today's conversation sizes. Add one before conversations grow to thousands of items.
+- A message sent at the moment a compaction is stored gets a "please wait" error (documented in [ADR-0029](docs/adr/0029-compaction-for-item-stores.md)). Later.
+- No sweep helper in core: a site's cron route deletes files with the `openai` SDK itself ([own your data](docs/own-your-data.md)). 0.7, with the admin store.
 
 ## Later
 

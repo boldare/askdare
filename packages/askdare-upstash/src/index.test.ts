@@ -1,5 +1,5 @@
+import { rateLimitStoreContract } from '@boldare/askdare/testing';
 import { describe, expect, it } from 'vitest';
-import { rateLimitStoreContract } from '../../askdare/src/limits/store-contract';
 import { type RedisEval, upstashStore } from './index';
 
 /** Executes the store's script semantics against an in-memory map instead of Redis. */
@@ -25,7 +25,11 @@ function fakeRedis(): RedisEval & { calls: { keys: string[]; args: unknown[] }[]
   };
 }
 
-rateLimitStoreContract('upstashStore', () => upstashStore({ redis: fakeRedis() }));
+rateLimitStoreContract('upstashStore', () => upstashStore({ redis: fakeRedis() }), {
+  describe,
+  it,
+  expect,
+});
 
 describe('upstashStore', () => {
   it('is shared across instances', () => {

@@ -259,7 +259,7 @@ function lex(text: string, previous: Lexed | undefined): Lexed {
 }
 
 /** One top-level block. Memoized: while an answer streams, only its last block re-renders. */
-const Block = memo(function Block({ token }: { readonly token: Token }): ReactNode {
+const Block = /* @__PURE__ */ memo(function Block({ token }: { readonly token: Token }): ReactNode {
   try {
     return block(token, 0, 0);
   } catch {

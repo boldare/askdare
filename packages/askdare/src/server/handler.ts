@@ -9,15 +9,27 @@ import {
 import { isInside } from '../base-path';
 import type { Bot } from '../bot/define-bot';
 import { checksOutput } from '../bot/guardrails';
+import { itemHistory } from '../conversations/history';
+import { conversationGone, ownerOf, ownsConversation } from '../conversations/owner';
+import type { ConversationStore } from '../conversations/port';
+import { type HistoryPosition, historyReader } from '../conversations/provider-history';
 import { AskdareError, type AskdareErrorOptions, forLog, toAskdareError } from '../errors';
 import type { ModelGateway, RepliesReader, TurnAttachment, UiReader } from '../gateway';
 import { canonicalLocale } from '../i18n/texts';
 import type { Limits } from '../limits/limits';
-import type { DoctorReport } from '../protocol/doctor';
+import type { DoctorCheck, DoctorReport } from '../protocol/doctor';
 import type { FeedbackHandle } from '../protocol/events';
+import { HISTORY_CURSOR_MAX } from '../protocol/history';
+import { turnKey } from '../resume/turn-key';
+import type { TurnEventLog } from '../resume/turn-log';
 import { HUMAN_TOKEN_MAX_LENGTH } from '../security/human-verifier';
 import type { IdentityFailure, IdentityVerifier, VerifiedIdentity } from '../security/identity';
-import { newVisitorId, type ResumeGrant, type TokenService } from '../security/tokens';
+import {
+  ANSWER_ITEM_ID,
+  newVisitorId,
+  type ResumeGrant,
+  type TokenService,
+} from '../security/tokens';
 import { PRESET_NAMES, type PresetName } from '../theme/presets';
 import { type ColorScheme, type ResolvedTheme, resolveTheme } from '../theme/theme';
 import { readToolReplies, readToolUi } from '../tools/define-tool';
@@ -37,7 +49,9 @@ import {
 import type { ChatFeedbackReport } from './feedback-report';
 import { loaderWithLook } from './launcher';
 import { publicConfig } from './public-config';
+import { resumeStream } from './resume-stream';
 import { hookError, STREAM_HEADERS, streamTurn } from './stream-turn';
+import type { ChatTranscriptReport } from './transcript-report';
 import type { ChatUsageReport } from './usage-report';
 
 export interface HandlerConfig {
@@ -47,6 +61,8 @@ export interface HandlerConfig {
   readonly assets: EmbedAssets;
   /** Resolved lazily on first use, so importing the route never needs secrets (e.g. during build). */
   readonly gateway: () => ModelGateway;
+  /** Where conversations live (ADR-0024). */
+  readonly conversations: ConversationStore;
   readonly tokens: () => Promise<TokenService>;
   readonly limits: Limits;
   /** Best-effort client IP for rate-limit keys. */
@@ -56,6 +72,11 @@ export interface HandlerConfig {
   readonly onUsage?: ((report: ChatUsageReport) => void | Promise<void>) | undefined;
   /** Receives visitors' ratings of answers; without it, answers can't be rated (ADR-0012). */
   readonly onFeedback?: ((report: ChatFeedbackReport) => void | Promise<void>) | undefined;
+  /**
+   * Receives each finished turn's text and answer once its stream has ended (ADR-0016). Not
+   * wrapped: a failure goes to `onError` by name, from inside the turn.
+   */
+  readonly onTranscript?: ((report: ChatTranscriptReport) => void | Promise<void>) | undefined;
   /**
    * Development only: a description of a setup error to show in the chat instead of the generic
    * message, such as a missing OPENAI_API_KEY. Never given in production.
@@ -78,6 +99,11 @@ export interface HandlerConfig {
   readonly sharedLimits?: boolean | undefined;
   /** Keeps a turn running after its response ends, e.g. Next.js `after`; see `streamTurn`. */
   readonly waitUntil?: ((work: Promise<unknown>) => void) | undefined;
+  /**
+   * Where turns log their events for `POST /resume` (ADR-0027). Without one, every resume answers
+   * `404` and clients reload history.
+   */
+  readonly resume?: TurnEventLog | undefined;
 }
 
 export type RequestHandler = (request: Request) => Promise<Response>;
@@ -93,6 +119,10 @@ const TRANSCRIPTION_TIMEOUT_MS = 60_000;
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 /** Bounds a human check with its provider, such as Cloudflare's siteverify. */
 const HUMAN_CHECK_TIMEOUT_MS = 10_000;
+/** Bounds deleting a conversation, which outlives the request that asked for it. */
+const DELETE_TIMEOUT_MS = 60_000;
+/** Bounds the conversation store's own checks in `askdare doctor`. */
+const DOCTOR_STORE_TIMEOUT_MS = 10_000;
 /**
  * How long one passed human check lets a visitor renew sessions (ADR-0023). After it, or for a
  * session that never passed one, the bot asks again.
@@ -120,12 +150,21 @@ const feedbackBody = z.object({
   comment: z.string().max(500).optional(),
 });
 
-/** Provider message IDs a feedback handle may carry; history may hold others. */
-const ANSWER_ITEM_ID = /^msg_[A-Za-z0-9_-]{1,128}$/;
-
 const conversationBody = z.object({
   botId: z.string().max(64),
   resumeToken: z.string().min(1).max(4096),
+});
+
+const historyBody = conversationBody.extend({
+  /** The `before` of the previous answer, for the next older page; the latest page when absent. */
+  before: z.string().min(1).max(HISTORY_CURSOR_MAX).optional(),
+});
+
+const resumeBody = conversationBody.extend({
+  /** The answer's ID, from its `message.start`. */
+  messageId: z.string().min(1).max(128),
+  /** The sequence number (the SSE `id:`) of the last event the client received; 0 for none. */
+  after: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
 });
 
 const messageBody = z.object({
@@ -683,14 +722,14 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     const tokens = await config.tokens();
     const { visitorId, identity } = keyed(await tokens.verifyAccess(bearerToken(request), bot.id));
     const key = identity ? await keyOf(bot, identity) : undefined;
-    let conversationId: string | undefined;
+    let grant: ResumeGrant | undefined;
     if (body.resumeToken) {
-      const grant = await tokens.verifyResume(body.resumeToken, bot.id);
+      grant = await tokens.verifyResume(body.resumeToken, bot.id);
       if (!sameOwner(grant, visitorId, key)) {
         throw new AskdareError('not_found');
       }
-      conversationId = grant.conversationId;
     }
+    const conversationId = grant?.conversationId;
     const { attachments, attachmentTokens } = await verifyAttachments(
       bot,
       tokens,
@@ -720,8 +759,13 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       inputChars: text.length + bot.instructions(context).length + (pageContext?.length ?? 0),
       attachmentTokens,
     });
+    const resumed = grant;
     const stream = streamTurn({
       gateway,
+      conversations: config.conversations,
+      owner: ownerOf(visitorId, key),
+      // The store's record must agree with the token (ADR-0024): checked when the turn starts.
+      owns: resumed ? (info) => ownsConversation(info, bot.id, resumed) : undefined,
       pseudonym: (value) => tokens.pseudonym(value),
       bot,
       text,
@@ -740,10 +784,12 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
           .catch((error: unknown) => report(toAskdareError(error)));
       },
       report: config.onUsage,
+      transcript: config.onTranscript,
       issueFeedback: feedbackOn(bot)
         ? (id, itemId) => feedbackHandle(tokens, bot, { visitorId, key }, id, itemId)
         : undefined,
       reserveCall: () => reservation.extend(),
+      reserveCompaction: (inputTokens) => reservation.compaction(inputTokens),
       lockConversation: checksOutput(bot.guardrails)
         ? (id) => config.limits.lockConversation(bot, id)
         : undefined,
@@ -751,6 +797,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       explain: config.explain,
       heartbeatIntervalMs: config.heartbeatIntervalMs,
       waitUntil: config.waitUntil,
+      resume: config.resume,
     });
     return new Response(stream, { headers: STREAM_HEADERS });
   };
@@ -909,17 +956,25 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     }
   };
 
-  /** Authenticates the visitor and proves they own the conversation behind the resume token. */
-  const ownedConversation = async (
+  /**
+   * Authenticates the visitor and proves they own the conversation behind the resume token, then
+   * applies the endpoint's rate limit (history reads and deletions by default).
+   */
+  const ownedConversation = async <Body extends z.infer<typeof conversationBody>>(
     request: Request,
+    schema: z.ZodType<Body>,
+    limit: (bot: Bot, visitorId: string) => Promise<void> = (bot, visitorId) =>
+      config.limits.checkConversationAccess(bot, visitorId),
   ): Promise<{
+    body: Body;
     bot: Bot;
     conversationId: string;
+    grant: ResumeGrant;
     tokens: TokenService;
     owner: { readonly visitorId: string; readonly key: string | undefined };
   }> => {
     assertSameOrigin(request);
-    const body = await readJson(request, conversationBody);
+    const body = await readJson(request, schema);
     const bot = findBot(body.botId);
     const tokens = await config.tokens();
     const { visitorId, identity } = keyed(await tokens.verifyAccess(bearerToken(request), bot.id));
@@ -928,21 +983,51 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
     if (!sameOwner(grant, visitorId, key)) {
       throw new AskdareError('not_found');
     }
-    await config.limits.checkConversationAccess(bot, visitorId);
-    return { bot, conversationId: grant.conversationId, tokens, owner: { visitorId, key } };
+    await limit(bot, visitorId);
+    return {
+      body,
+      bot,
+      conversationId: grant.conversationId,
+      grant,
+      tokens,
+      owner: { visitorId, key },
+    };
   };
 
   const readHistory = async (request: Request): Promise<Response> => {
-    const { bot, conversationId, tokens, owner } = await ownedConversation(request);
-    let messages = await config
-      .gateway()
-      .listMessages(
-        conversationId,
-        request.signal,
-        repliesReader(bot),
-        uiReader(bot),
-        checksOutput(bot.guardrails),
-      );
+    const { body, bot, conversationId, grant, tokens, owner } = await ownedConversation(
+      request,
+      historyBody,
+    );
+    // The cursor names a place in this conversation only: one from another conversation, even
+    // the same visitor's, is refused before anything is read.
+    let before: HistoryPosition | undefined;
+    if (body.before !== undefined) {
+      const cursor = await tokens.verifyHistoryCursor(body.before, bot.id);
+      if (cursor.conversationId !== conversationId) {
+        throw new AskdareError('invalid_input', {
+          message: 'The history cursor is invalid. Load the history again.',
+          key: 'error.history',
+        });
+      }
+      before = { before: cursor.before, skip: cursor.skip };
+    }
+    // A provider store reads its own items; an item store's are read as stored.
+    const read = historyReader(config.conversations) ?? itemHistory(config.conversations);
+    // Side by side: the store's record decides whether the history read is returned at all.
+    const [info, history] = await Promise.all([
+      config.conversations.info(conversationId, request.signal),
+      read(conversationId, {
+        signal: request.signal,
+        before,
+        replies: repliesReader(bot),
+        ui: uiReader(bot),
+        checked: checksOutput(bot.guardrails),
+        knowledge: bot.knowledge?.index,
+      }),
+    ]);
+    if (!ownsConversation(info, bot.id, grant)) throw conversationGone();
+    let messages = history.messages;
     if (feedbackOn(bot)) {
       messages = await Promise.all(
         messages.map(async (message) =>
@@ -955,7 +1040,57 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
         ),
       );
     }
-    return jsonResponse({ messages });
+    const next =
+      history.next &&
+      (await tokens.issueHistoryCursor(bot.id, { conversationId, ...history.next })).token;
+    return jsonResponse(next ? { messages, before: next } : { messages });
+  };
+
+  /**
+   * The rest of an answer whose stream dropped (ADR-0027): the events after `after`, then the live
+   * ones. The turn is found from the conversation in the resume token, never from the request
+   * alone, so a visitor reaches only their own answers. An unknown, expired or foreign turn, and a
+   * conversation the store no longer has for them, all answer `404` alike: the client reloads
+   * history.
+   */
+  const resumeAnswer = async (request: Request): Promise<Response> => {
+    const { body, bot, conversationId, grant, tokens } = await ownedConversation(
+      request,
+      resumeBody,
+      (owner, visitorId) => config.limits.checkResume(owner, visitorId),
+    );
+    const log = config.resume;
+    if (!log) throw new AskdareError('not_found');
+    const turnId = await turnKey(
+      (value) => tokens.pseudonym(value),
+      bot.id,
+      conversationId,
+      body.messageId,
+    );
+    // From the event the client saw last, to tell whether it already had the end.
+    const [info, known] = await Promise.all([
+      config.conversations.info(conversationId, request.signal),
+      log.read(turnId, Math.max(0, body.after - 1), request.signal).catch((error: unknown) => {
+        // The name only: a log's error may quote what it holds, which is answer text.
+        throw new AskdareError('internal_error', {
+          message: 'The turn log could not be read.',
+          cause: hookError(error),
+        });
+      }),
+    ]);
+    if (!ownsConversation(info, bot.id, grant) || known === undefined) {
+      throw new AskdareError('not_found');
+    }
+    const stream = resumeStream({
+      log,
+      turnId,
+      after: body.after,
+      known,
+      maxDurationMs: bot.limits.turnTimeoutMs,
+      signal: request.signal,
+      heartbeatIntervalMs: config.heartbeatIntervalMs,
+    });
+    return new Response(stream, { headers: STREAM_HEADERS });
   };
 
   /**
@@ -992,10 +1127,15 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
   };
 
   const deleteConversation = async (request: Request): Promise<Response> => {
-    const { bot, conversationId } = await ownedConversation(request);
-    await config
-      .gateway()
-      .deleteConversation(conversationId, { withFiles: bot.attachments !== undefined });
+    const { bot, conversationId, grant } = await ownedConversation(request, conversationBody);
+    const { conversations } = config;
+    // Not the request's signal: a visitor who leaves right after asking still gets it deleted.
+    const signal = AbortSignal.timeout(DELETE_TIMEOUT_MS);
+    // Someone else's conversation is answered like one already deleted, and left alone.
+    if (ownsConversation(await conversations.info(conversationId, signal), bot.id, grant)) {
+      const { fileIds } = await conversations.delete(conversationId, signal);
+      if (fileIds.length > 0) await config.gateway().deleteFiles(fileIds);
+    }
     return new Response(null, { status: 204, headers: NO_STORE });
   };
 
@@ -1017,12 +1157,24 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       } catch {
         // Reported per bot below.
       }
+      // The conversation store is shared by every bot, so its checks run once.
+      const storeChecks: readonly DoctorCheck[] = config.conversations.diagnose
+        ? await config.conversations
+            .diagnose(AbortSignal.timeout(DOCTOR_STORE_TIMEOUT_MS))
+            .catch((): DoctorCheck[] => [
+              {
+                status: 'fail',
+                title: `The conversation store "${config.conversations.name}" could not be checked.`,
+              },
+            ])
+        : [];
       const bots: DoctorReport['bots'][number][] = [];
       for (const bot of config.bots) {
         const checks = gateway
           ? await gateway.diagnose({
               model: bot.model,
               vectorStoreId: bot.knowledge?.vectorStoreId,
+              knowledgeIndex: bot.knowledge?.index,
               transcriptionModel: bot.voice?.model,
               attachments: bot.attachments !== undefined,
             })
@@ -1035,7 +1187,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
             ];
         bots.push({
           id: bot.id,
-          checks,
+          checks: [...checks, ...storeChecks],
           turnTimeoutMs: bot.limits.turnTimeoutMs,
           disclosure: bot.widget.disclosure !== false,
           ...(bot.embedPath === undefined
@@ -1082,6 +1234,7 @@ export function createRequestHandler(config: HandlerConfig): RequestHandler {
       if (path === '/session') return createSession(request);
       if (path === '/messages') return sendMessage(request);
       if (path === '/history') return readHistory(request);
+      if (path === '/resume') return resumeAnswer(request);
       if (path === '/feedback') return submitFeedback(request);
       if (path === '/attachments') return uploadAttachment(request);
       if (path === '/transcriptions') return transcribe(request);

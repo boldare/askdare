@@ -6,7 +6,12 @@ import {
   type MessageEndReason,
   type ProtocolEvent,
 } from './events';
-import type { HistoryCitation, HistoryMessage, HistoryResponse } from './history';
+import {
+  HISTORY_CURSOR_MAX,
+  type HistoryCitation,
+  type HistoryMessage,
+  type HistoryResponse,
+} from './history';
 import { isReplyList } from './replies';
 import { isToolUi, isToolUiList } from './tool-ui';
 
@@ -200,8 +205,12 @@ function historyMessageOf(value: unknown): HistoryMessage | undefined {
 /** The answer of `POST /history`, or undefined when it breaks the protocol. */
 export function parseHistory(value: unknown): HistoryResponse | undefined {
   if (!record(value) || !Array.isArray(value['messages'])) return undefined;
+  const before = value['before'];
+  if (before !== undefined && !text(before, 1, HISTORY_CURSOR_MAX)) return undefined;
   const messages = value['messages'].map(historyMessageOf);
-  return messages.some((message) => message === undefined)
-    ? undefined
-    : { messages: messages as HistoryMessage[] };
+  if (messages.some((message) => message === undefined)) return undefined;
+  return {
+    messages: messages as HistoryMessage[],
+    ...(before === undefined ? {} : { before }),
+  };
 }

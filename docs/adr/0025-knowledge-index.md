@@ -1,8 +1,8 @@
 # ADR-0025: Retrieval we own: the `KnowledgeIndex` port and the `search_knowledge` tool
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-23
-- **Evidence:** spike S8 ([findings](../../spikes/s8-retrieval/FINDINGS.md)); the Claude side of citations from S6a ([findings](../../spikes/s6-claude/FINDINGS.md), Q4); the Open Responses side from S6b ([findings](../../spikes/s6b-open-responses/FINDINGS.md), section 2).
+- **Evidence:** spike S8 ([findings](../../spikes/s8-retrieval/FINDINGS.md)), and its rerun on the shipped code path in task k2 (below); the Claude side of citations from S6a ([findings](../../spikes/s6-claude/FINDINGS.md), Q4); the Open Responses side from S6b ([findings](../../spikes/s6b-open-responses/FINDINGS.md), section 2).
 
 ## Context
 
@@ -24,7 +24,7 @@ Spike S8 built the alternative on Postgres with pgvector and answered the same 2
 4. **Search:** hybrid, vector (HNSW) plus Postgres full text with the language-neutral `simple` configuration, fused by reciprocal rank with a text weight of 0.3. Results come with a score and stay in the order the fusion gives. A per-index full-text language is not in 0.6.
 5. **Citations keep the protocol:**
    - Results reach the model with their **source IDs**, and the instructions ask it to write `[id]` after a statement.
-   - The stream mapper rewrites the IDs into today's `[n]` markers while streaming and emits one `citation { index, title, url? }` per new source. It holds back up to 48 characters of an unclosed `[`, passes other brackets and Markdown links through, merges adjacent identical markers, and drops IDs it can't resolve (counted, never logged with content).
+   - The stream mapper rewrites the IDs into today's `[n]` markers while streaming and emits one `citation { index, title, url? }` per new source. It holds back up to 128 characters of an unclosed `[` (eight 12-character IDs; S8's 48 fit only its short `k1` IDs), passes other brackets and Markdown links through, merges adjacent identical markers, and drops IDs it can't resolve (counted, never logged with content).
    - **Source IDs are stable across turns:** `k` followed by the first 12 hex characters of the chunk's hash. Earlier turns' results stay in the model's context, so a per-turn `k1, k2…` registry would map a later citation to the wrong passage. Any ID resolves through `passage()`, with one indexed lookup and no state per turn; a chunk removed by a later sync stops resolving and its marker is dropped. `sync` refuses an ID that two different chunks of one index would share.
    - **Stored history:** item stores keep the citations on the text part (ADR-0024). With `openaiConversations()`, history rewrites the stored `[id]` markers on reload through `passage()`.
    - **Claude** (later, [ADR-0026](0026-provider-path.md)): each passage goes in as a `search_result` block with `source` = the source ID, never the page URL. Documents without a URL still cite, and two chunks of one page stay apart.
@@ -38,7 +38,7 @@ Spike S8 built the alternative on Postgres with pgvector and answered the same 2
 9. **`doctor`** gains `knowledge.pgvector` (extension present, and its version), `knowledge.synced` (the index exists and isn't empty) and `knowledge.embedder` (the index's embedder matches the bot's), plus whether the database is reachable.
 10. **Not in 0.6:** searching before the turn without a tool (cheaper, but it searches with the visitor's raw words and puts results in the user message), an in-process index for small static sites, and first-party adapters for hosted vector databases. The port is small enough for a community adapter.
 11. **Evaluation:** S8's `questions.json` and grading rules seed `askdare eval` (0.8), with a harder set first: 100 or more documents, cross-language questions, multi-turn follow-ups and PDFs.
-12. **Public surface** (added to ADR-0006 when this is accepted): `knowledge.index` and `knowledge.maxResults` in `defineBot`; the `KnowledgeIndex` and `Embedder` ports with `KnowledgeDocument`, `KnowledgeChunk`, `Passage` and `SyncReport`; `openaiEmbedder`; the reserved tool name `search_knowledge`; the knowledge index suite in `@boldare/askdare/testing`; `pgvectorIndex` in `@boldare/askdare-postgres`; and the index target of `askdare kb sync`.
+12. **Public surface** (added to ADR-0006 when this is accepted): `knowledge.index` and `knowledge.maxResults` in `defineBot`; the `KnowledgeIndex` and `Embedder` ports with `KnowledgeDocument`, `KnowledgeChunk`, `Passage` and `SyncReport`; `openaiEmbedder`; the reserved tool name `search_knowledge`; the knowledge index suite in `@boldare/askdare/testing`; `pgvectorIndex` in `@boldare/askdare-postgres`; and the index target of `askdare kb sync`. As built (k1, k2, a3, k3), it also takes `Embeddings`, `SearchOptions`, `KnowledgeCallOptions` and `KnowledgeCheck`, the adapter helpers `checkKnowledgeDocuments` and `embeddingInput`, the fixtures `fakeEmbedder` and `knowledgeDocument` in `@boldare/askdare/testing`, `PgvectorIndexOptions`, and `kb sync`'s `--embedding-model` and `--dimensions`; [ADR-0006](0006-support-matrix-and-versioning.md) lists them. `KnowledgeCheck` (`id`, `ok`, `detail`) keeps the stable check IDs of decision 9, which core maps to `doctor`'s shape; `ConversationStoreCheck` is already that shape. The two stay apart.
 
 ## Consequences
 
@@ -46,8 +46,18 @@ Spike S8 built the alternative on Postgres with pgvector and answered the same 2
 - Answers on the own path cost about a twentieth on a small model, since there is no per-search fee and chunks are smaller. Embedding cost is negligible: about $0.016 for a 1,000-page site.
 - Text extraction becomes our job, and PDFs wait on the own path.
 - Each answer that searches costs two model calls (search, then answer). S8 still measured it faster end to end than `file_search`.
-- Not yet tested: 12-character source IDs instead of S8's `k1`, and citations of a passage from an earlier turn. The implementing task reruns S8's evaluation with both before this ADR is accepted.
+- 12-character source IDs and citations of an earlier turn's passage were tested by the rerun (see Evidence).
 - Search quality is proven only on 11 documents in one language.
+
+## Evidence
+
+The rerun of S8's evaluation on the code that ships (task k2, 2026-11-24; `spikes/s8-retrieval/k2/eval.test.ts`, results in `results-k2-*.json`):
+
+- **Setup:** `runTurn` of the OpenAI gateway with `knowledge: { index }`, `pgvectorIndex` (hybrid) on S8's Postgres, `openaiEmbedder` with `text-embedding-3-small` at 1536 dimensions, stateless turns from an item store. 12-character source IDs, rewritten into `[n]` by the stream mapper. S8's 27 questions and grading, plus four multi-turn conversations whose last turn should cite passages from earlier turns, and a reload of each.
+- **gpt-6.1-terra: 31 of 31.** **gpt-6-luna: 29 of 31.** On luna, one question missed its document (the desktop-app question searched once and didn't retrieve the FAQ), and the judge counted a correct "no sales phone number" as not declining because it offered the support address.
+- **Source IDs:** no invented or dropped citations in 62 conversations (no `[k…]` left in any answer, no dropped-citation warning).
+- **Earlier turns:** the follow-ups cited passages found in earlier turns without searching again (luna in 2 of 4, terra in all 4), resolved through `passage()`: 10 lookups, none missed. Every reload showed the same markers as the live answer.
+- **Cost and speed:** about 1,100–1,200 input and 80 output tokens per answer, median 4.2 s end to end with a search, on both models.
 
 ## Alternatives considered
 

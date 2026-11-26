@@ -22,6 +22,24 @@ jobs:
         # 26 became LTS in October 2026. engines and the support matrix widen in 0.5 (ADR-0020);
         # until then it is tested, not supported.
         node: [22, 24, 26]
+    # @boldare/askdare-postgres's tests run against it; without it they would fail in CI, not
+    # skip. Same image as the package's docker-compose.yml.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17@sha256:b513c48566e4777cd3370451400000c78eda6a08131d68f4c31d4a76f27bd8fd
+        env:
+          POSTGRES_USER: askdare
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: askdare
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U askdare"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      ASKDARE_POSTGRES_TEST_URL: postgres://askdare@localhost:5432/askdare
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -37,6 +55,23 @@ jobs:
   e2e:
     name: end-to-end (chromium, firefox, webkit)
     runs-on: ubuntu-latest
+    # e2e/postgres.spec.ts keeps a chat in it (postgresConversations). Same service as `check`.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17@sha256:b513c48566e4777cd3370451400000c78eda6a08131d68f4c31d4a76f27bd8fd
+        env:
+          POSTGRES_USER: askdare
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: askdare
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U askdare"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      ASKDARE_POSTGRES_TEST_URL: postgres://askdare@localhost:5432/askdare
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

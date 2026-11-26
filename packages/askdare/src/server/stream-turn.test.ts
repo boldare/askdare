@@ -1,10 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import { type Bot, createBot } from '../bot/define-bot';
+import { type FakeConversations, fakeConversations } from '../conversations/testing/fake-store';
 import { AskdareError } from '../errors';
 import type { ModelGateway, TurnRequest, TurnResult } from '../gateway';
 import type { ProtocolEvent } from '../protocol/events';
 import { decodeEvent, SseParser } from '../protocol/sse';
+import { memoryTurnLog } from '../resume/memory-turn-log';
+import { turnKey } from '../resume/turn-key';
+import type { TurnEventLog } from '../resume/turn-log';
 import { STREAM_HEADERS, type StreamTurnOptions, streamTurn } from './stream-turn';
+import type { ChatTranscriptReport } from './transcript-report';
 import type { ChatUsageReport } from './usage-report';
 
 const bot: Bot = {
@@ -32,22 +37,22 @@ const COMPLETED: TurnResult = {
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 function fakeGateway(runTurn: (request: TurnRequest) => Promise<TurnResult>): ModelGateway & {
-  created: string[];
+  /** The conversations the turn created, as `bot/owner`. */
+  readonly created: string[];
   requests: TurnRequest[];
+  conversations: FakeConversations;
 } {
-  const created: string[] = [];
+  const conversations = fakeConversations();
   const requests: TurnRequest[] = [];
   return {
-    created,
-    requests,
-    createConversation: async ({ botId, visitorId }) => {
-      created.push(`${botId}/${visitorId}`);
-      return 'conv_new';
+    get created() {
+      return conversations.created.map(({ botId, owner }) => `${botId}/${owner}`);
     },
-    deleteConversation: async () => {},
+    requests,
+    conversations,
     uploadFile: async () => 'file-1',
+    deleteFiles: async () => {},
     transcribe: async () => ({ text: '', seconds: 0 }),
-    listMessages: async () => [],
     diagnose: async () => [],
     runTurn: (request) => {
       requests.push(request);
@@ -77,8 +82,12 @@ async function collect(stream: ReadableStream<Uint8Array>): Promise<{
 
 function options(overrides: Partial<StreamTurnOptions> = {}): StreamTurnOptions {
   let id = 0;
+  const gateway = overrides.gateway ?? fakeGateway(async () => COMPLETED);
   return {
-    gateway: fakeGateway(async () => COMPLETED),
+    gateway,
+    conversations:
+      (gateway as Partial<ReturnType<typeof fakeGateway>>).conversations ?? fakeConversations(),
+    owner: 'visitor:visitor-1',
     bot,
     text: 'Hello',
     context: { locale: 'en' },
@@ -109,7 +118,7 @@ describe('streamTurn', () => {
       { type: 'text.delta', messageId: 'id_2', delta: 'Hi!' },
       { type: 'message.end', messageId: 'id_2', reason: 'completed' },
     ]);
-    expect(gateway.created).toEqual(['support/visitor-1']);
+    expect(gateway.created).toEqual(['support/visitor:visitor-1']);
     expect(onUsage).toHaveBeenCalledWith(COMPLETED.usage, 'conv_new', COMPLETED.usage.inputTokens);
   });
 
@@ -432,13 +441,7 @@ describe('streamTurn', () => {
 
   it('deletes a new conversation when the visitor leaves while its handle is issued', async () => {
     const visitor = new AbortController();
-    const deleted: string[] = [];
-    const gateway = {
-      ...fakeGateway(async () => COMPLETED),
-      deleteConversation: async (id: string) => {
-        deleted.push(id);
-      },
-    };
+    const gateway = fakeGateway(async () => COMPLETED);
     await collect(
       streamTurn(
         options({
@@ -451,7 +454,7 @@ describe('streamTurn', () => {
         }),
       ),
     );
-    expect(deleted).toEqual(['conv_new']);
+    expect(gateway.conversations.deleted).toEqual(['conv_new']);
     expect(gateway.requests).toEqual([]);
   });
 
@@ -470,20 +473,335 @@ describe('streamTurn', () => {
 
   it('deletes a new conversation whose handle never reached the visitor', async () => {
     const visitor = new AbortController();
-    const deleted: string[] = [];
-    const gateway = {
-      ...fakeGateway(async () => COMPLETED),
-      createConversation: async () => {
+    const gateway = fakeGateway(async () => COMPLETED);
+    const conversations = fakeConversations({
+      id: () => {
         visitor.abort();
         return 'conv_orphan';
       },
-      deleteConversation: async (id: string) => {
-        deleted.push(id);
-      },
-    };
-    await collect(streamTurn(options({ gateway, signal: visitor.signal })));
-    expect(deleted).toEqual(['conv_orphan']);
+    });
+    await collect(streamTurn(options({ gateway, conversations, signal: visitor.signal })));
+    expect(conversations.deleted).toEqual(['conv_orphan']);
     expect(gateway.requests).toEqual([]);
+  });
+
+  describe('transcript', () => {
+    /** Runs one turn and waits for its after-the-response work, hooks included. */
+    async function turn(overrides: Partial<StreamTurnOptions>): Promise<{
+      events: ProtocolEvent[];
+      reports: ChatTranscriptReport[];
+    }> {
+      const reports: ChatTranscriptReport[] = [];
+      let work: Promise<unknown> | undefined;
+      const { events } = await collect(
+        streamTurn(
+          options({
+            transcript: (report) => {
+              reports.push(report);
+            },
+            waitUntil: (promise) => {
+              work = promise;
+            },
+            ...overrides,
+          }),
+        ),
+      );
+      await work;
+      return { events, reports };
+    }
+
+    const answering = fakeGateway(async (request) => {
+      request.emit({ type: 'text.delta', messageId: request.messageId, delta: 'See ' });
+      request.emit({
+        type: 'tool.ui',
+        messageId: request.messageId,
+        callId: 'c1',
+        name: 'card',
+        data: {},
+      });
+      request.emit({ type: 'text.delta', messageId: request.messageId, delta: 'the docs [1].' });
+      request.emit({
+        type: 'citation',
+        messageId: request.messageId,
+        index: 1,
+        title: 'Docs',
+        url: 'https://example.com/docs',
+      });
+      return { ...COMPLETED, reason: 'max_steps', answerItemId: 'msg_answer', replies: ['More'] };
+    });
+
+    it('is called once per turn with the text and the answer the visitor saw', async () => {
+      const identity = { id: 'user-7', claims: {} };
+      const { reports } = await turn({
+        gateway: answering,
+        conversationId: 'conv_old',
+        text: 'Where are the docs?',
+        attachments: [{ fileId: 'file-1', kind: 'image' }],
+        context: { locale: 'en', identity },
+      });
+      expect(reports).toEqual([
+        {
+          bot: 'support',
+          visitor: 'hmac(user:user-7)',
+          identity,
+          conversationId: 'conv_old',
+          itemId: 'msg_answer',
+          startedAt: expect.any(Number),
+          input: 'Where are the docs?',
+          attachments: 1,
+          answer: 'See the docs [1].',
+          citations: [{ index: 1, title: 'Docs', url: 'https://example.com/docs' }],
+          reason: 'max_steps',
+        },
+      ]);
+    });
+
+    it('gives the same start time and visitor as the usage report', async () => {
+      const usage: ChatUsageReport[] = [];
+      const { reports } = await turn({
+        report: (report) => {
+          usage.push(report);
+        },
+      });
+      expect(reports[0]).toMatchObject({
+        startedAt: usage[0]?.startedAt,
+        visitor: usage[0]?.visitor,
+        conversationId: 'conv_new',
+        answer: '',
+        citations: [],
+      });
+      expect(reports[0]).not.toHaveProperty('identity');
+      expect(reports[0]).not.toHaveProperty('check');
+    });
+
+    it('still reports the answer of a visitor who left: it is in the conversation', async () => {
+      const visitor = new AbortController();
+      const gateway = fakeGateway(async (request) => {
+        visitor.abort();
+        request.emit({ type: 'text.delta', messageId: request.messageId, delta: 'Done.' });
+        return COMPLETED;
+      });
+      const { reports } = await turn({ gateway, signal: visitor.signal });
+      expect(reports).toMatchObject([{ answer: 'Done.', reason: 'completed' }]);
+    });
+
+    it('is not called for a turn that failed or never started', async () => {
+      const failing = fakeGateway(async (request) => {
+        request.emit({ type: 'text.delta', messageId: request.messageId, delta: 'Half' });
+        throw new AskdareError('upstream_error');
+      });
+      expect((await turn({ gateway: failing })).reports).toEqual([]);
+      const visitor = new AbortController();
+      visitor.abort();
+      expect((await turn({ signal: visitor.signal })).reports).toEqual([]);
+    });
+
+    it("doesn't let a slow hook hold the answer or the conversation", async () => {
+      let finish: () => void = () => {};
+      const slow = new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      const released = vi.fn(async () => {});
+      let work: Promise<unknown> | undefined;
+      const { events } = await collect(
+        streamTurn(
+          options({
+            gateway: answering,
+            conversationId: 'conv_old',
+            lockConversation: async () => released,
+            transcript: () => slow,
+            waitUntil: (promise) => {
+              work = promise;
+            },
+          }),
+        ),
+      );
+      expect(events.at(-1)).toMatchObject({ type: 'message.end', reason: 'max_steps' });
+      await vi.waitFor(() => expect(released).toHaveBeenCalledOnce());
+      finish();
+      await work;
+    });
+
+    it('reports a throwing hook to onError by its name only, and still ends the answer', async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const errors: AskdareError[] = [];
+      const usage = vi.fn();
+      const { events } = await turn({
+        text: 'my secret question',
+        transcript: () => {
+          throw new RangeError('could not store "my secret question"');
+        },
+        report: usage,
+        onError: (error) => errors.push(error),
+      });
+      expect(events.at(-1)).toMatchObject({ type: 'message.end' });
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toMatchObject({ code: 'internal_error' });
+      expect(errors[0]?.message).toBe('The onTranscript hook failed: RangeError.');
+      expect(errors[0]?.cause).toBeUndefined();
+      expect(JSON.stringify([errors, consoleError.mock.calls])).not.toContain('secret');
+      // The other hooks still run.
+      expect(usage).toHaveBeenCalledOnce();
+      consoleError.mockRestore();
+    });
+
+    it('runs the turn and the other hooks as before when no hook is set', async () => {
+      const usage = vi.fn();
+      const { events } = await turn({ gateway: answering, transcript: undefined, report: usage });
+      expect(events.at(-1)).toMatchObject({ type: 'message.end' });
+      expect(usage).toHaveBeenCalledOnce();
+    });
+
+    it('logs a throwing hook by its name only when there is no onError', async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      await turn({
+        text: 'my secret question',
+        onError: undefined,
+        transcript: () => {
+          throw new TypeError('my secret question');
+        },
+      });
+      expect(consoleError.mock.calls).toEqual([
+        ['[askdare] The onTranscript hook failed: TypeError.'],
+      ]);
+      consoleError.mockRestore();
+    });
+  });
+
+  describe('turn log (ADR-0027)', () => {
+    const answering = fakeGateway(async (request) => {
+      request.emit({ type: 'text.delta', messageId: request.messageId, delta: 'Hi' });
+      request.emit({ type: 'text.delta', messageId: request.messageId, delta: ' there' });
+      return COMPLETED;
+    });
+    const keyOf = (messageId: string, conversationId = 'conv_new'): Promise<string> =>
+      turnKey(async (value) => `hmac(${value})`, bot.id, conversationId, messageId);
+
+    /** Runs a turn to the end of its `waitUntil` work, so every batch is in the log. */
+    const logged = async (
+      overrides: Partial<StreamTurnOptions>,
+    ): Promise<{ raw: string; events: ProtocolEvent[] }> => {
+      let work: Promise<unknown> | undefined;
+      const result = await collect(
+        streamTurn(
+          options({
+            gateway: answering,
+            ...overrides,
+            waitUntil: (promise) => {
+              work = promise;
+            },
+          }),
+        ),
+      );
+      await work;
+      return result;
+    };
+
+    it('logs every event under the answer’s key, numbered as its frame', async () => {
+      const log = memoryTurnLog();
+      const { raw, events } = await logged({ resume: log });
+      expect(raw).toContain('id: 1\nevent: conversation.created\n');
+      expect(raw).toContain('id: 6\nevent: message.end\n');
+      const entries = await log.read(await keyOf('id_2'), 0);
+      expect(entries).toEqual(events.map((event, index) => ({ seq: index + 1, event })));
+    });
+
+    it('logs a resumed conversation’s turn from its first event', async () => {
+      const log = memoryTurnLog();
+      const conversations = fakeConversations();
+      conversations.own('conv_old', { botId: bot.id, owner: 'visitor:visitor-1' });
+      const { events } = await logged({
+        resume: log,
+        conversations,
+        conversationId: 'conv_old',
+        owns: () => true,
+      });
+      expect(events[0]).toEqual({ type: 'user.ack', messageId: 'id_1' });
+      const entries = await log.read(await keyOf('id_2', 'conv_old'), 0);
+      expect(entries?.map(({ event }) => event)).toEqual(events);
+    });
+
+    it('keeps logging after the visitor left, to the end of the answer', async () => {
+      const log = memoryTurnLog();
+      const visitor = new AbortController();
+      const gateway = fakeGateway(async (request) => {
+        request.emit({ type: 'text.delta', messageId: request.messageId, delta: 'Hi' });
+        visitor.abort();
+        await sleep(20);
+        request.emit({ type: 'text.delta', messageId: request.messageId, delta: ' there' });
+        return COMPLETED;
+      });
+      let work: Promise<unknown> | undefined;
+      const stream = streamTurn(
+        options({
+          gateway,
+          resume: log,
+          signal: visitor.signal,
+          waitUntil: (promise) => {
+            work = promise;
+          },
+        }),
+      );
+      const reader = stream.getReader();
+      await reader.read();
+      await reader.cancel();
+      await work;
+      const entries = await log.read(await keyOf('id_2'), 0);
+      expect(entries?.map(({ event }) => event.type)).toEqual([
+        'conversation.created',
+        'user.ack',
+        'message.start',
+        'text.delta',
+        'text.delta',
+        'message.end',
+      ]);
+    });
+
+    it('logs the error that ends a turn out of time', async () => {
+      const log = memoryTurnLog();
+      const gateway = fakeGateway(
+        (request) =>
+          new Promise((_, reject) => {
+            request.signal.addEventListener('abort', () => reject(request.signal.reason));
+          }),
+      );
+      const slowBot: Bot = { ...bot, limits: { ...bot.limits, turnTimeoutMs: 30 } };
+      await logged({ resume: log, gateway, bot: slowBot });
+      const entries = await log.read(await keyOf('id_2'), 0);
+      expect(entries?.at(-1)?.event).toMatchObject({ type: 'error', code: 'timeout' });
+    });
+
+    it('goes on when the log fails, reporting the error by its name only', async () => {
+      const failing: TurnEventLog = {
+        shared: true,
+        append: async () => {
+          throw new Error('could not store "Hi there"');
+        },
+        read: async () => undefined,
+        wait: async () => undefined,
+      };
+      const onError = vi.fn();
+      const { events } = await logged({ resume: failing, onError });
+      expect(events.at(-1)).toMatchObject({ type: 'message.end', reason: 'completed' });
+      expect(onError).toHaveBeenCalledOnce();
+      const [error] = onError.mock.calls[0] as [AskdareError];
+      expect(error.code).toBe('internal_error');
+      expect(error.message).toBe("The turn log failed, so this answer can't be resumed: Error.");
+      expect(error.cause).toBe(undefined);
+    });
+
+    it('doesn’t log a turn refused before its conversation exists', async () => {
+      const log = memoryTurnLog();
+      const conversations = fakeConversations();
+      const { events } = await logged({
+        resume: log,
+        conversations,
+        conversationId: 'conv_foreign',
+        owns: () => false,
+      });
+      expect(events).toEqual([expect.objectContaining({ type: 'error', code: 'not_found' })]);
+      expect(log.turns).toBe(0);
+    });
   });
 
   it('declares the streaming headers including the protocol version', () => {

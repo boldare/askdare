@@ -19,6 +19,11 @@ const SEARCH_RESULT_TOKENS = 800;
  * caching guide, checked 2026-11-23), so budgets charge it at a tenth (ADR-0004).
  */
 const CACHED_INPUT_DIVISOR = 10;
+/**
+ * Output reserved for a compaction (ADR-0029): S9's summaries took 862–1,606 tokens. Its
+ * `max_output_tokens` of 20,000 is the API's minimum for the trigger, not what it spends.
+ */
+const COMPACTION_OUTPUT_TOKENS = 2_000;
 
 /**
  * What a turn's usage costs the budgets: cached input at a tenth, rounded up, and everything else
@@ -57,6 +62,12 @@ export interface TranscriptionReservation {
   settle(seconds: number): Promise<void>;
 }
 
+/** Budget held for a compaction after a turn. Without `settle`, the estimate stays charged. */
+export interface CompactionReservation {
+  /** Replaces the estimate with the compaction's real usage. */
+  settle(usage: TokenUsage): Promise<void>;
+}
+
 /** Budget held for a turn in flight. Without `settle`, the estimate stays charged. */
 export interface TurnReservation {
   /**
@@ -70,6 +81,12 @@ export interface TurnReservation {
    * `usage` sums every call, so after a tool round it counts the history more than once.
    */
   settle(usage: TokenUsage, conversationId: string, historyTokens?: number): Promise<void>;
+  /**
+   * Holds the budget for a compaction of the conversation after the turn (ADR-0029): the window
+   * it rereads, `inputTokens`, as cached input (it reads the cache the turn just wrote), plus about
+   * 2,000 output tokens. Undefined when a budget can't cover it: the conversation isn't compacted.
+   */
+  compaction(inputTokens: number): Promise<CompactionReservation | undefined>;
 }
 
 export interface Limits {
@@ -83,6 +100,11 @@ export interface Limits {
   lockConversation(bot: Bot, conversationId: string): Promise<() => Promise<void>>;
   /** History reads and deletions: no tokens, but they still cost upstream calls. */
   checkConversationAccess(bot: Bot, visitorId: string): Promise<void>;
+  /**
+   * Resumed answers (`POST /resume`): no tokens, but each holds a connection and reads the turn
+   * log until the answer ends. A client retries a dropped stream a few times, then reloads.
+   */
+  checkResume(bot: Bot, visitorId: string): Promise<void>;
   /** Ratings of answers, which each reach the app's `onFeedback`. */
   checkFeedback(bot: Bot, visitorId: string): Promise<void>;
   /** File uploads: no tokens until sent (then reserved with the turn), but they use storage. */
@@ -208,6 +230,11 @@ export function createLimits(options: LimitsOptions): Limits {
     async checkConversationAccess(bot, visitorId) {
       assertEnabled();
       await enforce(`ask:r:${bot.id}:${visitorId}`, MINUTE, 20);
+    },
+
+    async checkResume(bot, visitorId) {
+      assertEnabled();
+      await enforce(`ask:rs:${bot.id}:${visitorId}`, MINUTE, 30);
     },
 
     async checkFeedback(bot, visitorId) {
@@ -366,6 +393,29 @@ export function createLimits(options: LimitsOptions): Limits {
           const previous = (await store.hit(inputKey, CONVERSATION_TTL, 0)).count;
           await store.hit(inputKey, CONVERSATION_TTL, historyTokens - previous);
           if (!keys.conversationId) await store.hit(`ask:c:${conversationId}`, CONVERSATION_TTL, 1);
+        },
+        async compaction(inputTokens) {
+          const estimate = budgetTokens({
+            inputTokens,
+            cachedInputTokens: inputTokens,
+            cacheWriteTokens: 0,
+            outputTokens: COMPACTION_OUTPUT_TOKENS,
+            reasoningTokens: 0,
+          });
+          try {
+            await reserve(list, estimate);
+          } catch (error) {
+            if (error instanceof AskdareError && error.code === 'budget_exceeded') return undefined;
+            throw error;
+          }
+          return {
+            async settle(usage) {
+              const actual = budgetTokens(usage);
+              await Promise.all(
+                list.map((budget) => store.hit(budget.key, 2 * DAY, actual - estimate)),
+              );
+            },
+          };
         },
       };
     },

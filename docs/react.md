@@ -144,6 +144,7 @@ export function PlainChat({ config }: { config: Chat.ChatConfig }) {
     <Chat.Root config={config}>
       <Chat.Panel className="plain-chat">
         <Chat.Messages>
+          <Chat.LoadEarlier />
           <Chat.MessageList>
             <Bubble />
           </Chat.MessageList>
@@ -173,7 +174,8 @@ Without `Theme` and `DefaultChat`, no stylesheet of the chat loads: the look is 
 | --- | --- | --- |
 | `Theme` | `div` | Sets the bot's tokens (`--ask-*`) and theme variants for everything inside, and loads the theme and its fonts. Takes `colorScheme`. |
 | `Panel` | `section` | The chat's frame, a region named after the bot. Files dropped on it are attached. |
-| `Messages` | `div` | The conversation, a `log` that follows the latest message. Next to it, a visually hidden `status` (`data-ask-part="announcement"`) announces each finished answer once to screen readers. |
+| `Messages` | `div` | The conversation, a `log` that follows the latest message. Next to it, a visually hidden `status` (`data-ask-part="announcement"`) announces each finished answer once to screen readers. When older messages load above, it keeps what the visitor was reading in place and announces them. |
+| `LoadEarlier` | `button` | Loads the older messages of a long conversation, a page at a time, at the top of `Messages`. It shows while there are any (`state.earlier`) and also loads them when the visitor scrolls up to it. While a page loads it says so, keeps focus and has `aria-disabled` and `data-loading`. Focus stays on it, in view, with the older messages under it; when the start is reached and it goes away, the oldest message takes focus. Children replace its label. See [Long conversations](#long-conversations). |
 | `MessageList` | none | Renders its children once per message. |
 | `Message` | `div` | One message, with `data-role` and `data-status`. |
 | `MessageText` | `div` | The text: the visitor's as typed, an answer as Markdown, typing dots before the first word. |
@@ -243,6 +245,30 @@ export function Help({ config }: { config: Chat.ChatConfig }) {
 - **Placement.** `DefaultChat` puts the cards under the answer's text. In your own markup, place `ToolResults` inside `MessageList`; style the cards yourself, with the chat's tokens (`var(--ask-color-border)` and the others) so they follow the theme.
 - **The script-tag widget** draws them too, for a bot that shows your own page in its iframe: render that page with `EmbedRoot` from `@boldare/askdare/embed` and the same `toolRenderers`. See [Embedding: your own page in the iframe](embedding.md#your-own-page-in-the-iframe).
 
+### Long conversations
+
+A stored conversation comes back in pages of whole turns, the latest first ([Protocol](protocol.md#history-pages)). The chat shows the latest page; `state.earlier` says whether older ones exist, and `actions.loadEarlier()` puts the page before above the messages. `DefaultChat` shows `LoadEarlier` at the top of the conversation, which loads as the visitor scrolls up and works as a button from the keyboard. In your own markup, place `LoadEarlier` first inside `Messages`, or call `loadEarlier()` from your own control:
+
+```tsx
+function Earlier() {
+  const earlier = Chat.useChatState((state) => state.earlier);
+  const { actions } = Chat.useChat();
+  if (earlier === 'none') return null;
+  return (
+    // aria-disabled, not disabled: a disabled button would drop keyboard focus while it loads.
+    <button
+      type="button"
+      aria-disabled={earlier === 'loading'}
+      onClick={() => void actions.loadEarlier()}
+    >
+      Older messages
+    </button>
+  );
+}
+```
+
+`Messages` keeps the visitor's place when older messages go in above, whatever control loaded them. If a page fails to load, `state.error` says so and the same page can be tried again; if the conversation is gone, paging stops and the error says so. The server's cursor to older pages stays inside the chat; starting over or signing in drops it.
+
 ### Hooks
 
 - **`useChat()`** returns `{ state, actions, bot, t }` and re-renders on every change.
@@ -255,8 +281,9 @@ export function Help({ config }: { config: Chat.ChatConfig }) {
 | `phase` | `'starting'` on the server and until the chat knows the visitor, `'loading'` while a stored conversation loads, then `'ready'`. |
 | `busy` | A turn is under way. |
 | `messages` | Each with `id`, `role`, `text`, `status` (`'streaming'`, `'done'`, `'error'`), `citations`, `files`, `feedback` and `replies` (the options the answer offers, plain text). |
+| `earlier` | Older messages of a stored conversation: `'more'` (load them with `loadEarlier()`), `'loading'`, or `'none'` once the start shows, or without a stored conversation. |
 | `draft`, `files` | The message field's text and the files picked for the next message. |
-| `error`, `activity` | The latest problem, and what the assistant is doing before it writes. |
+| `error`, `activity` | The latest problem, and what the assistant is doing before it writes, or "Reconnecting…" (`status.reconnecting`) while an answer whose connection dropped resumes. |
 | `dictation`, `elapsed`, `canDictate` | The dictation: `'idle'`, `'recording'` or `'transcribing'`, its seconds, and whether this browser can record. |
 | `ratings`, `commenting` | The visitor's ratings by `message.feedback.key`, and the answer the chat asks about after a 👎. |
 
@@ -267,6 +294,7 @@ export function Help({ config }: { config: Chat.ChatConfig }) {
 | `addFiles(files)`, `removeFile(key)` | Files for the next message. |
 | `startDictation()`, `finishDictation()`, `cancelDictation()` | Dictation; finishing puts the transcript into the draft. |
 | `newConversation()` | Deletes the conversation and starts with an empty chat. |
+| `loadEarlier()` | Loads the page of older messages before the oldest shown and puts it above, while `earlier` is `'more'`. |
 | `rate(messageId, rating, comment?)`, `dismissComment()` | Ratings: `'up'`, `'down'`, or `null` to take one back. |
 | `focus()` | Moves keyboard focus to the message field. |
 

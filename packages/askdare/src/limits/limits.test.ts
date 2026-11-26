@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { createBot } from '../bot/define-bot';
+import { rateLimitStoreContract } from '../testing/rate-limit-store-contract';
 import { defineTool } from '../tools/define-tool';
 import { getClientIp, normalizeIp } from './client-ip';
 import { budgetTokens, createLimits } from './limits';
 import { memoryStore } from './store';
-import { rateLimitStoreContract } from './store-contract';
 
 const bot = createBot({
   id: 'support',
@@ -63,7 +63,7 @@ const turn = (clientIp: string, visitorId: string, conversationId?: string) => (
   inputChars: 20,
 });
 
-rateLimitStoreContract('memoryStore', () => memoryStore());
+rateLimitStoreContract('memoryStore', () => memoryStore(), { describe, it, expect });
 
 describe('memoryStore', () => {
   it('counts within a window, refunds with negative amounts and resets after the window', async () => {
@@ -531,5 +531,40 @@ describe('lockConversation', () => {
     advance(bot.limits.turnTimeoutMs + 60_001);
     await expect(limits.lockConversation(bot, 'conv_1')).resolves.toBeTypeOf('function');
     await again();
+  });
+});
+
+describe('compaction budget (ADR-0029)', () => {
+  const big = createBot({
+    id: 'support',
+    model: 'm',
+    instructions: 'x',
+    limits: { maxOutputTokens: 100, dailyTokens: 100_000, dailyTokensPerIp: 10_000 },
+  });
+
+  it('holds the cached window and about 2,000 output tokens, never the 20,000 maximum', async () => {
+    const { limits, spent } = setup();
+    const reservation = await limits.beginTurn(big, turn('ip-a', 'va'));
+    await reservation.settle(usage(100, 10), 'conv_1');
+    expect(await spent()).toBe(110);
+    const held = await reservation.compaction(30_000);
+    expect(await spent()).toBe(110 + 3_000 + 2_000);
+    await held?.settle({
+      inputTokens: 30_000,
+      cachedInputTokens: 29_000,
+      cacheWriteTokens: 0,
+      outputTokens: 900,
+      reasoningTokens: 0,
+    });
+    // 1,000 uncached + 2,900 cached at a tenth + 900 output.
+    expect(await spent()).toBe(110 + 1_000 + 2_900 + 900);
+  });
+
+  it("refuses a compaction the budget can't cover, and holds nothing for it", async () => {
+    const { limits, spent } = setup();
+    const reservation = await limits.beginTurn(big, turn('ip-b', 'vb'));
+    await reservation.settle(usage(100, 10), 'conv_2');
+    expect(await reservation.compaction(100_000)).toBe(undefined);
+    expect(await spent()).toBe(110);
   });
 });

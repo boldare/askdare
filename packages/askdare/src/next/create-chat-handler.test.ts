@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
 import { defineBot } from '../bot/define-bot';
+import { memoryConversations } from '../conversations/memory';
+import { fakeConversations } from '../conversations/testing/fake-store';
 import { AskdareError } from '../errors';
 import type { ModelGateway, TurnRequest } from '../gateway';
 import { memoryStore } from '../limits/store';
 import type { ProtocolEvent } from '../protocol/events';
 import { decodeEvent, SseParser } from '../protocol/sse';
+import { memoryTurnLog } from '../resume/memory-turn-log';
 import { TROUBLESHOOTING } from '../server/explain';
 import type { ChatErrorReport } from './create-chat-handler';
 import { createChatHandler } from './create-chat-handler';
@@ -13,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   /** Work handed to Next's `after()`, so a test can wait for the hooks to finish. */
   pending: [] as Promise<unknown>[],
   createOpenAIGateway: vi.fn(),
+  openaiConversations: vi.fn(),
 }));
 
 vi.mock('next/server.js', () => ({
@@ -23,6 +27,7 @@ vi.mock('next/server.js', () => ({
 
 // The narrowest seam: the factory builds the gateway from the API key; the rest is real.
 vi.mock('../openai/gateway', () => ({ createOpenAIGateway: mocks.createOpenAIGateway }));
+vi.mock('../openai/conversations', () => ({ openaiConversations: mocks.openaiConversations }));
 
 const APP = 'https://app.example.com';
 const BASE = `${APP}/api/chat`;
@@ -37,11 +42,9 @@ const turns: TurnRequest[] = [];
 let runTurn: ModelGateway['runTurn'];
 
 const gateway: ModelGateway = {
-  createConversation: async () => 'conv_1',
-  deleteConversation: async () => {},
+  deleteFiles: async () => {},
   transcribe: async () => ({ text: '', seconds: 0 }),
   uploadFile: async () => 'file-1',
-  listMessages: async () => [],
   diagnose: async () => [],
   runTurn: (request) => runTurn(request),
 };
@@ -113,6 +116,8 @@ beforeEach(() => {
   runTurn = completed;
   mocks.createOpenAIGateway.mockReset();
   mocks.createOpenAIGateway.mockReturnValue(gateway);
+  mocks.openaiConversations.mockReset();
+  mocks.openaiConversations.mockImplementation(() => fakeConversations({ id: 'conv_1' }));
   vi.stubEnv('NODE_ENV', 'test');
   vi.stubEnv('CHAT_SECRET', SECRET);
   vi.stubEnv('CHAT_SECRET_PREVIOUS', '');
@@ -187,6 +192,29 @@ describe('in-memory store warning', () => {
   });
 });
 
+describe('limits.compactAt', () => {
+  const compacting = defineBot({
+    id: 'support',
+    model: 'test-model',
+    instructions: 'Be brief.',
+    limits: { compactAt: 40_000 },
+  });
+
+  it('warns at startup that conversations kept at OpenAI never compact', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    createChatHandler({ bots: [compacting] });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('sets limits.compactAt'));
+    warn.mockRestore();
+  });
+
+  it('stays quiet with a store that keeps the items', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    createChatHandler({ bots: [compacting], conversations: memoryConversations() });
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('compactAt'));
+    warn.mockRestore();
+  });
+});
+
 describe('limits.requireSharedStore', () => {
   it('refuses to start with the in-memory store, or another store that is not shared', () => {
     expect(() => createChatHandler({ bots: [bot], limits: { requireSharedStore: true } })).toThrow(
@@ -217,6 +245,48 @@ describe('limits.requireSharedStore', () => {
       createChatHandler({ bots: [bot], limits: { requireSharedStore: false } }),
     ).not.toThrow();
     expect(warnLog).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('resume', () => {
+  const resume = async (
+    handle: (request: Request) => Promise<Response>,
+    token: string,
+    seen: readonly ProtocolEvent[],
+  ): Promise<Response> => {
+    const created = seen.find((event) => event.type === 'conversation.created');
+    const started = seen.find((event) => event.type === 'message.start');
+    return handle(
+      post(
+        '/resume',
+        {
+          botId: 'support',
+          resumeToken: created?.type === 'conversation.created' ? created.resumeToken : '',
+          messageId: started?.type === 'message.start' ? started.messageId : '',
+          after: 0,
+        },
+        { authorization: `Bearer ${token}` },
+      ),
+    );
+  };
+
+  it('keeps turns in memory by default, so an answer can be resumed', async () => {
+    const { POST } = createChatHandler({ bots: [bot] });
+    const token = await accessToken(POST);
+    const seen = await chat(POST, token);
+    await settle();
+    const response = await resume(POST, token, seen);
+    expect(response.status).toBe(200);
+    expect(await events(response)).toEqual(seen);
+  });
+
+  it('writes turns to the log it is given', async () => {
+    const log = memoryTurnLog();
+    const { POST } = createChatHandler({ bots: [bot], resume: { log } });
+    const seen = await chat(POST, await accessToken(POST));
+    await settle();
+    expect(log.turns).toBe(1);
+    expect(log.events).toBe(seen.length);
   });
 });
 
@@ -293,6 +363,32 @@ describe('secret resolution', () => {
     const rotated = createChatHandler({ bots: [bot] });
     const accepted = await chat(rotated.POST, token);
     expect(accepted.at(-1)).toMatchObject({ type: 'message.end' });
+  });
+
+  it('keeps conversations at OpenAI by default, with the same key', async () => {
+    createChatHandler({ bots: [bot] });
+    expect(mocks.openaiConversations).toHaveBeenLastCalledWith({});
+    createChatHandler({ bots: [bot], openaiApiKey: 'sk-test-option-key' });
+    expect(mocks.openaiConversations).toHaveBeenLastCalledWith({ apiKey: 'sk-test-option-key' });
+  });
+
+  it('stores conversations in the given store', async () => {
+    const conversations = fakeConversations({ id: 'conv_own' });
+    const { POST } = createChatHandler({ bots: [bot], conversations });
+    await chat(POST, await accessToken(POST));
+    expect(conversations.created).toEqual([
+      { botId: 'support', owner: expect.stringMatching(/^visitor:v_/) },
+    ]);
+    expect(turns.at(-1)?.conversationId).toBe('conv_own');
+    expect(mocks.openaiConversations).not.toHaveBeenCalled();
+  });
+
+  it('accepts an item store, whose turns run statelessly', async () => {
+    const conversations = memoryConversations();
+    const { POST } = createChatHandler({ bots: [bot], conversations });
+    await chat(POST, await accessToken(POST));
+    expect(turns.at(-1)?.conversations).toBe(conversations);
+    expect(mocks.openaiConversations).not.toHaveBeenCalled();
   });
 
   it('builds the gateway once, from OPENAI_API_KEY', async () => {
@@ -372,6 +468,61 @@ describe('hook isolation', () => {
     await settle();
     expect(stream.at(-1)).toMatchObject({ type: 'message.end' });
     expect(errorLog).toHaveBeenCalledWith('[askdare] the onUsage hook failed: RangeError');
+  });
+
+  it('hands each finished turn to onTranscript, with the same visitor as onUsage', async () => {
+    const onUsage = vi.fn();
+    const onTranscript = vi.fn();
+    const { POST } = createChatHandler({ bots: [bot], onUsage, onTranscript });
+    const stream = await chat(POST, await accessToken(POST));
+    await settle();
+    expect(stream.at(-1)).toMatchObject({ type: 'message.end' });
+    expect(onTranscript).toHaveBeenCalledExactlyOnceWith({
+      bot: 'support',
+      visitor: onUsage.mock.calls[0]?.[0].visitor,
+      conversationId: 'conv_1',
+      startedAt: onUsage.mock.calls[0]?.[0].startedAt,
+      input: 'Hi',
+      attachments: 0,
+      answer: 'Hello!',
+      citations: [],
+      reason: 'completed',
+    });
+  });
+
+  it('reports a throwing onTranscript to onError by its name only', async () => {
+    const reports: ChatErrorReport[] = [];
+    const onTranscript = vi.fn(async () => {
+      throw new Error(`could not store ${VISITOR_TEXT}`);
+    });
+    const { POST } = createChatHandler({
+      bots: [bot],
+      onTranscript,
+      onError: (report) => void reports.push(report),
+    });
+    const stream = await chat(POST, await accessToken(POST));
+    await settle();
+    expect(stream.at(-1)).toMatchObject({ type: 'message.end', reason: 'completed' });
+    expect(reports).toEqual([
+      { code: 'internal_error', message: 'The onTranscript hook failed: Error.', cause: undefined },
+    ]);
+  });
+
+  it('logs a throwing onTranscript without onError by its name only', async () => {
+    const { POST } = createChatHandler({
+      bots: [bot],
+      onTranscript: () => {
+        throw new Error(`could not store ${VISITOR_TEXT}`);
+      },
+    });
+    const stream = await chat(POST, await accessToken(POST));
+    await settle();
+    expect(stream.at(-1)).toMatchObject({ type: 'message.end' });
+    const lines = errorLog.mock.calls.map((call) => call.join(' '));
+    expect(lines).toContain(
+      `[askdare] internal_error: The onTranscript hook failed: Error. (see ${TROUBLESHOOTING})`,
+    );
+    expect(lines.join('\n')).not.toContain(VISITOR_TEXT);
   });
 
   it('answers the request when onError throws', async () => {

@@ -38,6 +38,7 @@ export const NAV: readonly { readonly title: string; readonly pages: readonly st
     title: 'Running it',
     pages: [
       'deployment',
+      'own-your-data',
       'going-public',
       'guardrails',
       'costs',

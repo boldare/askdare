@@ -24,6 +24,23 @@ jobs:
       contents: write # version commits and tags
       pull-requests: write # "Version packages" pull request
       id-token: write # npm trusted publishing + provenance
+    # @boldare/askdare-postgres's tests run against it in `pnpm check` (as in ci.yml).
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17@sha256:b513c48566e4777cd3370451400000c78eda6a08131d68f4c31d4a76f27bd8fd
+        env:
+          POSTGRES_USER: askdare
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: askdare
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U askdare"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      ASKDARE_POSTGRES_TEST_URL: postgres://askdare@localhost:5432/askdare
     steps:
       # A token of the repository's GitHub App, so the "Version packages" pull request runs CI:
       # one pushed and opened with GITHUB_TOKEN triggers no workflows. The app's client ID is the

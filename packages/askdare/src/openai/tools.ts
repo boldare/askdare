@@ -8,6 +8,14 @@ import type {
 import { z } from 'zod';
 import type { Bot } from '../bot/define-bot';
 import type { ToolCallRecord, TurnRequest } from '../gateway';
+import type { Passage } from '../knowledge/port';
+import {
+  SEARCH_KNOWLEDGE,
+  SEARCH_KNOWLEDGE_DESCRIPTION,
+  SEARCH_KNOWLEDGE_PARAMETERS,
+  SEARCH_TIMEOUT_MS,
+  searchKnowledge,
+} from '../knowledge/tool';
 import type { ToolUi } from '../protocol/tool-ui';
 import {
   readToolReplies,
@@ -16,13 +24,13 @@ import {
   type Tool,
   ToolUiLimitError,
 } from '../tools/define-tool';
+import { FAILURES, wrapToolOutput } from '../tools/outputs';
 import {
   SUGGEST_REPLIES,
   SUGGEST_REPLIES_DESCRIPTION,
   SUGGEST_REPLIES_OUTPUT,
   SUGGEST_REPLIES_PARAMETERS,
 } from '../tools/suggest-replies';
-import { wrapToolOutput } from './guardrails';
 import type { FunctionCall } from './stream-mapper';
 
 /** Larger tool results are replaced by an error so one call can't flood the context. */
@@ -57,7 +65,15 @@ export function responseTools(bot: Bot): ResponseTool[] {
         strict: true,
       });
     }
-    if (bot.knowledge) {
+    if (bot.knowledge?.index) {
+      tools.push({
+        type: 'function',
+        name: SEARCH_KNOWLEDGE,
+        description: SEARCH_KNOWLEDGE_DESCRIPTION,
+        parameters: SEARCH_KNOWLEDGE_PARAMETERS,
+        strict: true,
+      });
+    } else if (bot.knowledge) {
       tools.push({
         type: 'file_search',
         vector_store_ids: [bot.knowledge.vectorStoreId],
@@ -69,9 +85,20 @@ export function responseTools(bot: Bot): ResponseTool[] {
   return tools;
 }
 
-/** Whether a step may call a function: a bot tool, or `suggest_replies` while it may still. */
+/** The functions the model may call on any step but the last: the bot's tools and its index. */
+function functionNames(bot: Bot): string[] {
+  return [
+    ...bot.tools.map((tool) => tool.name),
+    ...(bot.knowledge?.index ? [SEARCH_KNOWLEDGE] : []),
+  ];
+}
+
+/**
+ * Whether a step may call a function: a bot tool, `search_knowledge`, or `suggest_replies` while
+ * it may still.
+ */
 export function callsFunctions(bot: Bot, suggest: boolean): boolean {
-  return bot.tools.length > 0 || (suggest && bot.widget.replies === 'suggest');
+  return functionNames(bot).length > 0 || (suggest && bot.widget.replies === 'suggest');
 }
 
 /**
@@ -85,11 +112,12 @@ export function toolChoice(
   suggest: boolean,
 ): ToolChoiceOptions | ToolChoiceAllowed {
   const replies = bot.widget.replies === 'suggest';
+  const functions = functionNames(bot);
   if (!lastStep && (suggest || !replies)) return 'auto';
-  if (bot.tools.length === 0 && !replies) return 'auto';
+  if (functions.length === 0 && !replies) return 'auto';
   const allowed: ToolChoiceAllowed['tools'] = [
-    ...(lastStep ? [] : bot.tools.map((tool) => ({ type: 'function', name: tool.name }))),
-    ...(bot.knowledge ? [{ type: 'file_search' }] : []),
+    ...(lastStep ? [] : functions.map((name) => ({ type: 'function', name }))),
+    ...(bot.knowledge?.vectorStoreId ? [{ type: 'file_search' }] : []),
   ];
   return allowed.length > 0 ? { type: 'allowed_tools', mode: 'auto', tools: allowed } : 'none';
 }
@@ -120,25 +148,6 @@ async function withTimeout<T>(
 }
 
 type CallOutcome = ToolCallRecord['outcome'];
-
-/** What the model gets when a call fails after its arguments were valid. */
-const FAILURES = {
-  timeout: { error: 'The tool timed out.' },
-  failed: { error: 'The tool failed.' },
-  tooLarge: { error: 'The tool returned too much data.' },
-} as const;
-
-const FAILED_OUTPUTS: ReadonlySet<string> = new Set(
-  Object.values(FAILURES).map((failure) => JSON.stringify(failure)),
-);
-
-/**
- * Whether a stored output is one askdare wrote for a call that failed while running. Calls with
- * invalid arguments are recognized by their arguments instead (`readToolReplies`).
- */
-export function isFailedOutput(output: string): boolean {
-  return FAILED_OUTPUTS.has(output);
-}
 
 async function invoke(
   tool: Tool | undefined,
@@ -184,6 +193,44 @@ async function invoke(
   }
 }
 
+/** An error's class and code, never its message. */
+function errorKind(error: unknown): string {
+  if (!(error instanceof Error)) return typeof error;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === 'string' ? `${error.name} (${code.slice(0, 40)})` : error.name;
+}
+
+/**
+ * Runs a `search_knowledge` call against the bot's index, under the same timeout and abort rules
+ * as a tool. The output is always wrapped as untrusted (ADR-0025, decision 6).
+ */
+async function search(
+  call: FunctionCall,
+  request: TurnRequest,
+  onPassages: ((passages: readonly Passage[]) => void) | undefined,
+): Promise<{ readonly output: string; readonly outcome: CallOutcome }> {
+  const knowledge = request.bot.knowledge;
+  if (!knowledge?.index) return { output: JSON.stringify(FAILURES.failed), outcome: 'error' };
+  const { index, maxResults } = knowledge;
+  try {
+    const result = await withTimeout(
+      (signal) => searchKnowledge(index, call.arguments, { maxResults, signal }),
+      SEARCH_TIMEOUT_MS,
+      request.signal,
+    );
+    if (result.outcome === 'ok') onPassages?.(result.passages);
+    return result;
+  } catch (error) {
+    if (error instanceof ToolTimeoutError) {
+      return { output: JSON.stringify(FAILURES.timeout), outcome: 'timeout' };
+    }
+    if (request.signal.aborted) throw request.signal.reason;
+    // Database and embedding errors may quote the query: only the kind of error is logged.
+    console.error(`[askdare] search_knowledge failed: ${errorKind(error)}.`);
+    return { output: JSON.stringify(FAILURES.failed), outcome: 'error' };
+  }
+}
+
 /** The developer's `ui` failed or broke a limit: name the tool, never the payload or the result. */
 function uiError(tool: Tool, error: unknown): void {
   if (error instanceof ToolUiLimitError) {
@@ -205,6 +252,8 @@ export async function executeCalls(
   handlers: {
     readonly onReplies?: (replies: readonly string[]) => void;
     readonly onUi?: (ui: ToolUi) => void;
+    /** The passages a `search_knowledge` call returned to the model, for its citations. */
+    readonly onPassages?: (passages: readonly Passage[]) => void;
   } = {},
 ): Promise<ResponseInputItem[]> {
   const tools = new Map(request.bot.tools.map((tool) => [tool.name, tool]));
@@ -221,12 +270,21 @@ export async function executeCalls(
   const outputs = await Promise.all(
     calls.map(async (call, index) => {
       const startedAt = Date.now();
-      const result = await invoke(tools.get(call.name), call, request);
-      let output = JSON.stringify(result.output);
-      let outcome = result.outcome;
-      if (output.length > MAX_OUTPUT_CHARS) {
-        output = JSON.stringify(FAILURES.tooLarge);
-        outcome = 'error';
+      let output: string;
+      let outcome: CallOutcome;
+      // Search results are wrapped, and fit, before they get here; they never define cards.
+      let searched = false;
+      if (call.name === SEARCH_KNOWLEDGE && request.bot.knowledge?.index) {
+        ({ output, outcome } = await search(call, request, handlers.onPassages));
+        searched = outcome === 'ok';
+      } else {
+        const result = await invoke(tools.get(call.name), call, request);
+        output = JSON.stringify(result.output);
+        outcome = result.outcome;
+        if (output.length > MAX_OUTPUT_CHARS) {
+          output = JSON.stringify(FAILURES.tooLarge);
+          outcome = 'error';
+        }
       }
       request.onToolCall?.({
         name: call.name.slice(0, 64),
@@ -241,7 +299,7 @@ export async function executeCalls(
         name: call.name.slice(0, 64),
         state: outcome === 'ok' ? 'done' : 'error',
       });
-      if (outcome === 'ok') {
+      if (outcome === 'ok' && !searched) {
         succeeded[index] = {
           callId: call.callId,
           name: call.name,
@@ -253,7 +311,7 @@ export async function executeCalls(
         type: 'function_call_output',
         call_id: call.callId,
         // Failures are askdare's own text; only what the tool returned can be untrusted.
-        output: outcome === 'ok' ? wrapToolOutput(request.bot, output) : output,
+        output: outcome === 'ok' && !searched ? wrapToolOutput(request.bot, output) : output,
       } as const;
     }),
   );

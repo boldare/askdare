@@ -1,6 +1,6 @@
 # ADR-0002: OpenAI only, official SDK, no leaked types
 
-- **Status:** Accepted
+- **Status:** Accepted. Extended by [ADR-0026](0026-provider-path.md) (accepted 2026-11-25): OpenAI by default, other providers through profiles of `src/openai/` from 0.9. The SDK, the one module that imports `openai` and no foreign types in the public API stay.
 - **Date:** 2026-10-29
 
 ## Context

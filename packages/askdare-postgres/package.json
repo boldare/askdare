@@ -1,0 +1,66 @@
+{
+  "name": "@boldare/askdare-postgres",
+  "version": "0.0.0",
+  "description": "Conversations and a knowledge index for @boldare/askdare, kept in your own Postgres.",
+  "license": "MIT",
+  "author": {
+    "name": "Boldare",
+    "url": "https://www.boldare.com"
+  },
+  "homepage": "https://github.com/boldare/askdare/tree/main/packages/askdare-postgres#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/boldare/askdare.git",
+    "directory": "packages/askdare-postgres"
+  },
+  "bugs": "https://github.com/boldare/askdare/issues",
+  "keywords": [
+    "askdare",
+    "postgres",
+    "pgvector",
+    "chatbot"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "askdare-postgres": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsdown && node -e \"require('node:fs').copyFileSync('../../LICENSE', 'LICENSE')\"",
+    "typecheck": "tsc -p tsconfig.json",
+    "check:package": "publint --strict && attw --pack . --profile esm-only && node ../../scripts/check-dts-no-leak.mjs dist"
+  },
+  "peerDependencies": {
+    "@boldare/askdare": "workspace:^"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "dependencies": {
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@boldare/askdare": "workspace:^",
+    "@types/pg": "^8.23.1",
+    "publint": "^0.3.25",
+    "tsdown": "^0.23.7"
+  }
+}

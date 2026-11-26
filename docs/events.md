@@ -83,6 +83,7 @@ Every event has `type` and `bot`, the bot's ID. The other fields depend on the t
 ### Good to know
 
 - **Events come in order for each message.** A `message.sent` is followed by exactly one `message.received`, with an `error` just before it when the turn failed.
+- **A resumed answer is still one answer.** When the connection drops mid-answer and the chat picks it up again, or takes it from the history, `message.received` fires once, as `completed`. It is `failed`, after an `error` with `upstream_error` or `timeout`, only when the answer couldn't be recovered.
 - **Closing the panel doesn't stop an answer.** The answer finishes in the background, so `message.received` still arrives after `close`.
 - **A 👎 with a comment fires `feedback` twice:** first for the 👎 (`commented: false`), then once the comment is sent (`commented: true`).
 - **A rating the server refuses fires nothing,** because the chat takes it back.

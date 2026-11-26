@@ -1,6 +1,6 @@
 # ADR-0012: Server hooks for usage and feedback, and an OpenTelemetry add-on
 
-- **Status:** Accepted
+- **Status:** Accepted. Amended on 2026-11-25 (task z1): a failing `onTranscript` ([ADR-0016](0016-admin.md)) reports to `onError` instead of logging one line (see "Hooks never break a turn").
 - **Date:** 2026-11-09
 
 ## Context
@@ -48,6 +48,7 @@ A turn that fails mid-stream reports the usage askdare saw, which can be less th
 
 - `onUsage`, `onFeedback` and the existing `onError` may be async.
 - askdare calls them after the response has ended (`waitUntil`), catches anything they throw, and logs one line naming the hook, without details. A hook can't delay, change or fail the chat.
+- **Amended 2026-11-25: `onTranscript` reports to `onError`.** The 0.6 hook (ADR-0016) runs as these do, but a throw becomes an `internal_error` for `onError` ("The onTranscript hook failed: <ErrorName>.", no message, no cause), and only without `onError` the default single `console.error` line. A failed transcript write is lost data the owner must hear about, as a failed turn is; its error's name is all that leaves, since the message of a database error can quote the visitor's text. `onUsage` and `onFeedback` keep the one log line.
 
 ### OpenTelemetry is an add-on
 

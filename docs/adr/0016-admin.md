@@ -1,6 +1,6 @@
 # ADR-0016: Admin: a console first, then an add-on with storage
 
-- **Status:** Accepted
+- **Status:** Accepted. `onTranscript` shipped in the core in 0.6, ahead of stage 2; deleting its transcripts with a conversation stays with the stage 2 `AdminStore` (decided 2026-11-25, see "As of 0.6").
 - **Date:** 2026-11-11
 
 ## Context
@@ -59,6 +59,11 @@ An add-on for owners who want history: dashboards and reviews.
   - records are keyed by pseudonyms (HMACs, ADR-0012), never by IP addresses or raw visitor IDs;
   - `docs/privacy.md` covers what the add-on stores, and the app's privacy notice must too.
 - **No content in logs.** Transcripts are stored data, never logged. The store implementations log nothing about the values they write.
+
+### As of 0.6 (2026-11-25)
+
+- **`onTranscript` is in the core** (task t1): `createChatHandler({ onTranscript })` with `ChatTranscriptReport` and `ChatTranscriptCitation`, called after the answer has streamed and the conversation is free, with the input after `onInput` and the answer the visitor saw. A throw reaches `onError` ([ADR-0012](0012-server-hooks-and-telemetry.md), amended).
+- **Deleting a conversation calls no hook in 0.6.** Neither `DELETE <basePath>/conversation` nor a store's `sweep` tells the app, so transcripts it keeps outlive the conversation until its own retention removes them. The GDPR rule above ("deleting a conversation also deletes its transcript") is met by the stage 2 `AdminStore`, which core calls on delete, not by a separate `onConversationDeleted` hook in 0.6: that hook would be a second public way to do the same thing once the admin store exists, and the apps that keep transcripts today already sweep them by age and key them by conversation and visitor ([Own your data](../own-your-data.md#7-keep-your-own-transcripts), [Privacy](../privacy.md#transcripts)). If the admin store slips past 0.7, the hook is the fallback, as an additive change.
 
 ## Consequences
 
