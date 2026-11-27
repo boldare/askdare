@@ -27,7 +27,10 @@ const hasContent = (message: ChatMessage): boolean =>
   message.status === 'streaming' ||
   message.text !== '' ||
   message.citations.length > 0 ||
-  (message.status === 'done' && (message.replies?.length ?? 0) > 0);
+  (message.status === 'done' && (message.replies?.length ?? 0) > 0) ||
+  // An answer may be only a form, or a handoff's status.
+  message.handoff !== undefined ||
+  (message.forms?.length ?? 0) > 0;
 
 export type MessagesProps = ComponentProps<'div'>;
 
@@ -95,6 +98,19 @@ export function Messages({ ref, ...props }: MessagesProps): ReactElement {
       }
     }
   }, [latest, commenting]);
+  // What gets focus comes fully into view: Firefox and Safari leave a control that is only partly
+  // in view half clipped at the edge of the list (WCAG 2.4.11). A native listener, since Preact's
+  // onFocus doesn't bubble.
+  useEffect(() => {
+    const log = own.current;
+    const reveal = (event: FocusEvent): void => {
+      if (event.target !== log && event.target instanceof Element) {
+        event.target.scrollIntoView?.({ block: 'nearest' });
+      }
+    };
+    log?.addEventListener('focusin', reveal);
+    return () => log?.removeEventListener('focusin', reveal);
+  }, []);
   return (
     <>
       <div

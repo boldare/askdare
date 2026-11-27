@@ -53,6 +53,8 @@ export function publicConfig(bot: Bot, basePath: string, view: PublicView = {}):
     ...(bot.attachments ? { attachments: bot.attachments } : {}),
     // Never a form's description, `model` or `toModel` (ADR-0031, decision 3).
     ...(bot.forms.length > 0 ? { forms: bot.forms.map((form) => publicForm(form, locale)) } : {}),
+    // Only whether the button shows; the rest of the handoff settings stay on the server.
+    ...(bot.handoff?.button ? { handoff: true as const } : {}),
     ...(bot.voice ? { voice: { maxSeconds: bot.voice.maxSeconds } } : {}),
     // The site key alone, whatever else a custom verifier carries.
     ...(bot.security.humanVerifier

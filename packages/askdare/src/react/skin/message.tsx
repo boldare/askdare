@@ -1,5 +1,7 @@
 import {
   Citations,
+  Form,
+  HandoffStatus,
   Message,
   MessageFiles,
   MessageText,
@@ -13,9 +15,9 @@ import { useSkin } from './context';
 import { Feedback } from './feedback';
 
 /**
- * One message: the assistant's face beside its answers, then text, tool cards, files, sources,
- * rating and, under the latest answer, the options the visitor can click (unless the theme puts
- * them above the message field).
+ * One message: the assistant's face beside its answers, then text, tool cards, files, sources, a
+ * handoff's status, forms, rating and, under the latest answer, the options the visitor can click
+ * (unless the theme puts them above the message field).
  */
 export function DefaultMessage(): ReactElement {
   const message = useMessage();
@@ -28,6 +30,10 @@ export function DefaultMessage(): ReactElement {
         <ToolResults />
         <MessageFiles />
         <Citations />
+        <HandoffStatus />
+        {message.forms?.map((form) => (
+          <Form key={form.callId} form={form} />
+        ))}
         <Feedback />
         {variants.replies === 'answer' && <QuickReplies />}
       </div>

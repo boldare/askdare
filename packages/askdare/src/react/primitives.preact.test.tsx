@@ -5,11 +5,34 @@ import { describe, expect, it } from 'vitest';
 import { createFixtureStore } from '../chat/fixture-store';
 import { testConfig } from '../chat/testing/fake-server';
 import { ChatProvider } from './context';
-import { Composer, Input, Link, LoadEarlier, MessageList, Messages, ToolResults } from './headless';
+import {
+  Composer,
+  Form,
+  HandoffStatus,
+  Input,
+  Link,
+  LoadEarlier,
+  MessageList,
+  Messages,
+  ToolResults,
+  useMessage,
+} from './headless';
 import { DefaultPanel } from './skin';
 import { ToolRenderersProvider } from './tool-results';
 
 const settled = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+/** The current message's forms. */
+const Forms = () => {
+  const { forms } = useMessage();
+  return (
+    <>
+      {forms?.map((form) => (
+        <Form key={form.callId} form={form} />
+      ))}
+    </>
+  );
+};
 
 const Broken = (): never => {
   throw new Error('bad card');
@@ -124,5 +147,73 @@ describe('primitives under Preact', () => {
     expect(cards[2]?.querySelector('a')).toBeNull();
     expect(cards[2]?.textContent).toBe('Unsafe');
     expect(errors.some((message) => String(message).includes('tool "broken" failed'))).toBe(true);
+  });
+
+  it('draw a form and check it by hand, and a handoff status', async () => {
+    const container = document.createElement('div');
+    document.body.append(container);
+    createRoot(container).render(
+      <ChatProvider
+        store={createFixtureStore(
+          testConfig({
+            forms: [
+              {
+                name: 'contact',
+                title: 'Get an offer',
+                fields: [
+                  { name: 'email', type: 'email', label: 'Email', required: true },
+                  {
+                    name: 'topic',
+                    type: 'select',
+                    label: 'Topic',
+                    required: false,
+                    options: [
+                      { value: 'a', label: 'A' },
+                      { value: 'b', label: 'B' },
+                    ],
+                  },
+                  { name: 'consent', type: 'consent', label: 'I agree', required: true },
+                ],
+              },
+            ],
+          }),
+          {
+            messages: [
+              {
+                id: 'a1',
+                role: 'assistant',
+                text: 'Hi',
+                citations: [],
+                attachments: 0,
+                status: 'done',
+                handoff: 'sent',
+                forms: [
+                  { callId: 'c1', name: 'contact', purpose: 'lead', state: 'open', handle: 'h' },
+                ],
+              },
+            ],
+          },
+        )}
+      >
+        <MessageList>
+          <HandoffStatus />
+          <Forms />
+        </MessageList>
+      </ChatProvider>,
+    );
+    await settled();
+    const form = container.querySelector('form');
+    expect(form?.getAttribute('data-ask-part')).toBe('form');
+    expect(container.querySelectorAll('select option')).toHaveLength(3);
+    expect(container.querySelector('input[type="checkbox"]')).toBeTruthy();
+    expect(container.querySelector('[data-ask-part="handoff-status"]')?.textContent).toBe(
+      'Done. A person from our team will get back to you by email.',
+    );
+    form?.querySelector('button')?.click();
+    await settled();
+    const email = container.querySelector('input[type="email"]');
+    expect(email?.getAttribute('aria-invalid')).toBe('true');
+    expect(container.ownerDocument.activeElement).toBe(email);
+    container.remove();
   });
 });
