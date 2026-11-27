@@ -31,7 +31,16 @@ export const NAV: readonly { readonly title: string; readonly pages: readonly st
   },
   {
     title: 'Features',
-    pages: ['knowledge-base', 'tools', 'reply-options', 'attachments', 'voice-input', 'identity'],
+    pages: [
+      'knowledge-base',
+      'tools',
+      'reply-options',
+      'forms',
+      'handoff',
+      'attachments',
+      'voice-input',
+      'identity',
+    ],
   },
   { title: 'Look and feel', pages: ['styling', 'themes', 'texts', 'react'] },
   {
@@ -45,6 +54,7 @@ export const NAV: readonly { readonly title: string; readonly pages: readonly st
       'observability',
       'events',
       'feedback',
+      'admin',
       'privacy',
       'compliance',
       'accessibility',

@@ -73,7 +73,7 @@ export const { GET, POST, DELETE } = createChatHandler({
 
 ## `defineBot`
 
-`defineBot(definition: BotDefinition): Bot`. The types of every field are exported from `@boldare/askdare`: `BotDefinition`, `BotContext`, `BotLimits`, `BotSecurity`, `KnowledgeConfig`, `AttachmentConfig`, `VoiceConfig` and `WidgetConfig`.
+`defineBot(definition: BotDefinition): Bot`. The types of every field are exported from `@boldare/askdare`: `BotDefinition`, `BotContext`, `BotLimits`, `BotSecurity`, `KnowledgeConfig`, `AttachmentConfig`, `VoiceConfig`, `WidgetConfig`, `HandoffConfig`, `HandoffLimits` and `HandoffAvailabilityContext`. `defineForm` and its types come from there too ([Forms and leads](forms.md#the-form)).
 
 | Field | Type | Default | Rules |
 | --- | --- | --- | --- |
@@ -85,6 +85,8 @@ export const { GET, POST, DELETE } = createChatHandler({
 | `knowledge` | `KnowledgeConfig` | off | Documents the model searches and cites. See [Knowledge](#knowledge). |
 | `attachments` | `AttachmentConfig` | off | Images and PDFs from visitors. See [Attachments](#attachments). |
 | `voice` | `VoiceConfig` | off | Dictation. See [Voice](#voice). |
+| `forms` | `Form[]` | `[]` | Forms the chat can show under an answer, from `defineForm`. At most 10, with unique names. The tool name `show_form` is reserved. Forms the model may show need `onLead` in `createChatHandler`. See [Forms and leads](forms.md). |
+| `handoff` | `boolean \| HandoffConfig` | off | Lets the visitor or the model ask for a person: `model`, `button`, `form`, `available`, `content` and `limits`. Needs `onHandoff` in `createChatHandler`. The tool name `handoff` is reserved. See [Handoff to a person](handoff.md#options). |
 | `moderation` | `ModerationConfig` | off | OpenAI moderation of messages, answers or both. See [Guardrails](guardrails.md#moderation). |
 | `onInput` | `(text, context) => GuardVerdict \| undefined` | off | Your rule for each visitor message: allow, block or redact. See [Guardrails](guardrails.md#your-own-rules-oninput-and-onoutput). |
 | `onOutput` | `(text, context) => GuardVerdict \| undefined` | off | Your rule for each finished answer. Answers are then held back until checked. See [Guardrails](guardrails.md#streaming-while-answers-are-checked). |
@@ -298,7 +300,7 @@ The text defaults come from the built-in dictionary of the configured language. 
 
 ## `createChatHandler`
 
-`createChatHandler(options: ChatHandlerOptions): ChatHandlers` returns `GET`, `POST` and `DELETE` for the catch-all route. Its types are exported from `@boldare/askdare/next`: `ChatHandlerOptions`, `ChatHandlerLimitsOptions`, `ChatHandlerResumeOptions`, `ChatErrorReport`, `ChatUsageReport`, `ChatTokenUsage`, `ChatToolCallReport`, `ChatFeedbackReport`, `ChatTranscriptReport`, `ChatTranscriptCitation`, `TrustProxy`, `ChatHandlers` and `RouteHandler`. `openaiConversations` and `OpenAIConversationsOptions` come from there too.
+`createChatHandler(options: ChatHandlerOptions): ChatHandlers` returns `GET`, `POST` and `DELETE` for the catch-all route, and `sweep()` for your scheduled job ([Own your data](own-your-data.md#8-sweep-old-conversations)). Its types are exported from `@boldare/askdare/next`: `ChatHandlerOptions`, `ChatHandlerLimitsOptions`, `ChatHandlerResumeOptions`, `ChatHandlerAdminOptions`, `ChatHandlerAdminConsoleOptions`, `ChatErrorReport`, `ChatUsageReport`, `ChatTokenUsage`, `ChatToolCallReport`, `ChatFeedbackReport`, `ChatTranscriptReport`, `ChatTranscriptCitation`, `ChatHandoffReport`, `ChatHandoffMessage`, `ChatLeadReport`, `ChatSweepOptions`, `ChatSweepResult`, `TrustProxy`, `ChatHandlers` and `RouteHandler`. `openaiConversations`, `webhookHandoff` and `emailHandoff` come from there too, with their option types.
 
 | Option | Type | Default | Notes |
 | --- | --- | --- | --- |
@@ -313,11 +315,14 @@ The text defaults come from the built-in dictionary of the configured language. 
 | `resume` | `ChatHandlerResumeOptions` | in memory, per process | Where answers being written are kept for a few minutes, so a visitor whose connection drops can resume one. See [`resume`](#resume). |
 | `onError` | `(report: ChatErrorReport) => void \| Promise<void>` | one `console.error` line | Your error reporting. See [`onError`](#onerror). |
 | `onUsage` | `(report: ChatUsageReport) => void \| Promise<void>` | none | Each turn's tokens, timings and tool calls, for cost tracking and tracing. See [`onUsage`](#onusage). |
-| `onFeedback` | `(report: ChatFeedbackReport) => void \| Promise<void>` | none | Visitors' ratings of answers. Without it, answers can't be rated. See [`onFeedback`](#onfeedback). |
+| `onFeedback` | `(report: ChatFeedbackReport) => void \| Promise<void>` | none | Visitors' ratings of answers. Without it or an [admin store](#admin), answers can't be rated. See [`onFeedback`](#onfeedback). |
 | `onTranscript` | `(report: ChatTranscriptReport) => void \| Promise<void>` | none | Each finished turn's message and answer, to keep your own transcripts. The only hook with message content. See [`onTranscript`](#ontranscript). |
+| `onHandoff` | `(report: ChatHandoffReport) => void \| Promise<void>` | none | Receives each request for a person, such as `webhookHandoff()` or `emailHandoff()`. Awaited, with 10 seconds: a throw means the request failed. Required when a bot has `handoff`. See [Handoff to a person](handoff.md#where-requests-go). |
+| `onLead` | `(report: ChatLeadReport) => void \| Promise<void>` | none | Receives the values of each sent form, after the response. Required when a bot offers forms to the model. See [Forms and leads](forms.md#what-onlead-receives). |
+| `admin` | `ChatHandlerAdminOptions` | off | The admin store and the console. See [`admin`](#admin). |
 | `gallery` | `boolean` | `false` | Serves the state gallery. See [`gallery`](#gallery). |
 
-A wrong `basePath`, a duplicate bot ID, an empty `bots` list or an unsupported conversation store throws a `TypeError` when the route loads. A missing key or a missing or weak secret doesn't stop the route from loading. Instead, requests that need it answer `bot_unavailable`, and `onError` receives the reason. In development (`next dev`), the chat itself says what to fix.
+A wrong `basePath`, a duplicate bot ID, an empty `bots` list, an unsupported conversation store, a bot with `handoff` but no `onHandoff`, or a bot whose forms the model may show but no `onLead` throws a `TypeError` when the route loads. A missing key or a missing or weak secret doesn't stop the route from loading. Instead, requests that need it answer `bot_unavailable`, and `onError` receives the reason. In development (`next dev`), the chat itself says what to fix.
 
 ### Handler limits
 
@@ -509,6 +514,20 @@ export const { GET, POST, DELETE } = createChatHandler({
 | `check` | `'allowed' \| 'replaced' \| 'withheld'` | What output checks decided. Absent for bots without them. |
 | `reason` | `string` | Why the answer ended: `completed`, `max_steps`, `max_output_tokens` or `content_filter`. |
 
+### `admin`
+
+`admin` turns on the admin store and the console ([Admin console and dashboard](admin.md), [ADR-0032](adr/0032-admin-store.md)).
+
+| Option | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `store` | `AdminStore` | none | Where askdare writes each turn's counters and ratings, and deletes them with their conversation: `postgresAdminStore()`, `upstashAdminStore()` or `memoryAdminStore()`. With it, answers can be rated without `onFeedback`. |
+| `transcripts` | `boolean` | `false` | Also keep each turn's message and answer in the store. Personal data. Needs `store`. |
+| `retentionDays` | `number` | `30` | Days records are kept, 1 to 400, applied by `sweep()`. |
+| `console.allow` | `readonly string[]` | none | Users who may sign in to the console with an identity token (audience `askdare:admin`, signed with `IDENTITY_SECRET`). |
+| `console.dashboard` | `AdminDashboard` | none | `adminDashboard()` from `@boldare/askdare-admin`. Needs `store`. |
+
+`console: {}` turns the console on at `<basePath>/admin`; it then needs `ADMIN_SECRET` or `allow`. `transcripts` or `dashboard` without `store` throws when the route loads.
+
 ### `gallery`
 
 `gallery: true` serves the state gallery. `<basePath>/embed/<bot>?gallery=<state>&preset=<preset>&scheme=<scheme>` then renders a fixed state of the widget without calling the model.
@@ -542,6 +561,7 @@ It must be a literal in the route file. It is the longest a streamed answer may 
 | `CHAT_SECRET_PREVIOUS` | `createChatHandler`, `npx @boldare/askdare doctor` | Former secrets, comma-separated. Default for `previousSecrets`. |
 | `IDENTITY_SECRET` | `createChatHandler`, `npx @boldare/askdare doctor` | Default for `identitySecret`. Optional: without it, identity is off. |
 | `TURNSTILE_SECRET_KEY` | `turnstile()` | Default for `secretKey`, read at the first human check. Needed only for a bot with `security.humanVerifier: turnstile(…)`. |
+| `ADMIN_SECRET` | `createChatHandler` | Signs in to the [admin console](admin.md#3-sign-in). At least 32 random characters, different from `CHAT_SECRET` and `IDENTITY_SECRET`. Needed only for `admin.console` without `allow`. Read on the first console request. |
 | `ASKDARE_DISABLED` | `createChatHandler` | The kill switch. When it is exactly `true`, every bot answers `bot_unavailable`. askdare reads it on every request. |
 | `KB_VECTOR_STORE_ID` | `npx @boldare/askdare kb sync` | The vector store to sync, unless you pass `--store`. |
 | `ASKDARE_MODEL` | `npx @boldare/askdare doctor` | `doctor` reports it when it is missing or empty and your `askdare.config` uses it. The server doesn't read it; your config does. |
@@ -586,4 +606,7 @@ A database from the Vercel Marketplace (Upstash for Redis) sets the `KV_` names 
 | Pick or adjust a theme | [Themes](themes.md) |
 | Report costs or trace turns | [Observability](observability.md) |
 | Collect ratings of answers | [Answer ratings](feedback.md) |
+| Let visitors reach a person | [Handoff to a person](handoff.md) |
+| Collect leads with a form | [Forms and leads](forms.md) |
+| See usage, cost and conversations | [Admin console and dashboard](admin.md) |
 | Put the chat inside a page of your app | [React](react.md) |
