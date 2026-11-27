@@ -82,3 +82,13 @@ test('a tool card inside a page', async ({ page }) => {
     mask: [reply.locator('[data-card-time]'), reply.locator('[data-ask-part="bubble"]')],
   });
 });
+
+// The owners' console (ADR-0032) as it opens, before sign-in: the page the site's ADMIN_SECRET
+// turns on. Signed in, it shows dates and live counts, which e2e/admin.spec.ts checks instead.
+test('the admin console sign-in', async ({ page }) => {
+  await page.setViewportSize({ width: 960, height: 640 });
+  await page.goto('http://localhost:3100/api/chat/admin');
+  await expect(page.getByLabel('ADMIN_SECRET')).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+  await expect(page).toHaveScreenshot('admin-console-sign-in.png');
+});
