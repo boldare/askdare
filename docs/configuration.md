@@ -283,6 +283,7 @@ Everything in `widget` is sent to browsers. Never put secrets in it. [Styling](s
 | `greeting` | `string` | `'Hi! How can I help?'` | 1–500 characters. Shortcut for `texts['welcome.greeting']`. `**words**` show in bold. |
 | `placeholder` | `string` | `'Type your message…'` | 1–120 characters. Shortcut for `texts['composer.placeholder']`. |
 | `launcherLabel` | `string` | `'Ask us'` | 1–40 characters. Text on the launcher. Shortcut for `texts['launcher.label']`. |
+| `launcherGreeting` | `boolean \| { delaySeconds?: number }` | off | A short greeting next to the closed launcher, after `delaySeconds` (0–600, default 5). Its text is `texts['launcher.greeting']`; the default says it is an AI assistant, and your own should too. `true` uses the default delay. See [Embedding](embedding.md#a-greeting-and-an-unread-badge). |
 | `locale` | `string` | `'en'` | `'auto'`, or a BCP 47 tag such as `en` or `pl-PL`. Also the default answer language. `'auto'` uses the language of the embedding page, else the visitor's browser. |
 | `texts` | `Partial<Record<TextKey, string>>` | `{}` | Any widget text by its key, 1–300 characters each. |
 | `disclosure` | `false \| { privacyUrl?: string }` | shown, no link | The note that visitors talk to an AI. `privacyUrl` is an `https://` URL or a path on your app, such as `/privacy`. `false` hides the note. |
