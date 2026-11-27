@@ -14,9 +14,11 @@ import type { ContractRunner } from './runner';
 
 export interface AdminStoreContractOptions extends ContractRunner {
   /**
-   * Epoch milliseconds of the first day the suite writes on. Every record and daily row it writes
-   * falls within 200 days from here, and it cleans up by sweeping everything before that, so pick a
-   * time before any real data. Default: 3 January 2000 (UTC).
+   * Epoch milliseconds of the first day the suite writes on. Every daily row and almost every record
+   * it writes falls within 200 days from here, and it cleans up by sweeping everything before that,
+   * so pick a time before any real data. Default: 3 January 2000 (UTC). A store that expires records
+   * on its own (`AdminWriteOptions.retentionDays`) needs an epoch less than 400 days ago. One test
+   * writes transcripts of its own conversations near today, and deletes them.
    */
   readonly epoch?: number | undefined;
   /** Per-test timeout in milliseconds, for stores behind a network. Default: the runner's. */
@@ -568,6 +570,37 @@ export function adminStoreContract(
       ]);
       expect(records[1]?.answer).toBe('replaced');
       expect(await store.transcript(conversation())).toEqual([]);
+    });
+
+    test('keeps records at least as long as the retention core passes', async ({
+      store,
+      bot,
+      conversation,
+      transcript,
+    }) => {
+      // A store with its own expiry (a backstop for when `sweep()` doesn't run) takes it from the
+      // write, never from a shorter setting of its own, and keeps 400 days when none is passed.
+      const support = bot();
+      const now = Date.now();
+      const passed = conversation();
+      await store.recordTranscript(
+        transcript(passed, { bot: support, at: now - 100 * DAY_MS, itemId: 'msg_1' }),
+        { retentionDays: 120 },
+      );
+      const longest = conversation();
+      await store.recordTranscript(
+        transcript(longest, { bot: support, at: now - 300 * DAY_MS, itemId: 'msg_1' }),
+      );
+      expect((await store.transcript(passed)).map((record) => record.itemId)).toEqual(['msg_1']);
+      expect((await store.transcript(longest)).map((record) => record.itemId)).toEqual(['msg_1']);
+      expect(
+        await failure(
+          store.recordTranscript(transcript(passed, { bot: support, at: now - DAY_MS }), {
+            retentionDays: 120,
+            signal: AbortSignal.abort(),
+          }),
+        ),
+      ).toBeInstanceOf(Error);
     });
 
     test('refuses queries outside their bounds', async ({ store, bot }) => {

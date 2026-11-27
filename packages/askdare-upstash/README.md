@@ -92,18 +92,15 @@ import { upstashAdminStore } from '@boldare/askdare-upstash';
 
 createChatHandler({
   bots,
-  admin: { store: upstashAdminStore({ retentionDays: 30 }), retentionDays: 30 },
+  admin: { store: upstashAdminStore(), retentionDays: 30 },
 });
 ```
 
-| Option | Default | What it does |
-| --- | --- | --- |
-| `url`, `token`, `redis`, `prefix` | as above | Keys go under `<prefix>admin:`. |
-| `retentionDays` | `30` | A conversation's records also expire this many days after its latest record. Use the same value as `admin.retentionDays`. |
+It takes the same `url`, `token`, `redis` and `prefix` options as above; keys go under `<prefix>admin:`. Retention is set once, as `admin.retentionDays`: askdare passes it with every record it writes.
 
 Every dashboard query is answered from counters, sorted sets and summaries kept when a record is written, so no read scans the database; each write and read is one atomic script. Key names hold a hash of the conversation ID, never the ID, a visitor or any content.
 
-Retention is the handlers' `sweep()`, called on a schedule: it deletes records older than `admin.retentionDays`, and daily totals older than 400 days. The expiry times are a backstop for when it doesn't run: a conversation's keys expire `retentionDays` after its latest record, and daily totals 400 days after their day. Conversations with equal tokens and equal latest activity are ordered by the hash of their ID.
+Retention is the handlers' `sweep()`, called on a schedule: it deletes records older than `admin.retentionDays`, and daily totals older than 400 days. The expiry times are a backstop for when it doesn't run: a conversation's keys expire `admin.retentionDays` after its latest record, and daily totals 400 days after their day. A record written without a retention, outside askdare's handlers, expires after 400 days, the longest retention askdare allows. Conversations with equal tokens and equal latest activity are ordered by the hash of their ID.
 
 ## Requirements
 

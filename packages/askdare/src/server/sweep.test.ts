@@ -60,7 +60,7 @@ function setup(store: AdminStore, conversations: ConversationStore, calls: strin
     conversations,
     gateway: () => gateway,
     admin: {
-      writer: adminWriter(store, { transcripts: false, onError: () => {} }),
+      writer: adminWriter(store, { transcripts: false, retentionDays: 30, onError: () => {} }),
       retentionDays: 30,
     },
     onError: (error) => errors.push(error.message),

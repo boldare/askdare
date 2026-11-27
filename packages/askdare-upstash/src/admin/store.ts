@@ -13,6 +13,7 @@ import type {
   AdminStoredRating,
   AdminTranscriptRecord,
   AdminTurnRecord,
+  AdminWriteOptions,
   ConversationStoreCheck,
 } from '@boldare/askdare';
 import { lazyClient } from '../client';
@@ -39,16 +40,13 @@ export interface UpstashAdminStoreOptions {
   readonly token?: string;
   /** Key prefix, to share one database between apps. Default `askdare:`; keys go under `<prefix>admin:`. */
   readonly prefix?: string;
-  /**
-   * A conversation's records expire this many days after its latest record, as a backstop for when
-   * `sweep()` doesn't run. Use the same value as `admin.retentionDays`. Default 30.
-   */
-  readonly retentionDays?: number;
 }
 
 const DAY_MS = 86_400_000;
 /** Daily rows hold no personal data and are kept this long (ADR-0032). */
 const DAY_ROW_DAYS = 400;
+/** A record's time to live when a write passes no retention: the longest core allows. */
+const LONGEST_RETENTION_DAYS = 400;
 const MAX_RANGE_DAYS = 400;
 const MAX_PAGE = 100;
 const SOURCES: readonly AdminSource[] = ['chat', 'console'];
@@ -176,25 +174,32 @@ const by = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
  * ```
  *
  * Retention: `sweep()` (core's, on a schedule) deletes records older than `admin.retentionDays` and
- * daily rows older than 400 days. As a backstop, a conversation's keys also expire `retentionDays`
- * after its latest record, and daily rows 400 days after their day.
+ * daily rows older than 400 days. As a backstop, a conversation's keys also expire
+ * `admin.retentionDays` after its latest record (core passes it with every write), and daily rows
+ * 400 days after their day.
  */
 export function upstashAdminStore(options: UpstashAdminStoreOptions = {}): AdminStore {
   const prefix = `${options.prefix ?? 'askdare:'}admin:`;
-  const retentionDays = options.retentionDays ?? 30;
-  if (!Number.isFinite(retentionDays) || retentionDays <= 0) {
-    throw new RangeError('[askdare-upstash] upstashAdminStore: retentionDays must be positive.');
-  }
-  const ttlMs = Math.ceil(retentionDays * DAY_MS);
   const client = lazyClient(options);
 
+  /**
+   * Runs a script. `ttlMs` is the records' time to live for a write; 0 for the other scripts, which
+   * then keep the one the conversation's latest write set (see scripts.ts).
+   */
   const run = async <T>(
     script: string,
     args: readonly (string | number)[],
     signal: AbortSignal | undefined,
+    ttlMs = 0,
   ): Promise<T> => {
     signal?.throwIfAborted();
     return client().eval<(string | number)[], T>(script, [], [prefix, Date.now(), ttlMs, ...args]);
+  };
+  /** The time to live of a write's records: `admin.retentionDays`, as core passes it. */
+  const ttlOf = (options: AdminWriteOptions | undefined): number => {
+    const days = options?.retentionDays ?? LONGEST_RETENTION_DAYS;
+    if (!Number.isFinite(days) || days <= 0) throw invalid('retentionDays must be positive.');
+    return Math.ceil(days * DAY_MS);
   };
   const owner = (record: AdminRecordKey): string[] => [
     hashOf(record.conversationId),
@@ -239,7 +244,7 @@ export function upstashAdminStore(options: UpstashAdminStoreOptions = {}): Admin
   return {
     name: 'upstash',
 
-    async recordTurn(record, signal) {
+    async recordTurn(record, options) {
       const at = checkAt(record.at);
       const day = dayNumber(record.at);
       const row = turnRow(record.source, record.bot, record.model);
@@ -279,11 +284,12 @@ export function upstashAdminStore(options: UpstashAdminStoreOptions = {}): Admin
           dayExpiry(day),
           ...increments,
         ],
-        signal,
+        options?.signal,
+        ttlOf(options),
       );
     },
 
-    async recordRating(record, signal) {
+    async recordRating(record, options) {
       const at = checkAt(record.at);
       const day = dayNumber(record.at);
       const row = botRow(record.source, record.bot);
@@ -301,16 +307,18 @@ export function upstashAdminStore(options: UpstashAdminStoreOptions = {}): Admin
       await run(
         RATING_SCRIPT,
         [...owner(record), record.itemId, at, record.rating ?? '', value, day, dayExpiry(day), row],
-        signal,
+        options?.signal,
+        ttlOf(options),
       );
     },
 
-    async recordTranscript(record, signal) {
+    async recordTranscript(record, options) {
       const at = checkAt(record.at);
       await run(
         TRANSCRIPT_SCRIPT,
         [...owner(record), `${at}${SEP}${record.itemId ?? ''}`, JSON.stringify(record)],
-        signal,
+        options?.signal,
+        ttlOf(options),
       );
     },
 
@@ -493,16 +501,9 @@ export function upstashAdminStore(options: UpstashAdminStoreOptions = {}): Admin
       try {
         const oldest = num(await run(OLDEST_SCRIPT, [], signal));
         if (oldest < 0) return [{ status: 'ok', title: 'Admin store (Upstash): no records yet' }];
+        // Core warns when records outlive admin.retentionDays; this only reports the age.
         const age = Math.floor((Date.now() - oldest) / DAY_MS);
-        return age > retentionDays
-          ? [
-              {
-                status: 'warn',
-                title: `Admin store (Upstash): the oldest record is ${age} days old`,
-                fix: `Call sweep() from your handlers on a schedule; records are kept ${retentionDays} days.`,
-              },
-            ]
-          : [{ status: 'ok', title: `Admin store (Upstash): oldest record ${age} days old` }];
+        return [{ status: 'ok', title: `Admin store (Upstash): oldest record ${age} days old` }];
       } catch (error) {
         return [
           {
