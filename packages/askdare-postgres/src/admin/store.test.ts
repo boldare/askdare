@@ -79,7 +79,6 @@ describe('postgresAdminStore without a database', () => {
     await expect(
       store.sweep({ recordsBefore: NOW, daysBefore: '2026-13-01', limit: 10 }),
     ).rejects.toThrow('YYYY-MM-DD');
-    expect(() => postgresAdminStore({ retentionDays: 0 })).toThrow('retentionDays');
   });
 });
 
@@ -175,9 +174,9 @@ describe.skipIf(!TEST_DATABASE_URL)('postgresAdminStore against Postgres', () =>
     await store().sweep({ recordsBefore: 0, daysBefore: '2001-02-01', limit: 100 });
   });
 
-  it('warns in diagnose when the oldest record is older than the retention', async () => {
+  it('reports the oldest record’s age in diagnose, and leaves the retention warning to core', async () => {
     const conversationId = id();
-    const fresh = postgresAdminStore({ pool: schema.pool, retentionDays: 7 });
+    const fresh = postgresAdminStore({ pool: schema.pool });
     // Whatever earlier tests left behind.
     const cutoff = {
       recordsBefore: Date.now() - 20 * DAY_MS,
@@ -193,7 +192,10 @@ describe.skipIf(!TEST_DATABASE_URL)('postgresAdminStore against Postgres', () =>
     });
     await fresh.recordTurn(turn({ conversationId, at: Date.now() - 10 * DAY_MS }));
     const checks = await fresh.diagnose();
-    expect(checks[1]).toMatchObject({ status: 'warn', title: expect.stringContaining('10 days') });
+    expect(checks[1]).toEqual({
+      status: 'ok',
+      title: 'Postgres admin store: the oldest record is 10 days old.',
+    });
     await fresh.deleteConversation(conversationId);
   });
 

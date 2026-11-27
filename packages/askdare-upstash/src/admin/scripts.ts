@@ -1,7 +1,8 @@
 /**
  * The admin store's Lua scripts. Each write, delete, sweep and read is one `EVAL`, so it is atomic
  * and one round trip. Every script starts with ARGV[1] = key prefix, ARGV[2] = now (epoch ms) and
- * ARGV[3] = the records' time to live in ms.
+ * ARGV[3] = the records' time to live in ms: `admin.retentionDays` for a write, as core passes it,
+ * and 0 for the other scripts, which keep the one the conversation's latest write stored.
  *
  * Keys, under the prefix (`<p>`), with `<h>` the SHA-1 of a conversation ID, `<n>` a UTC day number
  * (days since 1970-01-01), `<src>` `chat` or `console` and `<bk>` the URI-encoded bot name. No key
@@ -17,7 +18,8 @@
  * - `<p>d:<n>`: the day's daily rows (hash of counters, no conversation or visitor).
  * - `<p>days`: the days that have daily rows, for `sweep`.
  *
- * Conversation keys expire `ttl` after the conversation's latest record, and indexes no earlier
+ * Conversation keys expire `ttl` after the conversation's latest record (the summary keeps it as
+ * `ttl`, for a sweep's refresh; 400 days for a conversation written without one), and indexes no earlier
  * than their entries; daily rows 400 days after their day. Reads skip, and remove, index entries
  * whose conversation expired. `sweep` is the precise retention; the TTLs are the backstop.
  *
@@ -28,6 +30,7 @@
 const PRELUDE = `
 local P, NOW, TTL = ARGV[1], tonumber(ARGV[2]), tonumber(ARGV[3])
 local DAY = 86400000
+local LONGEST = 400 * DAY
 local SEP = '\\31'
 local MAXLAST = 9999999999999
 
@@ -130,7 +133,9 @@ local function refresh(h)
       tx = tx + 1
     end
   end
-  local target = n > 0 and last + TTL or 0
+  local ttl = TTL
+  if ttl <= 0 then ttl = tonumber(redis.call('HGET', S, 'ttl')) or LONGEST end
+  local target = n > 0 and last + ttl or 0
   if n == 0 or target <= NOW then
     drop(h)
     return
@@ -143,7 +148,7 @@ local function refresh(h)
   local d = dayOf(first)
   redis.call('HSET', S, 'first', tostring(first), 'last', tostring(last), 'turns', turns,
     'i', u[1], 'ci', u[2], 'cw', u[3], 'o', u[4], 'r', u[5], 'up', up, 'down', down, 'tx', tx,
-    'm', m, 'd', d)
+    'm', m, 'd', d, 'ttl', tostring(ttl))
   local function put(o, score)
     for _, k in ipairs(convKeys(src, d, bk, o)) do
       redis.call('ZADD', k, score, m)

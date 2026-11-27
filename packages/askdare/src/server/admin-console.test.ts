@@ -127,7 +127,11 @@ function setup(
   const errors: string[] = [];
   const settled: Promise<unknown>[] = [];
   const onError = (error: { message: string }) => errors.push(error.message);
-  const writer = adminWriter(store, { transcripts: options.transcripts ?? false, onError });
+  const writer = adminWriter(store, {
+    transcripts: options.transcripts ?? false,
+    retentionDays: 30,
+    onError,
+  });
   const admin: AdminHandlerConfig | undefined =
     options.admin === false
       ? undefined

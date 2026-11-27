@@ -1,6 +1,6 @@
 # ADR-0013: Chat events in the browser, metadata only
 
-- **Status:** Accepted
+- **Status:** Accepted. Updated 2026-11-27: the loader also emits `greeting.shown` and `greeting.dismissed`, with no fields ([ADR-0033](0033-greeting-and-loader-budget.md)).
 - **Date:** 2026-11-11
 
 ## Context
