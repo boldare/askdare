@@ -281,6 +281,29 @@ describe('createBot', () => {
       expect(bot.widget.greeting).toBe('Hi from the shortcut');
     });
 
+    it('keeps the greeting next to the launcher off unless the bot turns it on', () => {
+      expect(define({}).widget.launcherGreeting).toBeUndefined();
+      expect(define({ launcherGreeting: false }).widget.launcherGreeting).toBeUndefined();
+      expect(define({ launcherGreeting: true }).widget.launcherGreeting).toEqual({
+        delaySeconds: 5,
+      });
+      expect(define({ launcherGreeting: {} }).widget.launcherGreeting).toEqual({ delaySeconds: 5 });
+      expect(define({ launcherGreeting: { delaySeconds: 1.5 } }).widget.launcherGreeting).toEqual({
+        delaySeconds: 1.5,
+      });
+      // The welcome screen's greeting is another text: setting one doesn't turn the other on.
+      expect(define({ greeting: 'Hi' }).widget.launcherGreeting).toBeUndefined();
+      expect(() => define({ launcherGreeting: { delaySeconds: -1 } })).toThrow(
+        /widget\.launcherGreeting/,
+      );
+      expect(() => define({ launcherGreeting: { delaySeconds: 601 } })).toThrow(
+        /widget\.launcherGreeting/,
+      );
+      expect(() => define({ launcherGreeting: { text: 'Hi' } as never })).toThrow(
+        /widget\.launcherGreeting/,
+      );
+    });
+
     it("resolves a fixed locale's shortcuts from its own set", () => {
       const bot = define({ locale: 'pl', texts: { pl: { 'header.title': 'Asystent' } } });
       expect(bot.widget.title).toBe('Asystent');

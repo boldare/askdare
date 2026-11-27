@@ -275,6 +275,13 @@ export interface WidgetConfig {
   readonly avatar?: string;
   /** Text on the pill launcher; shortcut for `texts['launcher.label']`. */
   readonly launcherLabel?: string;
+  /**
+   * A short greeting next to the closed launcher, shown once the visitor has been on the page for
+   * `delaySeconds` (default 5), until they dismiss it or open the chat in this browser session.
+   * Its text is `texts['launcher.greeting']`; the default says it is an AI assistant, and your own
+   * should too. A page turns it off with `data-greeting="off"` on the script tag. Default off.
+   */
+  readonly launcherGreeting?: boolean | { readonly delaySeconds?: number };
   /** Built-in look (`halo`, `aura`, `sage`, `care`) or a theme from `defineTheme`. Default `aura`. */
   readonly theme?: PresetName | ThemeDefinition;
   /** Default `auto`: follows the visitor's system setting. */
@@ -297,6 +304,8 @@ export interface BotWidget {
   readonly replies: 'suggest' | 'off';
   readonly avatar: string | undefined;
   readonly launcherLabel: string;
+  /** The greeting next to the launcher, or undefined when it is off. */
+  readonly launcherGreeting: { readonly delaySeconds: number } | undefined;
   /**
    * Text overrides for every language, including the title, greeting, placeholder and launcher
    * label shortcuts.
@@ -707,6 +716,12 @@ const definitionShape = z.object({
         .regex(AVATAR, 'must be a path like /avatar.png or a PNG, JPEG, WebP or GIF data URL')
         .optional(),
       launcherLabel: z.string().trim().min(1).max(40).optional(),
+      launcherGreeting: z
+        .union([
+          z.boolean(),
+          z.object({ delaySeconds: z.number().min(0).max(600).optional() }).strict(),
+        ])
+        .optional(),
       theme: z.union([z.enum(PRESET_NAMES), themeDefinitionSchema]).optional(),
       colorScheme: z.enum(['auto', 'light', 'dark']).optional(),
     })
@@ -881,6 +896,13 @@ export function createBot(definition: BotDefinition): Bot {
       replies: widget.replies ?? 'off',
       avatar: widget.avatar,
       launcherLabel: texts['launcher.label'] ?? '',
+      launcherGreeting:
+        widget.launcherGreeting === undefined || widget.launcherGreeting === false
+          ? undefined
+          : Object.freeze({
+              delaySeconds:
+                widget.launcherGreeting === true ? 5 : (widget.launcherGreeting.delaySeconds ?? 5),
+            }),
       texts: overrides,
       textsByLocale,
       disclosure:

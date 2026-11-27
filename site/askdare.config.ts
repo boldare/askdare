@@ -142,6 +142,9 @@ export const bots = [
       colorScheme: 'light',
       title: 'Brightloop assistant',
       launcherLabel: 'Ask Brightloop AI',
+      // A short greeting next to the closed launcher, until the visitor dismisses it or opens the
+      // chat in this session. Its default text says it is an AI assistant (ADR-0033).
+      launcherGreeting: { delaySeconds: 4 },
       // The demo says what it is inside the chat, not on the page.
       subtitle: DEMO_NOTE,
       // **Bold** words get the heavier weight of Aura's two-weight headline.

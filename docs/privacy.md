@@ -8,6 +8,7 @@ This page lists what data the chat handles, where it goes and how long it stays,
 | --- | --- | --- |
 | A handle to the current conversation (resume token) | The visitor's browser: `localStorage` of your app's origin, inside the chat's iframe or, for a [chat inside your page](react.md), in the page itself | Until the visitor starts a new conversation; it works for at most 30 days |
 | Which answers the visitor rated 👍 or 👎 | The same `localStorage`, when ratings are on | The latest hundred ratings; never sent anywhere |
+| That the visitor dismissed the [greeting next to the launcher](embedding.md#a-greeting-and-an-unread-badge) or opened the chat | `sessionStorage` of your site's origin, only for a bot with a greeting | Until the browser session ends |
 | A session token | The chat's memory (the iframe's, or the page's for a chat inside your page), never stored | 15 minutes |
 | Messages, answers, page context, tool calls and their results | OpenAI, as a conversation in your project; or your own [conversation store](#with-your-own-conversation-store) | Until deleted |
 | Model responses | OpenAI, unless you use your own conversation store | OpenAI's retention for stored responses |
@@ -26,7 +27,7 @@ This page lists what data the chat handles, where it goes and how long it stays,
 
 ## In the visitor's browser
 
-The script on your site (`widget.js`) adds the chat button and an iframe. It stores nothing on your site and sets no cookies. The chat itself runs inside the iframe, on your app's origin:
+The script on your site (`widget.js`) adds the chat button and an iframe. It sets no cookies, and stores nothing on your site except one flag for the greeting ([On your site](#on-your-site)). The chat itself runs inside the iframe, on your app's origin:
 
 - Its Content Security Policy lets it load scripts, styles, fonts and images only from your app, and talk only to your app. Images in answers are never loaded; the chat shows their alt text.
 - The iframe is loaded with `referrerpolicy="strict-origin"`, so your app learns which site embeds the chat, but not which page.
@@ -56,6 +57,19 @@ After the visitor's first message, the chat writes an entry to `localStorage` fo
 Everything else stays in memory and disappears with the page: the session token, which lasts 15 minutes, and a signed-in visitor's identity. The chat's language, set with `askdare('configure', { locale })` or `data-follow-lang`, isn't stored either: the page sets it again on every load ([Texts](texts.md)).
 
 The chat sets no cookies. Browsers may partition or block storage in iframes from other sites; then the conversation doesn't survive a reload, and the chat still works. There is no setting to turn the conversation entry off; ratings go with `onFeedback`.
+
+### On your site
+
+Only for a bot with a [greeting next to the launcher](embedding.md#a-greeting-and-an-unread-badge) (`widget.launcherGreeting`, off by default), the script writes one `sessionStorage` entry on your site's origin, when the visitor dismisses the greeting or opens the chat. Nothing is written when the greeting only shows.
+
+| | |
+| --- | --- |
+| Key | `askdare:<bot id>:greeted` |
+| Value | `1` |
+| Purpose | Not to show the greeting again to a visitor who dismissed it or opened the chat |
+| Lifetime | Until the browser session ends |
+
+`data-greeting="off"` on the script tag turns the greeting off, and with it the entry, on any page; a site that asks for consent first can keep it until it has it.
 
 **A chat inside your page** has no iframe of its own: its entries sit in your page's `localStorage` beside your own, and scripts on the page can read them, the session token and the conversation. The widget's iframe keeps those from the page. See [the React guide](react.md) for when to keep the widget.
 
@@ -248,6 +262,7 @@ There is no previous-secret setting for `IDENTITY_SECRET`. When you change it:
 - [ ] If you turn on `moderation`, say that messages or answers are also checked by OpenAI's moderation.
 - [ ] Say that conversations, including what visitors type and attach, are stored by OpenAI until deleted, and how visitors delete them.
 - [ ] Describe the `localStorage` entries and their purpose: the conversation, and the ratings if you use `onFeedback`.
+- [ ] With `widget.launcherGreeting`, describe the `sessionStorage` entry on your site that keeps the greeting away once dismissed.
 - [ ] If you collect ratings, say that visitors' comments reach you and how long you keep them.
 - [ ] If you use `onTranscript`, say that you keep copies of conversations, where, for how long, and how visitors ask for theirs to be deleted.
 - [ ] Mention IP addresses in rate limits and their retention.

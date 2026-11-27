@@ -142,6 +142,68 @@
 [part="panel"][hidden] {
   display: none;
 }
+/* The unread count on the closed launcher; a site restyles it with ::part(launcher)::after. */
+[data-unread]::after {
+  content: attr(data-unread);
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border-radius: 10px;
+  background: #c8102e;
+  color: #fff;
+  font:
+    700 12px / 20px system-ui,
+    sans-serif;
+  box-shadow: 0 0 0 2px var(--bg);
+}
+/* The greeting next to the closed launcher: its text opens the chat, × dismisses it. */
+[part="greeting"] {
+  position: fixed;
+  right: 24px;
+  bottom: 96px;
+  z-index: 2147483000;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  max-width: min(300px, calc(100vw - 48px));
+  padding: 8px;
+  border-radius: 16px;
+  background: var(--bg);
+  color: var(--fg);
+  font:
+    15px / 1.4 system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  box-shadow:
+    0 12px 32px -10px rgb(15 23 42 / 0.45),
+    0 0 0 1px rgb(15 23 42 / 0.06);
+  transform-origin: bottom right;
+  animation: in 0.34s cubic-bezier(0.3, 1.3, 0.5, 1);
+}
+[part="greeting"] button {
+  all: unset;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+[part="greeting"] button:focus-visible {
+  outline: 3px solid var(--a);
+}
+/* The × button: 24 × 24 px at least (WCAG 2.5.8). */
+[part="greeting"] [aria-label] {
+  display: grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0;
+  font-size: 20px;
+}
 [part="unavailable"] {
   position: absolute;
   inset: 0;
@@ -228,7 +290,8 @@ iframe {
   [part="panel"],
   [part="panel"][data-closing],
   svg,
-  [data-turned] svg {
+  [data-turned] svg,
+  [part="greeting"] {
     transition: none;
     animation: none;
   }

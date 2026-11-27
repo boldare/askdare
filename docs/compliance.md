@@ -36,6 +36,7 @@ defineBot({
 
 - You can change the wording with `widget.texts` (`disclosure.text`, `disclosure.privacy`). See [Styling](styling.md#1-configuration) and [Texts](texts.md).
 - `disclosure: false` hides it. Do that only when your page already tells visitors they are talking to an AI.
+- **The greeting next to the launcher** (`widget.launcherGreeting`, off by default) is often the first thing visitors read from the assistant. Its default text says it is an AI assistant; if you write your own with `texts['launcher.greeting']`, say so too ([Embedding](embedding.md#a-greeting-and-an-unread-badge)).
 - **If you build your own markup** with the primitives of `@boldare/askdare/react` ([React](react.md#your-own-markup)), or show your own page in the widget's iframe ([Embedding](embedding.md#your-own-page-in-the-iframe)), place it with the `Disclosure` primitive, which follows the same `widget.disclosure` setting and texts. In development, `Root` and `EmbedRoot` note once in the console when the chat rendered without a `Disclosure`, and `askdare doctor` lists each bot with `disclosure: false` as information, not a failure. Neither forces the notice on you: `disclosure: false` silences both.
 
 **Marking of generated content.** Article 50(2) asks providers of systems that generate synthetic text, images, audio or video to mark the outputs in a machine-readable format. askdare doesn't add such marks to answers. Systems on the market before 2 August 2026 have until 2 December 2026 (Article 111(4), added by the Digital Omnibus). Whether Article 50(2) covers a chat's answers, and who carries it, is a question for your legal advisers; the codes of practice under Article 50(7) are where the practice is being worked out.
@@ -76,7 +77,7 @@ Visitors must be told who processes their data, for what, and for how long (Arti
 
 ### Storage in the visitor's browser
 
-The chat writes one `localStorage` entry after the visitor's first message, and a second one when they rate an answer. It sets no cookies. Whether these need consent under Article 5(3) of the ePrivacy Directive, which exempts storage strictly necessary for a service the user asked for, is your call: [Consent banners](privacy.md#consent-banners) lists the facts that matter.
+The chat writes one `localStorage` entry after the visitor's first message, and a second one when they rate an answer. With a greeting next to the launcher, the script on your site writes one `sessionStorage` flag when the visitor dismisses it or opens the chat. It sets no cookies. Whether these need consent under Article 5(3) of the ePrivacy Directive, which exempts storage strictly necessary for a service the user asked for, is your call: [Consent banners](privacy.md#consent-banners) lists the facts that matter.
 
 ## 3. Data residency
 

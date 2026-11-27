@@ -270,6 +270,16 @@ function boot(): void {
     const isOpen = (): boolean => !panel.hidden && closing === undefined;
     /** The button's name while the chat is closed. */
     let closedName = '';
+    /** Answers that arrived while the chat was closed (ADR-0033); opening the chat clears them. */
+    let unread = 0;
+    /** The count is drawn by CSS and is visual only: the name just says there are new messages. */
+    const closedLabel = (): string => (unread ? `${closedName}, ${texts.unread}` : closedName);
+    const count = (n: number): void => {
+      unread = n;
+      if (n) launcher.dataset['unread'] = n > 9 ? '9+' : `${n}`;
+      else delete launcher.dataset['unread'];
+      if (!isOpen()) launcher.setAttribute('aria-label', closedLabel());
+    };
     /** Puts the launcher's texts in the chat's language: on load, and on every switch. */
     const applyTexts = (): void => {
       texts = textsFor();
@@ -278,7 +288,7 @@ function boot(): void {
         look.style === 'pill' || look.style === 'orb'
           ? `${texts.label}, ${texts.open}`
           : texts.open;
-      launcher.setAttribute('aria-label', isOpen() ? texts.close : closedName);
+      launcher.setAttribute('aria-label', isOpen() ? texts.close : closedLabel());
       label.textContent = texts.label;
       panel.setAttribute('aria-label', texts.title);
       if (notice) notice.textContent = texts.unavailable;
@@ -335,6 +345,7 @@ function boot(): void {
         if (event.data.type === 'event') {
           const passed = hostEvent(event.data.event, botId);
           if (passed) events.emit(passed);
+          if (passed?.['outcome'] === 'completed' && !isOpen()) count(unread + 1);
         }
         // The chat has its own close button now, so phones can hide the launcher behind it.
         if (event.data.type === 'ready') {
@@ -367,7 +378,61 @@ function boot(): void {
       }
     });
 
+    // The greeting next to the closed launcher (ADR-0033): only with our own launcher, for a bot
+    // with one (its delay is in the look), unless the page turned it off (data-greeting="off").
+    // Nothing is stored until the visitor acts: dismissing it or opening the chat keeps it away
+    // for the session.
+    const greetKey = `askdare:${botId}:greeted`;
+    const greets = withLauncher && look.greet !== undefined && script.dataset['greeting'] !== 'off';
+    let greeting: HTMLElement | undefined;
+    const ungreet = (): void => {
+      if (greets) {
+        try {
+          sessionStorage.setItem(greetKey, '1');
+        } catch {}
+      }
+      greeting?.remove();
+      greeting = undefined;
+    };
+    const greet = (): void => {
+      greeting = document.createElement('div');
+      greeting.setAttribute('part', 'greeting');
+      // Text only, never parsed as HTML. Clicking it opens the chat, which removes it.
+      const say = document.createElement('button');
+      say.type = 'button';
+      say.textContent = texts.greeting as string;
+      say.onclick = () => open();
+      const dismiss = document.createElement('button');
+      dismiss.type = 'button';
+      dismiss.setAttribute('aria-label', texts.dismiss as string);
+      dismiss.textContent = '×';
+      dismiss.onclick = () => {
+        ungreet();
+        launcher.focus();
+        events.emit({ type: 'greeting.dismissed', bot: botId });
+      };
+      // A block, not `&&`: a handler that returns false cancels the key, Tab and Enter included.
+      greeting.onkeydown = (event) => {
+        if (event.key === 'Escape') dismiss.click();
+      };
+      greeting.append(say, dismiss);
+      // Never takes focus and isn't a live region: it waits in the tab order, just before the launcher.
+      shadow.insertBefore(greeting, launcher);
+      events.emit({ type: 'greeting.shown', bot: botId });
+    };
+    if (greets) {
+      // Storage blocked: no greeting, rather than one on every page.
+      let greeted = true;
+      try {
+        greeted = sessionStorage.getItem(greetKey) !== null;
+      } catch {}
+      // Not once the chat has been opened on this page.
+      if (!greeted) setTimeout(() => iframe || greet(), look.greet);
+    }
+
     const open = (focus = true): void => {
+      ungreet();
+      if (unread) count(0);
       const opening = !inline && !isOpen();
       // Opening again while the panel closes takes it back without hiding it.
       if (opening) turnIcon(true);
@@ -414,7 +479,7 @@ function boot(): void {
       }
       turnIcon(false);
       launcher.setAttribute('aria-expanded', 'false');
-      launcher.setAttribute('aria-label', closedName);
+      launcher.setAttribute('aria-label', closedLabel());
       // Back to whatever opened the chat: the page's own button, else the launcher. Firefox leaves
       // keyboard focus in the hidden iframe unless the page's window takes it first.
       const target = returnFocus?.isConnected ? returnFocus : withLauncher ? launcher : undefined;

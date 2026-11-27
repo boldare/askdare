@@ -22,7 +22,7 @@ The loader passes the `lang` of the page's `<html>` to the chat. A bot with `loc
 
 ## Script tag attributes
 
-The loader reads these five attributes from its own `<script>` tag, and no others:
+The loader reads these six attributes from its own `<script>` tag, and no others:
 
 | Attribute | Value | Effect |
 | --- | --- | --- |
@@ -31,6 +31,7 @@ The loader reads these five attributes from its own `<script>` tag, and no other
 | `data-target` | A CSS selector, such as `#chat` | The element for an inline chat. Read only with `data-mode="inline"`. |
 | `data-launcher` | `none` | No chat button. Open the chat from your own button with `askdare('open')`. Ignored for an inline chat. |
 | `data-follow-lang` | No value | The chat follows the page's `<html lang>` when it changes, for a site that switches language without a page load. Only for a bot with `locale: 'auto'`; see [Texts](texts.md#switching-the-language-on-the-page). |
+| `data-greeting` | `off` | No [greeting next to the launcher](#a-greeting-and-an-unread-badge) on this page, for a bot that has one. |
 
 An inline chat waits until the page has parsed its target element, so the script can sit in `<head>`. When no element matches the selector, the console says `[askdare] No element matches #chat.` and the chat floats instead. Without `data-target`, it floats too.
 
@@ -46,6 +47,37 @@ Both name the bot, and `data-bot` wins when both are set. They differ in one way
 Use `?bot=`. If you also set `data-bot`, give it the same ID; with a different one, the button falls back to the default look.
 
 Without either, nothing loads, and the console says `[askdare] Load the widget as widget.js?bot=<bot id>.`
+
+## A greeting and an unread badge
+
+**The greeting** is a short text next to the closed launcher, such as "Hi! I’m an AI assistant. Can I help you?". It is off by default; a bot turns it on with `widget.launcherGreeting`:
+
+```ts
+defineBot({
+  // …
+  widget: {
+    launcherGreeting: { delaySeconds: 8 }, // or true, for 5 seconds
+    texts: { 'launcher.greeting': 'Hi! I’m the Brightloop AI assistant. Questions about plans?' },
+  },
+});
+```
+
+- **When it shows:** once the visitor has been on the page for the delay, only with askdare's own launcher (not inline, not with `data-launcher="none"`), and only if the chat hasn't been opened on the page.
+- **Once per session:** when the visitor dismisses it or opens the chat, the loader writes `askdare:<bot id>:greeted` to `sessionStorage` on your site's origin, and the greeting stays away until the browser session ends. Nothing is written when it only shows, so a visitor who ignores it sees it again on the next page. If the browser blocks storage, it doesn't show at all. See [Privacy](privacy.md#on-your-site).
+- **Visitors:** clicking the text opens the chat. × and Escape dismiss it and put focus on the launcher. It never takes focus and isn't announced: keyboard users reach it just before the launcher. It doesn't animate for visitors who ask for reduced motion.
+- **Your page:** `data-greeting="off"` on the script tag turns it off, for example on a checkout page, or until a visitor has given consent. `askdare('on', 'greeting.shown', …)` and `'greeting.dismissed'` tell your analytics about it ([Chat events](events.md)).
+- **Say it is an AI.** The default text does in every built-in language, as the [AI notice](compliance.md#1-telling-visitors-they-talk-to-an-ai) does in the chat. Write yours so it does too.
+
+**The unread badge** shows on the launcher when an answer arrives while the chat is closed, for example after the visitor closed it mid-answer: a count, `9+` above nine. Opening the chat clears it. The launcher's name then ends in "new messages" (`launcher.unread`), for screen readers. It needs no setting. With your own button (`data-launcher="none"`), count `message.received` events with `outcome: 'completed'` yourself.
+
+Both are parts of the loader's shadow root ([Styling](styling.md#2-your-own-css)):
+
+```css
+[data-askdare]::part(greeting) { bottom: 104px; max-width: 260px; }
+[data-askdare]::part(launcher)::after { background: #0b6e4f; } /* the badge */
+```
+
+The greeting sits above the launcher, in the same corner, so it can cover a control of your page there until it is dismissed. Leave room at the bottom of your page, or move both with `::part`.
 
 ## Several bots in one app
 

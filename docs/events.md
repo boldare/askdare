@@ -62,6 +62,8 @@ Every event has `type` and `bot`, the bot's ID. The other fields depend on the t
 | `ready` | | Once per chat, when it can take messages: the visitor is known and the stored conversation, if any, has loaded. Not if loading it fails. |
 | `open` | | The panel opened. Script tag only, and not for an inline chat, which is always open. |
 | `close` | | The panel closed. Script tag only. |
+| `greeting.shown` | | The [greeting next to the launcher](embedding.md#a-greeting-and-an-unread-badge) appeared. Script tag only. |
+| `greeting.dismissed` | | The visitor dismissed the greeting with × or Escape. Clicking the greeting opens the chat and fires `open` instead. Script tag only. |
 | `message.sent` | `length`, `attachments`, `source` | The visitor sent a message. |
 | `message.received` | `outcome`, `durationMs`, `citations` | An answer ended. |
 | `feedback` | `rating`, `commented` | The server accepted a rating. |
