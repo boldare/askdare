@@ -65,6 +65,43 @@ const suggests = (body, text) =>
 const callsClock = (body, text) =>
   text.includes('[card]') && Boolean(body.tools?.some((tool) => tool.name === 'get_current_time'));
 
+/** Whether the step lets the model call a function: offered in `tools` and allowed by `tool_choice`. */
+const offers = (body, name) =>
+  Boolean(body.tools?.some((tool) => tool.name === name)) &&
+  (body.tool_choice === 'auto' ||
+    Boolean(body.tool_choice?.tools?.some((tool) => tool.name === name)));
+
+/**
+ * A handoff to a person (ADR-0030) for a message with "[handoff]": the model calls the reserved
+ * `handoff` tool first, and answers once the server has told it the handoff's state.
+ */
+const handoffCall = (body, text, id) => {
+  if (!text.includes('[handoff]') || !offers(body, 'handoff')) return undefined;
+  const tool = body.tools.find((candidate) => candidate.name === 'handoff');
+  const summary = 'summary' in (tool.parameters?.properties ?? {}) ? { summary: null } : {};
+  return {
+    id: `fc_${id}`,
+    type: 'function_call',
+    call_id: `call_${id}`,
+    name: 'handoff',
+    arguments: JSON.stringify({ reason: 'visitor_asked', ...summary }),
+    status: 'completed',
+  };
+};
+
+/** A lead form (ADR-0031) under the answer to a message with "[form]", as `suggest_replies` is. */
+const formCall = (body, text, id) =>
+  text.includes('[form]') && offers(body, 'show_form')
+    ? {
+        id: `fc_${id}`,
+        type: 'function_call',
+        call_id: `call_${id}`,
+        name: 'show_form',
+        arguments: JSON.stringify({ form: 'contact' }),
+        status: 'completed',
+      }
+    : undefined;
+
 /**
  * Earlier turns for a conversation whose first message has "[long]": enough stored items for
  * POST /history to answer in pages (about 100 items each), oldest first.
@@ -313,6 +350,11 @@ createServer(async (request, response) => {
       items.push(clock);
       return streamResponse(response, '', undefined, clock);
     }
+    const handoff = handoffCall(body, userText, items.length);
+    if (handoff) {
+      items.push(handoff);
+      return streamResponse(response, '', undefined, handoff);
+    }
     const call = suggests(body, userText)
       ? {
           id: `fc_${items.length}`,
@@ -322,7 +364,7 @@ createServer(async (request, response) => {
           arguments: JSON.stringify({ items: OPTIONS }),
           status: 'completed',
         }
-      : undefined;
+      : formCall(body, userText, items.length);
     if (call && userText.includes('[options-first]')) {
       items.push(call);
       return streamResponse(response, '', undefined, call);
@@ -343,13 +385,25 @@ createServer(async (request, response) => {
     );
   }
   const itemsPath = /^\/v1\/conversations\/([^/]+)\/items$/.exec(pathname);
-  // Items added outside a model call: the answer to a `suggest_replies` call that followed the answer.
+  // Items added outside a model call: the answer to a `suggest_replies` or `show_form` call that
+  // followed the answer, and the notes a handoff or a sent form leaves (ADR-0030, ADR-0031).
   if (request.method === 'POST' && itemsPath) {
     const items = conversations.get(itemsPath[1]);
     if (!items) return notFound(response, itemsPath[1]);
+    // Stored as the live API lists them: an input message gets its `type` and content parts.
     const added = (await readJson(request)).items.map((item, index) => ({
       id: `item_${items.length + index}`,
       ...item,
+      ...((item.type ?? 'message') === 'message'
+        ? {
+            type: 'message',
+            status: 'completed',
+            content:
+              typeof item.content === 'string'
+                ? [{ type: 'input_text', text: item.content }]
+                : item.content,
+          }
+        : {}),
     }));
     items.push(...added);
     return json(response, 200, { object: 'list', data: added, has_more: false });
