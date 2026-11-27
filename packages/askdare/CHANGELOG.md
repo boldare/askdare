@@ -1,5 +1,14 @@
 # @boldare/askdare
 
+## 0.6.1
+
+### Patch Changes
+
+- e2a87b5: `askdare doctor` now keeps its 10-second limit for the OpenAI conversation store check: a request that hangs ends with "The OpenAI API did not answer in time", instead of waiting for the OpenAI client's own 20-second timeout.
+- 31e982f: `POST /history` gives a rating handle only to the answers the stream rated: each turn's final answer, and not one that `onOutput` replaced. A replaced answer could be rated after a reload, though not while it streamed.
+- 1a451cb: `POST /resume` hands out a resume token for the session that resumes, in place of the one the answer logged. A visitor who signed in while an answer streamed, and whose stream then dropped, no longer gets the anonymous token back, which would have kept the conversation readable on that browser after sign-out.
+- 8913670: A visitor who signs in or out while an answer streams keeps the conversation the sign-in or sign-out gave them: the chat no longer stores the resume token the answer's stream ends with, which was issued for the previous identity, in the new one's place. Together with the 0.6.x fix to `POST /resume`, an anonymous resume token no longer outlives the sign-in on that browser.
+
 ## 0.6.0
 
 ### Minor Changes
