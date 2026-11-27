@@ -156,3 +156,11 @@ test('a form names its errors and a handoff its outcome', async ({ page }) => {
     page.getByRole('status').filter({ hasText: 'A person from our team' }),
   ).toBeVisible();
 });
+
+// The owners' console (ADR-0032) before sign-in; signing in is e2e/admin.spec.ts's, which the
+// sign-in limit of 5 a minute keeps to a few tries.
+test('the admin console sign-in has no axe violations', async ({ page }) => {
+  await page.goto('http://localhost:3100/api/chat/admin');
+  await expect(page.getByLabel('ADMIN_SECRET')).toBeVisible();
+  expect(await violations(page)).toEqual([]);
+});
