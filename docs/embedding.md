@@ -360,31 +360,6 @@ ASKDARE_ALLOWED_ORIGINS=http://127.0.0.1:4000
 - `defineBot` checks every entry, so an invalid one stops the build or the app's start.
 - Set it in your host's settings for every environment, then deploy. Check each site with `doctor --origin`.
 
-## A greeting and an unread badge
-
-The launcher can show a short greeting next to itself after a delay, and a badge when an answer arrives while the chat is closed. Both are drawn by `widget.js` on your page, so they work on every site that embeds the bot ([ADR-0033](adr/0033-greeting-and-loader-budget.md)).
-
-**The greeting** is off by default. Turn it on per bot:
-
-```ts
-defineBot({
-  // …
-  widget: {
-    launcherGreeting: { delaySeconds: 8 }, // or `true` for the default delay of 5 seconds
-    texts: { 'launcher.greeting': 'Hi! I’m an AI assistant. Questions about delivery?' },
-  },
-});
-```
-
-- **When it shows:** after the delay, only with askdare's own button (not inline, not with `data-launcher="none"`), and only until the visitor dismisses it or opens the chat in this browser session.
-- **Its text** is `launcher.greeting`. The default says it is an AI assistant, as the [AI notice](compliance.md#1-telling-visitors-they-talk-to-an-ai) does; a greeting of your own should say so too. `launcher.dismiss` names its × button.
-- **Turning it off on one page:** `data-greeting="off"` on the script tag. A site that asks for consent first can keep the attribute until the visitor gave it.
-- **What it stores:** one `sessionStorage` entry on your page's origin, `askdare:<bot id>:greeted`, written only when the visitor dismisses the greeting or opens the chat, so it doesn't show again in that session. Nothing is written before the visitor acts on the widget. Where storage is blocked, the greeting doesn't show. A visitor who ignores it sees it again on the next page, after the delay.
-- **Accessibility:** it never takes focus and isn't announced. The keyboard reaches it just before the button; × or Escape dismisses it and moves focus to the button, and clicking its text opens the chat. Its entrance animation follows `prefers-reduced-motion`. It can cover a control in the bottom corner of your page until it is dismissed, so check your page with it open.
-- **Events:** `greeting.shown` and `greeting.dismissed`, without fields, through `askdare('on', …)` ([Chat events](events.md)). Clicking the greeting is the usual `open`.
-
-**The badge** needs no setting. While the chat is closed, each finished answer adds one to a count on the button (`9+` above nine), and opening the chat clears it. The button's accessible name gains "new messages" (`launcher.unread`). Restyle it with `::part(launcher)::after`. With your own button (`data-launcher="none"`), count the same answers with `askdare('on', 'message.received', …)`.
-
 ## Page JavaScript
 
 The page can open and close the chat, sign the visitor in, and set a greeting, suggestions, page context and the language per page: `askdare('open')`, `askdare('close')`, `askdare('toggle')`, `askdare('identify', token)` and `askdare('configure', { … })`. See [Styling](styling.md#3-page-javascript) and [Signed-in visitors](identity.md). To hear what happens in the chat, for analytics, use `askdare('on', type, listener)`: see [Chat events](events.md).
