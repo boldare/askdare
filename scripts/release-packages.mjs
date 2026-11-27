@@ -19,6 +19,7 @@ const PACKAGES = [
   'packages/askdare-upstash',
   'packages/askdare-otel',
   'packages/askdare-postgres',
+  'packages/askdare-admin',
 ];
 
 const run = (command, args, cwd) =>
