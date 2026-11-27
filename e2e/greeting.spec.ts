@@ -160,6 +160,10 @@ test('the badge counts answers that arrive while the chat is closed', async ({ p
 // WCAG 2.4.11: tabbing through the site's demo with the greeting open, nothing that has focus is
 // hidden behind it (or the launcher).
 test('the greeting hides nothing that has focus on the site demo', async ({ page }) => {
+  // The hero's three.js scene draws on every animation frame, and the fake clock runs all of
+  // them in one go: on CI's software WebGL that blocks the page for longer than the test lasts.
+  // With reduced motion the hero is a still picture, and the page's focus order doesn't change.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.clock.install();
   await page.goto('http://localhost:3100/');
   await expect(page.locator('[part="launcher"]')).toBeVisible();
