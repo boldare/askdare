@@ -16,7 +16,7 @@ For maintainers: everything to check before and after a release, in order. Copy 
 ## 2. Documentation
 
 - [ ] `README.md`: the install command fits the release (`@rc` during release candidates, plain once it is `latest`), and the features, documentation list and packages table cover what is new.
-- [ ] Each package's `README.md` (`packages/askdare`, `packages/askdare-upstash`, `packages/askdare-otel`, `packages/askdare-postgres`).
+- [ ] Each package's `README.md` (`packages/askdare`, `packages/askdare-upstash`, `packages/askdare-otel`, `packages/askdare-postgres`, `packages/askdare-admin`).
 - [ ] `docs/`: every new feature has a guide or a section, `configuration.md` lists every new option, `cli.md` every command, `styling.md` every new part, `texts.md` every new text key, and `privacy.md` everything new the chat stores or sends.
 - [ ] Nothing describes features of a later version as available, and nothing says "to come".
 - [ ] `llms.txt` and `skills/askdare/SKILL.md` know the new features.
@@ -28,7 +28,7 @@ For maintainers: everything to check before and after a release, in order. Copy 
 - [ ] The home page (`site/app/page.tsx`) shows what is new, and the docs navigation (`site/app/docs/_lib/content.ts`) lists every new guide.
 - [ ] Locally, every page renders without console errors, including `/docs` and its search.
 - [ ] After the merge into `main`, the deployment (`.github/workflows/deploy-site.yml`) succeeds, and the chat answers on https://askdare.vercel.app.
-- [ ] Vercel's environment has what new features need (keep only `OPENAI_API_KEY` and `CHAT_SECRET` as Secret).
+- [ ] Vercel's environment has what new features need. Store as Secret only `OPENAI_API_KEY`, `CHAT_SECRET`, `ADMIN_SECRET` (it signs into the admin console at `/api/chat/admin`) and, when the demo posts handoffs to a test webhook, `HANDOFF_WEBHOOK_SECRET`; `HANDOFF_WEBHOOK_URL` and the rest stay plain. See `site/README.md` for every variable.
 
 ## 4. GitHub
 
