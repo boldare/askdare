@@ -3,7 +3,7 @@
  *
  * Run with a key from a dedicated OpenAI project that has a hard spend limit:
  *   OPENAI_API_KEY=… SMOKE_MODEL=<cheap current model> pnpm smoke
- * Add SMOKE_VECTOR_STORE_ID (a store synced from site/knowledge) for the file search turn,
+ * Add SMOKE_VECTOR_STORE_ID (a store synced from site/knowledge) for the file search turns,
  * and SMOKE_AUDIO_FILE (a short recording of speech) with SMOKE_TRANSCRIBE_MODEL for dictation.
  */
 import { readFile, writeFile } from 'node:fs/promises';
@@ -16,10 +16,15 @@ import { createBot } from '../bot/define-bot';
 import { itemHistory } from '../conversations/history';
 import { memoryConversations } from '../conversations/memory';
 import { type HistoryReader, historyReader } from '../conversations/provider-history';
+import { defineForm } from '../forms/define-form';
+import type { TurnHandoff } from '../gateway';
+import { HANDOFF_REASONS } from '../handoff/report';
 import type { ProtocolEvent } from '../protocol/events';
 import { streamTurn } from '../server/stream-turn';
 import type { ChatUsageReport } from '../server/usage-report';
 import { defineTool } from '../tools/define-tool';
+import { HANDOFF } from '../tools/handoff';
+import { SHOW_FORM } from '../tools/show-form';
 import { readSuggestedReplies } from '../tools/suggest-replies';
 import { openaiConversations } from './conversations';
 import { createOpenAIGateway } from './gateway';
@@ -82,6 +87,77 @@ function textPdf(text: string): Uint8Array {
   pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
   return new TextEncoder().encode(pdf);
 }
+
+/** A fetch that keeps the body of every Responses request, to check what each step offered. */
+function recordingFetch(): {
+  readonly fetch: typeof fetch;
+  readonly bodies: Record<string, unknown>[];
+} {
+  const bodies: Record<string, unknown>[] = [];
+  return {
+    bodies,
+    fetch: (input, init) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/responses') && typeof init?.body === 'string') {
+        bodies.push(JSON.parse(init.body) as Record<string, unknown>);
+      }
+      return fetch(input, init);
+    },
+  };
+}
+
+/** The function names a request's `tool_choice` lets the model call. */
+function allowedFunctions(body: Record<string, unknown> | undefined): string[] | 'all' | 'none' {
+  const choice = body?.['tool_choice'];
+  if (choice === 'auto' || choice === undefined) return 'all';
+  if (choice === 'none') return 'none';
+  return ((choice as { tools?: { type: string; name?: string }[] }).tools ?? []).flatMap((tool) =>
+    tool.type === 'function' && tool.name ? [tool.name] : [],
+  );
+}
+
+/** A handoff hook that records the model's calls and answers with `sent`. */
+function sentHandoff(): TurnHandoff & { readonly calls: string[] } {
+  const calls: string[] = [];
+  return {
+    offered: true,
+    calls,
+    run: async (call) => {
+      calls.push(call.arguments);
+      return { state: 'sent' };
+    },
+  };
+}
+
+const offerForm = defineForm({
+  name: 'offer',
+  description: 'Contact details for a sales offer: use it when the visitor asks for an offer.',
+  title: 'Get an offer',
+  fields: [
+    { name: 'email', type: 'email', label: 'Email', required: true },
+    {
+      name: 'seats',
+      type: 'select',
+      label: 'Seats',
+      options: [
+        { value: 'small', label: '1 to 10' },
+        { value: 'large', label: 'More than 10' },
+      ],
+    },
+  ],
+});
+const contactForm = defineForm({
+  name: 'contact',
+  model: false,
+  title: 'Contact',
+  fields: [{ name: 'email', type: 'email', label: 'Email', required: true }],
+});
+const ping = defineTool({
+  name: 'ping',
+  description: 'Never needed.',
+  input: z.object({}),
+  execute: () => 'pong',
+});
 
 describe.skipIf(!apiKey || !model)('OpenAI gateway (live)', () => {
   it('runs a text turn in a new conversation and cleans up', async () => {
@@ -165,6 +241,185 @@ describe.skipIf(!apiKey || !model)('OpenAI gateway (live)', () => {
       await conversations.delete(conversationId);
     }
   }, 120_000);
+
+  it('handoff: the strict schema is accepted, and the next step leaves the tool out', async () => {
+    // ADR-0030: the reason enum and the nullable summary in strict mode; once the turn handed off,
+    // `allowed_tools` keeps the tool list (and the prompt cache) but no longer allows `handoff`.
+    const recording = recordingFetch();
+    const gateway = createOpenAIGateway({
+      apiKey: apiKey ?? '',
+      maxRetries: 1,
+      fetch: recording.fetch,
+    });
+    const bot = createBot({
+      id: 'smoke',
+      model: model ?? '',
+      instructions:
+        'You are the support assistant of a web shop. When the visitor asks for a person, call the handoff tool, then tell them in one sentence what happens next.',
+      limits: { maxOutputTokens: 512 },
+      tools: [ping],
+      handoff: { content: 'summary' },
+    });
+    const hook = sentHandoff();
+    const conversationId = await conversations.create({ botId: bot.id, owner: 'visitor:smoke' });
+    try {
+      const events: ProtocolEvent[] = [];
+      const result = await gateway.runTurn({
+        bot,
+        conversationId,
+        conversations,
+        text: 'My kettle arrived broken. I want to talk to a human, please.',
+        context: { locale: 'en' },
+        safetyIdentifier: 'askdare-smoke',
+        visitorId: `v_${'0f'.repeat(16)}`,
+        messageId: 'msg_smoke',
+        signal: AbortSignal.timeout(60_000),
+        emit: (event) => events.push(event),
+        handoff: hook,
+      });
+      const tools = (recording.bodies[0]?.['tools'] ?? []) as { name?: string; strict?: boolean }[];
+      expect(tools.find((tool) => tool.name === HANDOFF)?.strict).toBe(true);
+      expect(hook.calls).toHaveLength(1);
+      const call = JSON.parse(hook.calls[0] ?? '{}') as { reason?: unknown; summary?: unknown };
+      expect(HANDOFF_REASONS).toContain(call.reason);
+      expect(call.summary === null || typeof call.summary === 'string').toBe(true);
+      expect(events.filter((event) => event.type === 'handoff')).toEqual([
+        { type: 'handoff', messageId: 'msg_smoke', state: 'requested' },
+        { type: 'handoff', messageId: 'msg_smoke', state: 'sent' },
+      ]);
+      // The step after the handoff: the bot's own tool stays allowed, `handoff` doesn't.
+      expect(recording.bodies.length).toBeGreaterThan(1);
+      expect(allowedFunctions(recording.bodies[1])).toEqual(['ping']);
+      expect(result.reason).toBe('completed');
+      const text = events
+        .flatMap((event) => (event.type === 'text.delta' ? [event.delta] : []))
+        .join('');
+      expect(text).not.toBe('');
+    } finally {
+      await conversations.delete(conversationId);
+    }
+  }, 120_000);
+
+  it('show_form: the strict enum of form names is accepted, and the form is shown once', async () => {
+    // ADR-0031: only forms the model may show are in the enum; `contact` (model: false) isn't.
+    const recording = recordingFetch();
+    const gateway = createOpenAIGateway({
+      apiKey: apiKey ?? '',
+      maxRetries: 1,
+      fetch: recording.fetch,
+    });
+    const bot = createBot({
+      id: 'smoke',
+      model: model ?? '',
+      instructions:
+        'You are the sales assistant of a software company. When the visitor asks for an offer, show the offer form and say in one sentence that the team will reply.',
+      limits: { maxOutputTokens: 512 },
+      tools: [ping],
+      forms: [offerForm, contactForm],
+    });
+    const shown: string[] = [];
+    const conversationId = await conversations.create({ botId: bot.id, owner: 'visitor:smoke' });
+    try {
+      const events: ProtocolEvent[] = [];
+      const result = await gateway.runTurn({
+        bot,
+        conversationId,
+        conversations,
+        text: 'Could you send me an offer for 20 seats?',
+        context: { locale: 'en' },
+        safetyIdentifier: 'askdare-smoke',
+        visitorId: `v_${'0f'.repeat(16)}`,
+        messageId: 'msg_smoke',
+        signal: AbortSignal.timeout(60_000),
+        emit: (event) => events.push(event),
+        showForm: async (name) => {
+          shown.push(name);
+          return { handle: 'smoke-handle' };
+        },
+      });
+      const tool = (
+        (recording.bodies[0]?.['tools'] ?? []) as {
+          name?: string;
+          strict?: boolean;
+          parameters?: { properties?: { form?: { enum?: string[] } } };
+        }[]
+      ).find((candidate) => candidate.name === SHOW_FORM);
+      expect(tool?.strict).toBe(true);
+      expect(tool?.parameters?.properties?.form?.enum).toEqual(['offer']);
+      expect(shown).toEqual(['offer']);
+      expect(events.filter((event) => event.type === 'form')).toEqual([
+        expect.objectContaining({ name: 'offer', handle: 'smoke-handle', purpose: 'lead' }),
+      ]);
+      // Called before any text, the form takes one more step, which no longer allows it.
+      console.info(`[smoke] show_form: ${recording.bodies.length} step(s)`);
+      for (const body of recording.bodies.slice(1)) {
+        expect(allowedFunctions(body)).toEqual(['ping']);
+      }
+      expect(result.reason).toBe('completed');
+    } finally {
+      await conversations.delete(conversationId);
+    }
+  }, 120_000);
+
+  it.skipIf(!vectorStoreId)(
+    'leaves handoff and show_form out of allowed_tools on the last step',
+    async () => {
+      // Only a hosted tool keeps `allowed_tools` on the last step; without one it is `none`.
+      const recording = recordingFetch();
+      const gateway = createOpenAIGateway({
+        apiKey: apiKey ?? '',
+        maxRetries: 1,
+        fetch: recording.fetch,
+      });
+      const bot = createBot({
+        id: 'smoke',
+        model: model ?? '',
+        instructions:
+          'Answer from the documents you can search. When the visitor asks for a person, call the handoff tool; when they ask for an offer, show the offer form.',
+        limits: { maxOutputTokens: 512, maxSteps: 1 },
+        handoff: true,
+        forms: [offerForm],
+        knowledge: { vectorStoreId: vectorStoreId ?? '', maxResults: 3 },
+      });
+      const hook = sentHandoff();
+      const shown: string[] = [];
+      const conversationId = await conversations.create({
+        botId: bot.id,
+        owner: 'visitor:smoke',
+      });
+      try {
+        const result = await gateway.runTurn({
+          bot,
+          conversationId,
+          conversations,
+          text: 'How much is the Business plan? Then put me through to a person and send me an offer.',
+          context: { locale: 'en' },
+          safetyIdentifier: 'askdare-smoke',
+          visitorId: `v_${'0f'.repeat(16)}`,
+          messageId: 'msg_smoke',
+          signal: AbortSignal.timeout(60_000),
+          emit: () => {},
+          handoff: hook,
+          showForm: async (name) => {
+            shown.push(name);
+            return { handle: 'smoke-handle' };
+          },
+        });
+        expect(recording.bodies).toHaveLength(1);
+        expect(recording.bodies[0]?.['tool_choice']).toEqual({
+          type: 'allowed_tools',
+          mode: 'auto',
+          tools: [{ type: 'file_search' }],
+        });
+        expect(hook.calls).toEqual([]);
+        expect(shown).toEqual([]);
+        expect(result.reason).toBe('completed');
+      } finally {
+        await conversations.delete(conversationId);
+      }
+    },
+    90_000,
+  );
 
   it('runs a stateless conversation of a few turns from the memory store', async () => {
     // Item store: every request replays the stored items with store:false (ADR-0024).
