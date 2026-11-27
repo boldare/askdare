@@ -157,8 +157,6 @@ export function Form({ form, ...props }: FormProps): ReactElement | null {
       aria-busy={submitting || undefined}
       noValidate
       onSubmit={onSubmit}
-      // A tall field only partly in view: browsers leave it there when it gets focus.
-      onFocus={(event) => event.target.scrollIntoView?.({ block: 'nearest' })}
       {...props}
     >
       <p id={`${id}t`} data-ask-part="form-title">

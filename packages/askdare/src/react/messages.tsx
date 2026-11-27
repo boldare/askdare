@@ -98,6 +98,19 @@ export function Messages({ ref, ...props }: MessagesProps): ReactElement {
       }
     }
   }, [latest, commenting]);
+  // What gets focus comes fully into view: Firefox and Safari leave a control that is only partly
+  // in view half clipped at the edge of the list (WCAG 2.4.11). A native listener, since Preact's
+  // onFocus doesn't bubble.
+  useEffect(() => {
+    const log = own.current;
+    const reveal = (event: FocusEvent): void => {
+      if (event.target !== log && event.target instanceof Element) {
+        event.target.scrollIntoView?.({ block: 'nearest' });
+      }
+    };
+    log?.addEventListener('focusin', reveal);
+    return () => log?.removeEventListener('focusin', reveal);
+  }, []);
   return (
     <>
       <div
