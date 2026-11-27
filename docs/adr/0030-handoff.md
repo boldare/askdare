@@ -1,6 +1,6 @@
 # ADR-0030: Handoff to a human
 
-- **Status:** Proposed
+- **Status:** Accepted on 2026-11-27 (task z1), as built by tasks p1, c1, c2, c3 and c4. Decisions 2, 5, 6 and 9 are amended below ("As built in 0.7").
 - **Date:** 2026-11-26
 - **Related:** [ADR-0031](0031-forms-and-leads.md) (the form a handoff collects contact details with, and falls back to). Built by tasks 0.7-p1 (transports), c1 (protocol), c2 (chat state), c3 (bot and handler) and c4 (UI).
 
@@ -132,6 +132,18 @@ A request is counted when it is accepted, before delivery, and a failed delivery
 - **`POST /forms`** (ADR-0031) answers a handoff form with `{ handoff: state }`, the final state.
 - **History:** a message gets an optional `handoff: { state }` rebuilt from the developer note, on the answer of the turn the note follows (for a button, on the latest answer at that time).
 - Older clients ignore the event and the field; an old widget simply has no button.
+
+## As built in 0.7
+
+Amended on 2026-11-27 (task z1), where the code differs from the decision above:
+- **Decision 2, the button:** a headset icon button in the chat header's actions, named by `handoff.button` ("Talk to a person"), not an item in a menu: the header has no menu. `HandoffButton` renders only when the public configuration has `handoff: true`, which the server sets when the bot's `handoff.button` is on, and once there is an answer. A second primitive, `HandoffStatus` (part `handoff-status`, `data-state`, `role="status"`), shows the state under the answer.
+- **Decision 2, the tool while nobody is available:** the `handoff` tool stays offered while the bot is unavailable. `available()` has two seconds and isn't called before every turn, so the model hears `unavailable` from the tool's output instead. `docs/handoff.md` says so.
+- **Decision 3, step 3:** the form is skipped for a signed-in visitor with an email only while the bot is available. When nobody is, the form is shown as a message to leave, signed in or not.
+- **Decision 3, step 5, the notes:** a handoff the model started keeps its state in the `handoff` call's output; there is no separate note. The button and every form submission append a note (`[askdare:handoff] <state>`, with the form's call ID when there is one).
+- **Decision 5, where the transports live:** `webhookHandoff`, `emailHandoff` and their types are exported from `@boldare/askdare/next`, next to `ChatHandoffReport` and the other reports. A transport throws `HandoffDeliveryError` (internal) or whatever the app's `send` threw.
+- **Decision 6, a message left through the handoff's form:** its `onLead` is awaited, with the same ten seconds as `onHandoff`, since its outcome (`saved` or `failed`) is what the visitor sees. A model form's `onLead` still runs after the response (ADR-0031).
+- **Decision 9, the protocol:** `POST /handoff`'s `form` and history's `forms[]` also carry `purpose` (`handoff` or `message`), so the chat picks the right title after a click or a reload. The chat state has the `handoff()` action; it emits no browser event for a handoff (78 bytes the headless budget didn't have).
+- **Known limits:** a note appended by `POST /handoff` while a turn on an item store is running can make that turn's next append conflict, which the visitor sees as "conversation busy". `ROADMAP.md` lists it.
 
 ## Consequences
 

@@ -167,7 +167,7 @@ export const { GET, POST, DELETE, sweep } = createChatHandler({
 });
 ```
 
-askdare writes the records itself, deletes them with their conversation, and applies the retention when your cron route calls `sweep()`: records older than `retentionDays`, daily rows (which hold no conversation or visitor) after 400 days. `askdare doctor` warns when the oldest record is older than the retention, which means `sweep()` isn't running; pass the same `retentionDays` to `postgresAdminStore({ retentionDays })` when it isn't the default 30.
+askdare writes the records itself, deletes them with their conversation, and applies the retention when your cron route calls `sweep()`: records older than `retentionDays`, daily rows (which hold no conversation or visitor) after 400 days. `retentionDays` is set once, in `createChatHandler`; `askdare doctor` warns when records are older, which means `sweep()` isn't running.
 
 Its tables start with `askdare_admin_`. Every dashboard query reads a bounded day range through an index; transcripts hold what visitors wrote, so treat the tables as personal data.
 

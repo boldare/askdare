@@ -817,7 +817,7 @@ export type { EmbedChatConfig, EmbedRootProps };
 
 // ==== index.d.ts ====
 import { A as HumanChallenge, B as AdminDashboardHandler, C as ColorScheme, D as ThemeTokens, E as PresetName, F as FormField, I as FormFieldType, L as defineForm, M as HumanVerifier, N as Form, O as ThemeVariants, P as FormDefinition, R as FormText, S as defineTool, T as defineTheme, V as AdminDashboardRequest, _ as GuardrailOptions, a as BotLimits, b as ToolContext, c as HandoffConfig, d as VoiceConfig, f as WidgetConfig, g as GuardVerdict, h as GuardHook, i as BotHandle, j as HumanCheckContext, k as VisitorIdentity, l as HandoffLimits, m as GuardContext, n as BotContext, o as BotSecurity, p as defineBot, r as BotDefinition, s as HandoffAvailabilityContext, t as AttachmentConfig, u as KnowledgeConfig, v as ModerationConfig, w as ThemeDefinition, x as ToolDefinition, y as Tool, z as AdminDashboard } from "./define-bot.js";
-import { $ as StoredItem, A as AdminStore, B as ERROR_CODES, C as AdminHandoffState, D as AdminRatingRecord, E as AdminRatingQuery, F as AdminTurnRecord, G as ConversationContext, J as ConversationPage, K as ConversationInfo, M as AdminSweepOptions, N as AdminTranscriptCitation, O as AdminRecordKey, P as AdminTranscriptRecord, Q as StoredCitation, S as AdminHandoffCounts, T as AdminRange, V as ErrorCode, W as CompactionModel, X as ConversationStoreCheck, Y as ConversationStore, Z as PositionedItem, _ as AdminConversationQuery, a as Embedder, b as AdminDayRow, c as KnowledgeCheck, d as KnowledgeIndex, et as StoredPart, f as Passage, g as AdminCheckOutcome, h as AdminBotDayRow, i as RateLimitStore, j as AdminStoredRating, k as AdminSource, l as KnowledgeChunk, m as SyncReport, n as TurnEventLog, o as Embeddings, p as SearchOptions, q as ConversationOwner, r as CounterHit, s as KnowledgeCallOptions, t as TurnEvent, tt as VersionConflictError, u as KnowledgeDocument, v as AdminConversationSummary, w as AdminPage, x as AdminDays, y as AdminCountEvent } from "./turn-log.js";
+import { $ as StoredCitation, A as AdminStore, C as AdminHandoffState, D as AdminRatingRecord, E as AdminRatingQuery, F as AdminTurnRecord, G as CompactionModel, H as ErrorCode, I as AdminWriteOptions, J as ConversationOwner, K as ConversationContext, M as AdminSweepOptions, N as AdminTranscriptCitation, O as AdminRecordKey, P as AdminTranscriptRecord, Q as PositionedItem, S as AdminHandoffCounts, T as AdminRange, V as ERROR_CODES, X as ConversationStore, Y as ConversationPage, Z as ConversationStoreCheck, _ as AdminConversationQuery, a as Embedder, b as AdminDayRow, c as KnowledgeCheck, d as KnowledgeIndex, et as StoredItem, f as Passage, g as AdminCheckOutcome, h as AdminBotDayRow, i as RateLimitStore, j as AdminStoredRating, k as AdminSource, l as KnowledgeChunk, m as SyncReport, n as TurnEventLog, nt as VersionConflictError, o as Embeddings, p as SearchOptions, q as ConversationInfo, r as CounterHit, s as KnowledgeCallOptions, t as TurnEvent, tt as StoredPart, u as KnowledgeDocument, v as AdminConversationSummary, w as AdminPage, x as AdminDays, y as AdminCountEvent } from "./turn-log.js";
 /**
  * Admin records in this process's memory, for tests and local development. Every instance has its
  * own, and a restart forgets them, so production warns.
@@ -919,10 +919,10 @@ interface TurnstileOptions {
  * ```
  */
 export declare function turnstile(options: TurnstileOptions): HumanVerifier;
-export { type AdminBotDayRow, type AdminCheckOutcome, type AdminConversationQuery, type AdminConversationSummary, type AdminCountEvent, type AdminDashboard, type AdminDashboardHandler, type AdminDashboardRequest, type AdminDayRow, type AdminDays, type AdminHandoffCounts, type AdminHandoffState, type AdminPage, type AdminRange, type AdminRatingQuery, type AdminRatingRecord, type AdminRecordKey, type AdminSource, type AdminStore, type AdminStoredRating, type AdminSweepOptions, type AdminTranscriptCitation, type AdminTranscriptRecord, type AdminTurnRecord, type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type CompactionModel, type ConversationContext, type ConversationInfo, type ConversationOwner, type ConversationPage, type ConversationStore, type ConversationStoreCheck, type CounterHit, ERROR_CODES, type Embedder, type Embeddings, type ErrorCode, type Form, type FormDefinition, type FormField, type FormFieldType, type FormText, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type HandoffAvailabilityContext, type HandoffConfig, type HandoffLimits, type HumanChallenge, type HumanCheckContext, type HumanVerifier, type KnowledgeCallOptions, type KnowledgeCheck, type KnowledgeChunk, type KnowledgeConfig, type KnowledgeDocument, type KnowledgeIndex, type MemoryTurnLog, type MemoryTurnLogOptions, type ModerationConfig, type OpenAIEmbedderOptions, type Passage, type PositionedItem, type PresetName, type RateLimitStore, type SearchOptions, type StoredCitation, type StoredItem, type StoredPart, type SyncReport, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type TurnEvent, type TurnEventLog, type TurnstileOptions, VersionConflictError, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineForm, defineTheme, defineTool };
+export { type AdminBotDayRow, type AdminCheckOutcome, type AdminConversationQuery, type AdminConversationSummary, type AdminCountEvent, type AdminDashboard, type AdminDashboardHandler, type AdminDashboardRequest, type AdminDayRow, type AdminDays, type AdminHandoffCounts, type AdminHandoffState, type AdminPage, type AdminRange, type AdminRatingQuery, type AdminRatingRecord, type AdminRecordKey, type AdminSource, type AdminStore, type AdminStoredRating, type AdminSweepOptions, type AdminTranscriptCitation, type AdminTranscriptRecord, type AdminTurnRecord, type AdminWriteOptions, type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type CompactionModel, type ConversationContext, type ConversationInfo, type ConversationOwner, type ConversationPage, type ConversationStore, type ConversationStoreCheck, type CounterHit, ERROR_CODES, type Embedder, type Embeddings, type ErrorCode, type Form, type FormDefinition, type FormField, type FormFieldType, type FormText, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type HandoffAvailabilityContext, type HandoffConfig, type HandoffLimits, type HumanChallenge, type HumanCheckContext, type HumanVerifier, type KnowledgeCallOptions, type KnowledgeCheck, type KnowledgeChunk, type KnowledgeConfig, type KnowledgeDocument, type KnowledgeIndex, type MemoryTurnLog, type MemoryTurnLogOptions, type ModerationConfig, type OpenAIEmbedderOptions, type Passage, type PositionedItem, type PresetName, type RateLimitStore, type SearchOptions, type StoredCitation, type StoredItem, type StoredPart, type SyncReport, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type TurnEvent, type TurnEventLog, type TurnstileOptions, VersionConflictError, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineForm, defineTheme, defineTool };
 
 // ==== next.d.ts ====
-import { A as AdminStore, H as MessageEndReason, I as ChatCompactionReport, L as ChatTokenUsage, R as ChatToolCallReport, U as ChatForm, V as ErrorCode, Y as ConversationStore, i as RateLimitStore, n as TurnEventLog, z as ChatUsageReport } from "./turn-log.js";
+import { A as AdminStore, B as ChatUsageReport, H as ErrorCode, L as ChatCompactionReport, R as ChatTokenUsage, U as MessageEndReason, W as ChatForm, X as ConversationStore, i as RateLimitStore, n as TurnEventLog, z as ChatToolCallReport } from "./turn-log.js";
 import { E as PresetName, O as ThemeVariants, i as BotHandle, k as VisitorIdentity, z as AdminDashboard } from "./define-bot.js";
 import "zod";
 /** What a visitor may attach, as the bot allows it. */
@@ -2158,7 +2158,7 @@ export declare function Root({ config, identity, context, greeting, starters, on
 export { type AttachButtonProps, type Chat, type ChatActions, type ChatAttachments, type ChatBot, type ChatConfig, type ChatEvent, type ChatEventListener, type ChatEventType, type ChatForm, type ChatFormField, type ChatFormOption, type ChatHumanCheck, type ChatMessage, type ChatPhase, type ChatState, type ChatStyles, type ChatWidget, type Citation, type CitationsProps, type ComposerProps, type DefaultChatComponents, type DefaultChatProps, type DictateButtonProps, type Dictation, type DisclosureProps, type Earlier, type ErrorMessageProps, type FeedbackButtonProps, type FilesProps, type FormFieldType, type FormProps, type FormPurpose, type Frame, type HandoffButtonProps, type HandoffState, type HandoffStatusProps, type HumanCheckProps, type InputProps, Link, type LinkProps, type LoadEarlierProps, type MarkdownProps, type MessageFilesProps, type MessageForm, type MessageListProps, type MessageProps, type MessageTextProps, type MessagesProps, type PanelProps, type PendingFile, type QuickRepliesProps, type Rating, type RecorderProps, type RootProps, type SendProps, type SentFile, type StatusProps, type ThemeProps, type ToolRendererProps, type ToolRenderers, ToolResults, type ToolResultsProps, type ToolUi, type Translate };
 
 // ==== testing.d.ts ====
-import { A as AdminStore, Y as ConversationStore, a as Embedder, d as KnowledgeIndex, i as RateLimitStore, n as TurnEventLog, u as KnowledgeDocument } from "./turn-log.js";
+import { A as AdminStore, X as ConversationStore, a as Embedder, d as KnowledgeIndex, i as RateLimitStore, n as TurnEventLog, u as KnowledgeDocument } from "./turn-log.js";
 /**
  * The parts of a test runner the contract suites use. Vitest's and Jest's `describe`, `it` and
  * `expect` fit, so `@boldare/askdare/testing` depends on no runner.
@@ -2250,9 +2250,11 @@ interface TurnEventLogContractOptions extends ContractRunner {
 export declare function turnEventLogContract(name: string, create: () => TurnEventLog, options: TurnEventLogContractOptions): void;
 interface AdminStoreContractOptions extends ContractRunner {
   /**
-   * Epoch milliseconds of the first day the suite writes on. Every record and daily row it writes
-   * falls within 200 days from here, and it cleans up by sweeping everything before that, so pick a
-   * time before any real data. Default: 3 January 2000 (UTC).
+   * Epoch milliseconds of the first day the suite writes on. Every daily row and almost every record
+   * it writes falls within 200 days from here, and it cleans up by sweeping everything before that,
+   * so pick a time before any real data. Default: 3 January 2000 (UTC). A store that expires records
+   * on its own (`AdminWriteOptions.retentionDays`) needs an epoch less than 400 days ago. One test
+   * writes transcripts of its own conversations near today, and deletes them.
    */
   readonly epoch?: number | undefined;
   /** Per-test timeout in milliseconds, for stores behind a network. Default: the runner's. */
@@ -3133,7 +3135,22 @@ interface AdminSweepOptions {
   readonly limit: number;
 }
 /**
- * Where admin records live (ADR-0032). Every method takes an optional `signal`; an aborted one
+ * What core passes with every record it writes: the app's retention, so a store never needs its own
+ * setting for it.
+ */
+interface AdminWriteOptions {
+  /**
+   * `admin.retentionDays` (1 to 400): core's `sweep()` deletes a record this many days after its
+   * `at`. A store that also lets records expire on its own, as a backstop for when `sweep()` doesn't
+   * run, must not expire one sooner than this. Core always passes it; a store called without it
+   * keeps records at least 400 days, the longest retention core allows.
+   */
+  readonly retentionDays?: number | undefined;
+  readonly signal?: AbortSignal | undefined;
+}
+/**
+ * Where admin records live (ADR-0032). Every method takes an optional `signal` (the record writes in
+ * their `AdminWriteOptions`); an aborted one
  * stops it before it writes or deletes more. Implementations never log the values they write: a
  * failure is reported by error class and code only. A query outside its bounds (a malformed day, a
  * range over 400 days, a limit outside 1 to 100, a cursor the store didn't issue) is refused.
@@ -3145,17 +3162,17 @@ interface AdminStore {
    * Writes a turn and adds it to its daily rows. A turn of the same conversation at the same `at`
    * that is already stored is not written or counted again.
    */
-  recordTurn(record: AdminTurnRecord, signal?: AbortSignal): Promise<void>;
+  recordTurn(record: AdminTurnRecord, options?: AdminWriteOptions): Promise<void>;
   /**
    * Writes a rating and adjusts the daily counters. A rating of the same conversation and
    * `itemId` replaces the stored one, never adds; `rating: null` removes it.
    */
-  recordRating(record: AdminRatingRecord, signal?: AbortSignal): Promise<void>;
+  recordRating(record: AdminRatingRecord, options?: AdminWriteOptions): Promise<void>;
   /**
    * Writes a turn's transcript. One of the same conversation, `at` and `itemId` replaces the stored
    * one.
    */
-  recordTranscript(record: AdminTranscriptRecord, signal?: AbortSignal): Promise<void>;
+  recordTranscript(record: AdminTranscriptRecord, options?: AdminWriteOptions): Promise<void>;
   /** Increments a daily counter of handoffs or leads; nothing else is kept. */
   count(event: AdminCountEvent, signal?: AbortSignal): Promise<void>;
   /** Daily rows of the range. */
@@ -3176,7 +3193,11 @@ interface AdminStore {
    * `limit`.
    */
   sweep(options: AdminSweepOptions, signal?: AbortSignal): Promise<number>;
-  /** Schema status and the oldest record's age, for `askdare doctor`. */
+  /**
+   * The store's own checks for `askdare doctor`, such as its schema or whether it can be reached.
+   * Core checks the retention itself (records older than `admin.retentionDays` mean `sweep()`
+   * isn't running), with a bounded `conversations()` query, so a store doesn't repeat it.
+   */
   diagnose?(signal?: AbortSignal): Promise<readonly ConversationStoreCheck[]>;
 }
 /**
@@ -3338,4 +3359,4 @@ interface TurnEventLog {
   /** True for logs that are shared across server instances. */
   readonly shared: boolean;
 }
-export { StoredItem as $, AdminStore as A, ERROR_CODES as B, AdminHandoffState as C, AdminRatingRecord as D, AdminRatingQuery as E, AdminTurnRecord as F, ConversationContext as G, MessageEndReason as H, ChatCompactionReport as I, ConversationPage as J, ConversationInfo as K, ChatTokenUsage as L, AdminSweepOptions as M, AdminTranscriptCitation as N, AdminRecordKey as O, AdminTranscriptRecord as P, StoredCitation as Q, ChatToolCallReport as R, AdminHandoffCounts as S, AdminRange as T, ChatForm as U, ErrorCode as V, CompactionModel as W, ConversationStoreCheck as X, ConversationStore as Y, PositionedItem as Z, AdminConversationQuery as _, Embedder as a, AdminDayRow as b, KnowledgeCheck as c, KnowledgeIndex as d, StoredPart as et, Passage as f, AdminCheckOutcome as g, AdminBotDayRow as h, RateLimitStore as i, AdminStoredRating as j, AdminSource as k, KnowledgeChunk as l, SyncReport as m, TurnEventLog as n, Embeddings as o, SearchOptions as p, ConversationOwner as q, CounterHit as r, KnowledgeCallOptions as s, TurnEvent as t, VersionConflictError as tt, KnowledgeDocument as u, AdminConversationSummary as v, AdminPage as w, AdminDays as x, AdminCountEvent as y, ChatUsageReport as z };
+export { StoredCitation as $, AdminStore as A, ChatUsageReport as B, AdminHandoffState as C, AdminRatingRecord as D, AdminRatingQuery as E, AdminTurnRecord as F, CompactionModel as G, ErrorCode as H, AdminWriteOptions as I, ConversationOwner as J, ConversationContext as K, ChatCompactionReport as L, AdminSweepOptions as M, AdminTranscriptCitation as N, AdminRecordKey as O, AdminTranscriptRecord as P, PositionedItem as Q, ChatTokenUsage as R, AdminHandoffCounts as S, AdminRange as T, MessageEndReason as U, ERROR_CODES as V, ChatForm as W, ConversationStore as X, ConversationPage as Y, ConversationStoreCheck as Z, AdminConversationQuery as _, Embedder as a, AdminDayRow as b, KnowledgeCheck as c, KnowledgeIndex as d, StoredItem as et, Passage as f, AdminCheckOutcome as g, AdminBotDayRow as h, RateLimitStore as i, AdminStoredRating as j, AdminSource as k, KnowledgeChunk as l, SyncReport as m, TurnEventLog as n, VersionConflictError as nt, Embeddings as o, SearchOptions as p, ConversationInfo as q, CounterHit as r, KnowledgeCallOptions as s, TurnEvent as t, StoredPart as tt, KnowledgeDocument as u, AdminConversationSummary as v, AdminPage as w, AdminDays as x, AdminCountEvent as y, ChatToolCallReport as z };

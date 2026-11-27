@@ -20,6 +20,20 @@ const calls = (): RedisEval & { args: unknown[][] } => {
     },
   };
 };
+const DAY_MS = 86_400_000;
+const transcript = (conversationId: string, at: number) =>
+  ({
+    bot: 'support',
+    conversationId,
+    visitor: 'visitor',
+    at,
+    source: 'chat',
+    input: 'hi',
+    attachments: 0,
+    answer: 'hello',
+    citations: [],
+    reason: 'completed',
+  }) as const;
 const failure = async (work: Promise<unknown>): Promise<unknown> => {
   try {
     await work;
@@ -50,8 +64,21 @@ describe('upstashAdminStore', () => {
     }
   });
 
-  it('refuses a retention that is not positive', () => {
-    expect(() => upstashAdminStore({ redis: unreachable, retentionDays: 0 })).toThrow(RangeError);
+  it('refuses a retention that is not positive', async () => {
+    const store = upstashAdminStore({ redis: unreachable });
+    expect(
+      await failure(store.recordTranscript(transcript('conv_1', Date.now()), { retentionDays: 0 })),
+    ).toBeInstanceOf(RangeError);
+  });
+
+  it('expires records after the retention core passes, or 400 days without one', async () => {
+    const redis = calls();
+    const store = upstashAdminStore({ redis });
+    await store.recordTranscript(transcript('conv_1', Date.now()), { retentionDays: 90 });
+    await store.recordTranscript(transcript('conv_1', Date.now()));
+    await store.deleteConversation('conv_1');
+    // ARGV[3]: the write's time to live; 0 for a script that keeps the stored one.
+    expect(redis.args.map((args) => args[2])).toEqual([90 * DAY_MS, 400 * DAY_MS, 0]);
   });
 
   it('stops before writing when the signal is aborted', async () => {
@@ -87,20 +114,21 @@ describe('upstashAdminStore', () => {
 // the prefix `askdare-test:`. The suite's epoch is recent, so the records' expiry (counted from
 // their time) is in the future; its cleanup sweeps every admin record under that prefix.
 if (process.env['ASKDARE_TEST_UPSTASH'] === '1') {
-  const DAY_MS = 86_400_000;
   const epoch = Math.floor(Date.now() / DAY_MS) * DAY_MS - 100 * DAY_MS;
   const prefix = 'askdare-test:';
-  adminStoreContract(
-    'upstashAdminStore on Upstash',
-    () => upstashAdminStore({ prefix, retentionDays: 365 }),
-    { describe, it, expect, epoch, timeoutMs: 60_000 },
-  );
+  adminStoreContract('upstashAdminStore on Upstash', () => upstashAdminStore({ prefix }), {
+    describe,
+    it,
+    expect,
+    epoch,
+    timeoutMs: 60_000,
+  });
 
   describe('upstashAdminStore on Upstash', () => {
     const redis = Redis.fromEnv();
 
     it('keeps conversation IDs, visitors and content out of key names', async () => {
-      const store = upstashAdminStore({ prefix, retentionDays: 365 });
+      const store = upstashAdminStore({ prefix });
       const run = crypto.randomUUID();
       const conversationId = `keys-conversation-${run}`;
       const visitor = `keys-visitor-${run}`;
@@ -157,28 +185,40 @@ if (process.env['ASKDARE_TEST_UPSTASH'] === '1') {
       }
     });
 
-    it('expires a conversation’s keys after its retention', async () => {
-      const store = upstashAdminStore({ prefix, retentionDays: 2 });
+    it('expires a conversation’s keys after the retention core passes, also after a sweep', async () => {
+      const store = upstashAdminStore({ prefix });
       const conversationId = `ttl-conversation-${crypto.randomUUID()}`;
-      await store.recordTranscript({
-        bot: 'ttl',
-        conversationId,
-        visitor: 'ttl-visitor',
-        at: Date.now() - DAY_MS,
-        source: 'chat',
-        input: 'hi',
-        attachments: 0,
-        answer: 'hello',
-        citations: [],
-        reason: 'completed',
-      });
+      const now = Date.now();
+      const write = { retentionDays: 2 };
+      await store.recordTranscript(
+        { ...transcript(conversationId, now - 1.5 * DAY_MS), itemId: 'old' },
+        write,
+      );
+      await store.recordTranscript(
+        { ...transcript(conversationId, now - DAY_MS), itemId: 'new' },
+        write,
+      );
       const hash = (await import('node:crypto'))
         .createHash('sha1')
         .update(conversationId)
         .digest('hex');
+      const key = `${prefix}admin:c:${hash}:x`;
+      const expiresInADay = async () => {
+        const ttl = await redis.pttl(key);
+        return ttl > 0.9 * DAY_MS && ttl <= DAY_MS;
+      };
       try {
-        const ttl = await redis.pttl(`${prefix}admin:c:${hash}:x`);
-        expect(ttl > 0.9 * DAY_MS && ttl <= DAY_MS).toBe(true);
+        expect(await expiresInADay()).toBe(true);
+        // A sweep that removes the older record keeps the retention the writes passed.
+        await store.sweep({
+          recordsBefore: now - 1.25 * DAY_MS,
+          daysBefore: '1970-01-01',
+          limit: 100,
+        });
+        expect((await store.transcript(conversationId)).map((record) => record.itemId)).toEqual([
+          'new',
+        ]);
+        expect(await expiresInADay()).toBe(true);
       } finally {
         await store.deleteConversation(conversationId);
       }

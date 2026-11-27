@@ -181,7 +181,7 @@ export async function GET(request: Request): Promise<Response> {
 { "crons": [{ "path": "/api/cron/sweep", "schedule": "0 3 * * *" }] }
 ```
 
-That goes in `vercel.json`; on Heroku, call `chat.sweep()` from [Heroku Scheduler](https://devcenter.heroku.com/articles/scheduler). [Own your data](own-your-data.md#8-sweep-old-conversations) covers the sweep in full. `askdare doctor` warns when an admin store holds records older than its retention, which means the sweep isn't running: pass the same value to `postgresAdminStore({ retentionDays })` or `upstashAdminStore({ retentionDays })` when it isn't the default 30. Upstash keys also expire on their own after it, as a backstop.
+That goes in `vercel.json`; on Heroku, call `chat.sweep()` from [Heroku Scheduler](https://devcenter.heroku.com/articles/scheduler). [Own your data](own-your-data.md#8-sweep-old-conversations) covers the sweep in full. `askdare doctor` warns when an admin store holds records older than `admin.retentionDays`, which means the sweep isn't running. The retention is set only there: askdare passes it to the store with every record it writes, and Upstash keys also expire on their own after it, as a backstop.
 
 ## What the admin store keeps
 
@@ -218,4 +218,4 @@ See [Privacy](privacy.md#admin-store) for the list to put in your notice.
 
 ## Your own admin store
 
-The `AdminStore` interface and its types are exported from `@boldare/askdare`, and `adminStoreContract` from `@boldare/askdare/testing` runs the suite every store must pass: fixed queries bounded by a day range and a limit of 100, daily totals kept when they are written, idempotent writes and deletes. Read `postgresAdminStore` in `@boldare/askdare-postgres` as an example.
+The `AdminStore` interface and its types are exported from `@boldare/askdare`, and `adminStoreContract` from `@boldare/askdare/testing` runs the suite every store must pass: fixed queries bounded by a day range and a limit of 100, daily totals kept when they are written, idempotent writes and deletes. Each record write gets `{ retentionDays, signal }` (`AdminWriteOptions`): a store that expires records on its own, as a backstop, must not expire one sooner, and keeps 400 days when it is absent. The retention warning in `askdare doctor` is core's; a store's `diagnose()` reports only its own state. Read `postgresAdminStore` in `@boldare/askdare-postgres` as an example.

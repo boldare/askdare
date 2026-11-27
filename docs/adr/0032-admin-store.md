@@ -1,6 +1,6 @@
 # ADR-0032: The admin console and the `AdminStore` port
 
-- **Status:** Proposed
+- **Status:** Accepted on 2026-11-27 (task z1), as built by tasks p2, a1, a2, c5 and a3. Decisions 2, 7, 8 and 9 are amended below ("As built in 0.7").
 - **Date:** 2026-11-26
 - **Extends:** [ADR-0016](0016-admin.md), which stays accepted. This ADR fixes what building it needs: the `AdminStore` port, how a deleted or swept conversation reaches it, how the stage 1 console is served and signed into, and what `@boldare/askdare-admin` contains. Where it refines ADR-0016, it says so (decision 3).
 - **Built by:** p2 (the port, the memory store, the contract suite), a1 and a2 (Postgres and Upstash stores), c5 (the console, delete and sweep), a3 (the dashboard). Accepted, or amended, by them.
@@ -336,6 +336,17 @@ Added to ADR-0006 when the tasks land; names final there:
 - **`@boldare/askdare/testing`:** `adminStoreContract`.
 - **The add-ons:** `postgresAdminStore`, `upstashAdminStore` and `adminDashboard`.
 - **The environment:** `ADMIN_SECRET`.
+
+## As built in 0.7
+
+Amended on 2026-11-27 (task z1), where the code differs from the decision above. The names in [ADR-0006](0006-support-matrix-and-versioning.md) are final.
+- **Decision 2, the port:** `AdminTurnRecord` has `unanswered: boolean`. Core computes decision 5's heuristic, since a store can't know whether a bot has knowledge, and stores only count the flag. `ratings()` resolves to `AdminStoredRating` (a rating that is `up` or `down`, never `null`). The query and option types are named (`AdminConversationQuery`, `AdminRatingQuery`, `AdminSweepOptions`, `AdminWriteOptions`, `AdminDays`), and so are `AdminSource`, `AdminCheckOutcome`, `AdminHandoffState`, `AdminHandoffCounts` and `AdminTranscriptCitation`. `diagnose()` keeps `ConversationStoreCheck`.
+- **Decision 2, retention has one source** (decided with the maintainer in z1): `admin.retentionDays`. The record writes take `(record, options?: AdminWriteOptions)`, `{ retentionDays, signal }`, and core passes the retention with every record. A store that expires records on its own, as a backstop for when `sweep()` doesn't run, must not expire one sooner, and keeps 400 days (the longest retention core allows) when a write passes none; `adminStoreContract` checks both. `count()` takes no retention: daily rows always keep 400 days. Upstash expires a conversation's keys that long after its latest record and keeps the value in the conversation's summary, so a sweep's refresh doesn't change it. Postgres has no expiry and ignores it. The stores take no `retentionDays` of their own: one in each, default 30, could be shorter than the app's and delete records early. Core's `doctor` check warns when records outlive the retention, with a bounded `conversations()` query, so `diagnose()` stays `(signal?)` and the stores report only their own state (Postgres its schema, both the oldest record's age).
+- **Decision 2, the stores:** stores refuse a bad query with a plain `Error` or `RangeError`, since `AskdareError` isn't exported. Upstash breaks a tie of equal tokens and equal `lastAt` by the conversation ID's hash, not the ID; the contract doesn't pin that order.
+- **Decision 7, the console's contents:** the configuration, `doctor`, the playground, the conversation review and, with `@boldare/askdare-admin`, the dashboard. ADR-0016's test questions per bot are not in 0.7: they need a configuration surface this ADR doesn't define. The playground doesn't show the turn's usage, which reaches `onUsage` only after the stream closes.
+- **Decision 8, sign-in:** the identity token's audience is `askdare:admin`, not `askdare-admin`, which a bot ID may equal: the colon keeps every chat identity token out. Whether `ADMIN_SECRET` or `allow` is set is checked on the console's first request, as a setup error through `onError`, not when `createChatHandler` runs, so `next build` passes without the secret. `allow` without `IDENTITY_SECRET` warns once.
+- **Decision 9, how the dashboard mounts:** core serves `adminDashboard()`'s assets at `<basePath>/admin/dashboard.<hash>.js` and `.css` (`immutable`, with the console's headers) and its handlers at `POST <basePath>/admin/api/dashboard/<action>`. The dashboard script sets `globalThis.askdareAdminDashboard.mount(element, host)`, which the console calls when its Dashboard view opens; `host.call` and `host.review` are all the dashboard sees, never the token or a URL. A handler's error maps by its `code`: `invalid_input` to `400`, `not_found` to `404`, anything else to `500`. This contract is internal (ADR-0006).
+- **Decision 10:** the dashboard has its own budgets in the add-on: 12 KB for its script and 4 KB for its styles, gzipped.
 
 ## Settled with the maintainer (2026-11-26)
 

@@ -26,6 +26,7 @@ export type {
   AdminTranscriptCitation,
   AdminTranscriptRecord,
   AdminTurnRecord,
+  AdminWriteOptions,
 } from './admin/port';
 export type {
   AttachmentConfig,
