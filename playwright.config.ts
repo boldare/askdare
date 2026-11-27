@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
-import { ADMIN_SECRET, ADMIN_USER, IDENTITY_SECRET } from './e2e/support/admin';
+import { ADMIN_SECRET, ADMIN_USER, CRON_SECRET, IDENTITY_SECRET } from './e2e/support/admin';
 import { E2E_DATABASE_URL } from './e2e/support/database';
 import {
   WEBHOOK_CERT_DIR,
@@ -150,6 +150,8 @@ export default defineConfig({
         // The admin console with the memory store and the dashboard (e2e/admin.spec.ts).
         ADMIN_SECRET,
         ADMIN_ALLOW: ADMIN_USER,
+        // The daily sweep route (e2e/cron.spec.ts).
+        CRON_SECRET,
         UPSTASH_REDIS_REST_URL: '',
         KV_REST_API_URL: '',
       },
