@@ -388,6 +388,9 @@ importers:
       '@boldare/askdare':
         specifier: workspace:*
         version: link:../packages/askdare
+      '@boldare/askdare-admin':
+        specifier: workspace:*
+        version: link:../packages/askdare-admin
       '@boldare/askdare-postgres':
         specifier: workspace:*
         version: link:../packages/askdare-postgres
