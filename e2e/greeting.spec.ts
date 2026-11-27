@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
 
 // The greeting next to the closed launcher and the unread badge, drawn by the loader (ADR-0033).
@@ -104,6 +105,26 @@ test('not after the chat was opened, and not with data-greeting="off"', async ({
   await page.clock.runFor(DELAY * 3);
   await expect(greeting(page)).toHaveCount(0);
   expect(await stored(page)).toBe('[]');
+});
+
+test('the greeting has no axe violations, in both schemes', async ({ page }) => {
+  await page.clock.install();
+  for (const colorScheme of ['light', 'dark'] as const) {
+    // Reduced motion: axe would measure contrast while the greeting still fades in.
+    await page.emulateMedia({ reducedMotion: 'reduce', colorScheme });
+    await page.goto(HOST);
+    await expect(page.locator('[part="launcher"]')).toBeVisible();
+    await page.clock.runFor(DELAY);
+    await expect(greeting(page)).toBeVisible();
+    const { violations } = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'])
+      .include('[data-askdare]')
+      .analyze();
+    expect(
+      violations.map((violation) => `${violation.id}: ${violation.nodes.length}`),
+      colorScheme,
+    ).toEqual([]);
+  }
 });
 
 test('shows on a page that enforces Trusted Types', async ({ page }) => {
