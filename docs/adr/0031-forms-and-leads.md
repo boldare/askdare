@@ -1,6 +1,6 @@
 # ADR-0031: Forms in the chat and leads
 
-- **Status:** Proposed
+- **Status:** Accepted on 2026-11-27 (task z1), as built by tasks p3, c1, c2, c3 and c4. Decisions 1, 3 and 4 are amended below ("As built in 0.7").
 - **Date:** 2026-11-26
 - **Related:** [ADR-0030](0030-handoff.md) (a handoff collects contact details with a form, and falls back to one when nobody is available). Built by tasks 0.7-p3 (fields and validation), c1 (protocol), c2 (chat state), c3 (bot and handler) and c4 (UI).
 
@@ -103,6 +103,16 @@ A bot whose forms are offered to the model needs `onLead`: without it, the handl
 - **Consent is a field,** `type: 'consent'`, with the site's own wording. When the bot's `widget.disclosure` has a `privacyUrl`, the field links it. askdare requires no consent field: whether one is needed, and its wording, is the operator's decision, which the compliance guide (`docs/compliance.md`) helps with.
 - **askdare stores no values.** They pass from the request to `onLead` or `onHandoff` and are gone. In the conversation there is only the note, plus the `toModel` values the operator chose, which then live wherever the conversation does (OpenAI or the app's own store) and are deleted with it.
 - **The turn log** ([ADR-0027](0027-stream-resume.md)) holds the `form` event (name and handle), never values, since values don't travel in a turn.
+
+## As built in 0.7
+
+Amended on 2026-11-27 (task z1), where the code differs from the decision above:
+- **Decision 1, names and texts:** field names are `[a-z][a-z0-9_]{0,31}` (a letter first), form names `[a-z0-9_]{1,32}`. `submit` and `done` are optional: a form without them uses the chat's own `form.submit` ("Send") and `form.done` texts. The chat has three more texts of its own: `form.optional`, `form.choose` and `form.expired`.
+- **Decision 3, the language of a shown form:** a shown form keeps the visitor's language, in the `show_form` or `handoff` call's output, or in the note of a form the button showed. A handle issued again after a reload reports the same locale to `onLead` and `onHandoff`, and `toModel` labels resolve in it.
+- **Decision 3, the parts:** `form` (with `data-purpose`), `form-title`, `form-field` (with `data-type`), `form-optional`, `form-error`, `form-submit` and `form-done` (with `data-state`). In the chat state a form is also `submitting` while it is sent. A focused field scrolls itself into view, so a tall field isn't left under the composer.
+- **Decision 3, history:** `forms[]` items also carry `purpose`. An open form gets a fresh handle on every history read, so its 24 hours aren't shown; `expired` means the bot no longer defines the form.
+- **Decision 4, the answers:** besides the five error keys there are `error.form.consent` (a required box not ticked) and `error.form.invalid` (a value of the wrong type, or with control or invisible characters). An already-sent form answers `409` with the code `invalid_input` and the key `error.form.sent`, so `ERROR_CODES` doesn't grow. A `400` puts `fields` under `error`.
+- **Decision 5:** a `show_form` call after the answer ends the turn, as `suggest_replies` does. The chat emits no browser event for a sent form (see ADR-0030, "As built").
 
 ## Consequences
 

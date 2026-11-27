@@ -1,6 +1,6 @@
 # ADR-0033: A proactive greeting and an unread badge in the loader, and its budget
 
-- **Status:** Proposed
+- **Status:** Accepted on 2026-11-27 (task z1), as built by tasks l1 and l2. Decisions 1 to 3 are amended below ("As built in 0.7"). ADR-0005 has the dated update; ADR-0013's catalog gains the two events.
 - **Date:** 2026-11-26
 - **Amends, once accepted:** [ADR-0005](0005-embedding-model.md) (the loader's budget, and what it may store) and [ADR-0013](0013-browser-events.md) (two events in the catalog).
 - **Evidence:** spike S10 ([findings](../../spikes/s10-loader/FINDINGS.md)). Every size below is gzipped and measured as `scripts/inline-assets.mjs` measures the budget: the loader built with the look placeholder.
@@ -58,6 +58,13 @@ Steps 1 to 5 take it from 5,052 B to 4,648 B. Console warnings keep their wordin
 - The count is visual only. The launcher's accessible name gains the `launcher.unread` text ("Ask us, Open chat, new messages"), so no plural rules ship in the loader.
 - A site with its own trigger (`data-launcher="none"`) counts the same events with `askdare('on', 'message.received', …)`.
 - **Human replies:** in 0.7 a handoff goes out by email (ADR-0030), so no human reply arrives in the chat. Once live chat exists (0.9), a human's reply in the chat must reach the page as `message.received`, or the badge misses it.
+
+## As built in 0.7
+
+Amended on 2026-11-27 (task z1), where the code differs from the decision above:
+- **Decision 1, step 5:** the server inlines the default look under `''` always, even for a known bot, because `docs/embedding.md` promises that a `data-bot` different from `?bot=` falls back to the default look, and the loader has no fallbacks of its own any more. That costs 61 bytes per served loader for a known bot. l1 measured 4,721 bytes on the build with the look placeholder, of which the Trusted Types fix (step 6) is 73.
+- **Decision 2:** after l2 the loader is 5,284 bytes, not the 5,195 the spike's cheapest version predicted, leaving 348 bytes of the 5,632.
+- **Decision 3, the option's name:** `widget.launcherGreeting`, `true` or `{ delaySeconds }` (0 to 600 seconds, default 5), off by default. It pairs with `widget.launcherLabel` and the `launcher.greeting` text; `widget.greeting` stays the welcome screen's text. The greeting is the shadow part `greeting`. The texts `launcher.greeting`, `launcher.dismiss` and `launcher.unread` exist in all seven built-in languages, and the look carries `greeting` and `dismiss` only for a bot with a greeting.
 
 ## Consequences
 
