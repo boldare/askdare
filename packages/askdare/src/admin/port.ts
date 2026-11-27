@@ -213,7 +213,23 @@ export interface AdminSweepOptions {
 }
 
 /**
- * Where admin records live (ADR-0032). Every method takes an optional `signal`; an aborted one
+ * What core passes with every record it writes: the app's retention, so a store never needs its own
+ * setting for it.
+ */
+export interface AdminWriteOptions {
+  /**
+   * `admin.retentionDays` (1 to 400): core's `sweep()` deletes a record this many days after its
+   * `at`. A store that also lets records expire on its own, as a backstop for when `sweep()` doesn't
+   * run, must not expire one sooner than this. Core always passes it; a store called without it
+   * keeps records at least 400 days, the longest retention core allows.
+   */
+  readonly retentionDays?: number | undefined;
+  readonly signal?: AbortSignal | undefined;
+}
+
+/**
+ * Where admin records live (ADR-0032). Every method takes an optional `signal` (the record writes in
+ * their `AdminWriteOptions`); an aborted one
  * stops it before it writes or deletes more. Implementations never log the values they write: a
  * failure is reported by error class and code only. A query outside its bounds (a malformed day, a
  * range over 400 days, a limit outside 1 to 100, a cursor the store didn't issue) is refused.
@@ -226,17 +242,17 @@ export interface AdminStore {
    * Writes a turn and adds it to its daily rows. A turn of the same conversation at the same `at`
    * that is already stored is not written or counted again.
    */
-  recordTurn(record: AdminTurnRecord, signal?: AbortSignal): Promise<void>;
+  recordTurn(record: AdminTurnRecord, options?: AdminWriteOptions): Promise<void>;
   /**
    * Writes a rating and adjusts the daily counters. A rating of the same conversation and
    * `itemId` replaces the stored one, never adds; `rating: null` removes it.
    */
-  recordRating(record: AdminRatingRecord, signal?: AbortSignal): Promise<void>;
+  recordRating(record: AdminRatingRecord, options?: AdminWriteOptions): Promise<void>;
   /**
    * Writes a turn's transcript. One of the same conversation, `at` and `itemId` replaces the stored
    * one.
    */
-  recordTranscript(record: AdminTranscriptRecord, signal?: AbortSignal): Promise<void>;
+  recordTranscript(record: AdminTranscriptRecord, options?: AdminWriteOptions): Promise<void>;
   /** Increments a daily counter of handoffs or leads; nothing else is kept. */
   count(event: AdminCountEvent, signal?: AbortSignal): Promise<void>;
 
@@ -266,6 +282,10 @@ export interface AdminStore {
    */
   sweep(options: AdminSweepOptions, signal?: AbortSignal): Promise<number>;
 
-  /** Schema status and the oldest record's age, for `askdare doctor`. */
+  /**
+   * The store's own checks for `askdare doctor`, such as its schema or whether it can be reached.
+   * Core checks the retention itself (records older than `admin.retentionDays` mean `sweep()`
+   * isn't running), with a bounded `conversations()` query, so a store doesn't repeat it.
+   */
   diagnose?(signal?: AbortSignal): Promise<readonly ConversationStoreCheck[]>;
 }

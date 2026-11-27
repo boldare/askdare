@@ -62,7 +62,7 @@ describe('memoryAdminStore', () => {
 
   it('writes and sweeps nothing once the signal is aborted', async () => {
     const store = memoryAdminStore();
-    await expect(store.recordTurn(turn, AbortSignal.abort())).rejects.toThrow();
+    await expect(store.recordTurn(turn, { signal: AbortSignal.abort() })).rejects.toThrow();
     await store.recordTurn(turn);
     const options = { recordsBefore: Date.now() + 1, daysBefore: '2100-01-01', limit: 10 };
     await expect(store.sweep(options, AbortSignal.abort())).rejects.toThrow();

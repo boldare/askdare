@@ -145,7 +145,11 @@ let onLead: (report: ChatLeadReport) => void | Promise<void>;
 let logged: string[];
 
 function makeHandler(bots: readonly Bot[], extra: Partial<HandlerConfig> = {}): RequestHandler {
-  const writer = adminWriter(memoryAdminStore(), { transcripts: false, onError: () => {} });
+  const writer = adminWriter(memoryAdminStore(), {
+    transcripts: false,
+    retentionDays: 30,
+    onError: () => {},
+  });
   return createRequestHandler({
     bots,
     basePath: '/api/chat',

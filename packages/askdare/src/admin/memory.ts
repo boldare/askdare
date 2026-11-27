@@ -125,8 +125,8 @@ export function memoryAdminStore(): AdminStore {
   const store: AdminStore = {
     name: 'memory',
 
-    async recordTurn(record, signal) {
-      signal?.throwIfAborted();
+    async recordTurn(record, options) {
+      options?.signal?.throwIfAborted();
       const id = key(record.conversationId, record.at);
       if (turns.has(id)) return;
       turns.set(id, copy(record));
@@ -138,8 +138,8 @@ export function memoryAdminStore(): AdminStore {
       if (record.newConversation) botRow(record.bot, record.at, record.source).conversations += 1;
     },
 
-    async recordRating(record, signal) {
-      signal?.throwIfAborted();
+    async recordRating(record, options) {
+      options?.signal?.throwIfAborted();
       const id = key(record.conversationId, record.itemId);
       const stored = ratings.get(id);
       if (stored) {
@@ -152,8 +152,8 @@ export function memoryAdminStore(): AdminStore {
       rate(rating, 1);
     },
 
-    async recordTranscript(record, signal) {
-      signal?.throwIfAborted();
+    async recordTranscript(record, options) {
+      options?.signal?.throwIfAborted();
       transcripts.set(key(record.conversationId, record.at, record.itemId ?? ''), copy(record));
     },
 

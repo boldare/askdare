@@ -37,15 +37,11 @@ import {
   TURNS_TABLE,
 } from './schema';
 
-/** Where the admin store's database is, and the retention `doctor` holds it to. */
-export type PostgresAdminStoreOptions = PostgresConnectionOptions & {
-  /**
-   * The record retention the app sweeps with (`admin.retentionDays`), default 30. Only
-   * `diagnose()` reads it: `askdare doctor` warns when the oldest record is older, which means
-   * `sweep()` isn't running.
-   */
-  readonly retentionDays?: number | undefined;
-};
+/**
+ * Where the admin store's database is. Retention is `admin.retentionDays` in `createChatHandler`,
+ * applied by the handlers' `sweep()`; `askdare doctor` warns when records outlive it.
+ */
+export type PostgresAdminStoreOptions = PostgresConnectionOptions;
 
 /**
  * How long a write waits for a lock: a conversation's, held by another write, a delete or a
@@ -281,14 +277,10 @@ const errorCode = (error: unknown): string => {
 export function postgresAdminStore(
   options: PostgresAdminStoreOptions = {},
 ): AdminStore & Required<Pick<AdminStore, 'diagnose'>> {
-  const { retentionDays = 30, ...connection } = options;
-  if (!(Number.isFinite(retentionDays) && retentionDays > 0)) {
-    throw new Error('[askdare-postgres] retentionDays must be a positive number of days.');
-  }
   // Resolved on first use, so a build that loads the route without DATABASE_URL doesn't fail.
   let pool: PostgresPool | undefined;
   const db = (): PostgresPool => {
-    pool ??= resolvePool(connection as PostgresConnectionOptions);
+    pool ??= resolvePool(options);
     return pool;
   };
 
@@ -322,8 +314,9 @@ export function postgresAdminStore(
   return {
     name: 'postgres',
 
-    async recordTurn(record, signal) {
-      signal?.throwIfAborted();
+    async recordTurn(record, options) {
+      // Records are kept until `sweep()`: no expiry of their own, so `retentionDays` isn't needed.
+      options?.signal?.throwIfAborted();
       const at = checkAt(record.at);
       const day = dayOf(at);
       const { usage } = record;
@@ -391,8 +384,8 @@ export function postgresAdminStore(
       });
     },
 
-    async recordRating(record, signal) {
-      signal?.throwIfAborted();
+    async recordRating(record, options) {
+      options?.signal?.throwIfAborted();
       const at = checkAt(record.at);
       if (record.rating !== null && record.rating !== 'up' && record.rating !== 'down') {
         throw new Error('[askdare-postgres] A rating must be up, down or null.');
@@ -445,8 +438,8 @@ export function postgresAdminStore(
       });
     },
 
-    async recordTranscript(record, signal) {
-      signal?.throwIfAborted();
+    async recordTranscript(record, options) {
+      options?.signal?.throwIfAborted();
       const at = checkAt(record.at);
       await underLock(record.conversationId, async (client) => {
         await client.query(
@@ -758,19 +751,12 @@ export function postgresAdminStore(
         );
         const oldest = row?.oldest == null ? undefined : Number(row.oldest);
         if (oldest !== undefined) {
+          // Core warns when records outlive admin.retentionDays; this only reports the age.
           const days = Math.floor((Date.now() - oldest) / DAY_MS);
-          checks.push(
-            days > retentionDays
-              ? {
-                  status: 'warn',
-                  title: `Postgres admin store: the oldest record is ${days} days old, more than the ${retentionDays}-day retention.`,
-                  fix: "Call the chat handler's sweep() on a schedule, such as a daily cron route.",
-                }
-              : {
-                  status: 'ok',
-                  title: `Postgres admin store: the oldest record is ${days} days old.`,
-                },
-          );
+          checks.push({
+            status: 'ok',
+            title: `Postgres admin store: the oldest record is ${days} days old.`,
+          });
         }
       } catch (error) {
         checks.push({

@@ -325,6 +325,7 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
   const writer: AdminWriter | undefined = adminOptions?.store
     ? adminWriter(adminOptions.store, {
         transcripts: adminOptions.transcripts === true,
+        retentionDays,
         onError: report,
       })
     : undefined;
