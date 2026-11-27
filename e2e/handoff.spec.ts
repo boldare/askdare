@@ -1,4 +1,5 @@
-import { expect, type Locator, type Page, test } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
+import { expect, type Locator, test } from '@playwright/test';
 import { type ReceivedHandoff, webhookLog } from './support/webhook';
 
 // Handoff to a person (ADR-0030) on the demo bot: the visitor's "Talk to a person" button and the
@@ -37,9 +38,8 @@ async function received(email: string): Promise<ReceivedHandoff> {
   return report as ReceivedHandoff;
 }
 
-/** A fresh address per test, so tests that share the webhook find their own report. */
-const emailFor = (page: Page, who: string): string =>
-  `${who}.${test.info().testId.slice(0, 8)}.${page.viewportSize()?.width}@example.com`;
+/** A fresh address per run of a test (projects and retries share the webhook), to find its report. */
+const emailFor = (who: string): string => `${who}.${randomUUID().slice(0, 8)}@example.com`;
 
 test('the visitor asks for a person: the form, then the request reaches the webhook', async ({
   page,
@@ -63,7 +63,7 @@ test('the visitor asks for a person: the form, then the request reaches the webh
   await expect(form).toHaveAttribute('data-purpose', 'handoff');
   // The message is optional; name and email are not.
   await expect(form.getByLabel('How can we help?')).not.toHaveAttribute('aria-required', 'true');
-  const email = emailFor(page, 'anna');
+  const email = emailFor('anna');
   await sendHandoffForm(form, 'Anna', email);
 
   const status = chat.locator('[data-ask-part="form-done"]');
@@ -115,7 +115,7 @@ test('the model hands off: the form under its answer, then the request reaches t
   const form = reply.getByRole('form', { name: 'Talk to a person' });
   await expect(form).toBeVisible();
 
-  const email = emailFor(page, 'ben');
+  const email = emailFor('ben');
   await sendHandoffForm(form, 'Ben', email);
   await expect(reply.locator('[data-ask-part="form-done"]')).toHaveText(
     `Done. A person from our team will get back to you at ${email}.`,
@@ -135,7 +135,7 @@ test('a delivery that fails is saved as a message instead', async ({ page }) => 
   const before = (await webhookLog()).unreachable;
   await chat.getByRole('button', { name: 'Talk to a person' }).click();
   // The test webhook answers 503 for this name, and again for the one retry.
-  await sendHandoffForm(chat.getByRole('form'), 'Unreachable', emailFor(page, 'cleo'));
+  await sendHandoffForm(chat.getByRole('form'), 'Unreachable', emailFor('cleo'));
   await expect(chat.locator('[data-ask-part="form-done"]')).toHaveText(
     'We’ve saved your message. A person will reply by email.',
   );
