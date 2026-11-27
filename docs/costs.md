@@ -201,6 +201,12 @@ With `widget.replies: 'suggest'`, the model can offer clickable replies under an
 
 The extra call counts against `maxSteps` and the budgets like a tool round: askdare reserves it before each call that may suggest replies, and when a budget can't hold it, or on a bot with `maxSteps: 1`, the model answers without options. Compare `steps` and the tokens in [`onUsage`](configuration.md#onusage) with and without the setting to see what it costs with your model and traffic.
 
+## Handoff and forms
+
+- **The `handoff` and `show_form` tools' definitions are input on every model call** of a bot that offers them to the model, like `suggest_replies`: a few hundred tokens each, more for `show_form` with many forms and long descriptions. They sit in the stable part of the prompt, so on models with prompt caching they are mostly billed as cached input after the first message.
+- **The visitor's "Talk to a person" button and sending a form run no model call.**
+- **A model that hands over or shows a form before answering** takes one more call, like any tool round. See [Handoff to a person](handoff.md#costs) and [Forms and leads](forms.md#costs).
+
 ## Knowledge base
 
 - `knowledge.maxResults` (default 5) is how many chunks the model reads per search. askdare reserves 800 tokens per chunk, 4,000 per message by default.

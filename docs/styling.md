@@ -177,7 +177,7 @@ Every preset sets both font tokens, so set both. You can also set them as the `f
 
 An inline chat loads with the page without taking focus or scrolling to itself.
 
-In a React app, Next.js included, add the script after hydration, for example from a `useEffect` in a small client component. The loader adds the chat inside your element, and React must not find it there while it hydrates. The demo site's [`chat-script.tsx`](../site/app/chat-script.tsx) does this. The chat loads once per page load and lives as long as its element: put the element in a layout that stays, or link to the page with full page loads, because a client-side navigation away and back leaves the element empty.
+In a React app, Next.js included, add the script after hydration, for example from a `useEffect` in a small client component. The loader adds the chat inside your element, and React must not find it there while it hydrates. The demo site's [`chat-script.tsx`](../site/app/%28site%29/chat-script.tsx) does this. The chat loads once per page load and lives as long as its element: put the element in a layout that stays, or link to the page with full page loads, because a client-side navigation away and back leaves the element empty.
 
 ## Inside a page (React)
 

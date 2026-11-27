@@ -62,9 +62,12 @@ Storage limitation (Article 5(1)(e)) means keeping data no longer than you need 
 | Abuse-monitoring logs at OpenAI | Up to 30 days, longer where the law requires it | OpenAI deletes them |
 | Uploaded images and PDFs | 30 days | They expire, or are deleted with their conversation |
 | Rate-limit counters with IP addresses | Up to 2 days | They expire |
+| [Admin store](admin.md) records: usage, ratings with comments, transcripts if on | `admin.retentionDays`, 30 by default | Deleted with their conversation, and by your scheduled `sweep()` |
+| Requests for a person and form values | askdare keeps none: they go to your `onHandoff` and `onLead` | Your own retention, wherever those send them |
 
 - **Conversations outlive the browser's handle.** When the handle expires after 30 days, or the visitor clears the browser, the conversation stays in your OpenAI project. askdare keeps no list of conversations, and OpenAI's API can't list them, so askdare has no tool to find or delete one person's conversation later (right to erasure, Article 17). Decide how you will answer such a request, and say in your notice how visitors delete a conversation themselves.
 - **Zero Data Retention needs your own store.** OpenAI lists the Conversations API, the default store, as not eligible ([ADR-0003](adr/0003-conversation-state.md)).
+- **Handoffs and forms send personal data to you, not to askdare.** A form's values and a handoff's contact details reach your `onLead` and `onHandoff` and are gone from askdare; the visitor typed them for that purpose. Whether a form needs a consent box, and its wording, is yours to decide: add a `consent` field where you need one, and it links your `privacyUrl` ([Forms](forms.md#consent)). A handoff carries message content only if you set `content: 'summary'` or `'transcript'` ([Handoff](handoff.md#what-onhandoff-receives)).
 - **With your own store** (`@boldare/askdare-postgres`), conversations sit in your database: you set their retention, and a scheduled sweep deletes old ones. The store keeps a random visitor ID or a keyed hash of the user as the owner, so to find a signed-in user's conversations later, record `identity` and `conversationId` from [`onTranscript`](configuration.md#ontranscript). Turns run with `store: false`, so a ZDR project can use askdare. [Own your data](own-your-data.md) walks through it.
 
 ### `safety_identifier`

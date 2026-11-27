@@ -4,7 +4,7 @@ Visitors can rate each answer with 👍 or 👎 and, after a 👎, say what went
 
 ## Turn ratings on
 
-Pass `onFeedback` to `createChatHandler`. Without it the buttons don't show, because there would be nowhere to send a rating.
+Pass `onFeedback` to `createChatHandler`. Without it the buttons don't show, because there would be nowhere to send a rating, unless the route has an [admin store](admin.md), which records every rating itself.
 
 ```ts
 // app/api/chat/[...path]/route.ts

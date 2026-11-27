@@ -23,6 +23,9 @@ This page lists what data the chat handles, where it goes and how long it stays,
 | Turn reports: token counts, timings, tool names, pseudonyms | Your `onUsage` function, if you set one | Wherever you keep them |
 | Ratings of answers and the comments visitors write | Your `onFeedback` function, if you set one | Wherever you keep them |
 | Transcripts: each message (after `onInput`) and the answer the visitor saw | Your [`onTranscript`](#transcripts) function, if you set one | Wherever you keep them |
+| Requests for a person: reason, contact details from the form, and a summary or the messages only if you turn that on | Your [`onHandoff`](#handoffs-and-leads) function, and where it sends them (your webhook's receiver, your mail provider) | Wherever you keep them; askdare keeps none |
+| Values visitors type into forms | Your [`onLead`](#handoffs-and-leads) function | Wherever you keep them; askdare keeps none |
+| Usage records, ratings with comments and, if you turn them on, transcripts | Your [admin store](#admin-store), with `admin.store` | `admin.retentionDays` (30 by default) once you sweep, or until the conversation is deleted |
 | Chat events: counts, durations, outcomes, ratings (no text) | Your page's `askdare('on')` or `onEvent` listeners ([Chat events](events.md)), if you add any | Wherever your analytics keeps them |
 
 ## In the visitor's browser
@@ -45,14 +48,14 @@ After the visitor's first message, the chat writes an entry to `localStorage` fo
 | Purpose | To show and continue the conversation after a reload |
 | Lifetime | It works for 30 days after the last answer in the conversation: each answer renews it. It is removed when the visitor starts a new conversation, and when the server says the conversation is gone or the token expired |
 
-**Ratings**, only when your route has `onFeedback` and the bot hasn't turned them off with `widget.feedback: false`:
+**Ratings**, only when your route has `onFeedback` or an [admin store](#admin-store) and the bot hasn't turned them off with `widget.feedback: false`:
 
 | | |
 | --- | --- |
 | Key | `askdare:<bot id>:ratings` |
 | Value | Which answers this browser rated 👍 or 👎, by a pseudonym of each answer (an HMAC, not the OpenAI ID). No comments, no text, nothing about the visitor |
 | Purpose | To show the visitor's ratings again after a reload |
-| Lifetime | The latest hundred ratings are kept; taking a rating back removes it. It isn't sent to the server: the server keeps no ratings at all |
+| Lifetime | The latest hundred ratings are kept; taking a rating back removes it. This entry isn't sent to the server. The server keeps ratings only in an admin store, if you set one |
 
 Everything else stays in memory and disappears with the page: the session token, which lasts 15 minutes, and a signed-in visitor's identity. The chat's language, set with `askdare('configure', { locale })` or `data-follow-lang`, isn't stored either: the page sets it again on every load ([Texts](texts.md)).
 
@@ -105,6 +108,7 @@ The server gives every new visitor a random ID: `v_` followed by 32 hexadecimal 
 - With `onUsage`, every turn's report goes to your function: token counts, timings, tool names and outcomes, and pseudonyms (HMACs) of the conversation and the visitor or user. It holds no message text. See [Observability](observability.md).
 - With `onFeedback`, visitors can rate answers, and each rating goes to your function with the comment the visitor wrote, the OpenAI conversation and answer IDs, a pseudonym of the visitor, and the signed-in user if there is one. askdare keeps none of it. A comment is free text the visitor typed, so treat it like a message: mention it in your notice and keep it no longer than you need. The visitor's browser also remembers which answers they rated 👍 or 👎 (not the comments), next to the conversation in its storage (see [What it stores](#what-it-stores)). See [Answer ratings](feedback.md).
 - With `onTranscript`, every finished turn goes to your function with what the visitor sent and the answer they saw. See [Transcripts](#transcripts).
+- With `onHandoff` and `onLead`, requests for a person and form values go to your functions. askdare logs neither, and reports their failures by the error's class name only. See [Handoffs and leads](#handoffs-and-leads).
 - Your hosting provider may log every request, IP addresses included, according to its own settings.
 
 ### Transcripts
@@ -115,6 +119,27 @@ The server gives every new visitor a random ID: `v_` followed by 32 hexadecimal 
 - **When:** after the answer has streamed, so it never delays the chat. Not for messages your checks blocked, or turns that failed before their answer finished.
 - **When it throws:** the chat carries on, and `onError` receives `internal_error` with the name of the error's class only. askdare never logs the transcript or the hook's error message, since a failed database write can quote the values it was given. That turn's transcript is lost.
 - **askdare keeps none of it.** Where you store transcripts, for how long and who reads them is your decision, and your privacy notice must cover it. A visitor who starts a new conversation deletes it from the conversation store, but askdare calls no hook then, so a stored transcript stays until you delete it: set a retention period, and keep transcripts by conversation and visitor so you can find, export or delete one person's on request.
+- **Transcripts in an admin store** (`admin.transcripts: true`) are the exception: askdare keeps them there itself, and deletes them with their conversation. See [Admin store](#admin-store).
+
+### Handoffs and leads
+
+A bot with [handoff](handoff.md) sends each request for a person to your `onHandoff`, and a bot with [forms](forms.md) sends what visitors type into them to your `onLead`. Both are off unless you turn them on.
+
+- **What `onHandoff` receives:** the reason (one of five fixed values), the bot, the language, who asked (the visitor or the model), a pseudonym of the visitor, the signed-in user if there is one, the conversation's ID in your store, and the contact details the visitor typed into the handoff's form (or the signed-in user's email). Message content only as the bot's `content` option allows: nothing by default, the model's short summary with `'summary'`, and also the conversation's visible messages, at most 50, with `'transcript'`.
+- **Where it goes next:** wherever your transport sends it. `webhookHandoff()` posts it to your URL; `emailHandoff()` gives a plain-text email to your mail provider, for the inboxes you name. Name the receiver or the mail provider in your notice.
+- **What `onLead` receives:** every value of the sent form, validated, with the form's name, the bot, the language, a pseudonym of the visitor, the signed-in user if there is one, and the conversation's ID. Where it goes is your code's decision: a CRM, a database, an inbox.
+- **What the model sees:** that a form was sent, and the values of fields you marked `toModel`, which are then stored in the conversation like a message. The form's other values, and the contact details of a handoff, never reach the model or the conversation. The model's `handoff` call, with its reason and summary, is stored in the conversation like any tool call.
+- **What askdare keeps:** none of the requests or values. The conversation gets a short fixed note per handoff and per sent form, without content; it is deleted with the conversation. The limits count handoffs and forms per visitor and per IP address, like every [rate limit](#ip-addresses). An [admin store](#admin-store) counts leads and handoffs per bot and day, without values.
+- **When delivery fails,** `onError` receives the error's class name, never its message. The visitor is told, or their message is saved through `onLead`.
+
+### Admin store
+
+With `admin.store` in `createChatHandler` ([Admin console](admin.md)), askdare keeps records of its own, in the database you choose: Postgres with `postgresAdminStore()`, Upstash with `upstashAdminStore()`. Without it, none of this exists.
+
+- **What it holds:** for every turn, counters without text (bot, model, tokens, duration, outcome, tool names, number of sources); every rating with the comment the visitor wrote; with `admin.transcripts: true`, each turn's message after `onInput` and the answer the visitor saw; and daily totals per bot, model and day, which hold no conversation, visitor or text. Leads and handoffs are only counted in those totals.
+- **Keyed by:** the conversation's ID in your conversation store and the visitor's pseudonym, the same HMAC `onUsage` reports. Never a raw visitor ID or IP address. Upstash key names hold a hash of the conversation ID, never the ID.
+- **How long:** records for `admin.retentionDays` (30 by default, at most 400), daily totals for 400 days, deleted when your app calls `sweep()` on a schedule. A visitor who starts a new conversation deletes its records with it; so does a sweep of idle conversations. Daily totals stay.
+- **Who reads it:** whoever signs in to the console with `ADMIN_SECRET` or an allowed identity. The browser gets sealed references, never conversation IDs, and every text is shown as text.
 
 ### Turn log
 
@@ -145,7 +170,8 @@ Everything below lives in the OpenAI project whose key the app uses. Name OpenAI
 - Your instructions for that request, with whatever you put in them, such as a signed-in user's name.
 - The visitor's message, and the page context from `askdare('configure')` if the bot has `pageContext: true`.
 - Attached files, by reference.
-- Your tools' definitions and, when the model calls them, their results. With `widget.replies: 'suggest'`, also the definition of the built-in `suggest_replies` tool, which holds no personal data.
+- Your tools' definitions and, when the model calls them, their results. With `widget.replies: 'suggest'`, also the definition of the built-in `suggest_replies` tool; with [handoff](handoff.md), the `handoff` tool; with [forms](forms.md), the `show_form` tool, with each form's name and `description`. None holds personal data.
+- After a form was sent, a fixed note, and the values of fields you marked `toModel`.
 - The `safety_identifier`, and `prompt_cache_key: "askdare:<bot id>"`, which holds no personal data.
 
 ### Moderation
@@ -236,6 +262,9 @@ The note exists for the transparency duty in Article 50 of the EU AI Act: people
 | Your hosting provider, such as Vercel or Heroku | Always | Every request to the app, with IP addresses, and the server log |
 | Your error monitoring | With `onError` | Error reports, without message contents or API keys |
 | Your metrics or tracing | With `onUsage`, e.g. through `@boldare/askdare-otel` | Turn reports: counters, timings and pseudonyms, without message text |
+| Your handoff receiver or mail provider | With `onHandoff` | Requests for a person: contact details, and message content if you turn it on. See [Handoffs and leads](#handoffs-and-leads) |
+| Your CRM, or wherever `onLead` sends leads | With `onLead` | What visitors type into forms |
+| The host of your admin store (Postgres, Upstash) | With `admin.store` | Usage records, ratings with comments, and transcripts if you turn them on. See [Admin store](#admin-store) |
 
 Your tools may send data to further services of your own.
 
@@ -265,6 +294,9 @@ There is no previous-secret setting for `IDENTITY_SECRET`. When you change it:
 - [ ] With `widget.launcherGreeting`, describe the `sessionStorage` entry on your site that keeps the greeting away once dismissed.
 - [ ] If you collect ratings, say that visitors' comments reach you and how long you keep them.
 - [ ] If you use `onTranscript`, say that you keep copies of conversations, where, for how long, and how visitors ask for theirs to be deleted.
+- [ ] If bots hand over to a person, say what the request carries (contact details, and the summary or messages if you turned them on), who receives it, and how long your team keeps it.
+- [ ] If bots show forms, say what each form collects, for what, where it goes, and how long you keep it. Word a `consent` field to match.
+- [ ] If you set an admin store, name its host, say that ratings' comments (and transcripts, if on) are kept there, and for how long.
 - [ ] Mention IP addresses in rate limits and their retention.
 - [ ] If the turn log is in Upstash, say that answers are kept there for a few minutes while they are written.
 - [ ] Decide on a retention policy for conversations. With your own store, name its database host as a processor, and sweep conversations older than the policy allows.
