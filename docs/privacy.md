@@ -140,6 +140,7 @@ With `admin.store` in `createChatHandler` ([Admin console](admin.md)), askdare k
 - **Keyed by:** the conversation's ID in your conversation store and the visitor's pseudonym, the same HMAC `onUsage` reports. Never a raw visitor ID or IP address. Upstash key names hold a hash of the conversation ID, never the ID.
 - **How long:** records for `admin.retentionDays` (30 by default, at most 400), daily totals for 400 days, deleted when your app calls `sweep()` on a schedule. A visitor who starts a new conversation deletes its records with it; so does a sweep of idle conversations. Daily totals stay.
 - **Who reads it:** whoever signs in to the console with `ADMIN_SECRET` or an allowed identity. The browser gets sealed references, never conversation IDs, and every text is shown as text.
+- **On askdare's demo site** (askdare's own website), the console, when its maintainers turn it on, runs with `admin.transcripts: true`: what you type into the demo chats and the answers you get are kept in its admin store for 30 days, deleted by a daily sweep, and read only by the site's maintainers. Don't type personal data into the demo.
 
 ### Turn log
 
