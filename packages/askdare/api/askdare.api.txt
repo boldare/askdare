@@ -711,6 +711,15 @@ interface WidgetConfig {
   readonly avatar?: string;
   /** Text on the pill launcher; shortcut for `texts['launcher.label']`. */
   readonly launcherLabel?: string;
+  /**
+   * A short greeting next to the closed launcher, shown once the visitor has been on the page for
+   * `delaySeconds` (default 5), until they dismiss it or open the chat in this browser session.
+   * Its text is `texts['launcher.greeting']`; the default says it is an AI assistant, and your own
+   * should too. A page turns it off with `data-greeting="off"` on the script tag. Default off.
+   */
+  readonly launcherGreeting?: boolean | {
+    readonly delaySeconds?: number;
+  };
   /** Built-in look (`halo`, `aura`, `sage`, `care`) or a theme from `defineTheme`. Default `aura`. */
   readonly theme?: PresetName | ThemeDefinition;
   /** Default `auto`: follows the visitor's system setting. */

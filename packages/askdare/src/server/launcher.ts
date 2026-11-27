@@ -13,6 +13,7 @@ const initials = (title: string): string =>
 export function launcherLook(bot: Bot): LauncherLook {
   const { theme } = bot.widget;
   const tokens = theme.colorScheme === 'dark' ? theme.dark : theme.light;
+  const greeting = bot.widget.launcherGreeting;
   // The loader picks an entry by the page's primary subtag: one per built-in dictionary, plus one
   // per language the bot has its own texts for (`de`, in English with the bot's German set).
   const languages = [
@@ -31,6 +32,14 @@ export function launcherLook(bot: Bot): LauncherLook {
           close: all['launcher.close'] ?? '',
           unavailable: all['launcher.unavailable'] ?? '',
           title: all['header.title'] ?? '',
+          unread: all['launcher.unread'] ?? '',
+          // A bot without a greeting doesn't ship its texts to every page (ADR-0033).
+          ...(greeting
+            ? {
+                greeting: all['launcher.greeting'] ?? '',
+                dismiss: all['launcher.dismiss'] ?? '',
+              }
+            : {}),
         },
       ];
     }),
@@ -50,6 +59,7 @@ export function launcherLook(bot: Bot): LauncherLook {
     textDark: theme.dark.text,
     scheme: theme.colorScheme,
     radius: tokens.radius,
+    ...(greeting ? { greet: Math.round(greeting.delaySeconds * 1000) } : {}),
   };
 }
 
@@ -67,6 +77,7 @@ export const DEFAULT_LOOK: LauncherLook = {
       close: 'Close chat',
       unavailable: 'The chat couldn’t load. Please try again later.',
       title: 'Chat',
+      unread: 'new messages',
     },
   },
   accent: '#1f5fe0',

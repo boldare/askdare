@@ -309,3 +309,189 @@ describe('the launcher look (ADR-0033)', () => {
     expect(innerHTML).not.toHaveBeenCalled();
   });
 });
+
+describe('the greeting next to the launcher (ADR-0033)', () => {
+  const greeter = createBot({
+    id: 'support',
+    model: 'm',
+    instructions: 'x',
+    widget: { locale: 'en', launcherGreeting: { delaySeconds: 3 } },
+  });
+  const shadow = (): ShadowRoot =>
+    (document.querySelector('[data-askdare]') as HTMLElement).shadowRoot as ShadowRoot;
+  const greeting = (): HTMLElement | null => shadow().querySelector('[part=greeting]');
+  const dismiss = (): HTMLButtonElement =>
+    greeting()?.querySelector('[aria-label]') as HTMLButtonElement;
+  /** The page's view of the loader's events. */
+  const seen = (api: Api): string[] => {
+    const types: string[] = [];
+    api('on', '*', (event: { type: string }) => types.push(event.type));
+    return types;
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    sessionStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    sessionStorage.clear();
+  });
+
+  it('is off for a bot without one', () => {
+    load(fixed);
+    vi.advanceTimersByTime(60_000);
+    expect(greeting()).toBeNull();
+  });
+
+  it('shows after its delay, without taking focus or storing anything', () => {
+    const before = document.createElement('button');
+    document.body.append(before);
+    before.focus();
+    const api = load(greeter);
+    const events = seen(api);
+    vi.advanceTimersByTime(2_999);
+    expect(greeting()).toBeNull();
+    vi.advanceTimersByTime(1);
+    expect(greeting()?.textContent).toBe('Hi! I’m an AI assistant. Can I help you?×');
+    expect(dismiss().getAttribute('aria-label')).toBe('Dismiss');
+    // Not a live region, and just before the launcher in the tab order.
+    expect(greeting()?.hasAttribute('role')).toBe(false);
+    expect(greeting()?.hasAttribute('aria-live')).toBe(false);
+    expect(greeting()?.nextElementSibling).toBe(launcher());
+    expect(document.activeElement).toBe(before);
+    expect(sessionStorage.length).toBe(0);
+    expect(events).toEqual(['greeting.shown']);
+  });
+
+  it('× dismisses it, focuses the launcher and keeps it away for the session', () => {
+    const api = load(greeter);
+    const events = seen(api);
+    vi.advanceTimersByTime(3_000);
+    dismiss().click();
+    expect(greeting()).toBeNull();
+    expect(shadow().activeElement).toBe(launcher());
+    expect(sessionStorage.getItem('askdare:support:greeted')).toBe('1');
+    expect(events).toEqual(['greeting.shown', 'greeting.dismissed']);
+
+    // The next page of the same session.
+    delete window.askdare;
+    document.body.replaceChildren();
+    load(greeter);
+    vi.advanceTimersByTime(60_000);
+    expect(greeting()).toBeNull();
+  });
+
+  it('Escape dismisses it; other keys work as usual', () => {
+    load(greeter);
+    vi.advanceTimersByTime(3_000);
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    dismiss().dispatchEvent(tab);
+    expect(tab.defaultPrevented).toBe(false);
+    expect(greeting()).not.toBeNull();
+    dismiss().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(greeting()).toBeNull();
+    expect(shadow().activeElement).toBe(launcher());
+  });
+
+  it('opens the chat when clicked, and opening keeps it away for the session', () => {
+    const api = load(greeter);
+    const events = seen(api);
+    vi.advanceTimersByTime(3_000);
+    (greeting()?.querySelector('button') as HTMLButtonElement | null)?.click();
+    expect(greeting()).toBeNull();
+    expect(launcher().getAttribute('aria-expanded')).toBe('true');
+    expect(sessionStorage.getItem('askdare:support:greeted')).toBe('1');
+    expect(events).toEqual(['greeting.shown', 'open']);
+  });
+
+  it("doesn't show once the chat was opened on the page", () => {
+    const api = load(greeter);
+    api('open');
+    api('close');
+    vi.advanceTimersByTime(60_000);
+    expect(greeting()).toBeNull();
+    expect(sessionStorage.getItem('askdare:support:greeted')).toBe('1');
+  });
+
+  it('is off with data-greeting="off", inline, without our launcher or without storage', () => {
+    load(greeter, { 'data-greeting': 'off' });
+    vi.advanceTimersByTime(60_000);
+    expect(greeting()).toBeNull();
+    document.body.replaceChildren();
+    delete window.askdare;
+
+    load(greeter, { 'data-launcher': 'none' });
+    vi.advanceTimersByTime(60_000);
+    expect(greeting()).toBeNull();
+    document.body.replaceChildren();
+    delete window.askdare;
+
+    // Browsers throw on reading `sessionStorage` when the visitor blocks site data.
+    const storage = vi.spyOn(window, 'sessionStorage', 'get').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError');
+    });
+    load(greeter);
+    vi.advanceTimersByTime(60_000);
+    expect(greeting()).toBeNull();
+    storage.mockRestore();
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it('sets its text as text, never as HTML', () => {
+    const innerHTML = vi.spyOn(Element.prototype, 'innerHTML', 'set');
+    load(
+      createBot({
+        id: 'support',
+        model: 'm',
+        instructions: 'x',
+        widget: {
+          launcherGreeting: true,
+          texts: { 'launcher.greeting': '<img src=x onerror=alert(1)>' },
+        },
+      }),
+    );
+    vi.advanceTimersByTime(5_000);
+    expect(greeting()?.querySelector('img')).toBeNull();
+    expect(greeting()?.querySelector('button')?.textContent).toBe('<img src=x onerror=alert(1)>');
+    expect(innerHTML).not.toHaveBeenCalled();
+  });
+});
+
+describe('the unread badge (ADR-0033)', () => {
+  const answer = (outcome: string): void =>
+    lastPort().onmessage?.({
+      data: { v: 1, type: 'event', event: { type: 'message.received', outcome, durationMs: 1 } },
+    } as MessageEvent);
+
+  it('counts answers that arrive while the chat is closed, and clears when it opens', () => {
+    const api = load(fixed);
+    openChat(api);
+    answer('completed');
+    expect(launcher().dataset['unread']).toBeUndefined();
+    api('close');
+    answer('completed');
+    answer('stopped');
+    answer('failed');
+    expect(launcher().dataset['unread']).toBe('1');
+    expect(launcher().getAttribute('aria-label')).toBe('Ask us, Open chat, new messages');
+    for (let i = 0; i < 9; i += 1) answer('completed');
+    expect(launcher().dataset['unread']).toBe('9+');
+    api('open');
+    expect(launcher().dataset['unread']).toBeUndefined();
+    expect(launcher().getAttribute('aria-label')).toBe('Close chat');
+    api('close');
+    expect(launcher().getAttribute('aria-label')).toBe('Ask us, Open chat');
+  });
+
+  it('keeps the unread text through a language switch', () => {
+    const api = load();
+    openChat(api);
+    api('close');
+    answer('completed');
+    expect(launcher().getAttribute('aria-label')).toBe('Ask us, Open chat, new messages');
+    api('configure', { locale: 'pl' });
+    expect(launcher().getAttribute('aria-label')).toBe('Zapytaj nas, Otwórz czat, nowe wiadomości');
+  });
+});

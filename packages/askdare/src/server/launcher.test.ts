@@ -90,4 +90,34 @@ describe('loaderWithLook (real built loader)', () => {
     });
     expect(launcherLook(dutch).texts['en']?.label).toBe('Vragen?');
   });
+
+  it('ships the greeting, its delay and its texts only for a bot with one (ADR-0033)', () => {
+    const plain = launcherLook(createBot({ id: 'plain', model: 'm', instructions: 'x' }));
+    expect(plain.greet).toBeUndefined();
+    expect(plain.texts['en']).not.toHaveProperty('greeting');
+    expect(plain.texts['en']).not.toHaveProperty('dismiss');
+    // Every launcher can show the unread badge, so every look names it.
+    expect(plain.texts['en']?.unread).toBe('new messages');
+    expect(plain.texts['pl']?.unread).toBe('nowe wiadomości');
+    expect(DEFAULT_LOOK.greet).toBeUndefined();
+    expect(DEFAULT_LOOK.texts['en']?.unread).toBe('new messages');
+
+    const greeter = launcherLook(
+      createBot({
+        id: 'greeter',
+        model: 'm',
+        instructions: 'x',
+        widget: {
+          locale: 'auto',
+          launcherGreeting: { delaySeconds: 2.5 },
+          texts: { pl: { 'launcher.greeting': 'Dzień dobry!' } },
+        },
+      }),
+    );
+    expect(greeter.greet).toBe(2500);
+    expect(greeter.texts['en']?.greeting).toMatch(/AI assistant/);
+    expect(greeter.texts['en']?.dismiss).toBe('Dismiss');
+    expect(greeter.texts['pl']?.greeting).toBe('Dzień dobry!');
+    expect(greeter.texts['pl']?.dismiss).toBe('Zamknij');
+  });
 });
