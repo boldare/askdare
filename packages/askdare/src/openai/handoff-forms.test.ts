@@ -350,6 +350,42 @@ describe('show_form in a turn', () => {
     // A turn shows one form: the next step no longer allows the tool.
     expect(served.bodies[1]?.['tool_choice']).toBe('none');
   });
+
+  it('refuses show_form when a handoff in the same answer asks for its own form', async () => {
+    const served = serve([
+      callStep(
+        // The model asks for the lead form first; the handoff's contact form still wins.
+        functionCall('f1', SHOW_FORM, '{"form":"offer"}', 0),
+        functionCall('c1', HANDOFF, '{"reason":"sales"}', 1),
+      ),
+      textTurnEvents(['Please fill in the form.']),
+    ]);
+    const shown: string[] = [];
+    const form = { name: 'contact', handle: 'handle-1', purpose: 'handoff' as const };
+    const { events } = await run(bot({ handoff: { form: 'contact' }, forms: [offer, contact] }), {
+      handoff: handoff({ state: 'requested', form }),
+      showForm: async (name) => {
+        shown.push(name);
+        return { handle: 'handle-offer' };
+      },
+    });
+    expect(shown).toEqual([]);
+    expect(events.filter((event) => event.type === 'form')).toEqual([
+      { type: 'form', messageId: 'msg_t', callId: 'c1', ...form },
+    ]);
+    expect(
+      outputs(served.bodies[1]).map((output) => [
+        output.call_id,
+        (output.output as { status?: string; state?: string }).status ??
+          (output.output as { state?: string }).state,
+      ]),
+    ).toEqual(
+      expect.arrayContaining([
+        ['f1', 'not_shown'],
+        ['c1', 'requested'],
+      ]),
+    );
+  });
 });
 
 describe('handoffArguments', () => {
