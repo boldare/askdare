@@ -87,40 +87,40 @@ const FEATURES = [
 /** What the latest release added. Update it with each minor release. */
 const NEW = [
   {
-    title: 'Conversations in your Postgres',
-    text: 'Keep conversations in your own database with @boldare/askdare-postgres. OpenAI still processes every request and keeps attachments, but no conversation.',
-    href: '/docs/own-your-data',
-    more: 'Own your data',
+    title: 'Handoff to a person',
+    text: 'Visitors ask with "Talk to a person", or the bot decides a person should take over. Each request goes to your webhook or inbox; askdare keeps none of it.',
+    href: '/docs/handoff',
+    more: 'Handoff',
   },
   {
-    title: 'Knowledge in pgvector',
-    text: 'Sync the same folder to your own index with kb sync --index. Answers cite their sources as before, without a per-search fee.',
-    href: '/docs/knowledge-base#your-own-index',
-    more: 'Your own index',
+    title: 'Forms and leads',
+    text: 'The bot shows a form you defined under its answer. Values are checked on the server and go to your onLead, not to the model.',
+    href: '/docs/forms',
+    more: 'Forms and leads',
   },
   {
-    title: 'Answers that survive a dropped connection',
-    text: 'The network drops mid-answer and the chat picks it up where it stopped, on one server or, through Upstash, on many.',
-    href: '/docs/configuration#resume',
-    more: 'Resuming answers',
+    title: 'An admin console',
+    text: "Each bot's resolved configuration, doctor, a playground and the conversations, served by the chat route behind a secret or your own sign-in.",
+    href: '/docs/admin',
+    more: 'Admin console',
   },
   {
-    title: 'The whole history',
-    text: 'Older messages load page by page as the visitor scrolls up, however long the conversation is.',
-    href: '/docs/react#long-conversations',
-    more: 'Long conversations',
+    title: 'A dashboard',
+    text: 'Add @boldare/askdare-admin for cost per bot and model, ratings, unanswered questions, leads, handoffs and the resolution rate.',
+    href: '/docs/admin#4-add-the-dashboard',
+    more: 'The dashboard',
   },
   {
-    title: 'Compaction',
-    text: 'Long conversations in your own store are summarized in the background, so the turns after them cost less.',
-    href: '/docs/configuration#compaction',
-    more: 'Compaction',
+    title: 'Records in your database',
+    text: 'Counters, ratings and, if you turn them on, transcripts, in your Postgres or Upstash. Deleted with the conversation and swept after 30 days.',
+    href: '/docs/admin#1-choose-an-admin-store',
+    more: 'Admin store',
   },
   {
-    title: 'Your own transcripts',
-    text: 'onTranscript hands each finished turn to your code, for support or an admin view of your own. askdare keeps none of it.',
-    href: '/docs/configuration#ontranscript',
-    more: 'Transcripts',
+    title: 'A greeting at the launcher',
+    text: 'A short hello next to the closed launcher after a few seconds, and a badge counting the answers that arrived while the chat was closed.',
+    href: '/docs/embedding#a-greeting-and-an-unread-badge',
+    more: 'Greeting and badge',
   },
 ] as const;
 
@@ -260,7 +260,7 @@ export default async function Home({ searchParams }: { readonly searchParams: Se
 
         <section id="new" className="section features" aria-labelledby="new-title">
           <h2 id="new-title">
-            <span>New in 0.6:</span> <strong>own your data</strong>
+            <span>New in 0.7:</span> <strong>from answers to leads</strong>
           </h2>
           <ul className="features-list">
             {NEW.map((feature) => (

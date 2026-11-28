@@ -71,7 +71,7 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "build:assets": "vite build -c vite.widget.config.ts && vite build -c vite.skin.config.ts && vite build -c vite.loader.config.ts && node scripts/inline-assets.mjs",
+    "build:assets": "vite build -c vite.widget.config.ts && vite build -c vite.skin.config.ts && vite build -c vite.loader.config.ts && vite build -c vite.admin.config.ts && node scripts/inline-assets.mjs",
     "build": "pnpm run build:assets && tsdown && node scripts/copy-ui.mjs && node scripts/copy-docs.mjs",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.react.json && tsc -p tsconfig.browser.json",
     "check:package": "publint --strict && attw --pack . --profile esm-only && node ../../scripts/check-dts-no-leak.mjs dist && node scripts/api-snapshot.mjs && node scripts/react-size.mjs && tsc -p tsconfig.eject.json && tsc -p types-test",

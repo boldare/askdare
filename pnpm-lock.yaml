@@ -301,6 +301,27 @@ importers:
         specifier: ^4.6.7
         version: 4.6.7
 
+  packages/askdare-admin:
+    devDependencies:
+      '@arethetypeswrong/cli':
+        specifier: ^0.18.5
+        version: 0.18.5
+      '@boldare/askdare':
+        specifier: workspace:^
+        version: link:../askdare
+      preact:
+        specifier: 11.2.0
+        version: 11.2.0
+      publint:
+        specifier: ^0.3.25
+        version: 0.3.25
+      tsdown:
+        specifier: ^0.23.7
+        version: 0.23.7(@arethetypeswrong/core@0.18.5)(publint@0.3.25)(typescript@7.0.2)
+      vite:
+        specifier: ^8.3.8
+        version: 8.3.8(@types/node@22.20.5)(jiti@2.7.0)(yaml@2.9.1)
+
   packages/askdare-otel:
     devDependencies:
       '@arethetypeswrong/cli':
@@ -367,6 +388,9 @@ importers:
       '@boldare/askdare':
         specifier: workspace:*
         version: link:../packages/askdare
+      '@boldare/askdare-admin':
+        specifier: workspace:*
+        version: link:../packages/askdare-admin
       '@boldare/askdare-postgres':
         specifier: workspace:*
         version: link:../packages/askdare-postgres

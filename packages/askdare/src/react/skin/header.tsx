@@ -1,10 +1,13 @@
-import { useChat } from '@boldare/askdare/react';
+import { HandoffButton, useChat } from '@boldare/askdare/react';
 import type { ReactElement } from 'react';
 import { Avatar } from './avatar';
 import { heading, useSkin } from './context';
-import { CloseIcon, RestartIcon } from './icons';
+import { CloseIcon, HeadsetIcon, RestartIcon } from './icons';
 
-/** The bot's name and picture, a new-conversation button and, when it can close, a close button. */
+/**
+ * The bot's name and picture, "Talk to a person" when the bot has it, a new-conversation button
+ * and, when it can close, a close button.
+ */
 export function DefaultHeader(): ReactElement {
   const { state, bot, t } = useChat();
   const { headingLevel, onClose, askStartOver, restartRef } = useSkin();
@@ -19,6 +22,9 @@ export function DefaultHeader(): ReactElement {
         </div>
       </div>
       <div data-ask-part="actions">
+        <HandoffButton aria-label={t('handoff.button')} title={t('handoff.button')}>
+          <HeadsetIcon />
+        </HandoffButton>
         {state.messages.length > 0 && (
           <button
             ref={restartRef}

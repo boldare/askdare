@@ -6,5 +6,12 @@
     "types": ["node"]
   },
   "include": ["src"],
-  "exclude": ["src/chat", "src/react", "src/widget-app", "src/embed", "src/embed-root"]
+  "exclude": [
+    "src/chat",
+    "src/react",
+    "src/widget-app",
+    "src/embed",
+    "src/embed-root",
+    "src/admin-console"
+  ]
 }

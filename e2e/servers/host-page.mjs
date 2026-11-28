@@ -1,6 +1,7 @@
 // Serves the same third-party page on two origins: one in the bot's allowlist, one not.
 // ?variant= shows the host-page JavaScript API: custom (own button), inline, configure,
-// follow-lang (the chat follows the page's language).
+// follow-lang (the chat follows the page's language), trusted-types (the default page, sent with a
+// CSP that enforces Trusted Types), greeting-off (data-greeting="off").
 // ?lang= sets the page language, which a bot with locale 'auto' follows.
 // ?bot=own-page embeds the bot whose iframe shows the site's own page (embedPath, ADR-0018).
 import { createHmac } from 'node:crypto';
@@ -13,6 +14,10 @@ const BOTS = ['support', 'own-page'];
 
 const VARIANTS = {
   default: `<script src="${SRC}" async></script>`,
+  // The default page; the server adds `require-trusted-types-for 'script'` (ADR-0033).
+  'trusted-types': `<script src="${SRC}" async></script>`,
+  // The page turns the greeting next to the launcher off (ADR-0033).
+  'greeting-off': `<script src="${SRC}" data-greeting="off" async></script>`,
   custom: `<button id="ask" type="button">Chat with us</button>
     <script src="${SRC}" data-launcher="none" async></script>
     <script>document.getElementById('ask').addEventListener('click', () => window.askdare('open'));</script>`,
@@ -129,7 +134,12 @@ for (const port of PORTS) {
       [...Object.keys(VARIANTS), 'identity', 'forged'].find(
         (name) => name === url.searchParams.get('variant'),
       ) ?? 'default';
-    response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    response.writeHead(200, {
+      'content-type': 'text/html; charset=utf-8',
+      ...(variant === 'trusted-types'
+        ? { 'content-security-policy': "require-trusted-types-for 'script'" }
+        : {}),
+    });
     response.end(page(port, variant, lang, bot));
   }).listen(port, '127.0.0.1', () => console.log(`host page on http://127.0.0.1:${port}`));
 }

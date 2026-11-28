@@ -11,11 +11,20 @@ export type {
   Citation,
   Dictation,
   Earlier,
+  MessageForm,
   PendingFile,
   Rating,
   SentFile,
 } from '../chat/state';
 export type { ChatActions } from '../chat/store';
+export type {
+  ChatForm,
+  ChatFormField,
+  ChatFormOption,
+  FormFieldType,
+  FormPurpose,
+} from '../protocol/forms';
+export type { HandoffState } from '../protocol/handoff';
 export type {
   AttachButtonProps,
   ComposerProps,
@@ -40,6 +49,10 @@ export type { DisclosureProps } from './disclosure';
 export { Disclosure } from './disclosure';
 export type { FeedbackButtonProps } from './feedback';
 export { FeedbackButton } from './feedback';
+export type { FormProps } from './form';
+export { Form } from './form';
+export type { HandoffButtonProps, HandoffStatusProps } from './handoff';
+export { HandoffButton, HandoffStatus } from './handoff';
 export type { HumanCheckProps } from './human-check';
 export { HumanCheck } from './human-check';
 export type { MarkdownProps } from './markdown';

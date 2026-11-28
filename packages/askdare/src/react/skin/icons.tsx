@@ -86,3 +86,13 @@ export const ThumbDownIcon = (): ReactElement => (
     <path d="M17 13.5V4M17 13.5l-4.2 7a2.2 2.2 0 0 1-2.6-2.7l.8-3.3H5.8a2 2 0 0 1-2-2.4L5 5.6A2 2 0 0 1 7 4h12.5v9.5H17Z" />
   </Icon>
 );
+
+/** A headset: "Talk to a person". */
+export const HeadsetIcon = (): ReactElement => (
+  <Icon>
+    <path d="M4.5 15v-3a7.5 7.5 0 0 1 15 0v3" />
+    <rect x="3" y="13" width="4" height="6" rx="1.5" />
+    <rect x="17" y="13" width="4" height="6" rx="1.5" />
+    <path d="M19 19c0 1.5-1.5 2.5-4 2.5h-2" />
+  </Icon>
+);

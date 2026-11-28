@@ -44,6 +44,9 @@ export const GALLERY_STATES = [
   'feedback',
   'replies',
   'replies-composer',
+  'handoff',
+  'form',
+  'form-errors',
 ] as const;
 export type GalleryState = (typeof GALLERY_STATES)[number];
 

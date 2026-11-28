@@ -7,6 +7,29 @@ import {
   type ProtocolEvent,
 } from './events';
 import {
+  type ChatForm,
+  type ChatFormField,
+  FORM_ERROR_KEY,
+  FORM_FIELD_MAX_LENGTH,
+  FORM_FIELD_NAME,
+  FORM_NAME,
+  FORM_PURPOSES,
+  FORM_STATES,
+  type FormFieldErrors,
+  type FormResponse,
+  type HistoryForm,
+  MAX_FORM_DONE,
+  MAX_FORM_FIELDS,
+  MAX_FORM_HANDLE,
+  MAX_FORM_LABEL,
+  MAX_FORM_OPTION_VALUE,
+  MAX_FORM_OPTIONS,
+  MAX_FORMS,
+  MAX_MESSAGE_FORMS,
+  MIN_FORM_OPTIONS,
+} from './forms';
+import { HANDOFF_STATES, type HandoffResponse, type HandoffState } from './handoff';
+import {
   HISTORY_CURSOR_MAX,
   type HistoryCitation,
   type HistoryMessage,
@@ -32,6 +55,37 @@ const integer = (value: unknown, min: number): value is number =>
 const oneOf = <T extends string>(value: unknown, options: readonly T[]): value is T =>
   options.includes(value as T);
 const messageId = (value: unknown): value is string => text(value, 1, 128);
+const handoffState = (value: unknown): value is HandoffState => oneOf(value, HANDOFF_STATES);
+const formName = (value: unknown): value is string =>
+  typeof value === 'string' && FORM_NAME.test(value);
+const formHandle = (value: unknown): value is string => text(value, 1, MAX_FORM_HANDLE);
+const fieldName = (value: unknown): value is string =>
+  typeof value === 'string' && FORM_FIELD_NAME.test(value);
+/** Form texts count characters (code points), as the server does: an emoji is one. */
+const chars = (value: unknown, max: number): value is string =>
+  typeof value === 'string' &&
+  value.length > 0 &&
+  value.length <= max * 2 &&
+  [...value].length <= max;
+const label = (value: unknown): value is string => chars(value, MAX_FORM_LABEL);
+
+/** Each item mapped, or undefined when one is invalid, the count is off or a key repeats. */
+function listOf<T>(
+  value: unknown,
+  min: number,
+  max: number,
+  item: (value: unknown) => T | undefined,
+  key: (item: T) => unknown,
+): T[] | undefined {
+  if (!Array.isArray(value) || value.length < min || value.length > max) return undefined;
+  const items: T[] = [];
+  for (const entry of value) {
+    const parsed = item(entry);
+    if (parsed === undefined) return undefined;
+    items.push(parsed);
+  }
+  return new Set(items.map(key)).size === items.length ? items : undefined;
+}
 
 /** A rating handle, or undefined when the value breaks the protocol. */
 function feedbackOf(value: unknown): FeedbackHandle | undefined {
@@ -76,6 +130,126 @@ function paramsOf(value: unknown): Record<string, string | number> | undefined {
     params[key] = item;
   }
   return params;
+}
+
+/** One field of a form's description; fields that don't belong to its type are dropped. */
+function formFieldOf(value: unknown): ChatFormField | undefined {
+  if (!record(value)) return undefined;
+  const { name, type, required, placeholder, maxLength } = value;
+  if (!fieldName(name) || !label(value['label']) || typeof required !== 'boolean') return undefined;
+  const field = { name, label: value['label'], required };
+  if (type === 'consent') return { ...field, type };
+  if (type === 'select') {
+    const options = listOf(
+      value['options'],
+      MIN_FORM_OPTIONS,
+      MAX_FORM_OPTIONS,
+      (option) =>
+        record(option) && chars(option['value'], MAX_FORM_OPTION_VALUE) && label(option['label'])
+          ? { value: option['value'], label: option['label'] }
+          : undefined,
+      (option) => option.value,
+    );
+    return options ? { ...field, type, options } : undefined;
+  }
+  if (!oneOf(type, ['text', 'email', 'phone', 'textarea'] as const)) return undefined;
+  if (placeholder !== undefined && !label(placeholder)) return undefined;
+  if (
+    maxLength !== undefined &&
+    !(integer(maxLength, 1) && maxLength <= FORM_FIELD_MAX_LENGTH[type])
+  ) {
+    return undefined;
+  }
+  return {
+    ...field,
+    type,
+    ...(placeholder === undefined ? {} : { placeholder }),
+    ...(maxLength === undefined ? {} : { maxLength }),
+  };
+}
+
+function formOf(value: unknown): ChatForm | undefined {
+  if (!record(value) || !formName(value['name']) || !label(value['title'])) {
+    return undefined;
+  }
+  const { submit, done } = value;
+  if (submit !== undefined && !label(submit)) return undefined;
+  if (done !== undefined && !chars(done, MAX_FORM_DONE)) return undefined;
+  const fields = listOf(value['fields'], 1, MAX_FORM_FIELDS, formFieldOf, (field) => field.name);
+  return fields
+    ? {
+        name: value['name'],
+        title: value['title'],
+        fields,
+        ...(submit === undefined ? {} : { submit }),
+        ...(done === undefined ? {} : { done }),
+      }
+    : undefined;
+}
+
+/** The `forms` of a bot's public configuration, or undefined when they break the protocol. */
+export function parseForms(value: unknown): readonly ChatForm[] | undefined {
+  return listOf(value, 1, MAX_FORMS, formOf, (form) => form.name);
+}
+
+function handoffOf(value: unknown): { state: HandoffState } | undefined {
+  return record(value) && handoffState(value['state']) ? { state: value['state'] } : undefined;
+}
+
+function historyFormOf(value: unknown): HistoryForm | undefined {
+  if (
+    !record(value) ||
+    !text(value['callId'], 1, 128) ||
+    !formName(value['name']) ||
+    !oneOf(value['purpose'], FORM_PURPOSES) ||
+    !oneOf(value['state'], FORM_STATES)
+  ) {
+    return undefined;
+  }
+  const { handle } = value;
+  if (handle !== undefined && !formHandle(handle)) return undefined;
+  return {
+    callId: value['callId'],
+    name: value['name'],
+    purpose: value['purpose'],
+    state: value['state'],
+    ...(handle === undefined ? {} : { handle }),
+  };
+}
+
+/** The answer of `POST /handoff`, or undefined when it breaks the protocol. */
+export function parseHandoffResponse(value: unknown): HandoffResponse | undefined {
+  if (!record(value) || !handoffState(value['state'])) return undefined;
+  const { state, form } = value;
+  if (form === undefined) return { state };
+  return state === 'requested' &&
+    record(form) &&
+    formName(form['name']) &&
+    formHandle(form['handle']) &&
+    oneOf(form['purpose'], ['handoff', 'message'] as const)
+    ? { state, form: { name: form['name'], handle: form['handle'], purpose: form['purpose'] } }
+    : undefined;
+}
+
+/** The answer of `POST /forms` when the form was sent, or undefined when it breaks the protocol. */
+export function parseFormResponse(value: unknown): FormResponse | undefined {
+  if (!record(value) || value['state'] !== 'sent') return undefined;
+  const { handoff } = value;
+  if (handoff === undefined) return { state: 'sent' };
+  return handoffState(handoff) && handoff !== 'requested' ? { state: 'sent', handoff } : undefined;
+}
+
+/** `fields` of a refused `POST /forms`, or undefined when they break the protocol. */
+export function parseFormFieldErrors(value: unknown): FormFieldErrors | undefined {
+  if (!record(value)) return undefined;
+  const entries = Object.entries(value);
+  if (entries.length === 0 || entries.length > MAX_FORM_FIELDS) return undefined;
+  const fields: Record<string, string> = {};
+  for (const [name, key] of entries) {
+    if (!fieldName(name) || typeof key !== 'string' || !FORM_ERROR_KEY.test(key)) return undefined;
+    fields[name] = key;
+  }
+  return fields;
 }
 
 /** A protocol event received over the wire, or undefined when it breaks the protocol. */
@@ -131,6 +305,25 @@ export function parseEvent(value: unknown): ProtocolEvent | undefined {
     case 'replies':
       return messageId(id) && isReplyList(value['items'])
         ? { type: 'replies', messageId: id, items: [...value['items']] }
+        : undefined;
+    case 'handoff':
+      return messageId(id) && handoffState(value['state'])
+        ? { type: 'handoff', messageId: id, state: value['state'] }
+        : undefined;
+    case 'form':
+      return messageId(id) &&
+        text(value['callId'], 1, 128) &&
+        formName(value['name']) &&
+        formHandle(value['handle']) &&
+        oneOf(value['purpose'], FORM_PURPOSES)
+        ? {
+            type: 'form',
+            messageId: id,
+            callId: value['callId'],
+            name: value['name'],
+            handle: value['handle'],
+            purpose: value['purpose'],
+          }
         : undefined;
     case 'message.end': {
       const { resumeToken } = value;
@@ -188,6 +381,13 @@ function historyMessageOf(value: unknown): HistoryMessage | undefined {
   if (replies !== undefined && !isReplyList(replies)) return undefined;
   const { ui } = value;
   if (ui !== undefined && !isToolUiList(ui)) return undefined;
+  const handoff = value['handoff'] === undefined ? undefined : handoffOf(value['handoff']);
+  if (value['handoff'] !== undefined && !handoff) return undefined;
+  const forms =
+    value['forms'] === undefined
+      ? undefined
+      : listOf(value['forms'], 1, MAX_MESSAGE_FORMS, historyFormOf, (form) => form.callId);
+  if (value['forms'] !== undefined && !forms) return undefined;
   return {
     id: value['id'],
     role: value['role'],
@@ -199,6 +399,8 @@ function historyMessageOf(value: unknown): HistoryMessage | undefined {
     ...(ui === undefined
       ? {}
       : { ui: ui.map(({ callId, name, data }) => ({ callId, name, data })) }),
+    ...(handoff ? { handoff } : {}),
+    ...(forms ? { forms } : {}),
   };
 }
 

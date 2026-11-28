@@ -1,6 +1,137 @@
 // ==== define-bot.d.ts ====
-import { E as KnowledgeIndex } from "./turn-log.js";
+import { A as AdminStore, d as KnowledgeIndex } from "./turn-log.js";
 import { z } from "zod";
+/** What a dashboard handler gets for one request, once core has checked access. */
+interface AdminDashboardRequest {
+  /** The admin store the handler reads from. */
+  readonly store: AdminStore;
+  /** The request's JSON body, parsed and size-limited by core. The handler validates its shape. */
+  readonly input: unknown;
+  /**
+   * Seals a conversation ID into a reference the browser may hold, bound to the admin session.
+   * The browser never gets a raw conversation ID (ADR-0032, decision 8).
+   */
+  seal(conversationId: string): Promise<string>;
+  /** Opens a reference `seal` made for this session: `undefined` when it is invalid or expired. */
+  open(reference: string): Promise<string | undefined>;
+  readonly signal: AbortSignal;
+}
+/** A read handler: resolves to the JSON answer, or throws to answer with an error. */
+type AdminDashboardHandler = (request: AdminDashboardRequest) => Promise<unknown>;
+/** The dashboard: its inlined assets and read handlers, as `adminDashboard()` returns them. */
+interface AdminDashboard {
+  /** The dashboard's script, built and inlined by the add-on. Holds no configuration. */
+  readonly script: string;
+  /** The dashboard's stylesheet, built and inlined by the add-on. */
+  readonly style: string;
+  /** Read handlers by action name (`a-z`, digits and `-`), called with POST requests only. */
+  readonly handlers: Readonly<Record<string, AdminDashboardHandler>>;
+}
+/**
+ * A text the visitor reads: one string for every language, or a map by BCP 47 tag
+ * (`{ en: 'Name', pl: 'Imię' }`), as the bot's `texts` are (ADR-0031).
+ */
+type FormText = string | Readonly<Record<string, string>>;
+/** The field types, a closed set; each addition is a minor release with its validation rule. */
+declare const FORM_FIELD_TYPES: readonly ["text", "email", "phone", "select", "textarea", "consent"];
+type FormFieldType = (typeof FORM_FIELD_TYPES)[number];
+interface BaseField<Type extends FormFieldType> {
+  readonly type: Type;
+  /** `[a-z][a-z0-9_]{0,31}`, unique in the form: the key of the value in `onLead`. */
+  readonly name: string;
+  /** Shown above the field as plain text, at most 120 characters. */
+  readonly label: FormText;
+  /** For `consent`: the box must be ticked. Default `false`. */
+  readonly required?: boolean;
+  /**
+   * Whether the model sees this field's value after the form is sent, in a user message
+   * (ADR-0031). Default `false`: the model learns only that the form was sent. Mark fields the
+   * bot needs to go on helping (a topic, a product), not contact details.
+   */
+  readonly toModel?: boolean;
+}
+interface PlaceholderField {
+  /** Shown in the empty field, at most 120 characters. */
+  readonly placeholder?: FormText;
+}
+/** One line of text, at most 200 characters, or `maxLength`. */
+interface FormTextField extends BaseField<"text">, PlaceholderField {
+  readonly maxLength?: number;
+}
+/** An email address, at most 254 characters; the domain is lower-cased. */
+interface FormEmailField extends BaseField<"email">, PlaceholderField {}
+/** Digits, spaces, `+`, `-`, `(` and `)`, 6 to 20 characters. No country rules. */
+interface FormPhoneField extends BaseField<"phone">, PlaceholderField {}
+/** Several lines, at most 2,000 characters, or `maxLength`. */
+interface FormTextareaField extends BaseField<"textarea">, PlaceholderField {
+  readonly maxLength?: number;
+}
+/** One of 2 to 10 options; the visitor can send only a `value` given here. */
+interface FormSelectField extends BaseField<"select"> {
+  readonly options: readonly FormSelectOption[];
+}
+interface FormSelectOption {
+  /** What `onLead` gets, 1 to 100 characters, unique in the field. */
+  readonly value: string;
+  readonly label: FormText;
+}
+/** A checkbox with the site's own wording; it links the bot's `privacyUrl` when one is set. */
+interface FormConsentField extends BaseField<"consent"> {}
+/** A field of a form, from the closed set of types. */
+type FormField = FormTextField | FormEmailField | FormPhoneField | FormTextareaField | FormSelectField | FormConsentField;
+interface FormDefinition<Name extends string = string> {
+  /** `[a-z0-9_]{1,32}`, unique in the bot: what the model picks the form by. */
+  readonly name: Name;
+  /**
+   * For the model only, never sent to the browser: what the form is for and when to show it.
+   * Required unless `model` is `false`.
+   */
+  readonly description?: string;
+  /**
+   * Whether the model may show the form with the `show_form` tool. Default `true`. A form with
+   * `false` serves a handoff only (ADR-0030).
+   */
+  readonly model?: boolean;
+  /** Shown above the fields, at most 120 characters. */
+  readonly title: FormText;
+  /** 1 to 8 fields, in the order shown. */
+  readonly fields: readonly FormField[];
+  /** The button's text, at most 120 characters; the chat's own by default. */
+  readonly submit?: FormText;
+  /** Shown in place of the form once it is sent, at most 300 characters; the chat's own by default. */
+  readonly done?: FormText;
+}
+/** A checked, normalized field: defaults filled in, texts trimmed. */
+type FormFieldSpec = (FormTextField & FieldDefaults & {
+  readonly maxLength: number;
+}) | (FormEmailField & FieldDefaults & {
+  readonly maxLength: number;
+}) | (FormPhoneField & FieldDefaults & {
+  readonly maxLength: number;
+}) | (FormTextareaField & FieldDefaults & {
+  readonly maxLength: number;
+}) | (FormSelectField & FieldDefaults) | (FormConsentField & FieldDefaults);
+interface FieldDefaults {
+  readonly required: boolean;
+  readonly toModel: boolean;
+}
+/** A form a bot can show, as `defineForm` returns it. */
+interface Form<Name extends string = string> {
+  readonly name: Name;
+  /** Empty when `model` is `false` and none was given. */
+  readonly description: string;
+  readonly model: boolean;
+  readonly title: FormText;
+  readonly fields: readonly FormFieldSpec[];
+  readonly submit?: FormText | undefined;
+  readonly done?: FormText | undefined;
+}
+/**
+ * Declares a form the bot can show in the chat (ADR-0031). The definition is checked here, at
+ * startup: an invalid form throws with every reason, like an invalid bot. The visitor types every
+ * value; askdare validates them on the server and passes them to `onLead`, storing none.
+ */
+declare function defineForm<const Name extends string>(definition: FormDefinition<Name>): Form<Name>;
 /**
  * Every text the widget shows. The keys are public API (ADR-0008): override any of them with
  * `widget.texts`. Plural keys end in a CLDR category (`zero`, `one`, `two`, `few`, `many`, `other`).
@@ -37,6 +168,20 @@ declare const EN: {
   readonly "feedback.comment": "What went wrong?";
   readonly "feedback.send": "Send feedback";
   readonly "feedback.skip": "Skip";
+  readonly "handoff.button": "Talk to a person";
+  readonly "handoff.connecting": "Connecting you with a person…";
+  readonly "handoff.sent": "Done. A person from our team will get back to you by email.";
+  readonly "handoff.sentTo": "Done. A person from our team will get back to you at {email}.";
+  readonly "handoff.saved": "We’ve saved your message. A person will reply by email.";
+  readonly "handoff.unavailable": "Nobody is available right now. Please try again later.";
+  readonly "handoff.unavailableTitle": "Nobody is available right now. Leave a message and we’ll reply by email.";
+  readonly "handoff.failed": "We couldn’t reach the team right now. Please try again later.";
+  readonly "handoff.limited": "You’ve already asked for a person. They’ll get back to you.";
+  readonly "form.submit": "Send";
+  readonly "form.done": "Thanks! We’ve received your details.";
+  readonly "form.optional": "(optional)";
+  readonly "form.choose": "Choose…";
+  readonly "form.expired": "This form is no longer available.";
   readonly "message.attachments.one": "{count} attachment";
   readonly "message.attachments.other": "{count} attachments";
   readonly "attachment.list": "Attachments";
@@ -59,6 +204,9 @@ declare const EN: {
   readonly "launcher.open": "Open chat";
   readonly "launcher.close": "Close chat";
   readonly "launcher.unavailable": "The chat couldn’t load. Please try again later.";
+  readonly "launcher.greeting": "Hi! I’m an AI assistant. Can I help you?";
+  readonly "launcher.dismiss": "Dismiss";
+  readonly "launcher.unread": "new messages";
   readonly "humanCheck.label": "Checking that you’re human";
   readonly "error.humanCheck": "We couldn’t confirm you’re human. Please try again.";
   readonly "error.connection": "Connection problem. Please try again.";
@@ -95,6 +243,13 @@ declare const EN: {
   readonly "error.recordingTooLong": "This recording is too long.";
   readonly "error.dictationBusy": "Another dictation is still being transcribed. Please try again in a moment.";
   readonly "error.dictationBudget": "Dictation is unavailable for the rest of the day. You can still type.";
+  readonly "error.form.required": "This field is required.";
+  readonly "error.form.consent": "Tick this box to continue.";
+  readonly "error.form.email": "Enter a valid email address.";
+  readonly "error.form.phone": "Enter a valid phone number.";
+  readonly "error.form.tooLong": "Use at most {max} characters.";
+  readonly "error.form.option": "Choose one of the options.";
+  readonly "error.form.invalid": "This contains characters that can’t be accepted.";
 };
 /** Plural texts: the base plus a CLDR category, every category overridable. */
 declare const PLURAL_BASES: readonly ["message.attachments"];
@@ -452,6 +607,49 @@ interface AttachmentConfig {
    */
   readonly maxPdfPages?: number;
 }
+/** What `handoff.available` gets: the bot and the visitor it is asked for. */
+interface HandoffAvailabilityContext {
+  readonly bot: string;
+  readonly locale: string;
+  /** The signed-in user, verified (ADR-0009); undefined when anonymous. */
+  readonly identity?: VisitorIdentity | undefined;
+}
+/** How many handoffs are accepted (ADR-0030, decision 7). */
+interface HandoffLimits {
+  /** Per conversation; a second request ends as `limited`. Default 1. */
+  readonly perConversation?: number;
+  /** Per visitor or signed-in user per UTC day, and the same per IP. Default 3. */
+  readonly perVisitorPerDay?: number;
+  /** For the whole bot per UTC day; `onError` hears once when it runs out. Default 100. */
+  readonly perBotPerDay?: number;
+}
+/**
+ * Handoff to a person (ADR-0030): the model may call the `handoff` tool and the chat shows a "Talk
+ * to a person" control. Requests go to `createChatHandler`'s `onHandoff`, which is then required.
+ */
+interface HandoffConfig {
+  /** The model may call the reserved `handoff` tool. Default `true`. */
+  readonly model?: boolean;
+  /** The chat shows "Talk to a person". Default `true`. */
+  readonly button?: boolean;
+  /**
+   * The name of a form in `forms` that collects contact details before the request goes out,
+   * and takes a message while nobody is available. Skipped for a signed-in visitor with an email.
+   */
+  readonly form?: string;
+  /**
+   * Whether someone can take a request now: office hours, holidays, on-call. May be async; it
+   * has two seconds, and a throw or a timeout counts as unavailable. Default: always available.
+   */
+  readonly available?: (context: HandoffAvailabilityContext) => boolean | Promise<boolean>;
+  /**
+   * What of the conversation the request carries: `none` (the default), `summary` (a short note
+   * the model writes) or `transcript` (the summary and the visible messages of the latest history
+   * page). Contact details from the form are always included.
+   */
+  readonly content?: "none" | "summary" | "transcript";
+  readonly limits?: HandoffLimits;
+}
 interface VoiceConfig {
   /** OpenAI transcription model, for example `gpt-transcribe`. Required: the library never assumes a model. */
   readonly model: string;
@@ -513,6 +711,15 @@ interface WidgetConfig {
   readonly avatar?: string;
   /** Text on the pill launcher; shortcut for `texts['launcher.label']`. */
   readonly launcherLabel?: string;
+  /**
+   * A short greeting next to the closed launcher, shown once the visitor has been on the page for
+   * `delaySeconds` (default 5), until they dismiss it or open the chat in this browser session.
+   * Its text is `texts['launcher.greeting']`; the default says it is an AI assistant, and your own
+   * should too. A page turns it off with `data-greeting="off"` on the script tag. Default off.
+   */
+  readonly launcherGreeting?: boolean | {
+    readonly delaySeconds?: number;
+  };
   /** Built-in look (`halo`, `aura`, `sage`, `care`) or a theme from `defineTheme`. Default `aura`. */
   readonly theme?: PresetName | ThemeDefinition;
   /** Default `auto`: follows the visitor's system setting. */
@@ -558,6 +765,17 @@ interface BotDefinition extends GuardrailOptions {
    * with it. Off when absent: askdare's page, which needs nothing from you.
    */
   readonly embedPath?: string | undefined;
+  /**
+   * Handoff to a person (ADR-0030); `true` for the defaults. Off when absent: no tool, no
+   * button. Needs `onHandoff` in `createChatHandler`.
+   */
+  readonly handoff?: boolean | HandoffConfig | undefined;
+  /**
+   * Forms the chat can show (ADR-0031), made with `defineForm`: at most 10, with distinct names.
+   * Forms the model may show add the reserved `show_form` tool and need `onLead` in
+   * `createChatHandler`.
+   */
+  readonly forms?: readonly Form[] | undefined;
 }
 /**
  * What `defineBot` returns. Pass it to `createChatHandler`, `getChatConfig` and `getEmbedConfig`;
@@ -574,7 +792,7 @@ interface BotHandle {
  * visitor's message.
  */
 declare function defineBot(definition: BotDefinition): BotHandle;
-export { PresetName as C, HumanChallenge as D, VisitorIdentity as E, HumanCheckContext as O, defineTheme as S, ThemeVariants as T, ToolContext as _, BotLimits as a, ColorScheme as b, VoiceConfig as c, GuardContext as d, GuardHook as f, Tool as g, ModerationConfig as h, BotHandle as i, HumanVerifier as k, WidgetConfig as l, GuardrailOptions as m, BotContext as n, BotSecurity as o, GuardVerdict as p, BotDefinition as r, KnowledgeConfig as s, AttachmentConfig as t, defineBot as u, ToolDefinition as v, ThemeTokens as w, ThemeDefinition as x, defineTool as y };
+export { HumanChallenge as A, AdminDashboardHandler as B, ColorScheme as C, ThemeTokens as D, PresetName as E, FormField as F, FormFieldType as I, defineForm as L, HumanVerifier as M, Form as N, ThemeVariants as O, FormDefinition as P, FormText as R, defineTool as S, defineTheme as T, AdminDashboardRequest as V, GuardrailOptions as _, BotLimits as a, ToolContext as b, HandoffConfig as c, VoiceConfig as d, WidgetConfig as f, GuardVerdict as g, GuardHook as h, BotHandle as i, HumanCheckContext as j, VisitorIdentity as k, HandoffLimits as l, GuardContext as m, BotContext as n, BotSecurity as o, defineBot as p, BotDefinition as r, HandoffAvailabilityContext as s, AttachmentConfig as t, KnowledgeConfig as u, ModerationConfig as v, ThemeDefinition as w, ToolDefinition as x, Tool as y, AdminDashboard as z };
 
 // ==== embed.d.ts ====
 
@@ -598,8 +816,13 @@ export declare function EmbedRoot({ config, toolRenderers, children }: EmbedRoot
 export type { EmbedChatConfig, EmbedRootProps };
 
 // ==== index.d.ts ====
-import { C as PresetName, D as HumanChallenge, E as VisitorIdentity, O as HumanCheckContext, S as defineTheme, T as ThemeVariants, _ as ToolContext, a as BotLimits, b as ColorScheme, c as VoiceConfig, d as GuardContext, f as GuardHook, g as Tool, h as ModerationConfig, i as BotHandle, k as HumanVerifier, l as WidgetConfig, m as GuardrailOptions, n as BotContext, o as BotSecurity, p as GuardVerdict, r as BotDefinition, s as KnowledgeConfig, t as AttachmentConfig, u as defineBot, v as ToolDefinition, w as ThemeTokens, x as ThemeDefinition, y as defineTool } from "./define-bot.js";
-import { C as KnowledgeCheck, D as Passage, E as KnowledgeIndex, O as SearchOptions, S as KnowledgeCallOptions, T as KnowledgeDocument, _ as StoredItem, b as Embedder, c as CompactionModel, d as ConversationOwner, f as ConversationPage, g as StoredCitation, h as PositionedItem, i as ErrorCode, k as SyncReport, l as ConversationContext, m as ConversationStoreCheck, n as TurnEventLog, o as CounterHit, p as ConversationStore, r as ERROR_CODES, s as RateLimitStore, t as TurnEvent, u as ConversationInfo, v as StoredPart, w as KnowledgeChunk, x as Embeddings, y as VersionConflictError } from "./turn-log.js";
+import { A as HumanChallenge, B as AdminDashboardHandler, C as ColorScheme, D as ThemeTokens, E as PresetName, F as FormField, I as FormFieldType, L as defineForm, M as HumanVerifier, N as Form, O as ThemeVariants, P as FormDefinition, R as FormText, S as defineTool, T as defineTheme, V as AdminDashboardRequest, _ as GuardrailOptions, a as BotLimits, b as ToolContext, c as HandoffConfig, d as VoiceConfig, f as WidgetConfig, g as GuardVerdict, h as GuardHook, i as BotHandle, j as HumanCheckContext, k as VisitorIdentity, l as HandoffLimits, m as GuardContext, n as BotContext, o as BotSecurity, p as defineBot, r as BotDefinition, s as HandoffAvailabilityContext, t as AttachmentConfig, u as KnowledgeConfig, v as ModerationConfig, w as ThemeDefinition, x as ToolDefinition, y as Tool, z as AdminDashboard } from "./define-bot.js";
+import { $ as StoredCitation, A as AdminStore, C as AdminHandoffState, D as AdminRatingRecord, E as AdminRatingQuery, F as AdminTurnRecord, G as CompactionModel, H as ErrorCode, I as AdminWriteOptions, J as ConversationOwner, K as ConversationContext, M as AdminSweepOptions, N as AdminTranscriptCitation, O as AdminRecordKey, P as AdminTranscriptRecord, Q as PositionedItem, S as AdminHandoffCounts, T as AdminRange, V as ERROR_CODES, X as ConversationStore, Y as ConversationPage, Z as ConversationStoreCheck, _ as AdminConversationQuery, a as Embedder, b as AdminDayRow, c as KnowledgeCheck, d as KnowledgeIndex, et as StoredItem, f as Passage, g as AdminCheckOutcome, h as AdminBotDayRow, i as RateLimitStore, j as AdminStoredRating, k as AdminSource, l as KnowledgeChunk, m as SyncReport, n as TurnEventLog, nt as VersionConflictError, o as Embeddings, p as SearchOptions, q as ConversationInfo, r as CounterHit, s as KnowledgeCallOptions, t as TurnEvent, tt as StoredPart, u as KnowledgeDocument, v as AdminConversationSummary, w as AdminPage, x as AdminDays, y as AdminCountEvent } from "./turn-log.js";
+/**
+ * Admin records in this process's memory, for tests and local development. Every instance has its
+ * own, and a restart forgets them, so production warns.
+ */
+export declare function memoryAdminStore(): AdminStore;
 /**
  * Conversations in this process's memory, for tests and local development. Every instance has its
  * own, and a restart forgets them, so production warns. It is an item store: turns replay its
@@ -696,11 +919,12 @@ interface TurnstileOptions {
  * ```
  */
 export declare function turnstile(options: TurnstileOptions): HumanVerifier;
-export { type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type CompactionModel, type ConversationContext, type ConversationInfo, type ConversationOwner, type ConversationPage, type ConversationStore, type ConversationStoreCheck, type CounterHit, ERROR_CODES, type Embedder, type Embeddings, type ErrorCode, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type HumanChallenge, type HumanCheckContext, type HumanVerifier, type KnowledgeCallOptions, type KnowledgeCheck, type KnowledgeChunk, type KnowledgeConfig, type KnowledgeDocument, type KnowledgeIndex, type MemoryTurnLog, type MemoryTurnLogOptions, type ModerationConfig, type OpenAIEmbedderOptions, type Passage, type PositionedItem, type PresetName, type RateLimitStore, type SearchOptions, type StoredCitation, type StoredItem, type StoredPart, type SyncReport, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type TurnEvent, type TurnEventLog, type TurnstileOptions, VersionConflictError, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineTheme, defineTool };
+export { type AdminBotDayRow, type AdminCheckOutcome, type AdminConversationQuery, type AdminConversationSummary, type AdminCountEvent, type AdminDashboard, type AdminDashboardHandler, type AdminDashboardRequest, type AdminDayRow, type AdminDays, type AdminHandoffCounts, type AdminHandoffState, type AdminPage, type AdminRange, type AdminRatingQuery, type AdminRatingRecord, type AdminRecordKey, type AdminSource, type AdminStore, type AdminStoredRating, type AdminSweepOptions, type AdminTranscriptCitation, type AdminTranscriptRecord, type AdminTurnRecord, type AdminWriteOptions, type AttachmentConfig, type BotContext, type BotDefinition, type BotHandle, type BotLimits, type BotSecurity, type ColorScheme, type CompactionModel, type ConversationContext, type ConversationInfo, type ConversationOwner, type ConversationPage, type ConversationStore, type ConversationStoreCheck, type CounterHit, ERROR_CODES, type Embedder, type Embeddings, type ErrorCode, type Form, type FormDefinition, type FormField, type FormFieldType, type FormText, type GuardContext, type GuardHook, type GuardVerdict, type GuardrailOptions, type HandoffAvailabilityContext, type HandoffConfig, type HandoffLimits, type HumanChallenge, type HumanCheckContext, type HumanVerifier, type KnowledgeCallOptions, type KnowledgeCheck, type KnowledgeChunk, type KnowledgeConfig, type KnowledgeDocument, type KnowledgeIndex, type MemoryTurnLog, type MemoryTurnLogOptions, type ModerationConfig, type OpenAIEmbedderOptions, type Passage, type PositionedItem, type PresetName, type RateLimitStore, type SearchOptions, type StoredCitation, type StoredItem, type StoredPart, type SyncReport, type ThemeDefinition, type ThemeTokens, type ThemeVariants, type Tool, type ToolContext, type ToolDefinition, type TurnEvent, type TurnEventLog, type TurnstileOptions, VersionConflictError, type VisitorIdentity, type VoiceConfig, type WidgetConfig, defineBot, defineForm, defineTheme, defineTool };
 
 // ==== next.d.ts ====
-import { C as PresetName, E as VisitorIdentity, T as ThemeVariants, i as BotHandle } from "./define-bot.js";
-import { a as MessageEndReason, i as ErrorCode, n as TurnEventLog, p as ConversationStore, s as RateLimitStore } from "./turn-log.js";
+import { A as AdminStore, B as ChatUsageReport, H as ErrorCode, L as ChatCompactionReport, R as ChatTokenUsage, U as MessageEndReason, W as ChatForm, X as ConversationStore, i as RateLimitStore, n as TurnEventLog, z as ChatToolCallReport } from "./turn-log.js";
+import { E as PresetName, O as ThemeVariants, i as BotHandle, k as VisitorIdentity, z as AdminDashboard } from "./define-bot.js";
+import "zod";
 /** What a visitor may attach, as the bot allows it. */
 interface ChatAttachments {
   readonly images: boolean;
@@ -763,6 +987,16 @@ interface ChatConfig {
    * session starts, rendered by `HumanCheck`.
    */
   readonly humanCheck?: ChatHumanCheck;
+  /**
+   * The bot's forms in the visitor's language (ADR-0031), found by the `name` of a message's form.
+   * Absent when the bot has none.
+   */
+  readonly forms?: readonly ChatForm[];
+  /**
+   * Whether the visitor can ask for a person with `HandoffButton` (ADR-0030). Absent when the bot
+   * has no handoff or turns its button off.
+   */
+  readonly handoff?: true;
 }
 /** A human check the chat must pass before it connects; public, the site key only. */
 interface ChatHumanCheck {
@@ -776,6 +1010,136 @@ interface EmbedChatConfig extends ChatConfig {
   /** `inline` inside an element of the host page, `floating` in the widget's panel. */
   readonly mode: "floating" | "inline";
 }
+/**
+ * One sent form, as `onLead` receives it (ADR-0031). `values` are what the visitor typed, validated
+ * and normalized: treat the report as personal data. askdare keeps none of it.
+ */
+interface ChatLeadReport {
+  /** A random ID for this submission: drop duplicates by it. */
+  readonly id: string;
+  readonly bot: string;
+  /** The form's name. */
+  readonly form: string;
+  readonly locale: string;
+  /** When the form was sent, in epoch milliseconds. */
+  readonly createdAt: number;
+  /** Every field of the form by name: text, or `true`/`false` for `consent`; `''` when left empty. */
+  readonly values: Readonly<Record<string, string | boolean>>;
+  /** The same pseudonym (HMAC) `onUsage`, `onFeedback` and `onHandoff` report. */
+  readonly visitor: string;
+  /** The signed-in user, verified (ADR-0009); absent for anonymous visitors. */
+  readonly identity?: VisitorIdentity | undefined;
+  /** The conversation in your conversation store. Never sent to the browser. */
+  readonly conversationId: string;
+  /**
+   * `model` for a form the model showed; `handoff` for a message left through a handoff's form,
+   * because nobody was available or the request could not be delivered.
+   */
+  readonly source: {
+    readonly kind: "model";
+  } | {
+    readonly kind: "handoff";
+    readonly reason: "visitor_asked" | "cannot_help" | "complaint" | "sensitive" | "sales";
+    readonly trigger: "model" | "visitor";
+    readonly delivered: false;
+    readonly why: "unavailable" | "failed";
+  };
+}
+/** One visible message of the conversation, in a report with `content: 'transcript'`. */
+interface ChatHandoffMessage {
+  readonly role: "user" | "assistant";
+  readonly text: string;
+}
+/**
+ * One request for a person, as `onHandoff` receives it (ADR-0030). Contact details are always
+ * included; conversation content only as the bot's `content` option allows. Treat it as
+ * personal data.
+ */
+interface ChatHandoffReport {
+  /** A random ID for this handoff, the same on every retry: drop duplicates by it. */
+  readonly id: string;
+  readonly bot: string;
+  readonly locale: string;
+  /** When the handoff was accepted, in epoch milliseconds. */
+  readonly createdAt: number;
+  /** `model` when the bot called the `handoff` tool, `visitor` for the "Talk to a person" button. */
+  readonly trigger: "model" | "visitor";
+  /** Why: the `handoff` tool's enum. A visitor's button is always `visitor_asked`. */
+  readonly reason: "visitor_asked" | "cannot_help" | "complaint" | "sensitive" | "sales";
+  /**
+   * A pseudonym (HMAC) of the signed-in user's ID, or of the visitor's: the same value
+   * `onUsage`, `onFeedback` and `onTranscript` report.
+   */
+  readonly visitor: string;
+  /** The signed-in user, verified (ADR-0009); absent for anonymous visitors. */
+  readonly identity?: VisitorIdentity | undefined;
+  /** The conversation in your conversation store, as `onFeedback` gets it. Never sent to the browser. */
+  readonly conversationId: string;
+  /**
+   * `false` for a message left while nobody was available, which reaches `onHandoff` only when
+   * the app set no `onLead`.
+   */
+  readonly available: boolean;
+  /**
+   * The validated values of the bot's handoff form, or `{ email }` from a signed-in visitor's
+   * identity. Absent when there was neither.
+   */
+  readonly contact?: Readonly<Record<string, string | boolean>> | undefined;
+  /** The model's short note for the person, with `content: 'summary'` or `'transcript'`. */
+  readonly summary?: string | undefined;
+  /**
+   * The visible messages of the conversation's latest history page, oldest first, with
+   * `content: 'transcript'` only.
+   */
+  readonly transcript?: readonly ChatHandoffMessage[] | undefined;
+}
+/** The email `emailHandoff` asks your `send` function to deliver: plain text only. */
+interface HandoffEmail {
+  readonly to: string | readonly string[];
+  readonly from: string;
+  /** The visitor's email, from the handoff form or the signed-in identity, so a reply reaches them. */
+  readonly replyTo?: string | undefined;
+  /** Fixed text with the bot and the reason; nothing the visitor typed. */
+  readonly subject: string;
+  readonly text: string;
+}
+interface EmailHandoffOptions {
+  /** Who gets the requests: your support inbox. */
+  readonly to: string | readonly string[];
+  /** The sender your mail provider accepts for your domain. */
+  readonly from: string;
+  /**
+   * Sends one email with whatever your app already uses (Resend, Postmark, SES, nodemailer).
+   * Throw when it was not sent; the visitor is then told the request failed.
+   */
+  readonly send: (email: HandoffEmail) => void | Promise<void>;
+}
+/**
+ * A handoff transport that formats the report as a plain-text email and passes it to your
+ * `send` function. The visitor's email becomes `replyTo`, so the person answers them directly.
+ * Throws when `send` throws.
+ */
+export declare function emailHandoff(options: EmailHandoffOptions): (report: ChatHandoffReport) => Promise<void>;
+interface WebhookHandoffOptions {
+  /** Where to post the report: `https:` only, or `http://localhost` outside production. */
+  readonly url: string;
+  /**
+   * The Standard Webhooks signing secret your receiver verifies with: `whsec_` and a base64 key
+   * of at least 24 bytes. Your own secret, never `CHAT_SECRET`.
+   */
+  readonly secret: string;
+  /** How long one attempt may take, in milliseconds; default 4000, at most 9000. */
+  readonly timeoutMs?: number | undefined;
+  /** Extra headers, such as an API key of the receiver. They can't replace the signature headers. */
+  readonly headers?: Readonly<Record<string, string>> | undefined;
+}
+/**
+ * A handoff transport that posts the report as JSON to your endpoint, signed with Standard
+ * Webhooks headers (`webhook-id` is the report's `id`). Each attempt has `timeoutMs`; a network
+ * error, a timeout, a `408`, `429` or `5xx` gets one retry after 500 ms, within the ten seconds
+ * a handoff has. Redirects are not followed. Throws when the report was not delivered.
+ */
+export declare function webhookHandoff(options: WebhookHandoffOptions): (report: ChatHandoffReport) => Promise<void>;
 /**
  * Which proxy to trust when reading the client IP:
  * - `vercel`: Vercel overwrites `x-forwarded-for` and sets `x-real-ip`, so both are reliable.
@@ -876,78 +1240,25 @@ interface ChatTranscriptReport {
   /** Why the answer ended. */
   readonly reason: MessageEndReason;
 }
-/** Tokens one turn used, summed over its model calls, as OpenAI reports them. */
-interface ChatTokenUsage {
-  readonly inputTokens: number;
-  /** Input tokens read from the prompt cache; part of `inputTokens`. */
-  readonly cachedInputTokens: number;
-  /** Input tokens written to the prompt cache; part of `inputTokens`. */
-  readonly cacheWriteTokens: number;
-  readonly outputTokens: number;
-  /** Output tokens spent on reasoning; part of `outputTokens`. */
-  readonly reasoningTokens: number;
-}
-/** One function call of a turn. Its arguments and result are never reported. */
-interface ChatToolCallReport {
-  readonly name: string;
-  /** Epoch milliseconds. */
-  readonly startedAt: number;
-  readonly durationMs: number;
-  readonly outcome: "ok" | "error" | "timeout";
-}
-/**
- * The compaction after a turn (ADR-0029), when one was due: the turn's last model call read at
- * least `limits.compactAt` input tokens in a conversation store that keeps the items. Its usage is
- * apart from the turn's own.
- */
-interface ChatCompactionReport {
+interface ChatSweepOptions {
+  /** Conversations with no message for this many days are deleted. Default 30; 0 for all. */
+  readonly idleDays?: number | undefined;
   /**
-   * - `compacted`: the summary was stored, and the next turns replay from it;
-   * - `conflict`: the visitor wrote again before it was stored, so it was dropped; a later turn
-   *   compacts again;
-   * - `skipped`: no request was made: a budget couldn't cover it, or the conversation stopped
-   *   compacting because each summary left too large a floor;
-   * - `failed`: the request failed or returned no summary; a later turn tries again.
+   * The most conversations one call deletes, default 100; admin records go in up to ten times as
+   * many. `more` in the result says a later call has work left.
    */
-  readonly outcome: "compacted" | "conflict" | "skipped" | "failed";
-  /** What the compaction request used, as OpenAI reported it; zero when none finished. */
-  readonly usage: ChatTokenUsage;
-  readonly durationMs: number;
+  readonly limit?: number | undefined;
+  readonly signal?: AbortSignal | undefined;
 }
-/**
- * One chat turn, as `onUsage` receives it (ADR-0012). It carries counters, timings and
- * pseudonyms only: never message text, tool arguments or results, IP addresses or raw IDs.
- */
-interface ChatUsageReport {
-  readonly bot: string;
-  /** The model that answered, as OpenAI reports it; the configured model if none answered. */
-  readonly model: string;
-  /** A pseudonym (HMAC) of the conversation; undefined when none was created. */
-  readonly conversation: string | undefined;
-  /**
-   * A pseudonym (HMAC) of the signed-in user's ID, or of the visitor's when nobody is signed in:
-   * the same value OpenAI gets as `safety_identifier`.
-   */
-  readonly visitor: string;
-  /** Epoch milliseconds. */
-  readonly startedAt: number;
-  readonly durationMs: number;
-  /** `stopped` when the turn was aborted before it could answer. */
-  readonly outcome: "completed" | "stopped" | "failed";
-  /** Why the answer ended, when it did. */
-  readonly finishReason?: MessageEndReason | undefined;
-  /** The stable error code, when the turn failed. */
-  readonly errorCode?: ErrorCode | undefined;
-  /** What OpenAI reported for the model calls that finished; less than billed if one broke off. */
-  readonly usage: ChatTokenUsage;
-  /** Model calls in the turn: one, plus one after each round of tool calls. */
-  readonly steps: number;
-  readonly tools: readonly ChatToolCallReport[];
-  /**
-   * The compaction after the turn, when one was due (`limits.compactAt`). The report then comes
-   * once it has ended, up to a minute and a half after the turn.
-   */
-  readonly compaction?: ChatCompactionReport | undefined;
+interface ChatSweepResult {
+  /** Conversations deleted. */
+  readonly conversations: number;
+  /** Their attached files deleted. */
+  readonly files: number;
+  /** Admin records and daily rows deleted for their age. */
+  readonly records: number;
+  /** Whether a later call has more to delete. */
+  readonly more: boolean;
 }
 interface ChatHandlerOptions {
   readonly bots: readonly BotHandle[];
@@ -1006,11 +1317,55 @@ interface ChatHandlerOptions {
    */
   readonly onTranscript?: (report: ChatTranscriptReport) => void | Promise<void>;
   /**
+   * Receives each request for a person (ADR-0030), such as `webhookHandoff()` or `emailHandoff()`.
+   * Awaited, with a 10-second deadline: what it does decides what the visitor sees, and a throw or
+   * the deadline means the request failed (`onError` gets the error's name only). Required when a
+   * bot turns `handoff` on. The report carries contact details: treat it as personal data.
+   */
+  readonly onHandoff?: (report: ChatHandoffReport) => void | Promise<void>;
+  /**
+   * Receives each sent form (ADR-0031) after the response, with the visitor's validated values.
+   * askdare stores none of them: keep them here. Required when a bot offers forms to the model. A
+   * throw goes to `onError` by the error's name only. Treat the report as personal data.
+   */
+  readonly onLead?: (report: ChatLeadReport) => void | Promise<void>;
+  /**
    * Serves the state gallery: `/embed/<bot>?gallery=<state>&preset=<preset>&scheme=<scheme>`
    * renders fixture states without calling the model. For development and visual tests; leave
    * it off in production.
    */
   readonly gallery?: boolean;
+  /**
+   * The admin store and console (ADR-0016, ADR-0032). With `store`, askdare writes each turn's
+   * counters, ratings and, with `transcripts`, transcripts there itself, and deleting or sweeping a
+   * conversation deletes its records too. `console` turns on the owners' console at
+   * `<basePath>/admin`.
+   */
+  readonly admin?: ChatHandlerAdminOptions;
+}
+interface ChatHandlerAdminOptions {
+  /** Where admin records live, such as `postgresAdminStore()` from `@boldare/askdare-postgres`. */
+  readonly store?: AdminStore;
+  /**
+   * Also keep each turn's text (the visitor's message and the answer they saw) in the store.
+   * Personal data: off by default; needs `store`.
+   */
+  readonly transcripts?: boolean;
+  /** Days records are kept, once the app calls `sweep()` on a schedule. Default 30, at most 400. */
+  readonly retentionDays?: number;
+  /** The console at `<basePath>/admin`, off unless set. */
+  readonly console?: ChatHandlerAdminConsoleOptions;
+}
+interface ChatHandlerAdminConsoleOptions {
+  /**
+   * Users who may sign in with an identity token: the `sub` of a JWT signed with
+   * `IDENTITY_SECRET`, audience `askdare:admin`, at most 10 minutes long, passed to the console
+   * as `<basePath>/admin#identity=<jwt>`. Without it, only `ADMIN_SECRET` signs in; one of the
+   * two is required.
+   */
+  readonly allow?: readonly string[];
+  /** The stage 2 dashboard, such as `adminDashboard()` from `@boldare/askdare-admin`. Needs `store`. */
+  readonly dashboard?: AdminDashboard;
 }
 /** One server error, as `onError` receives it. */
 interface ChatErrorReport {
@@ -1055,6 +1410,12 @@ interface ChatHandlers {
   readonly GET: RouteHandler;
   readonly POST: RouteHandler;
   readonly DELETE: RouteHandler;
+  /**
+   * Deletes conversations idle for `idleDays` (with a store that can list them, not OpenAI's),
+   * with their files and admin records, then admin records older than `admin.retentionDays`. Call
+   * it from your own scheduled route, behind its own secret; askdare schedules nothing.
+   */
+  readonly sweep: (options?: ChatSweepOptions) => Promise<ChatSweepResult>;
 }
 /**
  * Creates the Next.js route handlers for askdare. Mount them in a catch-all route:
@@ -1136,12 +1497,20 @@ export declare function embedPageHeaders(options: {
   readonly bots: readonly BotHandle[];
   readonly bot: string;
 }): EmbedPageHeader[];
-export type { ChatAttachments, ChatCompactionReport, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlerResumeOptions, ChatHandlers, ChatHumanCheck, ChatStyles, ChatTokenUsage, ChatToolCallReport, ChatTranscriptCitation, ChatTranscriptReport, ChatUsageReport, ChatWidget, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, OpenAIConversationsOptions, RouteHandler, TrustProxy };
+export type { ChatAttachments, ChatCompactionReport, ChatConfig, ChatConfigOptions, ChatErrorReport, ChatFeedbackReport, ChatHandlerAdminConsoleOptions, ChatHandlerAdminOptions, ChatHandlerLimitsOptions, ChatHandlerOptions, ChatHandlerResumeOptions, ChatHandlers, ChatHandoffMessage, ChatHandoffReport, ChatHumanCheck, ChatLeadReport, ChatStyles, ChatSweepOptions, ChatSweepResult, ChatTokenUsage, ChatToolCallReport, ChatTranscriptCitation, ChatTranscriptReport, ChatUsageReport, ChatWidget, EmailHandoffOptions, EmbedChatConfig, EmbedConfigOptions, EmbedPageHeader, EmbedSearchParams, HandoffEmail, OpenAIConversationsOptions, RouteHandler, TrustProxy, WebhookHandoffOptions };
 
 // ==== react.d.ts ====
 
-import { a as ToolResults, c as ChatConfig, d as ChatWidget, i as ToolRenderers, l as ChatHumanCheck, m as ThemeVariants, n as LinkProps, o as ToolResultsProps, p as PresetName, r as ToolRendererProps, s as ChatAttachments, t as Link, u as ChatStyles } from "./tool-results.js";
+import { _ as ChatFormOption, a as ToolResults, b as FormPurpose, c as ChatConfig, d as ChatWidget, g as ChatFormField, h as ChatForm, i as ToolRenderers, l as ChatHumanCheck, m as ThemeVariants, n as LinkProps, o as ToolResultsProps, p as PresetName, r as ToolRendererProps, s as ChatAttachments, t as Link, u as ChatStyles, v as FormFieldErrors, y as FormFieldType } from "./tool-results.js";
 import { ComponentProps, ComponentType, NamedExoticComponent, ReactElement, ReactNode, Ref } from "react";
+/**
+ * Where a handoff stands. `requested` while it runs or while its form waits; the others are final:
+ * `sent` (delivered), `saved` (the form's values went to `onLead` instead), `unavailable` (nobody
+ * was available and there was no form), `failed` (the delivery failed and nothing saved it) and
+ * `limited` (a handoff limit refused it).
+ */
+declare const HANDOFF_STATES: readonly ["requested", "sent", "saved", "unavailable", "failed", "limited"];
+type HandoffState = (typeof HANDOFF_STATES)[number];
 /** One tool call's payload, as the `tool.ui` event and the history carry it. */
 interface ToolUi {
   /** The call, as in `tool.status`. Opaque. */
@@ -1243,6 +1612,35 @@ interface ChatMessage {
    * order, at most four: plain JSON for the components registered with `toolRenderers`.
    */
   readonly ui?: readonly ToolUi[] | undefined;
+  /**
+   * A handoff to a person recorded after this answer (ADR-0030): `requested` while it runs or its
+   * form waits, then its final state. Shown as plain text.
+   */
+  readonly handoff?: HandoffState | undefined;
+  /** Forms shown under this answer, in order (ADR-0031); each stays until it is sent or expires. */
+  readonly forms?: readonly MessageForm[] | undefined;
+}
+/**
+ * A form under an answer (ADR-0031). Its fields, title and texts are in `ChatConfig.forms`, found by
+ * `name`. `open` takes values, `submitting` while they go out, then `sent` (show its `done` text,
+ * or the message's handoff state) or `expired` (its handle is no longer valid).
+ */
+interface MessageForm {
+  /** Opaque, unique in the conversation. */
+  readonly callId: string;
+  readonly name: string;
+  /** Picks the texts around the form: a lead, a handoff's contact details, or a message left. */
+  readonly purpose: FormPurpose;
+  readonly state: "open" | "submitting" | "sent" | "expired";
+  /** What `actions.submitForm` takes, while the form is open. */
+  readonly handle?: string | undefined;
+  /**
+   * The fields the server refused at the last try, each with an error key (`error.form.required`,
+   * `error.form.email`…) to look up with `t`. A key the chat doesn't know is a generic error.
+   */
+  readonly errors?: FormFieldErrors | undefined;
+  /** Why the last try failed as a whole, such as a lost connection, in the visitor's language. */
+  readonly error?: string | undefined;
 }
 type Rating = "up" | "down";
 /** A file picked for the next message. */
@@ -1364,6 +1762,20 @@ declare const EN: {
   readonly "feedback.comment": "What went wrong?";
   readonly "feedback.send": "Send feedback";
   readonly "feedback.skip": "Skip";
+  readonly "handoff.button": "Talk to a person";
+  readonly "handoff.connecting": "Connecting you with a person…";
+  readonly "handoff.sent": "Done. A person from our team will get back to you by email.";
+  readonly "handoff.sentTo": "Done. A person from our team will get back to you at {email}.";
+  readonly "handoff.saved": "We’ve saved your message. A person will reply by email.";
+  readonly "handoff.unavailable": "Nobody is available right now. Please try again later.";
+  readonly "handoff.unavailableTitle": "Nobody is available right now. Leave a message and we’ll reply by email.";
+  readonly "handoff.failed": "We couldn’t reach the team right now. Please try again later.";
+  readonly "handoff.limited": "You’ve already asked for a person. They’ll get back to you.";
+  readonly "form.submit": "Send";
+  readonly "form.done": "Thanks! We’ve received your details.";
+  readonly "form.optional": "(optional)";
+  readonly "form.choose": "Choose…";
+  readonly "form.expired": "This form is no longer available.";
   readonly "message.attachments.one": "{count} attachment";
   readonly "message.attachments.other": "{count} attachments";
   readonly "attachment.list": "Attachments";
@@ -1386,6 +1798,9 @@ declare const EN: {
   readonly "launcher.open": "Open chat";
   readonly "launcher.close": "Close chat";
   readonly "launcher.unavailable": "The chat couldn’t load. Please try again later.";
+  readonly "launcher.greeting": "Hi! I’m an AI assistant. Can I help you?";
+  readonly "launcher.dismiss": "Dismiss";
+  readonly "launcher.unread": "new messages";
   readonly "humanCheck.label": "Checking that you’re human";
   readonly "error.humanCheck": "We couldn’t confirm you’re human. Please try again.";
   readonly "error.connection": "Connection problem. Please try again.";
@@ -1422,6 +1837,13 @@ declare const EN: {
   readonly "error.recordingTooLong": "This recording is too long.";
   readonly "error.dictationBusy": "Another dictation is still being transcribed. Please try again in a moment.";
   readonly "error.dictationBudget": "Dictation is unavailable for the rest of the day. You can still type.";
+  readonly "error.form.required": "This field is required.";
+  readonly "error.form.consent": "Tick this box to continue.";
+  readonly "error.form.email": "Enter a valid email address.";
+  readonly "error.form.phone": "Enter a valid phone number.";
+  readonly "error.form.tooLong": "Use at most {max} characters.";
+  readonly "error.form.option": "Choose one of the options.";
+  readonly "error.form.invalid": "This contains characters that can’t be accepted.";
 };
 /** Plural texts: the base plus a CLDR category, every category overridable. */
 declare const PLURAL_BASES: readonly ["message.attachments"];
@@ -1456,6 +1878,18 @@ interface ChatActions {
    * asks what went wrong (`state.commenting`); pass the answer as `comment` with the same rating.
    */
   rate(messageId: string, rating: Rating | null, comment?: string): Promise<void>;
+  /**
+   * Asks for a person (ADR-0030), for the latest answer: its `handoff` is `requested` while the
+   * request runs, then the final state, or `requested` with a form to fill in under it first.
+   * Does nothing before the first answer or while a handoff runs.
+   */
+  handoff(): Promise<void>;
+  /**
+   * Sends the values of an open form by its `handle` (ADR-0031): text by field name, `true` or
+   * `false` for a `consent`. The form is `submitting`, then `sent`, or `open` again with `errors`
+   * per field or an `error`.
+   */
+  submitForm(handle: string, values: Readonly<Record<string, string | boolean>>): Promise<void>;
   /** Closes the question after 👎 without a comment. */
   dismissComment(): void;
   /** Moves keyboard focus to the message field, wherever focus is now. */
@@ -1518,6 +1952,8 @@ interface ChatBot {
   readonly maxDictationSeconds: number | undefined;
   /** Every text in the visitor's language, plural forms included. */
   readonly texts: Readonly<Record<string, string>>;
+  /** The bot's forms in the visitor's language (ADR-0031), found by a message form's `name`. */
+  readonly forms: readonly ChatForm[];
 }
 interface Chat {
   readonly state: ChatState;
@@ -1565,6 +2001,37 @@ interface FeedbackButtonProps extends ComponentProps<"button"> {
  * be rated. After 👎 the chat's `state.commenting` names the answer to ask about.
  */
 export declare function FeedbackButton({ rating, onClick, ...props }: FeedbackButtonProps): ReactElement | null;
+interface FormProps extends Omit<ComponentProps<"form">, "children" | "onSubmit"> {
+  /** One of the current message's `forms`. */
+  readonly form: MessageForm;
+}
+/**
+ * A form under an answer (ADR-0031), drawn from its description in the bot's configuration: a
+ * `form` with its title, a `form-field` per field with a visible label, and the submit button.
+ * Labels and options are plain text; a `consent` field links the bot's privacy policy. Values are
+ * checked by hand first, then by the server: each error (`form-error`) is tied to its field with
+ * `aria-describedby`, and the first field with an error gets focus. Once sent or expired, the
+ * form becomes its `form-done` text (for a handoff's form, the handoff's outcome), which gets focus
+ * if the visitor had just sent it. Use it inside `MessageList`, once per `useMessage().forms`.
+ */
+export declare function Form({ form, ...props }: FormProps): ReactElement | null;
+type HandoffButtonProps = ComponentProps<"button">;
+/**
+ * "Talk to a person" (ADR-0030): asks for a person for the latest answer, through the chat's own
+ * endpoint, with no model call. Its text is `handoff.button` unless you pass children. Renders
+ * nothing for a bot without the button and before the first answer, so every handoff belongs to a
+ * conversation. `aria-disabled` while a turn runs and while a handoff is under way, so it keeps
+ * focus; the outcome shows under that answer (`HandoffStatus`, or the handoff's form).
+ */
+export declare function HandoffButton({ children, onClick, disabled, ...props }: HandoffButtonProps): ReactElement | null;
+type HandoffStatusProps = ComponentProps<"p">;
+/**
+ * Where a handoff for this answer stands, as plain text in the visitor's language: "Connecting
+ * you…" while it runs, then its outcome (`data-state` has the state). Announced to screen readers.
+ * When the handoff has a form, the form says it instead, so this renders nothing. Use it inside
+ * `MessageList`.
+ */
+export declare function HandoffStatus(props: HandoffStatusProps): ReactElement | null;
 type HumanCheckProps = Omit<ComponentProps<"div">, "children">;
 /**
  * The bot's human check (`security.humanVerifier`), shown while the chat waits for it before it
@@ -1688,10 +2155,10 @@ interface RootProps {
  * take what `askdare('identify')` and `askdare('configure')` take, checked the same way.
  */
 export declare function Root({ config, identity, context, greeting, starters, onEvent, toolRenderers, children }: RootProps): ReactElement;
-export { type AttachButtonProps, type Chat, type ChatActions, type ChatAttachments, type ChatBot, type ChatConfig, type ChatEvent, type ChatEventListener, type ChatEventType, type ChatHumanCheck, type ChatMessage, type ChatPhase, type ChatState, type ChatStyles, type ChatWidget, type Citation, type CitationsProps, type ComposerProps, type DefaultChatComponents, type DefaultChatProps, type DictateButtonProps, type Dictation, type DisclosureProps, type Earlier, type ErrorMessageProps, type FeedbackButtonProps, type FilesProps, type Frame, type HumanCheckProps, type InputProps, Link, type LinkProps, type LoadEarlierProps, type MarkdownProps, type MessageFilesProps, type MessageListProps, type MessageProps, type MessageTextProps, type MessagesProps, type PanelProps, type PendingFile, type QuickRepliesProps, type Rating, type RecorderProps, type RootProps, type SendProps, type SentFile, type StatusProps, type ThemeProps, type ToolRendererProps, type ToolRenderers, ToolResults, type ToolResultsProps, type ToolUi, type Translate };
+export { type AttachButtonProps, type Chat, type ChatActions, type ChatAttachments, type ChatBot, type ChatConfig, type ChatEvent, type ChatEventListener, type ChatEventType, type ChatForm, type ChatFormField, type ChatFormOption, type ChatHumanCheck, type ChatMessage, type ChatPhase, type ChatState, type ChatStyles, type ChatWidget, type Citation, type CitationsProps, type ComposerProps, type DefaultChatComponents, type DefaultChatProps, type DictateButtonProps, type Dictation, type DisclosureProps, type Earlier, type ErrorMessageProps, type FeedbackButtonProps, type FilesProps, type FormFieldType, type FormProps, type FormPurpose, type Frame, type HandoffButtonProps, type HandoffState, type HandoffStatusProps, type HumanCheckProps, type InputProps, Link, type LinkProps, type LoadEarlierProps, type MarkdownProps, type MessageFilesProps, type MessageForm, type MessageListProps, type MessageProps, type MessageTextProps, type MessagesProps, type PanelProps, type PendingFile, type QuickRepliesProps, type Rating, type RecorderProps, type RootProps, type SendProps, type SentFile, type StatusProps, type ThemeProps, type ToolRendererProps, type ToolRenderers, ToolResults, type ToolResultsProps, type ToolUi, type Translate };
 
 // ==== testing.d.ts ====
-import { E as KnowledgeIndex, T as KnowledgeDocument, b as Embedder, n as TurnEventLog, p as ConversationStore, s as RateLimitStore } from "./turn-log.js";
+import { A as AdminStore, X as ConversationStore, a as Embedder, d as KnowledgeIndex, i as RateLimitStore, n as TurnEventLog, u as KnowledgeDocument } from "./turn-log.js";
 /**
  * The parts of a test runner the contract suites use. Vitest's and Jest's `describe`, `it` and
  * `expect` fit, so `@boldare/askdare/testing` depends on no runner.
@@ -1781,6 +2248,35 @@ interface TurnEventLogContractOptions extends ContractRunner {
  * as the other suites: pass your runner's `describe`, `it` and `expect` with the options.
  */
 export declare function turnEventLogContract(name: string, create: () => TurnEventLog, options: TurnEventLogContractOptions): void;
+interface AdminStoreContractOptions extends ContractRunner {
+  /**
+   * Epoch milliseconds of the first day the suite writes on. Every daily row and almost every record
+   * it writes falls within 200 days from here, and it cleans up by sweeping everything before that,
+   * so pick a time before any real data. Default: 3 January 2000 (UTC). A store that expires records
+   * on its own (`AdminWriteOptions.retentionDays`) needs an epoch less than 400 days ago. One test
+   * writes transcripts of its own conversations near today, and deletes them.
+   */
+  readonly epoch?: number | undefined;
+  /** Per-test timeout in milliseconds, for stores behind a network. Default: the runner's. */
+  readonly timeoutMs?: number | undefined;
+}
+/**
+ * The behaviour every `AdminStore` must have (ADR-0032). Run it from your store's tests with your
+ * runner's `describe`, `it` and `expect`:
+ *
+ * ```ts
+ * import { adminStoreContract } from '@boldare/askdare/testing';
+ * import { describe, expect, it } from 'vitest';
+ *
+ * adminStoreContract('my store', () => myAdminStore(), { describe, it, expect });
+ * ```
+ *
+ * Every test writes under bots of its own, on days near `epoch`, and deletes everything it wrote
+ * when it ends, also when it fails: its conversations with `deleteConversation`, its daily rows
+ * with `sweep`. Since `sweep` removes everything before a day, don't run the suite in parallel with
+ * itself against one database.
+ */
+export declare function adminStoreContract(name: string, createStore: () => AdminStore, options: AdminStoreContractOptions): void;
 interface ConversationStoreContractOptions extends ContractRunner {
   /**
    * `items` (default) for stores that keep the items themselves and replay them; `provider` for
@@ -1825,11 +2321,56 @@ export declare function conversationStoreContract(name: string, createStore: () 
  * ```
  */
 export declare function rateLimitStoreContract(name: string, create: () => RateLimitStore, runner: ContractRunner): void;
-export type { ContractExpect, ContractRunner, ConversationStoreContractOptions, FakeEmbedderOptions, KnowledgeDocumentInput, KnowledgeIndexContractOptions, OpenKnowledgeIndex, TurnEventLogContractOptions };
+export type { AdminStoreContractOptions, ContractExpect, ContractRunner, ConversationStoreContractOptions, FakeEmbedderOptions, KnowledgeDocumentInput, KnowledgeIndexContractOptions, OpenKnowledgeIndex, TurnEventLogContractOptions };
 
 // ==== tool-results.d.ts ====
 
 import { ComponentProps, ComponentType, ReactElement } from "react";
+/** The closed set of field types (ADR-0031, point 1). */
+declare const FORM_FIELD_TYPES: readonly ["text", "email", "phone", "select", "textarea", "consent"];
+type FormFieldType = (typeof FORM_FIELD_TYPES)[number];
+/** Why a form is shown: a lead, a handoff's contact details, or a message left for nobody. */
+declare const FORM_PURPOSES: readonly ["lead", "handoff", "message"];
+type FormPurpose = (typeof FORM_PURPOSES)[number];
+/** One option of a `select`. */
+interface ChatFormOption {
+  /** Sent back in `POST /forms`. */
+  readonly value: string;
+  readonly label: string;
+}
+/** One field, in the visitor's language. Every text renders as plain text. */
+interface ChatFormField {
+  readonly name: string;
+  readonly type: FormFieldType;
+  readonly label: string;
+  /** For `consent`, the box must be ticked. */
+  readonly required: boolean;
+  /** `text`, `email`, `phone` and `textarea` only. */
+  readonly placeholder?: string | undefined;
+  /** `select` only, and always there: 2 to 10 options with distinct values. */
+  readonly options?: readonly ChatFormOption[] | undefined;
+  /** `text`, `email`, `phone` and `textarea` only; at most the type's own limit. */
+  readonly maxLength?: number | undefined;
+}
+/**
+ * A form as the bot's public configuration describes it (`GET /config/<bot>` and the chat
+ * document), in the visitor's language. The `form` event and history name it by `name`.
+ */
+interface ChatForm {
+  readonly name: string;
+  readonly title: string;
+  /** 1 to 8, distinct names. */
+  readonly fields: readonly ChatFormField[];
+  /** The submit button. Absent: the chat's own `form.submit` text. */
+  readonly submit?: string | undefined;
+  /** Shown in place of the form once it is sent. Absent: the chat's own `form.done` text. */
+  readonly done?: string | undefined;
+}
+/**
+ * With `400` `invalid_input`, the error of `POST /forms` names the refused fields in `fields`,
+ * each with one error key. It never echoes a value.
+ */
+type FormFieldErrors = Readonly<Record<string, string>>;
 declare const PRESET_NAMES: readonly ["halo", "aura", "sage", "care"];
 type PresetName = (typeof PRESET_NAMES)[number];
 /** Component variants a preset picks; each becomes a `data-ask-*` attribute on the document. */
@@ -1906,6 +2447,16 @@ interface ChatConfig {
    * session starts, rendered by `HumanCheck`.
    */
   readonly humanCheck?: ChatHumanCheck;
+  /**
+   * The bot's forms in the visitor's language (ADR-0031), found by the `name` of a message's form.
+   * Absent when the bot has none.
+   */
+  readonly forms?: readonly ChatForm[];
+  /**
+   * Whether the visitor can ask for a person with `HandoffButton` (ADR-0030). Absent when the bot
+   * has no handoff or turns its button off.
+   */
+  readonly handoff?: true;
 }
 /** A human check the chat must pass before it connects; public, the site key only. */
 interface ChatHumanCheck {
@@ -1967,111 +2518,9 @@ type LinkProps = Omit<ComponentProps<"a">, "href" | "target" | "rel"> & {
  * the text alone.
  */
 declare function Link({ href, children, ...props }: LinkProps): ReactElement;
-export { ToolResults as a, ChatConfig as c, ChatWidget as d, EmbedChatConfig as f, ToolRenderers as i, ChatHumanCheck as l, ThemeVariants as m, LinkProps as n, ToolResultsProps as o, PresetName as p, ToolRendererProps as r, ChatAttachments as s, Link as t, ChatStyles as u };
+export { ChatFormOption as _, ToolResults as a, FormPurpose as b, ChatConfig as c, ChatWidget as d, EmbedChatConfig as f, ChatFormField as g, ChatForm as h, ToolRenderers as i, ChatHumanCheck as l, ThemeVariants as m, LinkProps as n, ToolResultsProps as o, PresetName as p, ToolRendererProps as r, ChatAttachments as s, Link as t, ChatStyles as u, FormFieldErrors as v, FormFieldType as y };
 
 // ==== turn-log.d.ts ====
-/**
- * The retrieval port of ADR-0025: what a bot's own knowledge index is, with no OpenAI or database
- * types. Every model path and every adapter (in-memory, pgvector, community ones) speaks only these.
- * Server-side only: the client never chooses an index (ADR-0004).
- */
-/**
- * One piece of a document: within one section, at most about 350 tokens. Core chunks every
- * document (`knowledgeDocument`), so every index stores the same chunks.
- */
-interface KnowledgeChunk {
-  /** What the model cites: `k` and the first 12 hex characters of `sha256`. Stable across syncs and turns. */
-  readonly sourceId: string;
-  /** The heading trail inside the document, such as "Pricing › Billing"; undefined before the first heading. */
-  readonly section: string | undefined;
-  readonly text: string;
-  /** SHA-256 (hex) over the document title, the section and the text: the embedding cache key. */
-  readonly sha256: string;
-}
-/** One file of the knowledge folder, extracted and chunked. Built by `askdare kb sync`, never at runtime. */
-interface KnowledgeDocument {
-  /** POSIX path relative to the knowledge folder: the document's identity in the index. */
-  readonly path: string;
-  /** SHA-256 (hex) of the file's bytes: an unchanged file is skipped. */
-  readonly sha256: string;
-  readonly title: string;
-  /** http(s) only; the only link a citation may carry. */
-  readonly url: string | undefined;
-  /** In document order. */
-  readonly chunks: readonly KnowledgeChunk[];
-}
-/** What one `sync` did. */
-interface SyncReport {
-  readonly added: readonly string[];
-  readonly changed: readonly string[];
-  readonly removed: readonly string[];
-  /** Documents whose file hash, title and URL were already in the index. */
-  readonly unchanged: number;
-  /** Distinct chunks embedded in this run. */
-  readonly embeddedChunks: number;
-  /** Chunks of added or changed documents whose embedding the index already had. */
-  readonly reusedChunks: number;
-  readonly embeddingTokens: number;
-}
-/** A chunk with its document, as search and citations see it. `text` is untrusted third-party content. */
-interface Passage {
-  readonly sourceId: string;
-  readonly path: string;
-  readonly title: string;
-  readonly url: string | undefined;
-  readonly section: string | undefined;
-  readonly text: string;
-  /** Relevance from `search`, higher is better; absent from `passage()`. */
-  readonly score?: number;
-}
-interface SearchOptions {
-  readonly maxResults: number;
-  readonly signal?: AbortSignal;
-}
-interface KnowledgeCallOptions {
-  readonly signal?: AbortSignal;
-}
-/**
- * One finding of `diagnose`, for `askdare doctor`. Every index reports `knowledge.synced` and
- * `knowledge.embedder`; adapters add their own, such as `knowledge.pgvector`.
- */
-interface KnowledgeCheck {
-  readonly id: string;
-  readonly ok: boolean;
-  /** Counts, versions and what to do. Never document text. */
-  readonly detail: string;
-}
-/** A bot's knowledge. One database may hold many bots' indexes, each under its own index ID. */
-interface KnowledgeIndex {
-  /**
-   * Makes the index mirror `documents`, the whole folder. Idempotent: an unchanged file is skipped,
-   * and only chunks whose hash the index doesn't have are embedded. Each document is written
-   * atomically. Refuses documents that `checkKnowledgeDocuments` refuses, before changing anything.
-   */
-  sync(documents: readonly KnowledgeDocument[], options?: KnowledgeCallOptions): Promise<SyncReport>;
-  /** The best passages first, each with a score. */
-  search(query: string, options: SearchOptions): Promise<readonly Passage[]>;
-  /** Resolves a cited source ID from this turn or an earlier one; undefined once the chunk is gone. */
-  passage(sourceId: string, options?: KnowledgeCallOptions): Promise<Passage | undefined>;
-  /** Removes everything this index holds. */
-  clear(options?: KnowledgeCallOptions): Promise<void>;
-  diagnose(options?: KnowledgeCallOptions): Promise<readonly KnowledgeCheck[]>;
-}
-interface Embeddings {
-  /** One vector per input, in input order, each `dimensions` long. */
-  readonly vectors: readonly (readonly number[])[];
-  readonly tokens: number;
-}
-/** Turns text into vectors. Separate from the index, so the site picks the key and the model. */
-interface Embedder {
-  /**
-   * Provider, model and dimensions, such as `openai:<model>:1536`. Stored with the index: a
-   * different ID makes the next sync embed everything again.
-   */
-  readonly id: string;
-  readonly dimensions: number;
-  embed(texts: readonly string[], options?: KnowledgeCallOptions): Promise<Embeddings>;
-}
 /**
  * The `ConversationStore` port (ADR-0024): where conversations live. `openaiConversations()` keeps
  * them at OpenAI (the default), `memoryConversations()` in memory for tests, and add-ons such as
@@ -2264,26 +2713,53 @@ interface ConversationStore {
   /** Small live checks for `askdare doctor`, such as a reachable database with the right schema. */
   diagnose?(signal?: AbortSignal): Promise<readonly ConversationStoreCheck[]>;
 }
-/** Result of incrementing a fixed-window counter. */
-interface CounterHit {
-  /** Counter value after the increment. */
-  readonly count: number;
-  /** Milliseconds until the window resets. */
-  readonly resetMs: number;
+/**
+ * Where a handoff stands. `requested` while it runs or while its form waits; the others are final:
+ * `sent` (delivered), `saved` (the form's values went to `onLead` instead), `unavailable` (nobody
+ * was available and there was no form), `failed` (the delivery failed and nothing saved it) and
+ * `limited` (a handoff limit refused it).
+ */
+declare const HANDOFF_STATES: readonly ["requested", "sent", "saved", "unavailable", "failed", "limited"];
+type HandoffState = (typeof HANDOFF_STATES)[number];
+/** The closed set of field types (ADR-0031, point 1). */
+declare const FORM_FIELD_TYPES: readonly ["text", "email", "phone", "select", "textarea", "consent"];
+type FormFieldType = (typeof FORM_FIELD_TYPES)[number];
+/** Why a form is shown: a lead, a handoff's contact details, or a message left for nobody. */
+declare const FORM_PURPOSES: readonly ["lead", "handoff", "message"];
+type FormPurpose = (typeof FORM_PURPOSES)[number];
+/** One option of a `select`. */
+interface ChatFormOption {
+  /** Sent back in `POST /forms`. */
+  readonly value: string;
+  readonly label: string;
+}
+/** One field, in the visitor's language. Every text renders as plain text. */
+interface ChatFormField {
+  readonly name: string;
+  readonly type: FormFieldType;
+  readonly label: string;
+  /** For `consent`, the box must be ticked. */
+  readonly required: boolean;
+  /** `text`, `email`, `phone` and `textarea` only. */
+  readonly placeholder?: string | undefined;
+  /** `select` only, and always there: 2 to 10 options with distinct values. */
+  readonly options?: readonly ChatFormOption[] | undefined;
+  /** `text`, `email`, `phone` and `textarea` only; at most the type's own limit. */
+  readonly maxLength?: number | undefined;
 }
 /**
- * Shared counter storage behind rate limits and budgets. The in-memory default works for a single
- * instance; multi-instance deployments (Vercel, several dynos) need a shared store such as
- * `@boldare/askdare-upstash`. Implementations must be atomic per key.
+ * A form as the bot's public configuration describes it (`GET /config/<bot>` and the chat
+ * document), in the visitor's language. The `form` event and history name it by `name`.
  */
-interface RateLimitStore {
-  /**
-   * Adds `amount` to `key`, starting a `windowMs` window if none is open. `0` reads without
-   * changing; negative amounts refund.
-   */
-  hit(key: string, windowMs: number, amount: number): Promise<CounterHit>;
-  /** True for stores that are shared across server instances. */
-  readonly shared: boolean;
+interface ChatForm {
+  readonly name: string;
+  readonly title: string;
+  /** 1 to 8, distinct names. */
+  readonly fields: readonly ChatFormField[];
+  /** The submit button. Absent: the chat's own `form.submit` text. */
+  readonly submit?: string | undefined;
+  /** Shown in place of the form once it is sent. Absent: the chat's own `form.done` text. */
+  readonly done?: string | undefined;
 }
 /** Stable error codes sent to clients. The accompanying message never contains internals. */
 declare const ERROR_CODES: readonly ["invalid_input", "unauthorized", "session_expired", "not_found", "rate_limited", "budget_exceeded", "bot_unavailable", "content_blocked", "timeout", "upstream_error", "internal_error"];
@@ -2350,6 +2826,32 @@ interface RepliesEvent {
   readonly messageId: string;
   readonly items: readonly string[];
 }
+/**
+ * A handoff to a person the model asked for in this answer (ADR-0030): `requested` as soon as the
+ * call is seen, then the final state once the step's calls are done, before the model writes on.
+ * When a form is needed, a `form` event follows `requested`, and the final state comes from the
+ * form's submission (`POST /forms`) instead. Shown as plain text, never as Markdown.
+ */
+interface HandoffEvent {
+  readonly type: "handoff";
+  readonly messageId: string;
+  readonly state: HandoffState;
+}
+/**
+ * A form to show under this answer (ADR-0031). Sent once the step's calls are done, in call order,
+ * like `tool.ui`. The fields come from the bot's public configuration, by `name`.
+ */
+interface FormEvent {
+  readonly type: "form";
+  readonly messageId: string;
+  /** The call that showed the form. Opaque. */
+  readonly callId: string;
+  readonly name: string;
+  /** Opaque; sent back to `POST /forms` as `form`. Valid for 24 hours. */
+  readonly handle: string;
+  /** Picks the texts around the form: a lead, a handoff's contact details, or a message left. */
+  readonly purpose: FormPurpose;
+}
 /** What the client needs to rate one answer (ADR-0012). */
 interface FeedbackHandle {
   /** Opaque; sent back to `POST /feedback`. */
@@ -2379,7 +2881,448 @@ interface ErrorEvent {
   readonly key?: string | undefined;
   readonly params?: Readonly<Record<string, string | number>> | undefined;
 }
-type ProtocolEvent = ConversationCreatedEvent | UserAckEvent | MessageStartEvent | ReasoningEvent | TextDeltaEvent | CitationEvent | ToolStatusEvent | ToolUiEvent | RepliesEvent | MessageEndEvent | ErrorEvent;
+type ProtocolEvent = ConversationCreatedEvent | UserAckEvent | MessageStartEvent | ReasoningEvent | TextDeltaEvent | CitationEvent | ToolStatusEvent | ToolUiEvent | RepliesEvent | HandoffEvent | FormEvent | MessageEndEvent | ErrorEvent;
+/** Tokens one turn used, summed over its model calls, as OpenAI reports them. */
+interface ChatTokenUsage {
+  readonly inputTokens: number;
+  /** Input tokens read from the prompt cache; part of `inputTokens`. */
+  readonly cachedInputTokens: number;
+  /** Input tokens written to the prompt cache; part of `inputTokens`. */
+  readonly cacheWriteTokens: number;
+  readonly outputTokens: number;
+  /** Output tokens spent on reasoning; part of `outputTokens`. */
+  readonly reasoningTokens: number;
+}
+/** One function call of a turn. Its arguments and result are never reported. */
+interface ChatToolCallReport {
+  readonly name: string;
+  /** Epoch milliseconds. */
+  readonly startedAt: number;
+  readonly durationMs: number;
+  readonly outcome: "ok" | "error" | "timeout";
+}
+/**
+ * The compaction after a turn (ADR-0029), when one was due: the turn's last model call read at
+ * least `limits.compactAt` input tokens in a conversation store that keeps the items. Its usage is
+ * apart from the turn's own.
+ */
+interface ChatCompactionReport {
+  /**
+   * - `compacted`: the summary was stored, and the next turns replay from it;
+   * - `conflict`: the visitor wrote again before it was stored, so it was dropped; a later turn
+   *   compacts again;
+   * - `skipped`: no request was made: a budget couldn't cover it, or the conversation stopped
+   *   compacting because each summary left too large a floor;
+   * - `failed`: the request failed or returned no summary; a later turn tries again.
+   */
+  readonly outcome: "compacted" | "conflict" | "skipped" | "failed";
+  /** What the compaction request used, as OpenAI reported it; zero when none finished. */
+  readonly usage: ChatTokenUsage;
+  readonly durationMs: number;
+}
+/**
+ * One chat turn, as `onUsage` receives it (ADR-0012). It carries counters, timings and
+ * pseudonyms only: never message text, tool arguments or results, IP addresses or raw IDs.
+ */
+interface ChatUsageReport {
+  readonly bot: string;
+  /** The model that answered, as OpenAI reports it; the configured model if none answered. */
+  readonly model: string;
+  /** A pseudonym (HMAC) of the conversation; undefined when none was created. */
+  readonly conversation: string | undefined;
+  /**
+   * A pseudonym (HMAC) of the signed-in user's ID, or of the visitor's when nobody is signed in:
+   * the same value OpenAI gets as `safety_identifier`.
+   */
+  readonly visitor: string;
+  /** Epoch milliseconds. */
+  readonly startedAt: number;
+  readonly durationMs: number;
+  /** `stopped` when the turn was aborted before it could answer. */
+  readonly outcome: "completed" | "stopped" | "failed";
+  /** Why the answer ended, when it did. */
+  readonly finishReason?: MessageEndReason | undefined;
+  /** The stable error code, when the turn failed. */
+  readonly errorCode?: ErrorCode | undefined;
+  /** What OpenAI reported for the model calls that finished; less than billed if one broke off. */
+  readonly usage: ChatTokenUsage;
+  /** Model calls in the turn: one, plus one after each round of tool calls. */
+  readonly steps: number;
+  readonly tools: readonly ChatToolCallReport[];
+  /**
+   * The compaction after the turn, when one was due (`limits.compactAt`). The report then comes
+   * once it has ended, up to a minute and a half after the turn.
+   */
+  readonly compaction?: ChatCompactionReport | undefined;
+}
+/** Where a record came from: the chat, or the console's playground, which the dashboard leaves out. */
+type AdminSource = "chat" | "console";
+/** Who and what a record belongs to. Every record has these, so delete and retention work alike. */
+interface AdminRecordKey {
+  readonly bot: string;
+  /**
+   * The conversation store's ID. Kept on the server: the console's browser gets sealed references,
+   * never this value (ADR-0032, decision 8).
+   */
+  readonly conversationId: string;
+  /** The pseudonym `onUsage` reports (an HMAC of the user or visitor). Never a raw ID or an IP. */
+  readonly visitor: string;
+  /** Epoch milliseconds; the record's day (UTC) and its retention count from here. */
+  readonly at: number;
+  /** `console` for playground turns, so the dashboard can leave them out. */
+  readonly source: AdminSource;
+}
+/** What output checks decided about an answer (ADR-0022), when the bot has them. */
+type AdminCheckOutcome = "allowed" | "replaced" | "withheld";
+/** One turn: counters only, never content. Written for every turn when a store is set. */
+interface AdminTurnRecord extends AdminRecordKey {
+  readonly model: string;
+  readonly durationMs: number;
+  readonly outcome: "completed" | "stopped" | "failed";
+  readonly finishReason?: MessageEndReason | undefined;
+  readonly errorCode?: ErrorCode | undefined;
+  /** The turn's usage plus its compaction's, if any. */
+  readonly usage: ChatTokenUsage;
+  readonly steps: number;
+  /** Names and outcomes only, as `ChatToolCallReport` without timings. */
+  readonly tools: readonly {
+    readonly name: string;
+    readonly outcome: "ok" | "error" | "timeout";
+  }[];
+  /** Sources shown with the answer. */
+  readonly citations: number;
+  readonly check?: AdminCheckOutcome | undefined;
+  /** The turn created the conversation; counted in `AdminBotDayRow.conversations`. */
+  readonly newConversation: boolean;
+  /**
+   * The turn counts as an unanswered question (ADR-0032, decision 5), as core decides it: a
+   * completed answer with no citations from a bot with knowledge, or a withheld or failed one.
+   * Counted in `AdminDayRow.unanswered`. Core decides, so every store counts the same turns.
+   */
+  readonly unanswered: boolean;
+}
+/** One rating. A later rating of the same answer replaces it; `rating: null` removes it. */
+interface AdminRatingRecord extends AdminRecordKey {
+  /** The rated answer. A rating is keyed by its conversation and this ID. */
+  readonly itemId: string;
+  readonly rating: "up" | "down" | null;
+  /** Up to 500 characters, the visitor's own words: personal data, never logged. */
+  readonly comment?: string | undefined;
+}
+/** A stored rating: a removed one (`rating: null`) is never returned. */
+type AdminStoredRating = AdminRatingRecord & {
+  readonly rating: "up" | "down";
+};
+/** A source cited in a transcript. */
+interface AdminTranscriptCitation {
+  readonly index: number;
+  readonly title: string;
+  readonly url?: string | undefined;
+}
+/** One turn's text: written only with `admin.transcripts: true`. */
+interface AdminTranscriptRecord extends AdminRecordKey {
+  readonly itemId?: string | undefined;
+  readonly input: string;
+  readonly attachments: number;
+  readonly answer: string | undefined;
+  readonly citations: readonly AdminTranscriptCitation[];
+  readonly check?: AdminCheckOutcome | undefined;
+  readonly reason: MessageEndReason;
+}
+/** ADR-0030's final states of a handoff; `requested` is never counted. */
+type AdminHandoffState = "sent" | "saved" | "unavailable" | "failed" | "limited";
+/**
+ * A handoff or a lead, counted (ADR-0032, decision 6). No conversation, visitor, reason, contact
+ * details or form values: only what a daily counter needs.
+ */
+type AdminCountEvent = {
+  readonly kind: "handoff";
+  readonly bot: string;
+  readonly at: number;
+  readonly source: AdminSource;
+  readonly state: AdminHandoffState;
+} | {
+  readonly kind: "lead";
+  readonly bot: string;
+  readonly at: number;
+  readonly source: AdminSource;
+};
+/** A day range in UTC, `from` and `to` as `YYYY-MM-DD`, both included, at most 400 days. */
+interface AdminRange {
+  readonly from: string;
+  readonly to: string;
+  readonly bot?: string | undefined;
+  /** Default `chat`: playground records are left out. */
+  readonly source?: AdminSource | "all" | undefined;
+}
+/** Daily totals per bot and model, kept as counters at write time. */
+interface AdminDayRow {
+  readonly day: string;
+  readonly bot: string;
+  readonly model: string;
+  readonly turns: number;
+  readonly failed: number;
+  readonly unanswered: number;
+  readonly usage: ChatTokenUsage;
+}
+/** Handoffs per final state. */
+type AdminHandoffCounts = { readonly [State in AdminHandoffState]: number; };
+/** Daily totals per bot, for what has no model: conversations, ratings, leads and handoffs. */
+interface AdminBotDayRow {
+  readonly day: string;
+  readonly bot: string;
+  readonly conversations: number;
+  readonly up: number;
+  readonly down: number;
+  readonly leads: number;
+  readonly handoffs: AdminHandoffCounts;
+}
+/** What `days()` returns: rows ordered by day, then bot, then model. */
+interface AdminDays {
+  readonly turns: readonly AdminDayRow[];
+  readonly bots: readonly AdminBotDayRow[];
+}
+/** One conversation in the dashboard's lists, summed over the records the store still has. */
+interface AdminConversationSummary {
+  readonly conversationId: string;
+  readonly bot: string;
+  readonly visitor: string;
+  readonly firstAt: number;
+  readonly lastAt: number;
+  readonly turns: number;
+  readonly usage: ChatTokenUsage;
+  readonly up: number;
+  readonly down: number;
+  /** The store has transcript records of the conversation. */
+  readonly transcript: boolean;
+}
+/** A page of a list. */
+interface AdminPage<T> {
+  readonly items: readonly T[];
+  /** Opaque; pass it back for the next page. Absent on the last page. */
+  readonly cursor?: string | undefined;
+}
+/**
+ * The conversations started in the range (their first record's day), newest or most expensive
+ * first.
+ */
+interface AdminConversationQuery extends AdminRange {
+  /**
+   * `tokens`: most input plus output tokens first; `latest`: latest activity first. Ties go to the
+   * latest activity, then to the conversation ID.
+   */
+  readonly order: "tokens" | "latest";
+  /** `down`: only conversations with at least one 👎. */
+  readonly rated?: "down" | undefined;
+  /** 1 to 100. */
+  readonly limit: number;
+  readonly cursor?: string | undefined;
+}
+/** The ratings given in the range, newest first. */
+interface AdminRatingQuery extends AdminRange {
+  readonly rating?: "up" | "down" | undefined;
+  /** 1 to 100. */
+  readonly limit: number;
+  readonly cursor?: string | undefined;
+}
+/** What `sweep()` deletes. */
+interface AdminSweepOptions {
+  /** Epoch milliseconds: records written before it go. */
+  readonly recordsBefore: number;
+  /** `YYYY-MM-DD`: daily rows of days before it go. */
+  readonly daysBefore: string;
+  /** At most this many deletions per call, records and daily rows together. */
+  readonly limit: number;
+}
+/**
+ * What core passes with every record it writes: the app's retention, so a store never needs its own
+ * setting for it.
+ */
+interface AdminWriteOptions {
+  /**
+   * `admin.retentionDays` (1 to 400): core's `sweep()` deletes a record this many days after its
+   * `at`. A store that also lets records expire on its own, as a backstop for when `sweep()` doesn't
+   * run, must not expire one sooner than this. Core always passes it; a store called without it
+   * keeps records at least 400 days, the longest retention core allows.
+   */
+  readonly retentionDays?: number | undefined;
+  readonly signal?: AbortSignal | undefined;
+}
+/**
+ * Where admin records live (ADR-0032). Every method takes an optional `signal` (the record writes in
+ * their `AdminWriteOptions`); an aborted one
+ * stops it before it writes or deletes more. Implementations never log the values they write: a
+ * failure is reported by error class and code only. A query outside its bounds (a malformed day, a
+ * range over 400 days, a limit outside 1 to 100, a cursor the store didn't issue) is refused.
+ */
+interface AdminStore {
+  /** Stable name for logs and diagnostics, such as `memory` or `postgres`. */
+  readonly name: string;
+  /**
+   * Writes a turn and adds it to its daily rows. A turn of the same conversation at the same `at`
+   * that is already stored is not written or counted again.
+   */
+  recordTurn(record: AdminTurnRecord, options?: AdminWriteOptions): Promise<void>;
+  /**
+   * Writes a rating and adjusts the daily counters. A rating of the same conversation and
+   * `itemId` replaces the stored one, never adds; `rating: null` removes it.
+   */
+  recordRating(record: AdminRatingRecord, options?: AdminWriteOptions): Promise<void>;
+  /**
+   * Writes a turn's transcript. One of the same conversation, `at` and `itemId` replaces the stored
+   * one.
+   */
+  recordTranscript(record: AdminTranscriptRecord, options?: AdminWriteOptions): Promise<void>;
+  /** Increments a daily counter of handoffs or leads; nothing else is kept. */
+  count(event: AdminCountEvent, signal?: AbortSignal): Promise<void>;
+  /** Daily rows of the range. */
+  days(range: AdminRange, signal?: AbortSignal): Promise<AdminDays>;
+  conversations(query: AdminConversationQuery, signal?: AbortSignal): Promise<AdminPage<AdminConversationSummary>>;
+  ratings(query: AdminRatingQuery, signal?: AbortSignal): Promise<AdminPage<AdminStoredRating>>;
+  /** The conversation's transcript records, oldest first; empty without them. */
+  transcript(conversationId: string, signal?: AbortSignal): Promise<readonly AdminTranscriptRecord[]>;
+  /**
+   * Deletes every record of the conversation: turns, ratings, transcripts and its summary. Daily
+   * rows stay: they hold no conversation or visitor. An unknown conversation is not an error, and
+   * calling it twice is fine.
+   */
+  deleteConversation(conversationId: string, signal?: AbortSignal): Promise<void>;
+  /**
+   * Retention: deletes up to `limit` records written before `recordsBefore` and daily rows of days
+   * before `daysBefore`, and resolves to how many it deleted. The caller calls again while that is
+   * `limit`.
+   */
+  sweep(options: AdminSweepOptions, signal?: AbortSignal): Promise<number>;
+  /**
+   * The store's own checks for `askdare doctor`, such as its schema or whether it can be reached.
+   * Core checks the retention itself (records older than `admin.retentionDays` mean `sweep()`
+   * isn't running), with a bounded `conversations()` query, so a store doesn't repeat it.
+   */
+  diagnose?(signal?: AbortSignal): Promise<readonly ConversationStoreCheck[]>;
+}
+/**
+ * The retrieval port of ADR-0025: what a bot's own knowledge index is, with no OpenAI or database
+ * types. Every model path and every adapter (in-memory, pgvector, community ones) speaks only these.
+ * Server-side only: the client never chooses an index (ADR-0004).
+ */
+/**
+ * One piece of a document: within one section, at most about 350 tokens. Core chunks every
+ * document (`knowledgeDocument`), so every index stores the same chunks.
+ */
+interface KnowledgeChunk {
+  /** What the model cites: `k` and the first 12 hex characters of `sha256`. Stable across syncs and turns. */
+  readonly sourceId: string;
+  /** The heading trail inside the document, such as "Pricing › Billing"; undefined before the first heading. */
+  readonly section: string | undefined;
+  readonly text: string;
+  /** SHA-256 (hex) over the document title, the section and the text: the embedding cache key. */
+  readonly sha256: string;
+}
+/** One file of the knowledge folder, extracted and chunked. Built by `askdare kb sync`, never at runtime. */
+interface KnowledgeDocument {
+  /** POSIX path relative to the knowledge folder: the document's identity in the index. */
+  readonly path: string;
+  /** SHA-256 (hex) of the file's bytes: an unchanged file is skipped. */
+  readonly sha256: string;
+  readonly title: string;
+  /** http(s) only; the only link a citation may carry. */
+  readonly url: string | undefined;
+  /** In document order. */
+  readonly chunks: readonly KnowledgeChunk[];
+}
+/** What one `sync` did. */
+interface SyncReport {
+  readonly added: readonly string[];
+  readonly changed: readonly string[];
+  readonly removed: readonly string[];
+  /** Documents whose file hash, title and URL were already in the index. */
+  readonly unchanged: number;
+  /** Distinct chunks embedded in this run. */
+  readonly embeddedChunks: number;
+  /** Chunks of added or changed documents whose embedding the index already had. */
+  readonly reusedChunks: number;
+  readonly embeddingTokens: number;
+}
+/** A chunk with its document, as search and citations see it. `text` is untrusted third-party content. */
+interface Passage {
+  readonly sourceId: string;
+  readonly path: string;
+  readonly title: string;
+  readonly url: string | undefined;
+  readonly section: string | undefined;
+  readonly text: string;
+  /** Relevance from `search`, higher is better; absent from `passage()`. */
+  readonly score?: number;
+}
+interface SearchOptions {
+  readonly maxResults: number;
+  readonly signal?: AbortSignal;
+}
+interface KnowledgeCallOptions {
+  readonly signal?: AbortSignal;
+}
+/**
+ * One finding of `diagnose`, for `askdare doctor`. Every index reports `knowledge.synced` and
+ * `knowledge.embedder`; adapters add their own, such as `knowledge.pgvector`.
+ */
+interface KnowledgeCheck {
+  readonly id: string;
+  readonly ok: boolean;
+  /** Counts, versions and what to do. Never document text. */
+  readonly detail: string;
+}
+/** A bot's knowledge. One database may hold many bots' indexes, each under its own index ID. */
+interface KnowledgeIndex {
+  /**
+   * Makes the index mirror `documents`, the whole folder. Idempotent: an unchanged file is skipped,
+   * and only chunks whose hash the index doesn't have are embedded. Each document is written
+   * atomically. Refuses documents that `checkKnowledgeDocuments` refuses, before changing anything.
+   */
+  sync(documents: readonly KnowledgeDocument[], options?: KnowledgeCallOptions): Promise<SyncReport>;
+  /** The best passages first, each with a score. */
+  search(query: string, options: SearchOptions): Promise<readonly Passage[]>;
+  /** Resolves a cited source ID from this turn or an earlier one; undefined once the chunk is gone. */
+  passage(sourceId: string, options?: KnowledgeCallOptions): Promise<Passage | undefined>;
+  /** Removes everything this index holds. */
+  clear(options?: KnowledgeCallOptions): Promise<void>;
+  diagnose(options?: KnowledgeCallOptions): Promise<readonly KnowledgeCheck[]>;
+}
+interface Embeddings {
+  /** One vector per input, in input order, each `dimensions` long. */
+  readonly vectors: readonly (readonly number[])[];
+  readonly tokens: number;
+}
+/** Turns text into vectors. Separate from the index, so the site picks the key and the model. */
+interface Embedder {
+  /**
+   * Provider, model and dimensions, such as `openai:<model>:1536`. Stored with the index: a
+   * different ID makes the next sync embed everything again.
+   */
+  readonly id: string;
+  readonly dimensions: number;
+  embed(texts: readonly string[], options?: KnowledgeCallOptions): Promise<Embeddings>;
+}
+/** Result of incrementing a fixed-window counter. */
+interface CounterHit {
+  /** Counter value after the increment. */
+  readonly count: number;
+  /** Milliseconds until the window resets. */
+  readonly resetMs: number;
+}
+/**
+ * Shared counter storage behind rate limits and budgets. The in-memory default works for a single
+ * instance; multi-instance deployments (Vercel, several dynos) need a shared store such as
+ * `@boldare/askdare-upstash`. Implementations must be atomic per key.
+ */
+interface RateLimitStore {
+  /**
+   * Adds `amount` to `key`, starting a `windowMs` window if none is open. `0` reads without
+   * changing; negative amounts refund.
+   */
+  hit(key: string, windowMs: number, amount: number): Promise<CounterHit>;
+  /** True for stores that are shared across server instances. */
+  readonly shared: boolean;
+}
 /** A protocol event of a running turn, with its place in the turn. */
 interface TurnEvent {
   /** 1-based and increasing within a turn; the SSE `id:` of the event's frame. */
@@ -2416,4 +3359,4 @@ interface TurnEventLog {
   /** True for logs that are shared across server instances. */
   readonly shared: boolean;
 }
-export { KnowledgeCheck as C, Passage as D, KnowledgeIndex as E, SearchOptions as O, KnowledgeCallOptions as S, KnowledgeDocument as T, StoredItem as _, MessageEndReason as a, Embedder as b, CompactionModel as c, ConversationOwner as d, ConversationPage as f, StoredCitation as g, PositionedItem as h, ErrorCode as i, SyncReport as k, ConversationContext as l, ConversationStoreCheck as m, TurnEventLog as n, CounterHit as o, ConversationStore as p, ERROR_CODES as r, RateLimitStore as s, TurnEvent as t, ConversationInfo as u, StoredPart as v, KnowledgeChunk as w, Embeddings as x, VersionConflictError as y };
+export { StoredCitation as $, AdminStore as A, ChatUsageReport as B, AdminHandoffState as C, AdminRatingRecord as D, AdminRatingQuery as E, AdminTurnRecord as F, CompactionModel as G, ErrorCode as H, AdminWriteOptions as I, ConversationOwner as J, ConversationContext as K, ChatCompactionReport as L, AdminSweepOptions as M, AdminTranscriptCitation as N, AdminRecordKey as O, AdminTranscriptRecord as P, PositionedItem as Q, ChatTokenUsage as R, AdminHandoffCounts as S, AdminRange as T, MessageEndReason as U, ERROR_CODES as V, ChatForm as W, ConversationStore as X, ConversationPage as Y, ConversationStoreCheck as Z, AdminConversationQuery as _, Embedder as a, AdminDayRow as b, KnowledgeCheck as c, KnowledgeIndex as d, StoredItem as et, Passage as f, AdminCheckOutcome as g, AdminBotDayRow as h, RateLimitStore as i, AdminStoredRating as j, AdminSource as k, KnowledgeChunk as l, SyncReport as m, TurnEventLog as n, VersionConflictError as nt, Embeddings as o, SearchOptions as p, ConversationInfo as q, CounterHit as r, KnowledgeCallOptions as s, TurnEvent as t, StoredPart as tt, KnowledgeDocument as u, AdminConversationSummary as v, AdminPage as w, AdminDays as x, AdminCountEvent as y, ChatToolCallReport as z };

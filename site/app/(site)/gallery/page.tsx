@@ -12,6 +12,9 @@ const STATES = [
   'feedback',
   'replies',
   'replies-composer',
+  'handoff',
+  'form',
+  'form-errors',
 ];
 const WIDTHS = { panel: 400, mobile: 360 } as const;
 

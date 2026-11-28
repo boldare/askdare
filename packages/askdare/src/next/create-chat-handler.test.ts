@@ -612,3 +612,84 @@ describe('default error log', () => {
     expect(call).toHaveLength(1);
   });
 });
+
+describe('the admin option', () => {
+  const ADMIN = 'YWRtaW4tc2VjcmV0LWZvci1jcmVhdGUtY2hhdC1oYW5kbGVy';
+  const signIn = (handlers: { POST: (request: Request) => Promise<Response> }, secret = ADMIN) =>
+    handlers.POST(
+      new Request(`${BASE}/admin/api/session`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', origin: APP, host: 'app.example.com' },
+        body: JSON.stringify({ secret }),
+      }),
+    );
+
+  it('checks the console setup on first use, so a build without its secrets passes', async () => {
+    vi.stubEnv('ADMIN_SECRET', '');
+    const reports: ChatErrorReport[] = [];
+    const handlers = createChatHandler({
+      bots: [bot],
+      conversations: memoryConversations(),
+      admin: { console: {} },
+      onError: (report) => {
+        reports.push(report);
+      },
+    });
+    const page = await handlers.GET(new Request(`${BASE}/admin`));
+    expect(page.status).toBe(503);
+    await Promise.all(mocks.pending);
+    expect(reports[0]?.message).toContain('ADMIN_SECRET');
+  });
+
+  it('refuses options that need a store', () => {
+    expect(() => createChatHandler({ bots: [bot], admin: { transcripts: true } })).toThrow(
+      /needs admin.store/,
+    );
+    expect(() =>
+      createChatHandler({
+        bots: [bot],
+        admin: { console: { allow: ['u'], dashboard: { script: '', style: '', handlers: {} } } },
+      }),
+    ).toThrow(/needs admin.store/);
+    expect(() => createChatHandler({ bots: [bot], admin: { retentionDays: 0 } })).toThrow(
+      /retentionDays/,
+    );
+  });
+
+  it('checks ADMIN_SECRET at sign-in: long enough and different from the other secrets', async () => {
+    const conversations = memoryConversations();
+    for (const weak of ['too-short', SECRET]) {
+      vi.stubEnv('ADMIN_SECRET', weak);
+      const handlers = createChatHandler({ bots: [bot], conversations, admin: { console: {} } });
+      const response = await signIn(handlers, weak);
+      expect(response.status).toBe(503);
+    }
+    vi.stubEnv('ADMIN_SECRET', ADMIN);
+    const handlers = createChatHandler({ bots: [bot], conversations, admin: { console: {} } });
+    expect((await signIn(handlers)).status).toBe(200);
+  });
+
+  it('serves the built console only when it is on', async () => {
+    vi.stubEnv('ADMIN_SECRET', ADMIN);
+    const off = createChatHandler({ bots: [bot], conversations: memoryConversations() });
+    expect((await off.GET(new Request(`${BASE}/admin`))).status).toBe(404);
+    const on = createChatHandler({
+      bots: [bot],
+      conversations: memoryConversations(),
+      admin: { console: {} },
+    });
+    const page = await on.GET(new Request(`${BASE}/admin`));
+    const script = /src="(\/api\/chat\/admin\/console\.[0-9a-f]+\.js)"/.exec(
+      await page.text(),
+    )?.[1];
+    expect(script).toBeDefined();
+    const js = await on.GET(new Request(`${APP}${script}`));
+    expect(js.status).toBe(200);
+    expect((await js.text()).length).toBeGreaterThan(1000);
+  });
+
+  it('returns sweep() with the handlers', async () => {
+    const handlers = createChatHandler({ bots: [bot], conversations: memoryConversations() });
+    expect(await handlers.sweep()).toEqual({ conversations: 0, files: 0, records: 0, more: false });
+  });
+});

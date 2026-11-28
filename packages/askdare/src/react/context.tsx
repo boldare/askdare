@@ -11,6 +11,7 @@ import type { ChatAttachments, ChatConfig } from '../chat/config';
 import type { Translate } from '../chat/reducer';
 import type { ChatMessage, ChatState } from '../chat/state';
 import type { ChatActions, ChatStore } from '../chat/store';
+import type { ChatForm } from '../protocol/forms';
 import type { PresetName, ThemeVariants } from '../theme/presets';
 
 /** The bot as the visitor sees it: its settings, with the page's greeting and starters applied. */
@@ -35,6 +36,8 @@ export interface ChatBot {
   readonly maxDictationSeconds: number | undefined;
   /** Every text in the visitor's language, plural forms included. */
   readonly texts: Readonly<Record<string, string>>;
+  /** The bot's forms in the visitor's language (ADR-0031), found by a message form's `name`. */
+  readonly forms: readonly ChatForm[];
 }
 
 export interface Chat {
@@ -130,6 +133,7 @@ export function useChat(): Chat {
       attachments: config.attachments,
       maxDictationSeconds: config.voice?.maxSeconds,
       texts: config.widget.texts,
+      forms: config.forms ?? [],
     }),
     [config, page],
   );

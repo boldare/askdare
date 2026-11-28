@@ -1,4 +1,6 @@
 import type { FeedbackHandle } from './events';
+import type { HistoryForm } from './forms';
+import type { HandoffState } from './handoff';
 import type { ToolUi } from './tool-ui';
 
 /** One message of a stored conversation, as returned by `POST /history`. */
@@ -15,6 +17,13 @@ export interface HistoryMessage {
   readonly replies?: readonly string[] | undefined;
   /** On answers: the payloads their turn's tools defined, as in the `tool.ui` events (ADR-0017). */
   readonly ui?: readonly ToolUi[] | undefined;
+  /**
+   * On answers: the state of a handoff recorded after this answer (ADR-0030); for the visitor's
+   * button, on the latest answer at that time.
+   */
+  readonly handoff?: { readonly state: HandoffState } | undefined;
+  /** On answers: the forms shown under it, in order (ADR-0031). */
+  readonly forms?: readonly HistoryForm[] | undefined;
 }
 
 export interface HistoryCitation {

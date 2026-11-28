@@ -36,6 +36,7 @@ defineBot({
 
 - You can change the wording with `widget.texts` (`disclosure.text`, `disclosure.privacy`). See [Styling](styling.md#1-configuration) and [Texts](texts.md).
 - `disclosure: false` hides it. Do that only when your page already tells visitors they are talking to an AI.
+- **The greeting next to the launcher** (`widget.launcherGreeting`, off by default) is often the first thing visitors read from the assistant. Its default text says it is an AI assistant; if you write your own with `texts['launcher.greeting']`, say so too ([Embedding](embedding.md#a-greeting-and-an-unread-badge)).
 - **If you build your own markup** with the primitives of `@boldare/askdare/react` ([React](react.md#your-own-markup)), or show your own page in the widget's iframe ([Embedding](embedding.md#your-own-page-in-the-iframe)), place it with the `Disclosure` primitive, which follows the same `widget.disclosure` setting and texts. In development, `Root` and `EmbedRoot` note once in the console when the chat rendered without a `Disclosure`, and `askdare doctor` lists each bot with `disclosure: false` as information, not a failure. Neither forces the notice on you: `disclosure: false` silences both.
 
 **Marking of generated content.** Article 50(2) asks providers of systems that generate synthetic text, images, audio or video to mark the outputs in a machine-readable format. askdare doesn't add such marks to answers. Systems on the market before 2 August 2026 have until 2 December 2026 (Article 111(4), added by the Digital Omnibus). Whether Article 50(2) covers a chat's answers, and who carries it, is a question for your legal advisers; the codes of practice under Article 50(7) are where the practice is being worked out.
@@ -61,9 +62,12 @@ Storage limitation (Article 5(1)(e)) means keeping data no longer than you need 
 | Abuse-monitoring logs at OpenAI | Up to 30 days, longer where the law requires it | OpenAI deletes them |
 | Uploaded images and PDFs | 30 days | They expire, or are deleted with their conversation |
 | Rate-limit counters with IP addresses | Up to 2 days | They expire |
+| [Admin store](admin.md) records: usage, ratings with comments, transcripts if on | `admin.retentionDays`, 30 by default | Deleted with their conversation, and by your scheduled `sweep()` |
+| Requests for a person and form values | askdare keeps none: they go to your `onHandoff` and `onLead` | Your own retention, wherever those send them |
 
 - **Conversations outlive the browser's handle.** When the handle expires after 30 days, or the visitor clears the browser, the conversation stays in your OpenAI project. askdare keeps no list of conversations, and OpenAI's API can't list them, so askdare has no tool to find or delete one person's conversation later (right to erasure, Article 17). Decide how you will answer such a request, and say in your notice how visitors delete a conversation themselves.
 - **Zero Data Retention needs your own store.** OpenAI lists the Conversations API, the default store, as not eligible ([ADR-0003](adr/0003-conversation-state.md)).
+- **Handoffs and forms send personal data to you, not to askdare.** A form's values and a handoff's contact details reach your `onLead` and `onHandoff` and are gone from askdare; the visitor typed them for that purpose. Whether a form needs a consent box, and its wording, is yours to decide: add a `consent` field where you need one, and it links your `privacyUrl` ([Forms](forms.md#consent)). A handoff carries message content only if you set `content: 'summary'` or `'transcript'` ([Handoff](handoff.md#what-onhandoff-receives)).
 - **With your own store** (`@boldare/askdare-postgres`), conversations sit in your database: you set their retention, and a scheduled sweep deletes old ones. The store keeps a random visitor ID or a keyed hash of the user as the owner, so to find a signed-in user's conversations later, record `identity` and `conversationId` from [`onTranscript`](configuration.md#ontranscript). Turns run with `store: false`, so a ZDR project can use askdare. [Own your data](own-your-data.md) walks through it.
 
 ### `safety_identifier`
@@ -76,7 +80,7 @@ Visitors must be told who processes their data, for what, and for how long (Arti
 
 ### Storage in the visitor's browser
 
-The chat writes one `localStorage` entry after the visitor's first message, and a second one when they rate an answer. It sets no cookies. Whether these need consent under Article 5(3) of the ePrivacy Directive, which exempts storage strictly necessary for a service the user asked for, is your call: [Consent banners](privacy.md#consent-banners) lists the facts that matter.
+The chat writes one `localStorage` entry after the visitor's first message, and a second one when they rate an answer. With a greeting next to the launcher, the script on your site writes one `sessionStorage` flag when the visitor dismisses it or opens the chat. It sets no cookies. Whether these need consent under Article 5(3) of the ePrivacy Directive, which exempts storage strictly necessary for a service the user asked for, is your call: [Consent banners](privacy.md#consent-banners) lists the facts that matter.
 
 ## 3. Data residency
 

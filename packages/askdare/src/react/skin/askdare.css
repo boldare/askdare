@@ -203,7 +203,9 @@
     gap: 2px;
   }
 
-  :is([data-ask-part="new-conversation"], [data-ask-part="close"]):where([data-ask-skin] *) {
+  :is([data-ask-part="new-conversation"], [data-ask-part="handoff"], [data-ask-part="close"]):where(
+    [data-ask-skin] *
+  ) {
     display: grid;
     place-items: center;
     width: 34px;
@@ -219,9 +221,18 @@
       color 150ms var(--ask-ease);
   }
 
-  :is([data-ask-part="new-conversation"], [data-ask-part="close"]):hover:where([data-ask-skin] *) {
+  :is(
+    [data-ask-part="new-conversation"],
+    [data-ask-part="handoff"],
+    [data-ask-part="close"]
+  ):hover:where([data-ask-skin] *) {
     background: var(--ask-color-surface);
     color: var(--ask-color-text);
+  }
+
+  [data-ask-part="handoff"][aria-disabled="true"]:where([data-ask-skin] *) {
+    opacity: 0.45;
+    cursor: default;
   }
 
   /* ---------- Avatar and orb ---------- */
@@ -703,6 +714,173 @@
 
   [data-ask-part="feedback-send"]:disabled:where([data-ask-skin] *) {
     opacity: 0.45;
+    cursor: default;
+  }
+
+  /* ---------- Handoff and forms under an answer (ADR-0030, ADR-0031) ---------- */
+
+  :is([data-ask-part="handoff-status"], [data-ask-part="form-done"]):where([data-ask-skin] *) {
+    display: flex;
+    align-items: center;
+    gap: var(--ask-space);
+    width: min(360px, 100%);
+    margin: 0;
+    padding: var(--ask-space) calc(var(--ask-space) * 1.25);
+    border: 1px solid var(--ask-color-border);
+    border-radius: var(--ask-radius-small);
+    background: var(--ask-color-background);
+    font-size: 0.88rem;
+    line-height: 1.4;
+  }
+
+  :is([data-ask-part="handoff-status"], [data-ask-part="form-done"]):focus:where(
+    [data-ask-skin] *
+  ) {
+    outline: none;
+  }
+
+  /* A spinner while the handoff runs; a dot in the state's color once it ends. */
+  :is([data-ask-part="handoff-status"], [data-ask-part="form-done"]):where(
+    [data-ask-skin] *
+  )::before {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--ask-color-success);
+    content: "";
+  }
+
+  :is(
+    [data-ask-part="handoff-status"]:is(
+      [data-state="unavailable"],
+      [data-state="failed"],
+      [data-state="limited"]
+    ),
+    [data-ask-part="form-done"][data-state="expired"]
+  ):where([data-ask-skin] *)::before {
+    background: var(--ask-color-muted);
+  }
+
+  [data-ask-part="handoff-status"][data-state="requested"]:where([data-ask-skin] *)::before {
+    width: 12px;
+    height: 12px;
+    border: 2px solid color-mix(in srgb, var(--ask-color-accent) 25%, transparent);
+    border-top-color: var(--ask-color-accent);
+    background: none;
+    animation: ask-spin 0.8s linear infinite;
+  }
+
+  [data-ask-part="form"]:where([data-ask-skin] *) {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--ask-space) * 1.25);
+    width: min(360px, 100%);
+    padding: calc(var(--ask-space) * 1.5);
+    border: 1px solid var(--ask-color-border);
+    border-radius: var(--ask-radius-small);
+    background: var(--ask-color-background);
+    box-shadow: var(--ask-shadow);
+    font-size: 0.88rem;
+    line-height: 1.4;
+  }
+
+  [data-ask-part="form-title"]:where([data-ask-skin] *) {
+    margin: 0;
+    font-family: var(--ask-font-family-heading);
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  [data-ask-part="form-field"]:where([data-ask-skin] *) {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  [data-ask-part="form-field"] label:where([data-ask-skin] *) {
+    font-weight: 600;
+  }
+
+  [data-ask-part="form-optional"]:where([data-ask-skin] *) {
+    color: var(--ask-color-muted);
+    font-weight: 400;
+  }
+
+  /* :where keeps it below the rules for one kind of control. */
+  [data-ask-part="form-field"]
+    :where(input:not([type="checkbox"]), select, textarea):where([data-ask-skin] *) {
+    width: 100%;
+    min-height: 36px;
+    margin: 0;
+    padding: 6px 10px;
+    border: 1px solid color-mix(in srgb, var(--ask-color-text) 30%, transparent);
+    border-radius: calc(var(--ask-radius-small) * 0.7);
+    background: var(--ask-color-background);
+    color: inherit;
+    font: inherit;
+    line-height: 1.4;
+  }
+
+  [data-ask-part="form-field"] textarea:where([data-ask-skin] *) {
+    min-height: 76px;
+    resize: vertical;
+  }
+
+  [data-ask-part="form-field"] [aria-invalid="true"]:where([data-ask-skin] *) {
+    border-color: var(--ask-color-danger);
+  }
+
+  [data-ask-part="form-field"][data-type="consent"]:where([data-ask-skin] *) {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: start;
+    gap: 4px var(--ask-space);
+  }
+
+  /* The box first, its label beside it, the privacy link and an error under the label. */
+  [data-ask-part="form-field"][data-type="consent"] > input:where([data-ask-skin] *) {
+    grid-area: 1 / 1;
+    width: 18px;
+    height: 18px;
+    margin: 1px 0 0;
+    accent-color: var(--ask-color-accent);
+  }
+
+  [data-ask-part="form-field"][data-type="consent"] > :not(input):where([data-ask-skin] *) {
+    grid-column: 2;
+  }
+
+  [data-ask-part="form-field"][data-type="consent"] > label:where([data-ask-skin] *) {
+    grid-row: 1;
+    font-weight: 400;
+  }
+
+  [data-ask-part="form-field"] a:where([data-ask-skin] *) {
+    color: var(--ask-color-accent);
+  }
+
+  [data-ask-part="form-error"]:where([data-ask-skin] *) {
+    margin: 0;
+    color: var(--ask-color-danger);
+    font-size: 0.82rem;
+  }
+
+  [data-ask-part="form-submit"]:where([data-ask-skin] *) {
+    align-self: flex-start;
+    min-height: 36px;
+    padding: 6px 16px;
+    border: 1px solid var(--ask-color-accent);
+    border-radius: 999px;
+    background: var(--ask-color-accent);
+    color: var(--ask-color-on-accent);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  [data-ask-part="form-submit"][aria-disabled="true"]:where([data-ask-skin] *) {
+    opacity: 0.55;
     cursor: default;
   }
 

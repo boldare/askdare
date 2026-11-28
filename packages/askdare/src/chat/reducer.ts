@@ -1,9 +1,10 @@
 import { formatText } from '../i18n/format';
 import type { TextKey } from '../i18n/texts';
 import type { ProtocolEvent } from '../protocol/events';
+import { MAX_MESSAGE_FORMS } from '../protocol/forms';
 import type { HistoryMessage } from '../protocol/history';
 import { MAX_TOOL_UI } from '../protocol/tool-ui';
-import type { ChatMessage } from './state';
+import type { ChatMessage, MessageForm } from './state';
 
 /** A text in the visitor's language, with `{name}` placeholders filled. */
 export type Translate = (
@@ -16,17 +17,29 @@ export function translator(texts: Readonly<Record<string, string>>): Translate {
   return (key, params) => formatText(texts[key] ?? key, params);
 }
 
+/** A message of `POST /history`, which `parseHistory` built from known fields only. */
 export const fromHistory = (message: HistoryMessage): ChatMessage => ({
-  id: message.id,
-  role: message.role,
-  text: message.text,
-  citations: message.citations,
-  attachments: message.attachments,
+  ...message,
   status: 'done',
-  ...(message.feedback ? { feedback: message.feedback } : {}),
-  ...(message.replies ? { replies: message.replies } : {}),
-  ...(message.ui ? { ui: message.ui } : {}),
+  handoff: message.handoff?.state,
 });
+
+/** Changes the form with this handle. */
+export const changeForm = (
+  messages: readonly ChatMessage[],
+  handle: string,
+  change: Partial<MessageForm>,
+): readonly ChatMessage[] =>
+  messages.map((message) =>
+    message.forms?.some((form) => form.handle === handle)
+      ? {
+          ...message,
+          forms: message.forms.map((form) =>
+            form.handle === handle ? { ...form, ...change } : form,
+          ),
+        }
+      : message,
+  );
 
 /** The messages after one protocol event of a streamed answer. */
 export function applyEvent(
@@ -72,6 +85,18 @@ export function applyEvent(
         const ui = message.ui ?? [];
         if (ui.length >= MAX_TOOL_UI || ui.some((item) => item.callId === callId)) return message;
         return { ...message, ui: [...ui, payload] };
+      });
+    }
+    case 'handoff':
+      return update(event.messageId, (message) => ({ ...message, handoff: event.state }));
+    case 'form': {
+      // A call seen before, or one over the limit, is ignored.
+      const { callId, name, handle, purpose } = event;
+      return update(event.messageId, (message) => {
+        const forms = message.forms ?? [];
+        return forms.length >= MAX_MESSAGE_FORMS || forms.some((form) => form.callId === callId)
+          ? message
+          : { ...message, forms: [...forms, { callId, name, purpose, handle, state: 'open' }] };
       });
     }
     case 'replies':

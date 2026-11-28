@@ -100,7 +100,7 @@ Select a present-or-absent attribute by its name alone, such as `[data-ask-part=
 [data-askdare]::part(panel) { border-radius: 8px; }
 ```
 
-The shadow root has four parts: `launcher`, `launcher-label` (the label beside the orb or picture, in the `pill` and `orb` launchers), `panel` (the dialog that holds the chat) and `unavailable` (the notice in the panel when the chat doesn't load). The element that holds the shadow root has `data-askdare` set to the bot ID, so `[data-askdare="support"]::part(launcher)` styles one bot's launcher only.
+The shadow root has five parts: `launcher`, `launcher-label` (the label beside the orb or picture, in the `pill` and `orb` launchers), `greeting` (the [greeting next to the launcher](embedding.md#a-greeting-and-an-unread-badge)), `panel` (the dialog that holds the chat) and `unavailable` (the notice in the panel when the chat doesn't load). The unread badge is `::part(launcher)::after`. The element that holds the shadow root has `data-askdare` set to the bot ID, so `[data-askdare="support"]::part(launcher)` styles one bot's launcher only.
 
 On a phone, a labelled launcher can cover the page's text. To show only the orb or picture there, hide the label and even out the padding; the button keeps its name for screen readers:
 
@@ -177,7 +177,7 @@ Every preset sets both font tokens, so set both. You can also set them as the `f
 
 An inline chat loads with the page without taking focus or scrolling to itself.
 
-In a React app, Next.js included, add the script after hydration, for example from a `useEffect` in a small client component. The loader adds the chat inside your element, and React must not find it there while it hydrates. The demo site's [`chat-script.tsx`](../site/app/chat-script.tsx) does this. The chat loads once per page load and lives as long as its element: put the element in a layout that stays, or link to the page with full page loads, because a client-side navigation away and back leaves the element empty.
+In a React app, Next.js included, add the script after hydration, for example from a `useEffect` in a small client component. The loader adds the chat inside your element, and React must not find it there while it hydrates. The demo site's [`chat-script.tsx`](../site/app/%28site%29/chat-script.tsx) does this. The chat loads once per page load and lives as long as its element: put the element in a layout that stays, or link to the page with full page loads, because a client-side navigation away and back leaves the element empty.
 
 ## Inside a page (React)
 

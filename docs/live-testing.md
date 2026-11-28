@@ -27,7 +27,7 @@ printf 'OPENAI_API_KEY=%s\nSMOKE_MODEL=%s\n' "$(pbpaste)" "gpt-6.1-terra" > .env
 
 Already set up `site/.env.local` or `examples/starter/.env.local` (from `.env.example`)? The smoke test reuses it when `.env.smoke.local` is absent, with `ASKDARE_MODEL` as the model, so the key lives in one file only.
 
-The file search smoke test runs only with `SMOKE_VECTOR_STORE_ID` (or the starter's `KB_VECTOR_STORE_ID`): a store synced from `site/knowledge` with `pnpm --dir site kb:sync`. It is not deleted afterwards, so the next run reuses it.
+The file search smoke tests run only with `SMOKE_VECTOR_STORE_ID` (or the starter's `KB_VECTOR_STORE_ID`): a store synced from `site/knowledge` with `pnpm --dir site kb:sync`. It is not deleted afterwards, so the next run reuses it. One of them checks that `handoff` and `show_form` are left out of `allowed_tools` on a turn's last step, which keeps `allowed_tools` only with a hosted tool such as file search.
 
 ## 3. Run
 

@@ -10,6 +10,22 @@ const ATTACHMENT_TYP = 'askdare-attachment+jwt';
 const FEEDBACK_TYP = 'askdare-feedback+jwt';
 const DOCTOR_TYP = 'askdare-doctor+jwt';
 const HISTORY_TYP = 'askdare-history+jwt';
+const FORM_TYP = 'askdare-form+jwt';
+/** A form handle is valid for 24 hours (ADR-0031, decision 4). */
+const FORM_TTL_SECONDS = 24 * 60 * 60;
+/** A call's ID from the model, or one the server minted for a visitor's handoff. */
+const CALL_ID = /^[A-Za-z0-9_-]{1,128}$/;
+const FORM_NAME_CLAIM = /^[a-z0-9_]{1,32}$/;
+const HANDOFF_ID = /^ho_[0-9a-f]{32}$/;
+const LOCALE_CLAIM = /^[A-Za-z0-9-]{1,35}$/;
+const HANDOFF_REASON_CLAIM = /^(visitor_asked|cannot_help|complaint|sensitive|sales)$/;
+const ADMIN_TYP = 'askdare-admin+jwt';
+const ADMIN_REF_TYP = 'askdare-admin-ref+jwt';
+const ADMIN_AUDIENCE = 'askdare-admin';
+const ADMIN_REF_AUDIENCE = 'askdare-admin-ref';
+/** An admin session lasts 15 minutes; a reload signs in again (ADR-0032, decision 8). */
+const ADMIN_TTL_SECONDS = 15 * 60;
+const ADMIN_SESSION = /^s_[0-9a-f]{32}$/;
 /** A store's page cursor inside a history cursor: OpenAI's item IDs, a Postgres `seq`. */
 const STORE_CURSOR_MAX = 1024;
 const DOCTOR_AUDIENCE = 'askdare-doctor';
@@ -79,6 +95,32 @@ export interface FeedbackGrant {
 }
 
 /**
+ * A form shown under an answer (ADR-0031, decision 4): bound to the bot and to the visitor or
+ * signed-in user, holding everything the submission needs, so the client names nothing itself.
+ */
+export interface FormGrant {
+  readonly visitorId: string;
+  readonly identityKey?: string | undefined;
+  readonly conversationId: string;
+  /** The call that showed it, or the one the server minted for a visitor's handoff. */
+  readonly callId: string;
+  readonly form: string;
+  readonly purpose: 'lead' | 'handoff' | 'message';
+  /** The visitor's language when it was shown, for the reports and the `toModel` labels. */
+  readonly locale: string;
+  /** For a handoff's form: the handoff it continues. */
+  readonly handoff?:
+    | {
+        readonly id: string;
+        readonly reason: 'visitor_asked' | 'cannot_help' | 'complaint' | 'sensitive' | 'sales';
+        readonly trigger: 'model' | 'visitor';
+        /** The model's note, with `content: 'summary'` or `'transcript'`. */
+        readonly summary?: string | undefined;
+      }
+    | undefined;
+}
+
+/**
  * Where the next older page of a conversation's history ends (ADR-0024, decision 7): the store's
  * own cursor and how many of the newest items before it were already shown.
  */
@@ -131,6 +173,10 @@ export interface TokenService {
   issueFeedback(botId: string, grant: FeedbackGrant): Promise<IssuedToken>;
   /** Throws `not_found`, so a forged or stale handle reveals nothing. */
   verifyFeedback(token: string, botId: string): Promise<FeedbackGrant>;
+  /** A form's submission handle (ADR-0031), valid for 24 hours. */
+  issueForm(botId: string, grant: FormGrant): Promise<IssuedToken>;
+  /** Throws `not_found`, so a forged, expired or foreign handle reveals nothing. */
+  verifyForm(token: string, botId: string): Promise<FormGrant>;
   /**
    * The `before` cursor of `POST /history`: opaque to clients, and bound to the bot and the
    * conversation, so it can't name another conversation or a store cursor the server didn't
@@ -143,6 +189,26 @@ export interface TokenService {
   issueDoctor(): Promise<IssuedToken>;
   /** Throws `unauthorized`. */
   verifyDoctor(token: string): Promise<void>;
+  /** A 15-minute console session token (ADR-0032). */
+  issueAdmin(
+    grant: Omit<AdminGrant, 'session'>,
+  ): Promise<IssuedToken & { readonly grant: AdminGrant }>;
+  /** Throws `unauthorized`, or `session_expired` once it ran out. */
+  verifyAdmin(token: string): Promise<AdminGrant & { readonly expiresAt: number }>;
+  /** A conversation reference for the console's browser, valid until the session ends. */
+  sealAdminReference(conversationId: string, session: string, expiresAt: number): Promise<string>;
+  /** The conversation behind a reference sealed for this session; undefined otherwise. */
+  openAdminReference(reference: string, session: string): Promise<string | undefined>;
+}
+
+/** A console session (ADR-0032, decision 8). */
+export interface AdminGrant {
+  /** A random ID per sign-in, which sealed references are bound to. */
+  readonly session: string;
+  /** Who signed in: `secret`, or `user:<sub>` for an allowlisted identity. */
+  readonly subject: string;
+  /** A pseudonym of `ADMIN_SECRET` or of the subject; a rotated secret no longer matches. */
+  readonly fingerprint: string;
 }
 
 interface DerivedKey {
@@ -245,6 +311,9 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
       clockTolerance,
     });
   }
+
+  const hex = (bytes: Uint8Array): string =>
+    Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 
   return {
     issueAccess: (botId, visitorId, identity, humanCheckedAt) =>
@@ -398,6 +467,76 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
       }
     },
 
+    issueForm: (botId, grant) =>
+      issue(FORM_TYP, botId, grant.visitorId, FORM_TTL_SECONDS, {
+        cid: grant.conversationId,
+        cal: grant.callId,
+        frm: grant.form,
+        pur: grant.purpose,
+        loc: grant.locale,
+        ...(grant.identityKey ? { ids: grant.identityKey } : {}),
+        ...(grant.handoff
+          ? {
+              hid: grant.handoff.id,
+              hrs: grant.handoff.reason,
+              htr: grant.handoff.trigger,
+              ...(grant.handoff.summary ? { hsm: grant.handoff.summary } : {}),
+            }
+          : {}),
+      }),
+
+    async verifyForm(token, botId) {
+      try {
+        const { payload } = await verify(token, FORM_TYP, botId);
+        const { cid, cal, frm, pur, loc, ids, hid, hrs, htr, hsm } = payload;
+        const handoff = pur === 'handoff' || pur === 'message';
+        if (
+          typeof payload.sub !== 'string' ||
+          !VISITOR_ID.test(payload.sub) ||
+          typeof cid !== 'string' ||
+          !CONVERSATION_ID.test(cid) ||
+          typeof cal !== 'string' ||
+          !CALL_ID.test(cal) ||
+          typeof frm !== 'string' ||
+          !FORM_NAME_CLAIM.test(frm) ||
+          (pur !== 'lead' && !handoff) ||
+          typeof loc !== 'string' ||
+          !LOCALE_CLAIM.test(loc) ||
+          (ids !== undefined && typeof ids !== 'string') ||
+          (handoff &&
+            (typeof hid !== 'string' ||
+              !HANDOFF_ID.test(hid) ||
+              typeof hrs !== 'string' ||
+              !HANDOFF_REASON_CLAIM.test(hrs) ||
+              (htr !== 'model' && htr !== 'visitor') ||
+              (hsm !== undefined && typeof hsm !== 'string')))
+        ) {
+          throw new AskdareError('not_found');
+        }
+        return {
+          visitorId: payload.sub,
+          conversationId: cid,
+          callId: cal,
+          form: frm,
+          purpose: pur,
+          locale: loc,
+          ...(ids === undefined ? {} : { identityKey: ids as string }),
+          ...(handoff
+            ? {
+                handoff: {
+                  id: hid as string,
+                  reason: hrs as NonNullable<FormGrant['handoff']>['reason'],
+                  trigger: htr as 'model' | 'visitor',
+                  ...(typeof hsm === 'string' ? { summary: hsm } : {}),
+                },
+              }
+            : {}),
+        };
+      } catch (error) {
+        throw new AskdareError('not_found', { cause: error });
+      }
+    },
+
     issueHistoryCursor: (botId, grant) =>
       issue(HISTORY_TYP, botId, grant.conversationId, resumeTtl, {
         bfr: grant.before,
@@ -441,6 +580,59 @@ export async function createTokenService(options: TokenServiceOptions): Promise<
         await verify(token, DOCTOR_TYP, DOCTOR_AUDIENCE);
       } catch {
         throw new AskdareError('unauthorized');
+      }
+    },
+
+    async issueAdmin(grant) {
+      const session = `s_${hex(crypto.getRandomValues(new Uint8Array(16)))}`;
+      const issued = await issue(ADMIN_TYP, ADMIN_AUDIENCE, session, ADMIN_TTL_SECONDS, {
+        adm: grant.subject,
+        afp: grant.fingerprint,
+      });
+      return { ...issued, grant: { ...grant, session } };
+    },
+
+    async verifyAdmin(token) {
+      try {
+        const { payload } = await verify(token, ADMIN_TYP, ADMIN_AUDIENCE);
+        const { adm, afp, exp } = payload;
+        if (
+          typeof payload.sub !== 'string' ||
+          !ADMIN_SESSION.test(payload.sub) ||
+          typeof adm !== 'string' ||
+          typeof afp !== 'string' ||
+          typeof exp !== 'number'
+        ) {
+          throw new AskdareError('unauthorized');
+        }
+        return { session: payload.sub, subject: adm, fingerprint: afp, expiresAt: exp };
+      } catch (error) {
+        if (error instanceof errors.JWTExpired) {
+          throw new AskdareError('session_expired', { cause: error });
+        }
+        throw new AskdareError('unauthorized', { cause: error });
+      }
+    },
+
+    async sealAdminReference(conversationId, session, expiresAt) {
+      const ttl = Math.max(1, expiresAt - now());
+      return (await issue(ADMIN_REF_TYP, ADMIN_REF_AUDIENCE, conversationId, ttl, { ses: session }))
+        .token;
+    },
+
+    async openAdminReference(reference, session) {
+      try {
+        const { payload } = await verify(reference, ADMIN_REF_TYP, ADMIN_REF_AUDIENCE);
+        if (
+          typeof payload.sub !== 'string' ||
+          !CONVERSATION_ID.test(payload.sub) ||
+          payload['ses'] !== session
+        ) {
+          return undefined;
+        }
+        return payload.sub;
+      } catch {
+        return undefined;
       }
     },
   };

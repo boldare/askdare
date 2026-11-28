@@ -238,6 +238,32 @@ test('opens and closes without motion when the visitor asks for reduced motion',
   }
 });
 
+test('mounts and opens on a page that enforces Trusted Types', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto(`${ALLOWED_HOST}?variant=trusted-types`);
+  // The page really enforces it: HTML from a string throws.
+  expect(
+    await page.evaluate(() => {
+      try {
+        document.createElement('div').innerHTML = '<b>x</b>';
+        return 'allowed';
+      } catch {
+        return 'blocked';
+      }
+    }),
+  ).toBe('blocked');
+  const launcher = page.locator('[part="launcher"]');
+  await expect(launcher).toBeVisible();
+  const chat = await openChat(page);
+  await expect(
+    chat.getByRole('heading', { name: 'Ask me about Brightloop plans, support or security' }),
+  ).toBeVisible();
+  // The close icon replaced the chat icon, still drawn and hidden from assistive technology.
+  await expect(launcher.locator('svg[aria-hidden="true"] path')).toHaveCount(1);
+  expect(errors).toEqual([]);
+});
+
 test('refuses to load inside a site that is not on the allowlist', async ({
   page,
   browserName,

@@ -1,4 +1,6 @@
 import type { FeedbackHandle } from '../protocol/events';
+import type { FormFieldErrors, FormPurpose } from '../protocol/forms';
+import type { HandoffState } from '../protocol/handoff';
 import type { ToolUi } from '../protocol/tool-ui';
 import type { PageOptions } from './page-options';
 
@@ -37,6 +39,36 @@ export interface ChatMessage {
    * order, at most four: plain JSON for the components registered with `toolRenderers`.
    */
   readonly ui?: readonly ToolUi[] | undefined;
+  /**
+   * A handoff to a person recorded after this answer (ADR-0030): `requested` while it runs or its
+   * form waits, then its final state. Shown as plain text.
+   */
+  readonly handoff?: HandoffState | undefined;
+  /** Forms shown under this answer, in order (ADR-0031); each stays until it is sent or expires. */
+  readonly forms?: readonly MessageForm[] | undefined;
+}
+
+/**
+ * A form under an answer (ADR-0031). Its fields, title and texts are in `ChatConfig.forms`, found by
+ * `name`. `open` takes values, `submitting` while they go out, then `sent` (show its `done` text,
+ * or the message's handoff state) or `expired` (its handle is no longer valid).
+ */
+export interface MessageForm {
+  /** Opaque, unique in the conversation. */
+  readonly callId: string;
+  readonly name: string;
+  /** Picks the texts around the form: a lead, a handoff's contact details, or a message left. */
+  readonly purpose: FormPurpose;
+  readonly state: 'open' | 'submitting' | 'sent' | 'expired';
+  /** What `actions.submitForm` takes, while the form is open. */
+  readonly handle?: string | undefined;
+  /**
+   * The fields the server refused at the last try, each with an error key (`error.form.required`,
+   * `error.form.email`…) to look up with `t`. A key the chat doesn't know is a generic error.
+   */
+  readonly errors?: FormFieldErrors | undefined;
+  /** Why the last try failed as a whole, such as a lost connection, in the visitor's language. */
+  readonly error?: string | undefined;
 }
 
 export type Rating = 'up' | 'down';

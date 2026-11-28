@@ -6,7 +6,7 @@ import { migrate } from './schema/migrate';
 const USAGE = `Usage: askdare-postgres migrate [part…]
 
 Creates or upgrades the askdare schema in the database at DATABASE_URL: every part, or only the
-parts named (such as \`conversations\` on a database without pgvector, which \`knowledge\` needs).
+parts named (such as \`conversations admin\` on a database without pgvector, which \`knowledge\` needs).
 Without DATABASE_URL in the environment, it is read from .env.local, then .env.`;
 
 async function main(): Promise<number> {

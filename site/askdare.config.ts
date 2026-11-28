@@ -1,4 +1,5 @@
 import { type BotContext, type BotDefinition, defineBot, defineTheme } from '@boldare/askdare';
+import { contactForm, handoffForm } from './forms';
 import { currentTime, exchangeRate } from './tools';
 
 // Origins allowed to embed the widget, comma-separated (the app's own origin is always allowed).
@@ -20,11 +21,22 @@ const assistant = {
       'Answer briefly and politely. If you do not know something, say so.',
       'Answer questions about Brightloop only from the documents you can search, and cite them.',
       'Use the tools for the current time and for exchange rates; never guess them.',
+      'When the visitor wants an offer, a demo or a call, show the contact form instead of asking for their details.',
+      'When they ask for a person, or you cannot help, hand the conversation off.',
       `Reply in the language of the user's message; default to ${locale}.`,
     ]
       .filter(Boolean)
       .join(' '),
   tools: [currentTime, exchangeRate],
+  // A lead form the model shows (ADR-0031), and the form "Talk to a person" asks for details with.
+  forms: [contactForm, handoffForm],
+  // Handoff to a person (ADR-0030): the visitor's button in the header, or the model's own call.
+  // The route's onHandoff posts each request to a test webhook (demo-hooks.ts).
+  handoff: {
+    form: 'handoff',
+    // The end-to-end tests ask for a person a dozen times a run from one address (100 is the most).
+    ...(process.env.ASKDARE_E2E_LIMITS === '1' ? { limits: { perVisitorPerDay: 100 } } : {}),
+  },
   // Pages may describe themselves with askdare('configure', { context }); see docs/styling.md.
   pageContext: true,
   // Documents from knowledge/, uploaded with `pnpm kb:sync`. Without the ID the bot has none.
@@ -142,6 +154,9 @@ export const bots = [
       colorScheme: 'light',
       title: 'Brightloop assistant',
       launcherLabel: 'Ask Brightloop AI',
+      // A short greeting next to the closed launcher, until the visitor dismisses it or opens the
+      // chat in this session. Its default text says it is an AI assistant (ADR-0033).
+      launcherGreeting: { delaySeconds: 4 },
       // The demo says what it is inside the chat, not on the page.
       subtitle: DEMO_NOTE,
       // **Bold** words get the heavier weight of Aura's two-weight headline.

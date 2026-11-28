@@ -37,14 +37,14 @@ const report = await migrate(); // DATABASE_URL; or migrate({ url }) or migrate(
 console.log(report.applied);
 ```
 
-The schema has parts that upgrade independently: `conversations` for the conversation store and `knowledge` for the knowledge index. `migrate` creates every part. A database without pgvector can't hold the `knowledge` part, so name the parts you use:
+The schema has parts that upgrade independently: `conversations` for the conversation store, `admin` for the admin store and `knowledge` for the knowledge index. `migrate` creates every part. A database without pgvector can't hold the `knowledge` part, so name the parts you use:
 
 ```bash
-npx askdare-postgres migrate conversations
+npx askdare-postgres migrate conversations admin
 ```
 
 ```ts
-await migrate({ parts: ['conversations'] });
+await migrate({ parts: ['conversations', 'admin'] });
 ```
 
 `migrate` is idempotent: when the schema is up to date it changes nothing. Concurrent runs wait for each other. Each step runs in a transaction, so a failed one leaves the previous version in place. A database that a newer version of this package migrated makes it stop before changing anything.
@@ -152,6 +152,24 @@ try {
   await pool.end();
 }
 ```
+
+## Admin store
+
+`postgresAdminStore()` keeps what the admin console and its dashboard show (ADR-0032): token usage per turn, ratings with their comments, daily counters per bot and model, and, with `admin.transcripts: true`, each turn's text. Handoffs and leads are only counted. On one `DATABASE_URL` it shares the pool of `postgresConversations()`.
+
+```ts
+import { postgresAdminStore, postgresConversations } from '@boldare/askdare-postgres';
+
+export const { GET, POST, DELETE, sweep } = createChatHandler({
+  bots: [bot],
+  conversations: postgresConversations(),
+  admin: { store: postgresAdminStore(), retentionDays: 30 }, // DATABASE_URL; or { url } or { pool }
+});
+```
+
+askdare writes the records itself, deletes them with their conversation, and applies the retention when your cron route calls `sweep()`: records older than `retentionDays`, daily rows (which hold no conversation or visitor) after 400 days. `retentionDays` is set once, in `createChatHandler`; `askdare doctor` warns when records are older, which means `sweep()` isn't running.
+
+Its tables start with `askdare_admin_`. Every dashboard query reads a bounded day range through an index; transcripts hold what visitors wrote, so treat the tables as personal data.
 
 ## Knowledge index
 

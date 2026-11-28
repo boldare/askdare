@@ -4,6 +4,7 @@ import type { ConversationStore } from './conversations/port';
 import type { KnowledgeIndex } from './knowledge/port';
 import type { DoctorCheck } from './protocol/doctor';
 import type { MessageEndReason, ProtocolEvent } from './protocol/events';
+import type { HandoffForm, HandoffState } from './protocol/handoff';
 import type { ToolUi } from './protocol/tool-ui';
 
 export interface TokenUsage {
@@ -96,6 +97,25 @@ export interface TurnRequest {
   readonly onStep?: ((step: StepRecord) => void) | undefined;
   /** Called after each function call. */
   readonly onToolCall?: ((call: ToolCallRecord) => void) | undefined;
+  /**
+   * Runs a `handoff` call (ADR-0030); absent when the bot's model can't hand off. `offered` is
+   * false once the conversation used its handoffs: the tool is then not allowed on any step.
+   */
+  readonly handoff?: TurnHandoff | undefined;
+  /** Shows a form the model picked (ADR-0031); absent when the bot offers none to the model. */
+  readonly showForm?:
+    | ((name: string, callId: string) => Promise<{ readonly handle: string } | undefined>)
+    | undefined;
+}
+
+/** What a turn needs to run the model's handoff: the server decides everything else. */
+export interface TurnHandoff {
+  readonly offered: boolean;
+  /** Takes the call's raw arguments; never throws: a failure is a state. */
+  run(call: {
+    readonly callId: string;
+    readonly arguments: string;
+  }): Promise<{ readonly state: HandoffState; readonly form?: HandoffForm | undefined }>;
 }
 
 export interface TurnResult {

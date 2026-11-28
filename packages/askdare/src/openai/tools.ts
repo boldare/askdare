@@ -24,7 +24,9 @@ import {
   type Tool,
   ToolUiLimitError,
 } from '../tools/define-tool';
+import { HANDOFF, HANDOFF_DESCRIPTION, handoffParameters } from '../tools/handoff';
 import { FAILURES, wrapToolOutput } from '../tools/outputs';
+import { modelForms, SHOW_FORM, showFormDescription, showFormParameters } from '../tools/show-form';
 import {
   SUGGEST_REPLIES,
   SUGGEST_REPLIES_DESCRIPTION,
@@ -65,6 +67,24 @@ export function responseTools(bot: Bot): ResponseTool[] {
         strict: true,
       });
     }
+    if (bot.handoff?.model) {
+      tools.push({
+        type: 'function',
+        name: HANDOFF,
+        description: HANDOFF_DESCRIPTION,
+        parameters: handoffParameters(bot.handoff.content !== 'none'),
+        strict: true,
+      });
+    }
+    if (modelForms(bot.forms).length > 0) {
+      tools.push({
+        type: 'function',
+        name: SHOW_FORM,
+        description: showFormDescription(bot.forms),
+        parameters: showFormParameters(bot.forms),
+        strict: true,
+      });
+    }
     if (bot.knowledge?.index) {
       tools.push({
         type: 'function',
@@ -85,38 +105,50 @@ export function responseTools(bot: Bot): ResponseTool[] {
   return tools;
 }
 
-/** The functions the model may call on any step but the last: the bot's tools and its index. */
-function functionNames(bot: Bot): string[] {
+/**
+ * The reserved functions a step may still call: `suggest_replies` until the model suggested,
+ * `handoff` while the conversation has handoffs left and none ran in this turn, and `show_form`
+ * until it showed a form (ADR-0015, ADR-0030, ADR-0031).
+ */
+export interface StepOffer {
+  readonly suggest: boolean;
+  readonly handoff: boolean;
+  readonly form: boolean;
+}
+
+const EVERYTHING: StepOffer = { suggest: true, handoff: true, form: true };
+
+/** The functions the model may call on a step but the last. */
+function functionNames(bot: Bot, offer: StepOffer): string[] {
   return [
     ...bot.tools.map((tool) => tool.name),
     ...(bot.knowledge?.index ? [SEARCH_KNOWLEDGE] : []),
+    ...(offer.handoff && bot.handoff?.model ? [HANDOFF] : []),
+    ...(offer.form && modelForms(bot.forms).length > 0 ? [SHOW_FORM] : []),
+    ...(offer.suggest && bot.widget.replies === 'suggest' ? [SUGGEST_REPLIES] : []),
   ];
 }
 
-/**
- * Whether a step may call a function: a bot tool, `search_knowledge`, or `suggest_replies` while
- * it may still.
- */
-export function callsFunctions(bot: Bot, suggest: boolean): boolean {
-  return functionNames(bot).length > 0 || (suggest && bot.widget.replies === 'suggest');
+/** Whether a step may call a function, so the call after it has to be covered too. */
+export function callsFunctions(bot: Bot, offer: StepOffer): boolean {
+  return functionNames(bot, offer).length > 0;
 }
 
 /**
  * On the last step a function call could no longer be answered, so only hosted tools stay
- * available; once the model has suggested replies, it can't again in that turn. Restricting through
+ * available; a reserved function the turn used up is left out. Restricting through
  * `allowed_tools` keeps the tool list, and the prompt cache, intact.
  */
 export function toolChoice(
   bot: Bot,
   lastStep: boolean,
-  suggest: boolean,
+  offer: StepOffer,
 ): ToolChoiceOptions | ToolChoiceAllowed {
-  const replies = bot.widget.replies === 'suggest';
-  const functions = functionNames(bot);
-  if (!lastStep && (suggest || !replies)) return 'auto';
-  if (functions.length === 0 && !replies) return 'auto';
+  const everything = functionNames(bot, EVERYTHING);
+  const functions = lastStep ? [] : functionNames(bot, offer);
+  if (functions.length === everything.length) return 'auto';
   const allowed: ToolChoiceAllowed['tools'] = [
-    ...(lastStep ? [] : functions.map((name) => ({ type: 'function', name }))),
+    ...functions.map((name) => ({ type: 'function', name })),
     ...(bot.knowledge?.vectorStoreId ? [{ type: 'file_search' }] : []),
   ];
   return allowed.length > 0 ? { type: 'allowed_tools', mode: 'auto', tools: allowed } : 'none';

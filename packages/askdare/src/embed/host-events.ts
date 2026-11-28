@@ -5,7 +5,12 @@ type Fields = {
   readonly [T in ChatEventType]: Readonly<
     Record<Exclude<keyof Extract<ChatEvent, { type: T }>, 'type' | 'bot'>, 1>
   >;
-} & { readonly open: Readonly<Record<never, 1>>; readonly close: Readonly<Record<never, 1>> };
+} & {
+  // The loader's own events (ADR-0013, ADR-0033).
+  readonly [T in 'open' | 'close' | 'greeting.shown' | 'greeting.dismissed']: Readonly<
+    Record<never, 1>
+  >;
+};
 
 /**
  * The chat events the loader passes on to the page (ADR-0013), checked again on this side: the
@@ -16,6 +21,8 @@ const FIELDS: Fields = {
   ready: {},
   open: {},
   close: {},
+  'greeting.shown': {},
+  'greeting.dismissed': {},
   'message.sent': { length: 1, attachments: 1, source: 1 },
   'message.received': { outcome: 1, durationMs: 1, citations: 1 },
   feedback: { rating: 1, commented: 1 },

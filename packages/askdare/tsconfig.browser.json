@@ -6,5 +6,5 @@
     "types": [],
     "paths": { "@boldare/askdare/react": ["./src/react/headless.ts"] }
   },
-  "include": ["src/widget-app", "src/embed", "src/vite-env.d.ts"]
+  "include": ["src/widget-app", "src/admin-console", "src/embed", "src/vite-env.d.ts"]
 }

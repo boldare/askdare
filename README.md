@@ -65,7 +65,14 @@ Or [try it first, in five minutes](#your-chatbot-in-five-minutes), without your 
 
 [![What it does: answers from your documents with citations, your own tools, images and PDFs, voice input, secure by default, the chat inside your own page with React, thumbs-up and thumbs-down ratings of answers, observability with OpenTelemetry, and chat events for analytics. Also clickable answers suggested by the model, reply options from your tools, switching the chat's language from the page, a one-click deploy, tool cards drawn by your own React components, your own page inside the widget, and texts per language. New in 0.5: guardrails with OpenAI moderation and your own rules, a human check with Cloudflare Turnstile, seven built-in languages, and WCAG 2.2 AA. No database.](.github/assets/askdare-features.png)](https://askdare.vercel.app/#features)
 
-[Knowledge base](docs/knowledge-base.md) · [Tools](docs/tools.md) · [Tool cards](docs/react.md#tool-cards) · [Reply options](docs/reply-options.md) · [Attachments](docs/attachments.md) · [Voice input](docs/voice-input.md) · [The chat inside your page (React)](docs/react.md) · [Your own page in the widget](docs/embedding.md#your-own-page-in-the-iframe) · [Answer ratings](docs/feedback.md) · [Observability](docs/observability.md) · [Chat events](docs/events.md) · [Guardrails](docs/guardrails.md) · [Human check](docs/configuration.md#human-check) · [Accessibility](docs/accessibility.md) · [Own your data](docs/own-your-data.md) · [Security](THREAT_MODEL.md)
+[Knowledge base](docs/knowledge-base.md) · [Tools](docs/tools.md) · [Tool cards](docs/react.md#tool-cards) · [Reply options](docs/reply-options.md) · [Attachments](docs/attachments.md) · [Voice input](docs/voice-input.md) · [The chat inside your page (React)](docs/react.md) · [Your own page in the widget](docs/embedding.md#your-own-page-in-the-iframe) · [Answer ratings](docs/feedback.md) · [Handoff to a person](docs/handoff.md) · [Forms and leads](docs/forms.md) · [Admin console and dashboard](docs/admin.md) · [Launcher greeting](docs/embedding.md#a-greeting-and-an-unread-badge) · [Observability](docs/observability.md) · [Chat events](docs/events.md) · [Guardrails](docs/guardrails.md) · [Human check](docs/configuration.md#human-check) · [Accessibility](docs/accessibility.md) · [Own your data](docs/own-your-data.md) · [Security](THREAT_MODEL.md)
+
+**New in 0.7, support-grade:**
+
+- **Handoff to a person**: a "Talk to a person" button and a `handoff` tool the model calls when it can't help, with `webhookHandoff()` (signed with Standard Webhooks) or `emailHandoff()` delivering the request. It is one-way: a person from your team answers the visitor by email. Outside your office hours, the handoff's form takes a message instead. See [Handoff](docs/handoff.md).
+- **Forms in the chat**: `defineForm` with text, email, phone, select, textarea and consent fields, validated on the server and drawn by the widget with no code on your site. Each sent form goes to your `onLead`, and its values reach the model only for the fields you mark. See [Forms](docs/forms.md).
+- **Admin console and dashboard**: a console at `/api/chat/admin`, off by default, with each bot's configuration, `doctor`, a playground and conversation reviews, signed in with `ADMIN_SECRET` or an identity token. Records live in an admin store (memory, Postgres or Upstash), and the new [`@boldare/askdare-admin`](packages/askdare-admin) adds a dashboard: cost per bot, day and model, ratings, unanswered questions, leads and handoffs. Deleting a conversation deletes its records. See [Admin](docs/admin.md).
+- **A greeting next to the launcher and an unread badge**: `widget.launcherGreeting` invites visitors after a few seconds, and answers that arrive while the chat is closed are counted on the launcher. See [Embedding](docs/embedding.md#a-greeting-and-an-unread-badge).
 
 **New in 0.6, own your data:**
 
@@ -88,9 +95,9 @@ Pick a theme, set your brand's colors, or restyle any part with your own CSS, th
 The guides are on [askdare.vercel.app/docs](https://askdare.vercel.app/docs), with search and a chat that answers from them. The same pages are in [`docs/`](docs/), and they ship in the package, so they match the version you installed.
 
 - **Start:** [Getting started](docs/getting-started.md) · [Embedding the chat](docs/embedding.md) · [Command line](docs/cli.md)
-- **Features:** [Knowledge base](docs/knowledge-base.md) · [Tools](docs/tools.md) · [Tool cards](docs/react.md#tool-cards) · [Reply options](docs/reply-options.md) · [Attachments](docs/attachments.md) · [Voice input](docs/voice-input.md) · [Signed-in visitors](docs/identity.md)
+- **Features:** [Knowledge base](docs/knowledge-base.md) · [Tools](docs/tools.md) · [Tool cards](docs/react.md#tool-cards) · [Reply options](docs/reply-options.md) · [Attachments](docs/attachments.md) · [Voice input](docs/voice-input.md) · [Signed-in visitors](docs/identity.md) · [Handoff to a person](docs/handoff.md) · [Forms and leads](docs/forms.md)
 - **Look and language:** [Themes](docs/themes.md) · [Styling](docs/styling.md) · [Texts](docs/texts.md) · [The chat inside your page (React)](docs/react.md)
-- **Going live:** [Deployment](docs/deployment.md) · [Own your data](docs/own-your-data.md) · [Going-public checklist](docs/going-public.md) · [Guardrails](docs/guardrails.md) · [Costs](docs/costs.md) · [Observability](docs/observability.md) · [Chat events](docs/events.md) · [Answer ratings](docs/feedback.md) · [Privacy](docs/privacy.md) · [Compliance](docs/compliance.md) · [Accessibility](docs/accessibility.md)
+- **Going live:** [Deployment](docs/deployment.md) · [Own your data](docs/own-your-data.md) · [Going-public checklist](docs/going-public.md) · [Guardrails](docs/guardrails.md) · [Costs](docs/costs.md) · [Observability](docs/observability.md) · [Chat events](docs/events.md) · [Answer ratings](docs/feedback.md) · [Admin console and dashboard](docs/admin.md) · [Privacy](docs/privacy.md) · [Compliance](docs/compliance.md) · [Accessibility](docs/accessibility.md)
 - **Reference:** [Configuration](docs/configuration.md) · [Troubleshooting](docs/troubleshooting.md) · [Support matrix](docs/support.md) · [Wire protocol](docs/protocol.md) · [Custom stores](docs/custom-store.md)
 - **Under the hood:** [Threat model](THREAT_MODEL.md) · [Design decisions](docs/adr/README.md)
 - **AI coding agents:** [`llms.txt`](llms.txt) and the [`askdare` skill](skills/askdare/SKILL.md), both in the package ([how to use them](docs/getting-started.md#working-with-an-ai-coding-agent))
@@ -102,9 +109,10 @@ Coming from `@boldare/openai-assistant`? It stopped working when OpenAI shut dow
 | Package | What it is |
 | --- | --- |
 | [`@boldare/askdare`](packages/askdare) | The library: bots, the chat route, the embeddable chat and the CLI |
-| [`@boldare/askdare-upstash`](packages/askdare-upstash) | Rate limits, budgets and answer resume shared by every server instance, in Upstash Redis |
+| [`@boldare/askdare-upstash`](packages/askdare-upstash) | Rate limits, budgets and answer resume shared by every server instance, and an admin store, in Upstash Redis |
 | [`@boldare/askdare-otel`](packages/askdare-otel) | OpenTelemetry spans for every chat turn, following the GenAI conventions |
-| [`@boldare/askdare-postgres`](packages/askdare-postgres) | Conversations and a pgvector knowledge index in your own Postgres |
+| [`@boldare/askdare-postgres`](packages/askdare-postgres) | Conversations, a pgvector knowledge index and an admin store in your own Postgres |
+| [`@boldare/askdare-admin`](packages/askdare-admin) | The admin dashboard: cost, ratings, unanswered questions, leads, handoffs and conversation reviews, inside the admin console |
 
 ---
 

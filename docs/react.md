@@ -132,6 +132,10 @@ function Bubble() {
       <Chat.ToolResults />
       <Chat.MessageFiles />
       <Chat.Citations />
+      <Chat.HandoffStatus />
+      {message.forms?.map((form) => (
+        <Chat.Form key={form.callId} form={form} />
+      ))}
       <Chat.FeedbackButton rating="up">👍</Chat.FeedbackButton>
       <Chat.FeedbackButton rating="down">👎</Chat.FeedbackButton>
       <Chat.QuickReplies />
@@ -143,6 +147,7 @@ export function PlainChat({ config }: { config: Chat.ChatConfig }) {
   return (
     <Chat.Root config={config}>
       <Chat.Panel className="plain-chat">
+        <Chat.HandoffButton />
         <Chat.Messages>
           <Chat.LoadEarlier />
           <Chat.MessageList>
@@ -184,6 +189,9 @@ Without `Theme` and `DefaultChat`, no stylesheet of the chat loads: the look is 
 | `ToolResults` | `div` | The answer's tool cards (`tool-result`, with `data-ask-tool`), each drawn by the component `Root`'s `toolRenderers` has for its tool, in call order. See [Tool cards](#tool-cards). |
 | `Link` | `a` or `span` | A link for a URL from a tool's payload, checked as links in answers are: only `https`, `http` and `mailto`, opened in a new tab. Any other URL renders the text alone. |
 | `MessageFiles` | `ul` or `p` | The files sent with a message. |
+| `HandoffButton` | `button` | "Talk to a person" (`handoff.button`; children replace it): asks for a person for the latest answer. Renders nothing for a bot without handoff or with `button: false`, and before the first answer. While a turn runs or a handoff is under way it has `aria-disabled`, so it keeps focus. See [Handoff and forms](#handoff-and-forms). |
+| `HandoffStatus` | `p` | Where a handoff for this answer stands, as plain text (`data-state`): "Connecting you…", then its outcome. A polite `status`. Renders nothing when the handoff has a form, which says it instead. |
+| `Form` | `form` | One of the answer's forms (`useMessage().forms`), drawn from its description in the bot's configuration. See [Handoff and forms](#handoff-and-forms). |
 | `FeedbackButton` | `button` | Rates the answer; takes `rating="up"` or `"down"`. See [Answer ratings](feedback.md). |
 | `QuickReplies` | `div` | The options the latest answer offers, as a group of buttons (`reply`) that show their text as plain text. A click sends the option as the visitor's message. Inside `MessageList` it renders under the latest answer only; placed anywhere else, such as above the `Composer`, it shows the latest answer's options there. Either way they go away once the visitor sends anything. The default look follows the theme's `replies` variant ([Themes](themes.md#variants)). See [Reply options](reply-options.md#in-react). |
 | `Composer` | `form` | Submitting it sends the draft, Enter in the `Input` included. An `onSubmit` of yours that calls `event.preventDefault()` takes the message over. |
@@ -245,6 +253,48 @@ export function Help({ config }: { config: Chat.ChatConfig }) {
 - **Placement.** `DefaultChat` puts the cards under the answer's text. In your own markup, place `ToolResults` inside `MessageList`; style the cards yourself, with the chat's tokens (`var(--ask-color-border)` and the others) so they follow the theme.
 - **The script-tag widget** draws them too, for a bot that shows your own page in its iframe: render that page with `EmbedRoot` from `@boldare/askdare/embed` and the same `toolRenderers`. See [Embedding: your own page in the iframe](embedding.md#your-own-page-in-the-iframe).
 
+### Handoff and forms
+
+A bot with `handoff` lets visitors ask for a person, and a bot with `forms` can show a form under an answer ([ADR-0030](adr/0030-handoff.md), [ADR-0031](adr/0031-forms-and-leads.md)). `DefaultChat` puts "Talk to a person" in its header and the forms and the handoff's status under the answer. In your own markup, place `HandoffButton` where visitors look for help, and `HandoffStatus` and one `Form` per form inside `MessageList`, as in the example above.
+
+- **`Form`** renders a `form` named by its title, then a `form-field` per field with a visible `label`. Optional fields say so (`form.optional`). A `select` starts with `form.choose`; a `consent` field is a checkbox, followed by a link to the bot's privacy policy when `widget.disclosure` has one. Every text is plain text. Email and phone fields tell the browser what to fill in (`autocomplete`), and so do fields named `name`, `company` and `organization`.
+- **Errors.** Sending checks the values by hand first, as the server does (required, email, phone, length, option), then the server checks them again. Each error is a `form-error` tied to its field with `aria-describedby`, the field has `aria-invalid`, and the first field with an error gets focus. Typing into a field clears its error. A failure of the whole form, such as a lost connection, is a `form-error` with `role="alert"`, and the values stay to try again.
+- **Once sent,** the form becomes its `form-done` text, a `status`: the form's `done` (or `form.done`), or for a handoff's form the handoff's outcome, which names the email address the visitor gave (`handoff.sentTo`). A form whose handle is no longer valid says so (`form.expired`). If the visitor had just sent it, focus moves to that text, since the button it was on is gone.
+- **Purposes.** `form.purpose` is `lead`, `handoff` (contact details for a person) or `message` (a message left while nobody is available, titled `handoff.unavailableTitle`). `data-purpose` on the `form` has it, and `data-ask-form` the form's name.
+- **Parts:** `handoff` (the button), `handoff-status` (with `data-state`), `form`, `form-title`, `form-field` (with `data-type`), `form-optional`, `form-error`, `form-submit` (with `aria-disabled` while it sends) and `form-done` (with `data-state`).
+- **Your own form.** `useChat()` has everything `Form` uses: the forms under each message (`message.forms`: `callId`, `name`, `purpose`, `state`, `handle`, and the server's `errors` by field as text keys), their descriptions in `bot.forms`, and `actions.submitForm(handle, values)`. Look the error keys up with `t`; a key your chat doesn't know is a generic error (`error.form.invalid`).
+
+```tsx
+function Callback() {
+  const message = Chat.useMessage();
+  const { bot, actions, t } = Chat.useChat();
+  const form = message.forms?.find((item) => item.name === 'callback');
+  if (form?.state === 'sent') return <p role="status">{t('form.done')}</p>;
+  if (form?.state === 'expired') return <p>{t('form.expired')}</p>;
+  const handle = form?.handle;
+  if (!form || !handle) return null;
+  const { title } = bot.forms.find((item) => item.name === form.name) ?? {};
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        const phone = String(new FormData(event.currentTarget).get('phone') ?? '');
+        void actions.submitForm(handle, { phone });
+      }}
+    >
+      <label>
+        {title}
+        <input name="phone" type="tel" autoComplete="tel" />
+      </label>
+      {form.errors?.phone && <p>{t(form.errors.phone as 'error.form.phone')}</p>}
+      <button type="submit" aria-disabled={form.state === 'submitting'}>
+        {t('form.submit')}
+      </button>
+    </form>
+  );
+}
+```
+
 ### Long conversations
 
 A stored conversation comes back in pages of whole turns, the latest first ([Protocol](protocol.md#history-pages)). The chat shows the latest page; `state.earlier` says whether older ones exist, and `actions.loadEarlier()` puts the page before above the messages. `DefaultChat` shows `LoadEarlier` at the top of the conversation, which loads as the visitor scrolls up and works as a button from the keyboard. In your own markup, place `LoadEarlier` first inside `Messages`, or call `loadEarlier()` from your own control:
@@ -280,7 +330,7 @@ function Earlier() {
 | --- | --- |
 | `phase` | `'starting'` on the server and until the chat knows the visitor, `'loading'` while a stored conversation loads, then `'ready'`. |
 | `busy` | A turn is under way. |
-| `messages` | Each with `id`, `role`, `text`, `status` (`'streaming'`, `'done'`, `'error'`), `citations`, `files`, `feedback` and `replies` (the options the answer offers, plain text). |
+| `messages` | Each with `id`, `role`, `text`, `status` (`'streaming'`, `'done'`, `'error'`), `citations`, `files`, `feedback`, `replies` (the options the answer offers, plain text), `handoff` (the state of a handoff after this answer: `'requested'`, `'sent'`, `'saved'`, `'unavailable'`, `'failed'` or `'limited'`) and `forms` (the forms under it, see [Handoff and forms](#handoff-and-forms)). |
 | `earlier` | Older messages of a stored conversation: `'more'` (load them with `loadEarlier()`), `'loading'`, or `'none'` once the start shows, or without a stored conversation. |
 | `draft`, `files` | The message field's text and the files picked for the next message. |
 | `error`, `activity` | The latest problem, and what the assistant is doing before it writes, or "Reconnecting…" (`status.reconnecting`) while an answer whose connection dropped resumes. |
@@ -296,9 +346,11 @@ function Earlier() {
 | `newConversation()` | Deletes the conversation and starts with an empty chat. |
 | `loadEarlier()` | Loads the page of older messages before the oldest shown and puts it above, while `earlier` is `'more'`. |
 | `rate(messageId, rating, comment?)`, `dismissComment()` | Ratings: `'up'`, `'down'`, or `null` to take one back. |
+| `handoff()` | Asks for a person for the latest answer (the bot's `handoff`); its `handoff` is `'requested'` until the outcome, or until its form is sent. |
+| `submitForm(handle, values)` | Sends a form's values, by field name: text, or `true`/`false` for a `consent` field. The form's `state` goes `'submitting'`, then `'sent'`, back to `'open'` with `errors` or `error`, or `'expired'`. |
 | `focus()` | Moves keyboard focus to the message field. |
 
-`bot` holds the bot's public settings in the visitor's language (`title`, `greeting`, `starters`, `placeholder`, `avatar`, `disclosure`, what may be attached). `t(key)` returns any of the chat's [texts](texts.md).
+`bot` holds the bot's public settings in the visitor's language (`title`, `greeting`, `starters`, `placeholder`, `avatar`, `disclosure`, what may be attached, and the descriptions of its `forms`). `t(key)` returns any of the chat's [texts](texts.md).
 
 ## Styling
 

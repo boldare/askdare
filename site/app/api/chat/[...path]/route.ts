@@ -1,25 +1,6 @@
-import { createChatHandler } from '@boldare/askdare/next';
-import { upstashStore, upstashTurnLog } from '@boldare/askdare-upstash';
-import { bots } from '@/askdare.config';
+import { chat } from '@/chat';
 
 // Must be a literal in this file; keep it above the bots' turn timeout.
 export const maxDuration = 300;
 
-// Vercel runs many instances: with an Upstash database connected (the Marketplace sets
-// KV_REST_API_*), they share the limits and budgets; without one, each counts on its own.
-const shared = Boolean(process.env['UPSTASH_REDIS_REST_URL'] || process.env['KV_REST_API_URL']);
-
-export const { GET, POST, DELETE } = createChatHandler({
-  bots,
-  // The state gallery (/gallery) for design review and visual tests; keep it off in production.
-  gallery: process.env.ASKDARE_GALLERY === '1',
-  // Visitors rate answers with 👍 and 👎. askdare stores nothing: a real site saves the report
-  // here. The demo only counts them in the log, without the comment or who sent it.
-  onFeedback: ({ bot, rating }) =>
-    console.log(`[demo] feedback for ${bot}: ${rating ?? 'taken back'}`),
-  // All bots of the demo together, per UTC day.
-  limits: { globalDailyTokens: 2_000_000, ...(shared ? { store: upstashStore() } : {}) },
-  // A visitor whose connection drops resumes the answer on any instance; without Upstash, only on
-  // the instance that wrote it, else the chat reloads the conversation.
-  ...(shared ? { resume: { log: upstashTurnLog() } } : {}),
-});
+export const { GET, POST, DELETE } = chat;

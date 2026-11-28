@@ -13,6 +13,11 @@ export interface LauncherTexts {
   readonly unavailable: string;
   /** Accessible name of the chat dialog. */
   readonly title: string;
+  /** Added to the closed launcher's name while answers are unread ("Open chat, new messages"). */
+  readonly unread: string;
+  /** The greeting next to the closed launcher, and its × button's name: only for a bot with one. */
+  readonly greeting?: string;
+  readonly dismiss?: string;
 }
 
 export interface LauncherLook {
@@ -36,6 +41,8 @@ export interface LauncherLook {
   readonly textDark: string;
   readonly scheme: 'auto' | 'light' | 'dark';
   readonly radius: string;
+  /** Milliseconds before the greeting shows; absent for a bot without one (ADR-0033). */
+  readonly greet?: number;
 }
 
 /** Replaced, quotes included, in the served loader by a JSON string of the requested bot's look. */

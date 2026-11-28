@@ -38,8 +38,23 @@ jobs:
           --health-interval 2s
           --health-timeout 3s
           --health-retries 30
+      # @boldare/askdare-upstash's tests against Redis behind Upstash's REST proxy, as in the
+      # package's docker-compose.yml.
+      redis:
+        image: redis:7.4-alpine
+      redis-rest:
+        image: hiett/serverless-redis-http:0.0.10
+        env:
+          SRH_MODE: env
+          SRH_TOKEN: askdare-ci-token
+          SRH_CONNECTION_STRING: redis://redis:6379
+        ports:
+          - 8079:80
     env:
       ASKDARE_POSTGRES_TEST_URL: postgres://askdare@localhost:5432/askdare
+      ASKDARE_TEST_UPSTASH: "1"
+      UPSTASH_REDIS_REST_URL: http://localhost:8079
+      UPSTASH_REDIS_REST_TOKEN: askdare-ci-token
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

@@ -1,6 +1,6 @@
 # ADR-0016: Admin: a console first, then an add-on with storage
 
-- **Status:** Accepted. `onTranscript` shipped in the core in 0.6, ahead of stage 2; deleting its transcripts with a conversation stays with the stage 2 `AdminStore` (decided 2026-11-25, see "As of 0.6").
+- **Status:** Accepted. `onTranscript` shipped in the core in 0.6, ahead of stage 2; deleting its transcripts with a conversation stays with the stage 2 `AdminStore` (decided 2026-11-25, see "As of 0.6"). Extended by [ADR-0032](0032-admin-store.md) (accepted 2026-11-27): the `AdminStore` port, delete and sweep reaching it, and how the console is served and signed into. The console's test questions per bot are not built in 0.7 (ADR-0032, "As built in 0.7").
 - **Date:** 2026-11-11
 
 ## Context

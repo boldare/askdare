@@ -1,10 +1,13 @@
 // The .js suffix: Next.js has no exports map, so plain Node ESM can't resolve `next/server`.
 import { after } from 'next/server.js';
+import type { AdminDashboard } from '../admin/dashboard';
+import type { AdminStore } from '../admin/port';
 import { isBasePath } from '../base-path';
 import { type BotHandle, botOf, compactionWarnings } from '../bot/define-bot';
 import type { ConversationStore } from '../conversations/port';
 import { historyReader } from '../conversations/provider-history';
 import { AskdareError, forLog } from '../errors';
+import type { ChatLeadReport } from '../forms/lead-report';
 import type { ModelGateway } from '../gateway';
 import {
   FONT_FILES,
@@ -18,6 +21,7 @@ import {
   WIDGET_JS,
   WIDGET_JS_FILE,
 } from '../generated/assets';
+import type { ChatHandoffReport } from '../handoff/report';
 import { getClientIp, type TrustProxy } from '../limits/client-ip';
 import { createLimits } from '../limits/limits';
 import { memoryStore, type RateLimitStore } from '../limits/store';
@@ -28,10 +32,12 @@ import { memoryTurnLog } from '../resume/memory-turn-log';
 import type { TurnEventLog } from '../resume/turn-log';
 import { createIdentityVerifier, type IdentityVerifier } from '../security/identity';
 import { createTokenService, type TokenService } from '../security/tokens';
+import { type AdminWriter, adminWriter } from '../server/admin-records';
 import { explain, TROUBLESHOOTING } from '../server/explain';
 import type { ChatFeedbackReport } from '../server/feedback-report';
 import { createRequestHandler } from '../server/handler';
 import { hookError } from '../server/stream-turn';
+import { type ChatSweepOptions, type ChatSweepResult, createSweep } from '../server/sweep';
 import type { ChatTranscriptReport } from '../server/transcript-report';
 import type { ChatUsageReport } from '../server/usage-report';
 
@@ -92,11 +98,57 @@ export interface ChatHandlerOptions {
    */
   readonly onTranscript?: (report: ChatTranscriptReport) => void | Promise<void>;
   /**
+   * Receives each request for a person (ADR-0030), such as `webhookHandoff()` or `emailHandoff()`.
+   * Awaited, with a 10-second deadline: what it does decides what the visitor sees, and a throw or
+   * the deadline means the request failed (`onError` gets the error's name only). Required when a
+   * bot turns `handoff` on. The report carries contact details: treat it as personal data.
+   */
+  readonly onHandoff?: (report: ChatHandoffReport) => void | Promise<void>;
+  /**
+   * Receives each sent form (ADR-0031) after the response, with the visitor's validated values.
+   * askdare stores none of them: keep them here. Required when a bot offers forms to the model. A
+   * throw goes to `onError` by the error's name only. Treat the report as personal data.
+   */
+  readonly onLead?: (report: ChatLeadReport) => void | Promise<void>;
+  /**
    * Serves the state gallery: `/embed/<bot>?gallery=<state>&preset=<preset>&scheme=<scheme>`
    * renders fixture states without calling the model. For development and visual tests; leave
    * it off in production.
    */
   readonly gallery?: boolean;
+  /**
+   * The admin store and console (ADR-0016, ADR-0032). With `store`, askdare writes each turn's
+   * counters, ratings and, with `transcripts`, transcripts there itself, and deleting or sweeping a
+   * conversation deletes its records too. `console` turns on the owners' console at
+   * `<basePath>/admin`.
+   */
+  readonly admin?: ChatHandlerAdminOptions;
+}
+
+export interface ChatHandlerAdminOptions {
+  /** Where admin records live, such as `postgresAdminStore()` from `@boldare/askdare-postgres`. */
+  readonly store?: AdminStore;
+  /**
+   * Also keep each turn's text (the visitor's message and the answer they saw) in the store.
+   * Personal data: off by default; needs `store`.
+   */
+  readonly transcripts?: boolean;
+  /** Days records are kept, once the app calls `sweep()` on a schedule. Default 30, at most 400. */
+  readonly retentionDays?: number;
+  /** The console at `<basePath>/admin`, off unless set. */
+  readonly console?: ChatHandlerAdminConsoleOptions;
+}
+
+export interface ChatHandlerAdminConsoleOptions {
+  /**
+   * Users who may sign in with an identity token: the `sub` of a JWT signed with
+   * `IDENTITY_SECRET`, audience `askdare:admin`, at most 10 minutes long, passed to the console
+   * as `<basePath>/admin#identity=<jwt>`. Without it, only `ADMIN_SECRET` signs in; one of the
+   * two is required.
+   */
+  readonly allow?: readonly string[];
+  /** The stage 2 dashboard, such as `adminDashboard()` from `@boldare/askdare-admin`. Needs `store`. */
+  readonly dashboard?: AdminDashboard;
 }
 
 /** One server error, as `onError` receives it. */
@@ -146,7 +198,15 @@ export interface ChatHandlers {
   readonly GET: RouteHandler;
   readonly POST: RouteHandler;
   readonly DELETE: RouteHandler;
+  /**
+   * Deletes conversations idle for `idleDays` (with a store that can list them, not OpenAI's),
+   * with their files and admin records, then admin records older than `admin.retentionDays`. Call
+   * it from your own scheduled route, behind its own secret; askdare schedules nothing.
+   */
+  readonly sweep: (options?: ChatSweepOptions) => Promise<ChatSweepResult>;
 }
+
+export type { ChatSweepOptions, ChatSweepResult };
 
 /** Keeps async work alive after the response on serverless hosts, where there is a request scope. */
 function keepAlive(work: Promise<unknown>): void {
@@ -224,6 +284,21 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
   for (const warning of compactionWarnings(bots, historyReader(conversations) !== undefined)) {
     console.warn(`[askdare] ${warning}`);
   }
+  const adminOptions = options.admin;
+  const retentionDays = adminOptions?.retentionDays ?? 30;
+  if (!Number.isInteger(retentionDays) || retentionDays < 1 || retentionDays > 400) {
+    throw new TypeError('[askdare] admin.retentionDays must be a whole number of days, 1 to 400.');
+  }
+  if (adminOptions?.transcripts === true && !adminOptions.store) {
+    throw new TypeError('[askdare] admin.transcripts needs admin.store.');
+  }
+  const consoleOptions = adminOptions?.console;
+  if (consoleOptions?.dashboard && !adminOptions?.store) {
+    throw new TypeError('[askdare] admin.console.dashboard needs admin.store.');
+  }
+  // Whether ADMIN_SECRET or `allow` is set is checked by the console on its first request, like
+  // the other secrets, so `next build` never needs it.
+  const allow = consoleOptions?.allow ?? [];
   const trustProxy = options.limits?.trustProxy ?? 'auto';
   const development = process.env['NODE_ENV'] === 'development';
   const onError = guard('onError', options.onError);
@@ -247,6 +322,40 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
   const setupError = (error: unknown): unknown =>
     error instanceof TypeError ? new AskdareError('bot_unavailable', { cause: error }) : error;
 
+  const writer: AdminWriter | undefined = adminOptions?.store
+    ? adminWriter(adminOptions.store, {
+        transcripts: adminOptions.transcripts === true,
+        retentionDays,
+        onError: report,
+      })
+    : undefined;
+  /** ADMIN_SECRET, checked on first use like the other secrets (ADR-0032, decision 8). */
+  const adminSecret = (): string | undefined => {
+    const secret = process.env['ADMIN_SECRET'];
+    if (!secret) return undefined;
+    if (secret.length < 32 || new Set(secret).size < 12) {
+      throw setupError(
+        new TypeError(
+          `[askdare] ADMIN_SECRET must be at least 32 random characters. Generate one with: node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"`,
+        ),
+      );
+    }
+    const others = [
+      options.secret ?? process.env['CHAT_SECRET'],
+      options.identitySecret ?? process.env['IDENTITY_SECRET'],
+    ];
+    if (others.includes(secret)) {
+      throw setupError(
+        new TypeError('[askdare] ADMIN_SECRET must differ from CHAT_SECRET and IDENTITY_SECRET.'),
+      );
+    }
+    return secret;
+  };
+  const gatewayOf = (): ModelGateway =>
+    (gateway ??= createOpenAIGateway({
+      apiKey: required(options.openaiApiKey ?? process.env['OPENAI_API_KEY'], 'OPENAI_API_KEY'),
+    }));
+
   const handle = createRequestHandler({
     bots,
     basePath,
@@ -256,6 +365,9 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
     onFeedback: guard('onFeedback', options.onFeedback),
     // Not guarded: a failure goes to onError, by its error's name, from inside the turn.
     onTranscript: options.onTranscript,
+    // Neither: a failure is a state the visitor sees, and goes to onError by name.
+    onHandoff: options.onHandoff,
+    onLead: options.onLead,
     assets: {
       loaderJs: LOADER_JS,
       widgetJs: WIDGET_JS,
@@ -276,10 +388,22 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
     sharedLimits: store.shared,
     conversations,
     resume: turnLog,
-    gateway: () =>
-      (gateway ??= createOpenAIGateway({
-        apiKey: required(options.openaiApiKey ?? process.env['OPENAI_API_KEY'], 'OPENAI_API_KEY'),
-      })),
+    gateway: gatewayOf,
+    admin: adminOptions
+      ? {
+          writer,
+          retentionDays,
+          console: consoleOptions
+            ? {
+                allow,
+                dashboard: consoleOptions.dashboard,
+                secret: adminSecret,
+                // Only when the console is on, so other apps never evaluate its assets.
+                assets: () => import('../generated/admin-console'),
+              }
+            : undefined,
+        }
+      : undefined,
     tokens: () => {
       tokens ??= createTokenService({
         secret: required(options.secret ?? process.env['CHAT_SECRET'], 'CHAT_SECRET'),
@@ -321,5 +445,12 @@ export function createChatHandler(options: ChatHandlerOptions): ChatHandlers {
     clientIp: (request) => getClientIp(request, trustProxy),
   });
 
-  return { GET: handle, POST: handle, DELETE: handle };
+  const sweep = createSweep({
+    conversations,
+    gateway: gatewayOf,
+    admin: writer ? { writer, retentionDays } : undefined,
+    onError: report,
+  });
+
+  return { GET: handle, POST: handle, DELETE: handle, sweep };
 }

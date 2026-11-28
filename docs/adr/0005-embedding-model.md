@@ -34,6 +34,8 @@ v1 used an iframe, but it had a broken script API, `postMessage('*')` and no ori
 - **Storage:**
   - Best effort: partitioned `localStorage` inside the iframe, wrapped in try/catch.
   - Nothing is written before the visitor's first message. No cookies.
+
+  Update (2026-11-27): the rule is now "nothing is written before the visitor acts on the widget, and never a cookie" ([ADR-0033](0033-greeting-and-loader-budget.md)). For a bot with a greeting next to the launcher, the loader writes one `sessionStorage` flag on the host page's origin, `askdare:<bot>:greeted`, when the visitor dismisses the greeting or opens the chat, and nothing when it only shows. The loader's budget is 5,632 bytes gzipped (ADR-0033).
 - **Streaming:**
   - SSE over POST.
   - The first byte goes out before calling OpenAI, then a heartbeat every 15 s. Heroku requires a first byte within 30 s and then one every 55 s.

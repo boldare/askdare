@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { createBot } from '../bot/define-bot';
+import { defineForm } from '../forms/define-form';
 import { getChatConfig } from '../next/get-chat-config';
 import { defineTool } from '../tools/define-tool';
 import { themeAsset } from './embed-page';
@@ -46,6 +47,43 @@ describe('publicConfig', () => {
       // Options arrive as events; the browser doesn't need to know where they come from.
       expect(json).not.toContain('"suggest"');
     }
+  });
+
+  it("says only whether the handoff button shows, never the rest of the bot's handoff", () => {
+    const base = { id: 'h', model: 'm', instructions: 'x' } as const;
+    expect(publicConfig(bot, '/api/chat')).not.toHaveProperty('handoff');
+    const contact = defineForm({
+      name: 'handoff_contact_form',
+      model: false,
+      title: 'Contact',
+      fields: [{ name: 'email', type: 'email', label: 'Email', required: true }],
+    });
+    const helped = publicConfig(
+      createBot({
+        ...base,
+        forms: [contact],
+        handoff: {
+          form: 'handoff_contact_form',
+          available: () => true,
+          content: 'transcript',
+          limits: { perConversation: 7, perVisitorPerDay: 8, perBotPerDay: 987 },
+        },
+      }),
+      '/api/chat',
+    );
+    // A flag, not an object: the form, limits, content and availability stay on the server.
+    expect(helped.handoff).toBe(true);
+    const { forms, ...rest } = helped;
+    const json = JSON.stringify(rest);
+    expect(json).not.toMatch(
+      /handoff_contact_form|"transcript"|987|perConversation|"available"|"limits"/,
+    );
+    // The form itself is public like every form (ADR-0031); only `forms` names it.
+    expect(forms?.map((form) => form.name)).toEqual(['handoff_contact_form']);
+    // Transports belong to createChatHandler, which publicConfig never sees.
+    const modelOnly = createBot({ ...base, handoff: { button: false } });
+    expect(publicConfig(modelOnly, '/api/chat')).not.toHaveProperty('handoff');
+    expect(getChatConfig({ bots: [modelOnly], bot: 'h' })).not.toHaveProperty('handoff');
   });
 });
 

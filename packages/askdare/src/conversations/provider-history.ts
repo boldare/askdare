@@ -1,6 +1,7 @@
 import type { RepliesReader, UiReader } from '../gateway';
 import type { KnowledgeIndex } from '../knowledge/port';
 import type { HistoryMessage } from '../protocol/history';
+import type { FormOrigin } from './history';
 import type { ConversationStore } from './port';
 
 /**
@@ -25,6 +26,8 @@ export interface HistoryPage {
   readonly rated?: readonly string[] | undefined;
   /** Absent on the oldest page. */
   readonly next?: HistoryPosition | undefined;
+  /** The handoff each handoff form on the page continues, by the form's call ID (ADR-0030). */
+  readonly origins?: ReadonlyMap<string, FormOrigin> | undefined;
 }
 
 export interface HistoryRequest {

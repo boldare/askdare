@@ -7,6 +7,8 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 const CONVERSATION_TTL = 30 * DAY;
+/** A form's handle lives a day; its claim a little longer. */
+const FORM_CLAIM_WINDOW = DAY + HOUR;
 /** Dictations transcribing at once, per IP and per bot, which bounds how far parallel requests can overshoot. */
 const TRANSCRIPTIONS_IN_FLIGHT_PER_IP = 2;
 const TRANSCRIPTIONS_IN_FLIGHT_PER_BOT = 10;
@@ -50,6 +52,13 @@ export interface TurnLimitKeys {
   readonly inputChars: number;
   /** Server estimate for the attached files (from their handles). */
   readonly attachmentTokens?: number;
+}
+
+export interface HandoffLimitKeys {
+  readonly conversationId: string;
+  /** The signed-in user's key, else the visitor's ID. */
+  readonly subject: string;
+  readonly clientIp: string;
 }
 
 export interface UploadLimitKeys {
@@ -107,12 +116,33 @@ export interface Limits {
   checkResume(bot: Bot, visitorId: string): Promise<void>;
   /** Ratings of answers, which each reach the app's `onFeedback`. */
   checkFeedback(bot: Bot, visitorId: string): Promise<void>;
+  /**
+   * Takes one handoff (ADR-0030, decision 7): per conversation, per visitor or user and per IP a
+   * day, and per bot a day. False when a limit refuses it; nothing is counted then. An accepted
+   * one stays counted whatever its delivery does.
+   */
+  takeHandoff(bot: Bot, keys: HandoffLimitKeys): Promise<boolean>;
+  /** Whether the conversation has a handoff left, read without counting. */
+  handoffsLeft(bot: Bot, conversationId: string): Promise<boolean>;
+  /** `POST /handoff` itself: a few requests a minute per visitor, then `rate_limited`. */
+  checkHandoffRequest(bot: Bot, visitorId: string): Promise<void>;
+  /** Form submissions (ADR-0031): 5 a minute and 20 a day per visitor, and the same per IP. */
+  checkFormSubmission(bot: Bot, keys: UploadLimitKeys): Promise<void>;
+  /**
+   * Claims a form's one submission under `key`; undefined when it was claimed already. Release it
+   * when the submission fails, so the visitor can send it again.
+   */
+  claimForm(key: string): Promise<{ release(): Promise<void> } | undefined>;
   /** File uploads: no tokens until sent (then reserved with the turn), but they use storage. */
   checkUpload(bot: Bot, keys: UploadLimitKeys): Promise<void>;
   /** Dictations: rate per visitor, then the longest allowed duration reserved against daily speech budgets. */
   beginTranscription(bot: Bot, keys: UploadLimitKeys): Promise<TranscriptionReservation>;
   /** `askdare doctor` runs, which make small OpenAI requests: a few per minute for the whole app. */
   checkDoctor(): Promise<void>;
+  /** The kill switch, for every console request (ADR-0032). */
+  checkAdmin(): void;
+  /** Console sign-ins: 5 a minute per IP and 20 an hour across the app (ADR-0032, decision 8). */
+  checkAdminSignIn(clientIp: string): Promise<void>;
 }
 
 export interface LimitsOptions {
@@ -227,6 +257,16 @@ export function createLimits(options: LimitsOptions): Limits {
       await enforce('ask:doctor', MINUTE, 3);
     },
 
+    checkAdmin() {
+      assertEnabled();
+    },
+
+    async checkAdminSignIn(clientIp) {
+      assertEnabled();
+      await enforce(`ask:as:${clientIp}`, MINUTE, 5);
+      await enforce('ask:as', HOUR, 20);
+    },
+
     async checkConversationAccess(bot, visitorId) {
       assertEnabled();
       await enforce(`ask:r:${bot.id}:${visitorId}`, MINUTE, 20);
@@ -242,6 +282,77 @@ export function createLimits(options: LimitsOptions): Limits {
       await enforce(`ask:f:${bot.id}:${visitorId}`, MINUTE, 20);
     },
 
+    async takeHandoff(bot, keys) {
+      assertEnabled();
+      const limits = bot.handoff?.limits;
+      if (!limits) return false;
+      const counters = [
+        {
+          key: `ask:hc:${keys.conversationId}`,
+          windowMs: CONVERSATION_TTL,
+          limit: limits.perConversation,
+        },
+        {
+          key: `ask:hv:${bot.id}:${keys.subject}:${day()}`,
+          windowMs: 2 * DAY,
+          limit: limits.perVisitorPerDay,
+        },
+        {
+          key: `ask:hi:${bot.id}:${keys.clientIp}:${day()}`,
+          windowMs: 2 * DAY,
+          limit: limits.perVisitorPerDay,
+        },
+        {
+          key: `ask:hb:${bot.id}:${day()}`,
+          windowMs: 2 * DAY,
+          limit: limits.perBotPerDay,
+          exhausted: `The daily handoff limit of bot "${bot.id}" (handoff.limits.perBotPerDay) is used up until 00:00 UTC.`,
+        },
+      ];
+      const taken: (typeof counters)[number][] = [];
+      for (const counter of counters) {
+        const { count } = await store.hit(counter.key, counter.windowMs, 1);
+        taken.push(counter);
+        if (count > counter.limit) {
+          await Promise.all(taken.map((item) => store.hit(item.key, item.windowMs, -1)));
+          if (counter.exhausted && !reported.has(counter.key)) {
+            if (reported.size > 1_000) reported.clear();
+            reported.add(counter.key);
+            options.onExhausted?.(counter.exhausted);
+          }
+          return false;
+        }
+      }
+      return true;
+    },
+    async handoffsLeft(bot, conversationId) {
+      const limit = bot.handoff?.limits.perConversation ?? 0;
+      const { count } = await store.hit(`ask:hc:${conversationId}`, CONVERSATION_TTL, 0);
+      return count < limit;
+    },
+    async checkHandoffRequest(bot, visitorId) {
+      assertEnabled();
+      await enforce(`ask:hr:${bot.id}:${visitorId}`, MINUTE, 5);
+    },
+    async checkFormSubmission(bot, keys) {
+      assertEnabled();
+      await enforce(`ask:fv:${bot.id}:${keys.visitorId}`, MINUTE, 5);
+      await enforce(`ask:fi:${bot.id}:${keys.clientIp}`, MINUTE, 5);
+      await enforce(`ask:fvd:${bot.id}:${keys.visitorId}:${day()}`, 2 * DAY, 20);
+      await enforce(`ask:fid:${bot.id}:${keys.clientIp}:${day()}`, 2 * DAY, 20);
+    },
+    async claimForm(key) {
+      const claim = `ask:fs:${key}`;
+      const { count } = await store.hit(claim, FORM_CLAIM_WINDOW, 1);
+      const release = async (): Promise<void> => {
+        await store.hit(claim, FORM_CLAIM_WINDOW, -1);
+      };
+      if (count > 1) {
+        await release();
+        return undefined;
+      }
+      return { release };
+    },
     async checkUpload(bot, keys) {
       assertEnabled();
       await enforce(

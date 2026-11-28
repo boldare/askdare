@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defineBot, ERROR_CODES, PROTOCOL_VERSION } from './index';
+import { defineBot, defineForm, ERROR_CODES, PROTOCOL_VERSION } from './index';
 
 describe('package entry', () => {
   it('exposes the protocol version', () => {
@@ -14,5 +14,15 @@ describe('package entry', () => {
     const bot = defineBot({ id: 'support', model: 'm', instructions: 'x', embedPath: '/chat' });
     expect(bot.id).toBe('support');
     expect(bot.embedPath).toBe('/chat');
+  });
+
+  it('exposes defineForm', () => {
+    const form = defineForm({
+      name: 'contact',
+      model: false,
+      title: 'Contact',
+      fields: [{ name: 'email', type: 'email', label: 'Email', required: true }],
+    });
+    expect(form.name).toBe('contact');
   });
 });

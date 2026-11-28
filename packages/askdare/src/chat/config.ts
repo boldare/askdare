@@ -1,3 +1,4 @@
+import type { ChatForm } from '../protocol/forms';
 import type { PresetName, ThemeVariants } from '../theme/presets';
 
 /** What a visitor may attach, as the bot allows it. */
@@ -61,6 +62,16 @@ export interface ChatConfig {
    * session starts, rendered by `HumanCheck`.
    */
   readonly humanCheck?: ChatHumanCheck;
+  /**
+   * The bot's forms in the visitor's language (ADR-0031), found by the `name` of a message's form.
+   * Absent when the bot has none.
+   */
+  readonly forms?: readonly ChatForm[];
+  /**
+   * Whether the visitor can ask for a person with `HandoffButton` (ADR-0030). Absent when the bot
+   * has no handoff or turns its button off.
+   */
+  readonly handoff?: true;
 }
 
 /** A human check the chat must pass before it connects; public, the site key only. */

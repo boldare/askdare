@@ -1,5 +1,14 @@
+import { join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
+import { ADMIN_SECRET, ADMIN_USER, CRON_SECRET, IDENTITY_SECRET } from './e2e/support/admin';
 import { E2E_DATABASE_URL } from './e2e/support/database';
+import {
+  WEBHOOK_CERT_DIR,
+  WEBHOOK_DEBUG,
+  WEBHOOK_PORT,
+  WEBHOOK_SECRET,
+  WEBHOOK_URL,
+} from './e2e/support/webhook';
 
 const APP_ORIGIN = 'http://localhost:3100';
 // Ports differ from the dev preview (.claude/launch.json) so both can run at once.
@@ -7,7 +16,6 @@ const ALLOWED_HOST = 'http://127.0.0.1:4100';
 
 // Runs against a production build of site/ (`pnpm e2e` builds it first). OpenAI is
 // replaced by e2e/servers/mock-openai.mjs, so no key or network access is needed.
-const IDENTITY_SECRET = 'e2e-identity-secret-shared-with-the-host-page';
 
 export default defineConfig({
   testDir: 'e2e',
@@ -30,10 +38,10 @@ export default defineConfig({
       },
     },
     {
-      // A phone (touch, a narrow viewport, the full-screen panel): the embedding, accessibility and
-      // the chat inside a page. Part of `pnpm e2e`.
+      // A phone (touch, a narrow viewport, the full-screen panel): the embedding, accessibility, the
+      // chat inside a page, forms and handoff. Part of `pnpm e2e`.
       name: 'mobile',
-      testMatch: /(embed|a11y|inline|replies)\.spec\.ts/,
+      testMatch: /(embed|a11y|inline|replies|forms|handoff)\.spec\.ts/,
       use: {
         ...devices['Pixel 7'],
         // The fake microphone of the chromium project, for dictation.
@@ -43,12 +51,12 @@ export default defineConfig({
         },
       },
     },
-    // The embedding, the page API, accessibility and the chat inside a page in the other engines
-    // (`pnpm e2e:browsers`).
+    // The embedding, the page API, accessibility, the chat inside a page, forms and handoff in the
+    // other engines (`pnpm e2e:browsers`).
     {
       name: 'firefox',
       testMatch:
-        /(embed|embed-root|host-api|a11y|inline|feedback|history|replies|tool-cards)\.spec\.ts/,
+        /(embed|embed-root|host-api|a11y|inline|feedback|history|replies|tool-cards|forms|handoff)\.spec\.ts/,
       use: {
         ...devices['Desktop Firefox'],
         // A fake microphone without a prompt, like Chromium's flags above.
@@ -63,7 +71,7 @@ export default defineConfig({
     {
       name: 'webkit',
       testMatch:
-        /(embed|embed-root|host-api|a11y|inline|feedback|history|replies|tool-cards)\.spec\.ts/,
+        /(embed|embed-root|host-api|a11y|inline|feedback|history|replies|tool-cards|forms|handoff)\.spec\.ts/,
       use: { ...devices['Desktop Safari'] },
     },
     {
@@ -97,6 +105,18 @@ export default defineConfig({
       env: { APP_ORIGIN, HOST_PORT: '4100', FOREIGN_PORT: '4101', IDENTITY_SECRET },
     },
     {
+      // Before the site: it makes the certificate the site is started to trust.
+      command: 'node e2e/servers/webhook.mjs',
+      url: `${WEBHOOK_DEBUG}/health`,
+      reuseExistingServer: false,
+      env: {
+        WEBHOOK_PORT: String(WEBHOOK_PORT),
+        WEBHOOK_DEBUG_PORT: new URL(WEBHOOK_DEBUG).port,
+        WEBHOOK_SECRET,
+        WEBHOOK_CERT_DIR,
+      },
+    },
+    {
       command: './node_modules/.bin/next start --port 3100',
       cwd: 'site',
       url: `${APP_ORIGIN}/api/chat/widget.js`,
@@ -123,6 +143,17 @@ export default defineConfig({
         ASKDARE_DISABLED: '',
         // Turns on the chat kept in Postgres (site/app/api/e2e-postgres) for e2e/postgres.spec.ts.
         ASKDARE_E2E_DATABASE_URL: E2E_DATABASE_URL ?? '',
+        // Handoffs go to the test webhook (e2e/servers/webhook.mjs), over HTTPS it trusts.
+        HANDOFF_WEBHOOK_URL: WEBHOOK_URL,
+        HANDOFF_WEBHOOK_SECRET: WEBHOOK_SECRET,
+        NODE_EXTRA_CA_CERTS: join(WEBHOOK_CERT_DIR, 'cert.pem'),
+        // The admin console with the memory store and the dashboard (e2e/admin.spec.ts).
+        ADMIN_SECRET,
+        ADMIN_ALLOW: ADMIN_USER,
+        // The daily sweep route (e2e/cron.spec.ts).
+        CRON_SECRET,
+        UPSTASH_REDIS_REST_URL: '',
+        KV_REST_API_URL: '',
       },
     },
   ],

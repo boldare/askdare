@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { textsFor } from '../i18n/texts';
-import { activityFor, applyEvent, failStreaming, fromHistory, translator } from './reducer';
+import {
+  activityFor,
+  applyEvent,
+  changeForm,
+  failStreaming,
+  fromHistory,
+  translator,
+} from './reducer';
 import type { ChatMessage } from './state';
 
 const t = translator(textsFor('en'));
@@ -101,6 +108,61 @@ describe('applyEvent', () => {
   it('marks only the streaming answer as failed', () => {
     const messages = applyEvent([], { type: 'message.start', messageId: 'm' });
     expect(failStreaming(messages)[0]?.status).toBe('error');
+  });
+});
+
+describe('handoff and forms', () => {
+  const form = {
+    type: 'form',
+    messageId: 'm',
+    callId: 'c1',
+    name: 'contact',
+    handle: 'h1',
+    purpose: 'lead',
+  } as const;
+
+  it('keeps the handoff state and each form of an answer, once per call', () => {
+    let messages = applyEvent([], { type: 'message.start', messageId: 'm' });
+    messages = applyEvent(messages, { type: 'handoff', messageId: 'm', state: 'requested' });
+    messages = applyEvent(messages, form);
+    messages = applyEvent(messages, form);
+    messages = applyEvent(messages, { ...form, callId: 'c2', handle: 'h2' });
+    messages = applyEvent(messages, { type: 'handoff', messageId: 'm', state: 'sent' });
+    expect(messages[0]).toMatchObject({
+      handoff: 'sent',
+      forms: [
+        { callId: 'c1', name: 'contact', purpose: 'lead', handle: 'h1', state: 'open' },
+        { callId: 'c2', handle: 'h2', state: 'open' },
+      ],
+    });
+    // Another answer's form goes nowhere else.
+    expect(applyEvent(messages, { ...form, messageId: 'other', callId: 'c3' })).toEqual(messages);
+  });
+
+  it('changes one form by its handle', () => {
+    let messages = applyEvent([], { type: 'message.start', messageId: 'm' });
+    messages = applyEvent(messages, form);
+    messages = applyEvent(messages, { ...form, callId: 'c2', handle: 'h2' });
+    messages = changeForm(messages, 'h2', { state: 'sent' });
+    expect(messages[0]?.forms?.map((item) => item.state)).toEqual(['open', 'sent']);
+  });
+
+  it('takes the handoff and the forms from history', () => {
+    expect(
+      fromHistory({
+        id: 'h',
+        role: 'assistant',
+        text: 'Done.',
+        citations: [],
+        attachments: 0,
+        handoff: { state: 'saved' },
+        forms: [{ callId: 'c1', name: 'contact', purpose: 'message', state: 'expired' }],
+      }),
+    ).toMatchObject({
+      status: 'done',
+      handoff: 'saved',
+      forms: [{ callId: 'c1', state: 'expired' }],
+    });
   });
 });
 

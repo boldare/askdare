@@ -20,6 +20,8 @@ export interface Fixture {
   readonly commenting?: string;
   /** Theme variants this state shows instead of the bot's, such as where options go. */
   readonly variants?: Partial<ThemeVariants>;
+  /** Forms and the handoff button this state shows, whatever the bot has. */
+  readonly config?: Pick<ChatConfig, 'forms' | 'handoff'>;
 }
 
 const nothing = async (): Promise<void> => {};
@@ -27,9 +29,11 @@ const nothing = async (): Promise<void> => {};
 /** A store that shows one fixture and talks to no server. Only the draft and focus can change. */
 export function createFixtureStore(botConfig: ChatConfig, fixture: Fixture): ChatStore {
   const { widget } = botConfig;
-  const config: ChatConfig = fixture.variants
-    ? { ...botConfig, widget: { ...widget, variants: { ...widget.variants, ...fixture.variants } } }
-    : botConfig;
+  const config: ChatConfig = {
+    ...botConfig,
+    ...fixture.config,
+    widget: { ...widget, variants: { ...widget.variants, ...fixture.variants } },
+  };
   let state: ChatState = {
     phase: 'ready',
     busy: fixture.busy ?? false,
@@ -65,6 +69,8 @@ export function createFixtureStore(botConfig: ChatConfig, fixture: Fixture): Cha
     newConversation: nothing,
     loadEarlier: nothing,
     rate: nothing,
+    handoff: nothing,
+    submitForm: nothing,
     dismissComment: () => set({ commenting: undefined }),
     // The field takes focus as in a live chat, so the gallery shows the same state.
     focus: () => focus('input'),

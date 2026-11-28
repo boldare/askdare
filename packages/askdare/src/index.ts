@@ -1,10 +1,43 @@
 export type {
+  AdminDashboard,
+  AdminDashboardHandler,
+  AdminDashboardRequest,
+} from './admin/dashboard';
+export { memoryAdminStore } from './admin/memory';
+export type {
+  AdminBotDayRow,
+  AdminCheckOutcome,
+  AdminConversationQuery,
+  AdminConversationSummary,
+  AdminCountEvent,
+  AdminDayRow,
+  AdminDays,
+  AdminHandoffCounts,
+  AdminHandoffState,
+  AdminPage,
+  AdminRange,
+  AdminRatingQuery,
+  AdminRatingRecord,
+  AdminRecordKey,
+  AdminSource,
+  AdminStore,
+  AdminStoredRating,
+  AdminSweepOptions,
+  AdminTranscriptCitation,
+  AdminTranscriptRecord,
+  AdminTurnRecord,
+  AdminWriteOptions,
+} from './admin/port';
+export type {
   AttachmentConfig,
   BotContext,
   BotDefinition,
   BotHandle,
   BotLimits,
   BotSecurity,
+  HandoffAvailabilityContext,
+  HandoffConfig,
+  HandoffLimits,
   KnowledgeConfig,
   VoiceConfig,
   WidgetConfig,
@@ -32,6 +65,14 @@ export type {
   StoredPart,
 } from './conversations/port';
 export { VersionConflictError } from './conversations/port';
+export type {
+  Form,
+  FormDefinition,
+  FormField,
+  FormFieldType,
+} from './forms/define-form';
+export { defineForm } from './forms/define-form';
+export type { FormText } from './forms/form-text';
 export { checkKnowledgeDocuments, embeddingInput } from './knowledge/check';
 export type {
   Embedder,

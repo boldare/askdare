@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createBot } from '../bot/define-bot';
 import { LOADER_JS } from '../generated/assets';
-import { launcherLook, loaderWithLook } from './launcher';
+import { DEFAULT_LOOK, launcherLook, loaderWithLook } from './launcher';
 
 const hostile = createBot({
   id: 'sage-bot',
@@ -24,7 +24,9 @@ describe('loaderWithLook (real built loader)', () => {
 
   it('inlines the look as plain data, whatever quote the minifier chose', () => {
     const js = loaderWithLook(LOADER_JS, hostile);
-    const literal = JSON.stringify(JSON.stringify({ 'sage-bot': launcherLook(hostile) }));
+    const literal = JSON.stringify(
+      JSON.stringify({ 'sage-bot': launcherLook(hostile), '': DEFAULT_LOOK }),
+    );
     expect(js).toContain(`JSON.parse(${literal})`);
     expect(js).not.toContain('__ASKDARE_LAUNCHERS__');
     // Still valid JavaScript (a broken loader would fail on every site that embeds it).
@@ -39,7 +41,16 @@ describe('loaderWithLook (real built loader)', () => {
     const other = createBot({ id: 'internal', model: 'm', instructions: 'x' });
     expect(loaderWithLook(LOADER_JS, hostile)).not.toContain('internal');
     expect(loaderWithLook(LOADER_JS, other)).not.toContain('sage-bot');
-    expect(loaderWithLook(LOADER_JS, undefined)).toContain('JSON.parse("{}")');
+    // Without a bot, only the default look, under ''.
+    const fallback = JSON.stringify(JSON.stringify({ '': DEFAULT_LOOK }));
+    expect(loaderWithLook(LOADER_JS, undefined)).toContain(`JSON.parse(${fallback})`);
+  });
+
+  it("always adds the default look under '', for a data-bot the server didn't see", () => {
+    const literal = JSON.stringify(
+      JSON.stringify({ 'sage-bot': launcherLook(hostile), '': DEFAULT_LOOK }),
+    );
+    expect(loaderWithLook(LOADER_JS, hostile)).toContain(`JSON.parse(${literal})`);
   });
 
   it('gives the launcher each language its own texts', () => {
@@ -78,5 +89,35 @@ describe('loaderWithLook (real built loader)', () => {
       widget: { locale: 'nl', texts: { nl: { 'launcher.label': 'Vragen?' } } },
     });
     expect(launcherLook(dutch).texts['en']?.label).toBe('Vragen?');
+  });
+
+  it('ships the greeting, its delay and its texts only for a bot with one (ADR-0033)', () => {
+    const plain = launcherLook(createBot({ id: 'plain', model: 'm', instructions: 'x' }));
+    expect(plain.greet).toBeUndefined();
+    expect(plain.texts['en']).not.toHaveProperty('greeting');
+    expect(plain.texts['en']).not.toHaveProperty('dismiss');
+    // Every launcher can show the unread badge, so every look names it.
+    expect(plain.texts['en']?.unread).toBe('new messages');
+    expect(plain.texts['pl']?.unread).toBe('nowe wiadomości');
+    expect(DEFAULT_LOOK.greet).toBeUndefined();
+    expect(DEFAULT_LOOK.texts['en']?.unread).toBe('new messages');
+
+    const greeter = launcherLook(
+      createBot({
+        id: 'greeter',
+        model: 'm',
+        instructions: 'x',
+        widget: {
+          locale: 'auto',
+          launcherGreeting: { delaySeconds: 2.5 },
+          texts: { pl: { 'launcher.greeting': 'Dzień dobry!' } },
+        },
+      }),
+    );
+    expect(greeter.greet).toBe(2500);
+    expect(greeter.texts['en']?.greeting).toMatch(/AI assistant/);
+    expect(greeter.texts['en']?.dismiss).toBe('Dismiss');
+    expect(greeter.texts['pl']?.greeting).toBe('Dzień dobry!');
+    expect(greeter.texts['pl']?.dismiss).toBe('Zamknij');
   });
 });

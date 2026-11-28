@@ -8,18 +8,18 @@ Short records of decisions that are expensive to reverse. One decision per file,
 | [0002](0002-openai-only-no-leaked-types.md) | OpenAI only, official SDK, no leaked types | Accepted (extended by ADR-0026) |
 | [0003](0003-conversation-state.md) | Conversation state without a database | Accepted (spike S1; extended by ADR-0024) |
 | [0004](0004-threat-model.md) | Threat model for a public, anonymous chatbot | Accepted |
-| [0005](0005-embedding-model.md) | Embedding model (loader + iframe served by the route handler) | Accepted for 0.1 |
-| [0006](0006-support-matrix-and-versioning.md) | Support matrix and versioning policy | Accepted (React budget superseded by ADR-0023 and ADR-0028; 0.6 surface added 2026-11-25) |
+| [0005](0005-embedding-model.md) | Embedding model (loader + iframe served by the route handler) | Accepted for 0.1 (storage rule and loader budget amended by ADR-0033) |
+| [0006](0006-support-matrix-and-versioning.md) | Support matrix and versioning policy | Accepted (React budget superseded by ADR-0023 and ADR-0028; 0.6 surface added 2026-11-25, 0.7 surface 2026-11-27) |
 | [0007](0007-tooling.md) | Tooling | Accepted |
 | [0008](0008-ui-customization-and-themes.md) | UI customization layers and built-in themes | Accepted |
 | [0009](0009-visitor-identity.md) | Visitor identity with identify() | Accepted |
 | [0010](0010-docs-website.md) | Docs website rendered from docs/*.md | Accepted |
 | [0011](0011-react-api-and-inline-chat.md) | Headless React API and the chat inside a page | Accepted |
 | [0012](0012-server-hooks-and-telemetry.md) | Server hooks for usage and feedback, and an OpenTelemetry add-on | Accepted (amended for `onTranscript`) |
-| [0013](0013-browser-events.md) | Chat events in the browser, metadata only | Accepted |
+| [0013](0013-browser-events.md) | Chat events in the browser, metadata only | Accepted (two greeting events added by ADR-0033) |
 | [0014](0014-runtime-language.md) | Changing the chat's language at runtime | Accepted |
 | [0015](0015-reply-options.md) | Reply options and tool UI payloads | Accepted |
-| [0016](0016-admin.md) | Admin: a console first, then an add-on with storage | Accepted (`onTranscript` in 0.6) |
+| [0016](0016-admin.md) | Admin: a console first, then an add-on with storage | Accepted (`onTranscript` in 0.6; extended by ADR-0032 in 0.7) |
 | [0017](0017-tool-renderers.md) | Tool results as React components (`toolRenderers`) | Accepted |
 | [0018](0018-embed-path.md) | Your own page inside the widget's iframe (`embedPath`) | Accepted |
 | [0019](0019-compliance-and-guardrails.md) | Compliance by default, guardrails and bot protection | Accepted |
@@ -33,6 +33,10 @@ Short records of decisions that are expensive to reverse. One decision per file,
 | [0027](0027-stream-resume.md) | Resuming an answer after a dropped connection | Accepted (spike S7, r1 to r3b; checked on Vercel) |
 | [0028](0028-react-budget-34-kb.md) | A 34 KB budget for the React entry, for Markdown fixes | Accepted |
 | [0029](0029-compaction-for-item-stores.md) | Compaction for conversations in our own store | Accepted (spike S9, task 4) |
+| [0030](0030-handoff.md) | Handoff to a human | Accepted (tasks p1, c1 to c4; amended as built) |
+| [0031](0031-forms-and-leads.md) | Forms in the chat and leads | Accepted (tasks p3, c1 to c4; amended as built) |
+| [0032](0032-admin-store.md) | The admin console and the `AdminStore` port | Accepted (tasks p2, a1 to a3, c5; amended as built) |
+| [0033](0033-greeting-and-loader-budget.md) | A proactive greeting and an unread badge in the loader, and its budget | Accepted (spike S10, tasks l1 and l2; amended as built) |
 
 ## Template
 
