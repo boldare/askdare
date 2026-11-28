@@ -6,6 +6,7 @@ import type { AdminStore } from '../admin/port';
 import { createBot } from '../bot/define-bot';
 import { memoryConversations } from '../conversations/memory';
 import type { ConversationStore } from '../conversations/port';
+import { defineForm } from '../forms/define-form';
 import type { ModelGateway, TurnRequest } from '../gateway';
 import { createLimits } from '../limits/limits';
 import { memoryStore } from '../limits/store';
@@ -14,7 +15,12 @@ import { decodeEvent, SseParser } from '../protocol/sse';
 import { createIdentityVerifier } from '../security/identity';
 import { createTokenService, type TokenService } from '../security/tokens';
 import { defineTool } from '../tools/define-tool';
-import { type AdminHandlerConfig, CONSOLE_HEADERS, type ConsoleAssets } from './admin-console';
+import {
+  type AdminHandlerConfig,
+  CONSOLE_HEADERS,
+  type ConsoleAssets,
+  consoleBotView,
+} from './admin-console';
 import { adminWriter } from './admin-records';
 import type { EmbedAssets } from './embed-page';
 import { createRequestHandler, type HandlerConfig, type RequestHandler } from './handler';
@@ -361,7 +367,9 @@ describe('the admin console route', () => {
       [
         'attachments',
         'embedPath',
+        'forms',
         'guardrails',
+        'handoff',
         'id',
         'instructions',
         'instructionsLocale',
@@ -387,6 +395,52 @@ describe('the admin console route', () => {
       vectorStoreId: 'vs_docs',
       maxResults: 5,
     });
+  });
+
+  it('shows handoff, forms and the launcher greeting as settings only', () => {
+    const available = async () => true;
+    const contact = defineForm({
+      name: 'contact',
+      model: false,
+      title: 'Contact',
+      fields: [
+        { name: 'email', type: 'email', label: 'Email', required: true },
+        { name: 'topic', type: 'text', label: 'Topic', toModel: true },
+      ],
+    });
+    const view = consoleBotView(
+      createBot({
+        id: 'support',
+        model: 'm',
+        instructions: 'Be brief.',
+        forms: [contact],
+        handoff: { form: 'contact', available, content: 'summary' },
+        widget: { launcherGreeting: { delaySeconds: 3 } },
+      }),
+    );
+    expect(view['handoff']).toEqual({
+      model: true,
+      button: true,
+      form: 'contact',
+      availabilityCheck: true,
+      content: 'summary',
+      limits: { perConversation: 1, perVisitorPerDay: 3, perBotPerDay: 100 },
+    });
+    expect(view['forms']).toEqual({
+      contact: {
+        model: false,
+        fields: {
+          email: { type: 'email', required: true, toModel: false },
+          topic: { type: 'text', required: false, toModel: true },
+        },
+      },
+    });
+    expect((view['widget'] as Record<string, unknown>)['launcherGreeting']).toEqual({
+      delaySeconds: 3,
+    });
+    // Labels and the availability function stay out.
+    expect(JSON.stringify(view)).not.toContain('Topic');
+    expect(JSON.stringify(view)).not.toContain('async');
   });
 
   it('runs doctor, with the admin store checks', async () => {

@@ -150,6 +150,37 @@ export function consoleBotView(bot: Bot): Record<string, unknown> {
       allowedOrigins: [...bot.security.allowedOrigins],
       humanCheck: bot.security.humanVerifier !== undefined,
     },
+    // ADR-0030: the settings only; whether an availability check is set, never the function.
+    handoff: bot.handoff
+      ? {
+          model: bot.handoff.model,
+          button: bot.handoff.button,
+          form: bot.handoff.form?.name ?? null,
+          availabilityCheck: bot.handoff.available !== undefined,
+          content: bot.handoff.content,
+          limits: { ...bot.handoff.limits },
+        }
+      : null,
+    // ADR-0031: each form's name, whether the model may show it, and its fields' types and
+    // `toModel`; labels and texts are in the widget, and values never reach the console.
+    // Keyed by name, like `limits`, so the console shows them as nested sections.
+    forms:
+      bot.forms.length > 0
+        ? Object.fromEntries(
+            bot.forms.map((form) => [
+              form.name,
+              {
+                model: form.model,
+                fields: Object.fromEntries(
+                  form.fields.map((field) => [
+                    field.name,
+                    { type: field.type, required: field.required, toModel: field.toModel },
+                  ]),
+                ),
+              },
+            ]),
+          )
+        : null,
     embedPath: bot.embedPath ?? null,
     widget: {
       locale: widget.locale,
@@ -158,6 +189,8 @@ export function consoleBotView(bot: Bot): Record<string, unknown> {
       greeting: widget.greeting,
       placeholder: widget.placeholder,
       launcherLabel: widget.launcherLabel,
+      // ADR-0033: the delay, or null when the greeting is off.
+      launcherGreeting: widget.launcherGreeting ? { ...widget.launcherGreeting } : null,
       starters: [...widget.starters],
       feedback: widget.feedback,
       disclosure: widget.disclosure !== false,
