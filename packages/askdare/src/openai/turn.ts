@@ -384,6 +384,33 @@ async function turn(
       // Forms go out once the step's calls are done, in call order, like cards (ADR-0031).
       const forms: Extract<ProtocolEvent, { type: 'form' }>[] = [];
       const answered = [...answerSuggestions(suggestions)];
+      // The model hears how a handoff went, and answers around it: one more step. Handoffs go
+      // first: a handoff that asks for its contact form is the answer's one form, so a `show_form`
+      // in the same answer is refused instead of drawing a second form under it.
+      const handedBack: ResponseInputItem[] = [];
+      for (const call of handoffs) {
+        let output: string;
+        if (handedOff || !request.handoff) {
+          output = handoffOutput('limited');
+        } else {
+          handedOff = true;
+          const { messageId } = request;
+          request.emit({ type: 'handoff', messageId, state: 'requested' });
+          const result = await request.handoff.run({
+            callId: call.callId,
+            arguments: call.arguments,
+          });
+          if (result.state !== 'requested') {
+            request.emit({ type: 'handoff', messageId, state: result.state });
+          }
+          if (result.form) {
+            formShown = true;
+            forms.push({ type: 'form', messageId, callId: call.callId, ...result.form });
+          }
+          output = handoffOutput(result.state, result.form, request.context.locale);
+        }
+        handedBack.push({ type: 'function_call_output', call_id: call.callId, output });
+      }
       for (const call of shows) {
         const name = showFormName(call.arguments);
         const offered = modelForms(bot.forms).some((form) => form.name === name);
@@ -407,30 +434,6 @@ async function turn(
           call_id: call.callId,
           output: shown ? showFormOutput(request.context.locale) : SHOW_FORM_REFUSED,
         });
-      }
-      // The model hears how a handoff went, and answers around it: one more step.
-      const handedBack: ResponseInputItem[] = [];
-      for (const call of handoffs) {
-        let output: string;
-        if (handedOff || !request.handoff) {
-          output = handoffOutput('limited');
-        } else {
-          handedOff = true;
-          const { messageId } = request;
-          request.emit({ type: 'handoff', messageId, state: 'requested' });
-          const result = await request.handoff.run({
-            callId: call.callId,
-            arguments: call.arguments,
-          });
-          if (result.state !== 'requested') {
-            request.emit({ type: 'handoff', messageId, state: result.state });
-          }
-          if (result.form) {
-            forms.push({ type: 'form', messageId, callId: call.callId, ...result.form });
-          }
-          output = handoffOutput(result.state, result.form, request.context.locale);
-        }
-        handedBack.push({ type: 'function_call_output', call_id: call.callId, output });
       }
       // Options after the answer end the turn: their call is answered without the model. Models
       // mark text written before any call as commentary, options included, so text followed only

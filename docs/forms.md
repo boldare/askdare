@@ -86,7 +86,7 @@ A bot with forms gets a reserved tool, `show_form`, whose only argument is the n
 
 - **The model can't fill in a value.** A value copied from the conversation can be wrong, and one placed there by a prompt injection (another email address, a link) would look to the visitor like your site's own suggestion. The visitor types every value.
 - **The model can't invent a field.** It picks a form by name; the fields are yours. A tool that let the model define fields is exactly what an injection would use to ask for a password in your site's own UI.
-- **At most one form per turn,** and never on the turn's last step. The model is told the visitor sees the form, so it shouldn't ask for the same details in text.
+- **At most one form per turn,** and never on the turn's last step. A [handoff](handoff.md) that asks for its contact form counts as that form, so a `show_form` in the same answer is refused. The model is told the visitor sees the form, so it shouldn't ask for the same details in text.
 - **`model: false`** keeps a form away from the model: it is then only for a [handoff](handoff.md#contact-details). It needs no `description`, and on its own doesn't make `onLead` required.
 - A bot tool can't be named `show_form`.
 
