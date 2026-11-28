@@ -34,7 +34,9 @@ Built on `release/0.7` between 2026-11-26 and 2026-11-27 (tasks x1 to x4, p1 to 
 - **Forms in the chat** (ADR-0031): `defineForm` and leads into `onLead`, with fields defined and validated on the server and drawn by the widget without the site's code. A handoff with nobody available falls back to its form.
 - **Admin** (ADR-0016, extended by ADR-0032): the console at `<basePath>/admin` (configuration, `doctor`, the playground, conversation reviews), an `AdminStore` port with memory, Postgres and Upstash stores, and the dashboard add-on `@boldare/askdare-admin`: cost per bot, day and model, ratings, unanswered questions, leads, handoffs and resolution rate. Deleting a conversation, by the visitor or `sweep()`, deletes its admin records too.
 - **A greeting next to the launcher and an unread badge** (ADR-0033), in a loader made smaller first: 5,284 of its new 5,632-byte budget, with the launcher now shown on pages that enforce Trusted Types.
-- **The 0.6.x patches** above, unless 0.6.1 ships them first.
+- **The 0.6.x patches** shipped first, in 0.6.1 (2026-11-27), so 0.7.0 doesn't list them again.
+
+**Checked live before the release (y1, 2026-11-28):** the Upstash admin store and turn log against a real Upstash database (all 61 tests; a test's expiry bound now allows for the clock skew between the machine and Upstash); `handoff` and `show_form` against the live OpenAI API (`gpt-6.1-terra`).
 
 **Decided not to do in 0.7,** and where each piece went (ADR-0030 to ADR-0033, settled with the maintainer on 2026-11-26): live agent chat and stopping the bot after a handoff (0.9); a form that triggers an answer, finer admin metrics and the greeting following a language switch (0.8); lead values in the admin store (0.9, only if ADR-0031 is revisited); provider email adapters, prefilled form fields and bot-defined handoff reasons (Later). Testing the greeting in Firefox, WebKit, a screen reader and with reduced motion, and checking it never covers a focused control, stay in 0.7 (l2 and e1).
 
@@ -75,7 +77,6 @@ What 0.6 and 0.7 leave open, found by their tasks and reviews. Each line names w
 - **No model request without OpenAI** until another provider path exists. 0.9 ([ADR-0026](docs/adr/0026-provider-path.md)).
 
 **Release and CI:**
-- **The Upstash admin store has passed its contract only against a local Redis** behind the Upstash REST proxy, never against Upstash itself, as the turn log in 0.6. 0.7, in task y1 before the release; if it can't run, a 0.7.x patch.
 - **The REST proxy's CI image is pinned by tag** (`hiett/serverless-redis-http:0.0.10`, in `.github/workflows/ci.yml` and `packages/askdare-upstash/docker-compose.yml`), not by digest, so a re-pushed tag changes what the Upstash tests run against. 0.7.x, a hygiene patch.
 - **Auto-merge is off in the repository.** A note for the maintainer, not a task: pull requests are merged by hand until the maintainer changes the setting.
 

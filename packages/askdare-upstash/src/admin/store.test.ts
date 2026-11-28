@@ -203,9 +203,11 @@ if (process.env['ASKDARE_TEST_UPSTASH'] === '1') {
         .update(conversationId)
         .digest('hex');
       const key = `${prefix}admin:c:${hash}:x`;
+      // The expiry is counted from this machine's clock and PTTL from the server's, so on a real
+      // Upstash database it can come out a little over a day: allow a minute of clock skew.
       const expiresInADay = async () => {
         const ttl = await redis.pttl(key);
-        return ttl > 0.9 * DAY_MS && ttl <= DAY_MS;
+        return ttl > 0.9 * DAY_MS && ttl <= DAY_MS + 60_000;
       };
       try {
         expect(await expiresInADay()).toBe(true);
